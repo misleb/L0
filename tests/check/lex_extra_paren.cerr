@@ -1,2 +1,2 @@
-1:24: error: expected a top-level (def ...)
-1:1: error: this program has no main function
+tests/check/lex_extra_paren.l0:1:24: error: expected a top-level (def ...)
+tests/check/lex_extra_paren.l0:1:1: error: this program has no main function

@@ -37,13 +37,34 @@ tools/test.sh         # all suites
 tools/test.sh --compiled   # the differential suite, described below
 ```
 
-Compile a program with the L0 compiler and run it:
+Compile a program with the L0 compiler and run it. Paths are relative to
+wherever you are, so this works from outside the repository:
 
 ```bash
-tools/l0c hello.l0 > hello.ll
-tools/l0ll hello.ll hello
+/path/to/newlang/tools/l0c hello.l0 > hello.ll
+/path/to/newlang/tools/l0ll hello.ll hello
 ./hello
 ```
+
+Several files are compiled together, since L0 has no module system.
+Diagnostics name the file they came from:
+
+```
+$ tools/l0c util.l0 main.l0
+main.l0:2:3: error: argument 1 of double must be int, but this is bool
+```
+
+## What L0 is not
+
+L0 met its goal and is not a general-purpose language. A program is a pure
+function from stdin bytes to stdout bytes: there are no files, no command-line
+arguments, no network, no clock, and no environment. There is no garbage
+collector, so memory is proportional to total allocation rather than to live
+data. Lists are the only data structure, so indexing is O(n), and there are no
+arrays, maps, floats, modules, or higher-order functions.
+
+Those are deliberate. Each one is absent because the bootstrap goal never
+demanded it, which is the rule recorded in `spec/changelog.md`.
 
 ## How the compiler is tested
 

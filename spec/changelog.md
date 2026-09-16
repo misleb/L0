@@ -30,24 +30,36 @@ be a protocol on the single channel instead.
 
 ---
 
-## Open questions
+## Input bundle — resolved
 
-Not yet decided. Listed here so they are not mistaken for oversights.
+Diagnostics now report `file:line:column` rather than a line number in the
+concatenated stream, and again no language change was needed.
 
-### How does a diagnostic name which file it came from?
+Input may optionally begin with a table of byte offsets and paths:
 
-The compiler reads one concatenated stream, so it can report `line:column` but
-not `file:line:column`. That is a regression from the stage-0 interpreter,
-which reads files separately and names them.
+```
+#l0bundle
+0 util.l0
+41 main.l0
+#source
+<the concatenated file contents>
+```
 
-The answer has the same shape as the resolved question below: a host-side
-protocol rather than a language feature. The host would pass a bundle with
-filenames and lengths in a header, and the compiler would map offsets back to
-files. Nothing about L0 needs to change.
+The compiler maps a diagnostic's byte offset back to the file containing it
+and measures line and column from that file's start.
+[../tools/l0c](../tools/l0c) builds the bundle. Input that does not begin with
+`#l0bundle` is treated as a single unnamed source, so piping a bare file still
+works and the bootstrap is unaffected.
 
-This is not urgent. It costs nothing during the bootstrap, where the compiler
-source is expected to be valid, and matters only for the quality of diagnostics
-shown to someone writing L0.
+This was recorded as an open question and became worth fixing the moment the
+compiler was pointed at a real multi-file project: an error on line 2 of the
+second file was reported as line 3, which points at nothing and sends the
+reader to the wrong place entirely.
+
+That makes three problems in a row that looked like they wanted an I/O
+primitive and were solved instead by putting a little structure on the single
+byte channel. The pattern is worth trying before reaching for a language
+feature.
 
 ---
 

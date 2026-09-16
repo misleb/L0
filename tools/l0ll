@@ -14,7 +14,11 @@ if [ $# -ne 2 ]; then
 fi
 
 if [ ! -f "$BUILD/l0core.o" ] || [ ! -f "$BUILD/l0rt.o" ]; then
-    echo "error: runtime not built; run tools/build.sh first" >&2
+    "$ROOT/tools/build.sh" > /dev/null
+fi
+
+if [ ! -f "$1" ]; then
+    echo "l0ll: cannot read $1" >&2
     exit 1
 fi
 

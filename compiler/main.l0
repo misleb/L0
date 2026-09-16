@@ -1,63 +1,137 @@
-; main.l0 -- the compiler's entry point and output protocol.
+; main.l0 -- the compiler's entry point, input bundle, and output protocol.
 ;
-; The compiler is a pure byte function: L0 source in, LLVM IR text out. It has
-; exactly one output channel, so success and failure are distinguished by a
-; tag on the first line:
+; The compiler is a pure byte function: source in, LLVM IR text out. It has
+; exactly one channel in each direction, and both carry a little structure so
+; that no I/O primitive is needed in the language.
+;
+; OUTPUT. Success and failure are distinguished by a tag on the first line:
 ;
 ;   "O\n" followed by LLVM IR
 ;   "E\n" followed by diagnostics, one per line
 ;
-; tools/l0c strips the tag, routes the rest to stdout or stderr, and sets the
-; exit status. This settles the open question recorded in spec/changelog.md,
-; and needs no language feature: it is a protocol on the channel L0 already
-; provides.
+; INPUT. L0 has no module system, so a multi-file program is concatenated.
+; Concatenation alone loses the file boundaries, which would make every
+; diagnostic report a line number in the joined text rather than in the file
+; the reader is looking at. An optional bundle header restores them:
+;
+;   #l0bundle
+;   <byte offset> <path>
+;   <byte offset> <path>
+;   #source
+;   <the concatenated file contents>
+;
+; Input that does not begin with #l0bundle is treated as a single unnamed
+; source, so piping a bare file still works and the bootstrap is unaffected.
 
-; Tokens carry byte offsets, so line and column are recovered here by scanning
-; the source. Diagnostics are rare, so the cost of scanning per diagnostic
-; does not matter, and the front end stays free of line tracking.
-(def line_at ((src (list int)) (off int) (i int) (line int)) int
+(data FileEntry
+  (FE int (list int)))                  ; start offset, path
+
+(data Bundle
+  (Bnd (list FileEntry) (list int)))    ; file table, source text
+
+(def fe_start ((f FileEntry)) int (match f ((FE s p) s)))
+(def fe_path ((f FileEntry)) (list int) (match f ((FE s p) p)))
+
+(def rev_entries_onto ((xs (list FileEntry)) (acc (list FileEntry)))
+    (list FileEntry)
+  (if (is_empty xs)
+      acc
+      (rev_entries_onto (tail xs) (cons (head xs) acc))))
+
+(def parse_entry ((ln (list int))) FileEntry
+  (FE (int_prefix ln 0) (skip_spaces (skip_digits ln))))
+
+(def parse_entries ((s (list int)) (acc (list FileEntry))) Bundle
+  (if (is_empty s)
+      (Bnd (rev_entries_onto acc (nil FileEntry)) (nil int))
+      (if (starts_with s "#source")
+          (Bnd (rev_entries_onto acc (nil FileEntry)) (drop_line s))
+          (parse_entries (drop_line s)
+                         (cons (parse_entry (take_line s)) acc)))))
+
+(def parse_bundle ((input (list int))) Bundle
+  (if (starts_with input "#l0bundle")
+      (parse_entries (drop_line input) (nil FileEntry))
+      (Bnd (nil FileEntry) input)))
+
+; The last entry starting at or before this offset, which is the file the
+; offset falls in. Entries are in ascending order of start.
+(def file_at ((entries (list FileEntry)) (o int) (best FileEntry)) FileEntry
+  (if (is_empty entries)
+      best
+      (if (le (fe_start (head entries)) o)
+          (file_at (tail entries) o (head entries))
+          best)))
+
+; ------------------------------------------------------------- diagnostics
+
+; Positions are byte offsets, so line and column are recovered by scanning.
+; Diagnostics are rare, so the cost per diagnostic does not matter, and the
+; front end stays free of line tracking.
+(def line_at ((src (list int)) (o int) (i int) (line int)) int
   (if (is_empty src)
       line
-      (if (ge i off)
+      (if (ge i o)
           line
-          (line_at (tail src) off (add i 1)
+          (line_at (tail src) o (add i 1)
             (if (eq (head src) 10) (add line 1) line)))))
 
-(def col_at ((src (list int)) (off int) (i int) (col int)) int
+(def col_at ((src (list int)) (o int) (i int) (col int)) int
   (if (is_empty src)
       col
-      (if (ge i off)
+      (if (ge i o)
           col
-          (col_at (tail src) off (add i 1)
+          (col_at (tail src) o (add i 1)
             (if (eq (head src) 10) 1 (add col 1))))))
 
-(def render_diag ((src (list int)) (d Diag)) (list int)
+(def render_diag ((src (list int)) (entries (list FileEntry)) (d Diag))
+    (list int)
   (match d
     ((D o m)
-      (append (digits (line_at src o 0 1))
-        (append ":" (append (digits (col_at src o 0 1))
-          (append ": error: " (append m "\n"))))))))
+      (let fe (file_at entries o (FE 0 ""))
+        (render_at src (fe_path fe) (fe_start fe) o m)))))
 
-(def render_diags ((src (list int)) (ds (list Diag)) (acc (list int)))
-    (list int)
+; Line and column are measured from the start of the file the offset falls
+; in, not from the start of the concatenation, which is the whole point of
+; carrying a file table.
+(def render_at ((src (list int)) (path (list int)) (start int) (o int)
+                (m (list int))) (list int)
+  (let text (drop_n src start)
+    (let rel (sub o start)
+      (append (file_prefix path)
+        (append (digits (line_at text rel 0 1))
+          (append ":" (append (digits (col_at text rel 0 1))
+            (append ": error: " (append m "\n")))))))))
+
+(def file_prefix ((path (list int))) (list int)
+  (if (is_empty path) "" (append path ":")))
+
+(def render_diags ((src (list int)) (entries (list FileEntry))
+                   (ds (list Diag)) (acc (list int))) (list int)
   (if (is_empty ds)
       acc
-      (render_diags src (tail ds) (push (render_diag src (head ds)) acc))))
+      (render_diags src entries (tail ds)
+        (push (render_diag src entries (head ds)) acc))))
 
-(def failure ((src (list int)) (ds (list Diag))) (list int)
-  (append "E\n" (rev (render_diags src ds (nil int)))))
+(def failure ((src (list int)) (entries (list FileEntry)) (ds (list Diag)))
+    (list int)
+  (append "E\n" (rev (render_diags src entries ds (nil int)))))
+
+; ---------------------------------------------------------------- driver
 
 ; Declarations that failed to parse are dropped, and the rest are still type
 ; checked, so one bad declaration does not hide type errors everywhere else.
 ; Emission happens only when nothing at all was reported, so a partial AST is
 ; never compiled.
-(def compile ((src (list int))) (list int)
-  (match (parse_program (lex src))
-    ((PP ds perrs)
-      (let all (append_diags perrs (check_program ds))
-        (if (is_empty all)
-            (append "O\n" (emit_module ds))
-            (failure src all))))))
+(def compile ((input (list int))) (list int)
+  (match (parse_bundle input)
+    ((Bnd entries src)
+      (match (parse_program (lex src))
+        ((PP ds perrs)
+          (let all (append_diags perrs (check_program ds))
+            (if (is_empty all)
+                (append "O\n" (emit_module ds))
+                (failure src entries all))))))))
 
 (def append_diags ((xs (list Diag)) (ys (list Diag))) (list Diag)
   (if (is_empty xs)

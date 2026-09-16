@@ -1,15 +1,15 @@
-11:39: error: uppercase names are types and constructors, not values
-12:35: error: uppercase names are types and constructors, not values
-13:26: error: a parameter name must be lowercase and not reserved
-14:45: error: a let binding name must be lowercase and not reserved
-15:20: error: a parameter name must be lowercase and not reserved
-16:31: error: this is not a function
-17:32: error: expected a function or special form name after (
-18:37: error: expected a function or special form name after (
-19:6: error: a function name must be lowercase and not reserved
-6:37: error: unknown variable nope
-7:37: error: unknown function nope
-8:33: error: f is a local value, and L0 cannot call a value
-9:45: error: unknown_variable is a function, and L0 has no function values
-10:44: error: add is a function, and L0 has no function values
-1:1: error: this program has no main function
+tests/check/names.l0:11:39: error: uppercase names are types and constructors, not values
+tests/check/names.l0:12:35: error: uppercase names are types and constructors, not values
+tests/check/names.l0:13:26: error: a parameter name must be lowercase and not reserved
+tests/check/names.l0:14:45: error: a let binding name must be lowercase and not reserved
+tests/check/names.l0:15:20: error: a parameter name must be lowercase and not reserved
+tests/check/names.l0:16:31: error: this is not a function
+tests/check/names.l0:17:32: error: expected a function or special form name after (
+tests/check/names.l0:18:37: error: expected a function or special form name after (
+tests/check/names.l0:19:6: error: a function name must be lowercase and not reserved
+tests/check/names.l0:6:37: error: unknown variable nope
+tests/check/names.l0:7:37: error: unknown function nope
+tests/check/names.l0:8:33: error: f is a local value, and L0 cannot call a value
+tests/check/names.l0:9:45: error: unknown_variable is a function, and L0 has no function values
+tests/check/names.l0:10:44: error: add is a function, and L0 has no function values
+tests/check/names.l0:1:1: error: this program has no main function

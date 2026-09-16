@@ -8406,6 +8406,188 @@ Lx0:
   ret i64 %t27
 }
 
+define i64 @l0_f_fe_start(i64 %a0) {
+entry:
+  %m0 = alloca i64
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
+A0_0:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  store i64 %t2, ptr %m0
+  br label %Lm0
+Ln0:
+  unreachable
+Lm0:
+  %t4 = load i64, ptr %m0
+  ret i64 %t4
+}
+
+define i64 @l0_f_fe_path(i64 %a0) {
+entry:
+  %m0 = alloca i64
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
+A0_0:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  store i64 %t3, ptr %m0
+  br label %Lm0
+Ln0:
+  unreachable
+Lm0:
+  %t4 = load i64, ptr %m0
+  ret i64 %t4
+}
+
+define i64 @l0_f_rev_entries_onto(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a1, ptr %r0
+  br label %Lx0
+Le0:
+  %t3 = call i64 @l0_tail(i64 %a0)
+  %t4 = call i64 @l0_head(i64 %a0)
+  %t5 = call i64 @l0_cons(i64 %t4, i64 %a1)
+  %t6 = call i64 @l0_f_rev_entries_onto(i64 %t3, i64 %t5)
+  store i64 %t6, ptr %r0
+  br label %Lx0
+Lx0:
+  %t7 = load i64, ptr %r0
+  ret i64 %t7
+}
+
+define i64 @l0_f_parse_entry(i64 %a0) {
+entry:
+  %t0 = call i64 @l0_f_int_prefix(i64 %a0, i64 0)
+  %t1 = call i64 @l0_f_skip_digits(i64 %a0)
+  %t2 = call i64 @l0_f_skip_spaces(i64 %t1)
+  %t3 = call i64 @l0_data_new(i64 0, i64 2)
+  call void @l0_data_set(i64 %t3, i64 0, i64 %t0)
+  call void @l0_data_set(i64 %t3, i64 1, i64 %t2)
+  ret i64 %t3
+}
+
+define i64 @l0_f_parse_entries(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  %t3 = call i64 @l0_f_rev_entries_onto(i64 %a1, i64 0)
+  %t4 = call i64 @l0_data_new(i64 0, i64 2)
+  call void @l0_data_set(i64 %t4, i64 0, i64 %t3)
+  call void @l0_data_set(i64 %t4, i64 1, i64 0)
+  store i64 %t4, ptr %r0
+  br label %Lx0
+Le0:
+  %r5 = alloca i64
+  %t6 = call i64 @l0_cons(i64 101, i64 0)
+  %t7 = call i64 @l0_cons(i64 99, i64 %t6)
+  %t8 = call i64 @l0_cons(i64 114, i64 %t7)
+  %t9 = call i64 @l0_cons(i64 117, i64 %t8)
+  %t10 = call i64 @l0_cons(i64 111, i64 %t9)
+  %t11 = call i64 @l0_cons(i64 115, i64 %t10)
+  %t12 = call i64 @l0_cons(i64 35, i64 %t11)
+  %t13 = call i64 @l0_f_starts_with(i64 %a0, i64 %t12)
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt5, label %Le5
+Lt5:
+  %t15 = call i64 @l0_f_rev_entries_onto(i64 %a1, i64 0)
+  %t16 = call i64 @l0_f_drop_line(i64 %a0)
+  %t17 = call i64 @l0_data_new(i64 0, i64 2)
+  call void @l0_data_set(i64 %t17, i64 0, i64 %t15)
+  call void @l0_data_set(i64 %t17, i64 1, i64 %t16)
+  store i64 %t17, ptr %r5
+  br label %Lx5
+Le5:
+  %t18 = call i64 @l0_f_drop_line(i64 %a0)
+  %t19 = call i64 @l0_f_take_line(i64 %a0)
+  %t20 = call i64 @l0_f_parse_entry(i64 %t19)
+  %t21 = call i64 @l0_cons(i64 %t20, i64 %a1)
+  %t22 = call i64 @l0_f_parse_entries(i64 %t18, i64 %t21)
+  store i64 %t22, ptr %r5
+  br label %Lx5
+Lx5:
+  %t23 = load i64, ptr %r5
+  store i64 %t23, ptr %r0
+  br label %Lx0
+Lx0:
+  %t24 = load i64, ptr %r0
+  ret i64 %t24
+}
+
+define i64 @l0_f_parse_bundle(i64 %a0) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_cons(i64 101, i64 0)
+  %t2 = call i64 @l0_cons(i64 108, i64 %t1)
+  %t3 = call i64 @l0_cons(i64 100, i64 %t2)
+  %t4 = call i64 @l0_cons(i64 110, i64 %t3)
+  %t5 = call i64 @l0_cons(i64 117, i64 %t4)
+  %t6 = call i64 @l0_cons(i64 98, i64 %t5)
+  %t7 = call i64 @l0_cons(i64 48, i64 %t6)
+  %t8 = call i64 @l0_cons(i64 108, i64 %t7)
+  %t9 = call i64 @l0_cons(i64 35, i64 %t8)
+  %t10 = call i64 @l0_f_starts_with(i64 %a0, i64 %t9)
+  %t11 = icmp ne i64 %t10, 0
+  br i1 %t11, label %Lt0, label %Le0
+Lt0:
+  %t12 = call i64 @l0_f_drop_line(i64 %a0)
+  %t13 = call i64 @l0_f_parse_entries(i64 %t12, i64 0)
+  store i64 %t13, ptr %r0
+  br label %Lx0
+Le0:
+  %t14 = call i64 @l0_data_new(i64 0, i64 2)
+  call void @l0_data_set(i64 %t14, i64 0, i64 0)
+  call void @l0_data_set(i64 %t14, i64 1, i64 %a0)
+  store i64 %t14, ptr %r0
+  br label %Lx0
+Lx0:
+  %t15 = load i64, ptr %r0
+  ret i64 %t15
+}
+
+define i64 @l0_f_file_at(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a2, ptr %r0
+  br label %Lx0
+Le0:
+  %r3 = alloca i64
+  %t4 = call i64 @l0_head(i64 %a0)
+  %t5 = call i64 @l0_f_fe_start(i64 %t4)
+  %t6 = icmp sle i64 %t5, %a1
+  %t7 = zext i1 %t6 to i64
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt3, label %Le3
+Lt3:
+  %t9 = call i64 @l0_tail(i64 %a0)
+  %t10 = call i64 @l0_head(i64 %a0)
+  %t11 = call i64 @l0_f_file_at(i64 %t9, i64 %a1, i64 %t10)
+  store i64 %t11, ptr %r3
+  br label %Lx3
+Le3:
+  store i64 %a2, ptr %r3
+  br label %Lx3
+Lx3:
+  %t12 = load i64, ptr %r3
+  store i64 %t12, ptr %r0
+  br label %Lx0
+Lx0:
+  %t13 = load i64, ptr %r0
+  ret i64 %t13
+}
+
 define i64 @l0_f_line_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
@@ -8502,58 +8684,93 @@ Lx0:
   ret i64 %t18
 }
 
-define i64 @l0_f_render_diag(i64 %a0, i64 %a1) {
+define i64 @l0_f_render_diag(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
-  %t1 = call i64 @l0_data_tag(i64 %a1)
+  %t1 = call i64 @l0_data_tag(i64 %a2)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
 A0_0:
-  %t2 = call i64 @l0_data_get(i64 %a1, i64 0)
-  %t3 = call i64 @l0_data_get(i64 %a1, i64 1)
-  %t4 = call i64 @l0_f_line_at(i64 %a0, i64 %t2, i64 0, i64 1)
-  %t5 = call i64 @l0_f_digits(i64 %t4)
-  %t6 = call i64 @l0_cons(i64 58, i64 0)
-  %t7 = call i64 @l0_f_col_at(i64 %a0, i64 %t2, i64 0, i64 1)
-  %t8 = call i64 @l0_f_digits(i64 %t7)
-  %t9 = call i64 @l0_cons(i64 32, i64 0)
-  %t10 = call i64 @l0_cons(i64 58, i64 %t9)
-  %t11 = call i64 @l0_cons(i64 114, i64 %t10)
-  %t12 = call i64 @l0_cons(i64 111, i64 %t11)
-  %t13 = call i64 @l0_cons(i64 114, i64 %t12)
-  %t14 = call i64 @l0_cons(i64 114, i64 %t13)
-  %t15 = call i64 @l0_cons(i64 101, i64 %t14)
-  %t16 = call i64 @l0_cons(i64 32, i64 %t15)
-  %t17 = call i64 @l0_cons(i64 58, i64 %t16)
-  %t18 = call i64 @l0_cons(i64 10, i64 0)
-  %t19 = call i64 @l0_f_append(i64 %t3, i64 %t18)
-  %t20 = call i64 @l0_f_append(i64 %t17, i64 %t19)
-  %t21 = call i64 @l0_f_append(i64 %t8, i64 %t20)
-  %t22 = call i64 @l0_f_append(i64 %t6, i64 %t21)
-  %t23 = call i64 @l0_f_append(i64 %t5, i64 %t22)
-  store i64 %t23, ptr %m0
+  %t2 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a2, i64 1)
+  %t4 = call i64 @l0_data_new(i64 0, i64 2)
+  call void @l0_data_set(i64 %t4, i64 0, i64 0)
+  call void @l0_data_set(i64 %t4, i64 1, i64 0)
+  %t5 = call i64 @l0_f_file_at(i64 %a1, i64 %t2, i64 %t4)
+  %t6 = call i64 @l0_f_fe_path(i64 %t5)
+  %t7 = call i64 @l0_f_fe_start(i64 %t5)
+  %t8 = call i64 @l0_f_render_at(i64 %a0, i64 %t6, i64 %t7, i64 %t2, i64 %t3)
+  store i64 %t8, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t24 = load i64, ptr %m0
-  ret i64 %t24
+  %t9 = load i64, ptr %m0
+  ret i64 %t9
 }
 
-define i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %a2) {
+define i64 @l0_f_render_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  %t0 = call i64 @l0_f_drop_n(i64 %a0, i64 %a2)
+  %t1 = sub i64 %a3, %a2
+  %t2 = call i64 @l0_f_file_prefix(i64 %a1)
+  %t3 = call i64 @l0_f_line_at(i64 %t0, i64 %t1, i64 0, i64 1)
+  %t4 = call i64 @l0_f_digits(i64 %t3)
+  %t5 = call i64 @l0_cons(i64 58, i64 0)
+  %t6 = call i64 @l0_f_col_at(i64 %t0, i64 %t1, i64 0, i64 1)
+  %t7 = call i64 @l0_f_digits(i64 %t6)
+  %t8 = call i64 @l0_cons(i64 32, i64 0)
+  %t9 = call i64 @l0_cons(i64 58, i64 %t8)
+  %t10 = call i64 @l0_cons(i64 114, i64 %t9)
+  %t11 = call i64 @l0_cons(i64 111, i64 %t10)
+  %t12 = call i64 @l0_cons(i64 114, i64 %t11)
+  %t13 = call i64 @l0_cons(i64 114, i64 %t12)
+  %t14 = call i64 @l0_cons(i64 101, i64 %t13)
+  %t15 = call i64 @l0_cons(i64 32, i64 %t14)
+  %t16 = call i64 @l0_cons(i64 58, i64 %t15)
+  %t17 = call i64 @l0_cons(i64 10, i64 0)
+  %t18 = call i64 @l0_f_append(i64 %a4, i64 %t17)
+  %t19 = call i64 @l0_f_append(i64 %t16, i64 %t18)
+  %t20 = call i64 @l0_f_append(i64 %t7, i64 %t19)
+  %t21 = call i64 @l0_f_append(i64 %t5, i64 %t20)
+  %t22 = call i64 @l0_f_append(i64 %t4, i64 %t21)
+  %t23 = call i64 @l0_f_append(i64 %t2, i64 %t22)
+  ret i64 %t23
+}
+
+define i64 @l0_f_file_prefix(i64 %a0) {
 entry:
   %r0 = alloca i64
-  %t1 = call i64 @l0_is_empty(i64 %a1)
+  %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  store i64 %a2, ptr %r0
+  store i64 0, ptr %r0
   br label %Lx0
 Le0:
-  %t3 = call i64 @l0_tail(i64 %a1)
-  %t4 = call i64 @l0_head(i64 %a1)
-  %t5 = call i64 @l0_f_render_diag(i64 %a0, i64 %t4)
-  %t6 = call i64 @l0_f_push(i64 %t5, i64 %a2)
-  %t7 = call i64 @l0_f_render_diags(i64 %a0, i64 %t3, i64 %t6)
+  %t3 = call i64 @l0_cons(i64 58, i64 0)
+  %t4 = call i64 @l0_f_append(i64 %a0, i64 %t3)
+  store i64 %t4, ptr %r0
+  br label %Lx0
+Lx0:
+  %t5 = load i64, ptr %r0
+  ret i64 %t5
+}
+
+define i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a2)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a3, ptr %r0
+  br label %Lx0
+Le0:
+  %t3 = call i64 @l0_tail(i64 %a2)
+  %t4 = call i64 @l0_head(i64 %a2)
+  %t5 = call i64 @l0_f_render_diag(i64 %a0, i64 %a1, i64 %t4)
+  %t6 = call i64 @l0_f_push(i64 %t5, i64 %a3)
+  %t7 = call i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %t3, i64 %t6)
   store i64 %t7, ptr %r0
   br label %Lx0
 Lx0:
@@ -8561,11 +8778,11 @@ Lx0:
   ret i64 %t8
 }
 
-define i64 @l0_f_failure(i64 %a0, i64 %a1) {
+define i64 @l0_f_failure(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %t0 = call i64 @l0_cons(i64 10, i64 0)
   %t1 = call i64 @l0_cons(i64 69, i64 %t0)
-  %t2 = call i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 0)
+  %t2 = call i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %a2, i64 0)
   %t3 = call i64 @l0_f_rev(i64 %t2)
   %t4 = call i64 @l0_f_append(i64 %t1, i64 %t3)
   ret i64 %t4
@@ -8574,39 +8791,52 @@ entry:
 define i64 @l0_f_compile(i64 %a0) {
 entry:
   %m0 = alloca i64
-  %t1 = call i64 @l0_f_lex(i64 %a0)
-  %t2 = call i64 @l0_f_parse_program(i64 %t1)
-  %t3 = call i64 @l0_data_tag(i64 %t2)
-  switch i64 %t3, label %Ln0 [ i64 0, label %A0_0 ]
+  %t1 = call i64 @l0_f_parse_bundle(i64 %a0)
+  %t2 = call i64 @l0_data_tag(i64 %t1)
+  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 ]
 A0_0:
-  %t4 = call i64 @l0_data_get(i64 %t2, i64 0)
-  %t5 = call i64 @l0_data_get(i64 %t2, i64 1)
-  %t6 = call i64 @l0_f_check_program(i64 %t4)
-  %t7 = call i64 @l0_f_append_diags(i64 %t5, i64 %t6)
-  %r8 = alloca i64
-  %t9 = call i64 @l0_is_empty(i64 %t7)
-  %t10 = icmp ne i64 %t9, 0
-  br i1 %t10, label %Lt8, label %Le8
-Lt8:
-  %t11 = call i64 @l0_cons(i64 10, i64 0)
-  %t12 = call i64 @l0_cons(i64 79, i64 %t11)
-  %t13 = call i64 @l0_f_emit_module(i64 %t4)
-  %t14 = call i64 @l0_f_append(i64 %t12, i64 %t13)
-  store i64 %t14, ptr %r8
-  br label %Lx8
-Le8:
-  %t15 = call i64 @l0_f_failure(i64 %a0, i64 %t7)
-  store i64 %t15, ptr %r8
-  br label %Lx8
-Lx8:
-  %t16 = load i64, ptr %r8
-  store i64 %t16, ptr %m0
+  %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
+  %t4 = call i64 @l0_data_get(i64 %t1, i64 1)
+  %m5 = alloca i64
+  %t6 = call i64 @l0_f_lex(i64 %t4)
+  %t7 = call i64 @l0_f_parse_program(i64 %t6)
+  %t8 = call i64 @l0_data_tag(i64 %t7)
+  switch i64 %t8, label %Ln5 [ i64 0, label %A5_0 ]
+A5_0:
+  %t9 = call i64 @l0_data_get(i64 %t7, i64 0)
+  %t10 = call i64 @l0_data_get(i64 %t7, i64 1)
+  %t11 = call i64 @l0_f_check_program(i64 %t9)
+  %t12 = call i64 @l0_f_append_diags(i64 %t10, i64 %t11)
+  %r13 = alloca i64
+  %t14 = call i64 @l0_is_empty(i64 %t12)
+  %t15 = icmp ne i64 %t14, 0
+  br i1 %t15, label %Lt13, label %Le13
+Lt13:
+  %t16 = call i64 @l0_cons(i64 10, i64 0)
+  %t17 = call i64 @l0_cons(i64 79, i64 %t16)
+  %t18 = call i64 @l0_f_emit_module(i64 %t9)
+  %t19 = call i64 @l0_f_append(i64 %t17, i64 %t18)
+  store i64 %t19, ptr %r13
+  br label %Lx13
+Le13:
+  %t20 = call i64 @l0_f_failure(i64 %t4, i64 %t3, i64 %t12)
+  store i64 %t20, ptr %r13
+  br label %Lx13
+Lx13:
+  %t21 = load i64, ptr %r13
+  store i64 %t21, ptr %m5
+  br label %Lm5
+Ln5:
+  unreachable
+Lm5:
+  %t22 = load i64, ptr %m5
+  store i64 %t22, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t17 = load i64, ptr %m0
-  ret i64 %t17
+  %t23 = load i64, ptr %m0
+  ret i64 %t23
 }
 
 define i64 @l0_f_append_diags(i64 %a0, i64 %a1) {
@@ -14018,6 +14248,264 @@ Lx25:
 Lx0:
   %t34 = load i64, ptr %r0
   ret i64 %t34
+}
+
+define i64 @l0_f_drop_n(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = icmp sle i64 %a1, 0
+  %t2 = zext i1 %t1 to i64
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  store i64 %a0, ptr %r0
+  br label %Lx0
+Le0:
+  %r4 = alloca i64
+  %t5 = call i64 @l0_is_empty(i64 %a0)
+  %t6 = icmp ne i64 %t5, 0
+  br i1 %t6, label %Lt4, label %Le4
+Lt4:
+  store i64 %a0, ptr %r4
+  br label %Lx4
+Le4:
+  %t7 = call i64 @l0_tail(i64 %a0)
+  %t8 = sub i64 %a1, 1
+  %t9 = call i64 @l0_f_drop_n(i64 %t7, i64 %t8)
+  store i64 %t9, ptr %r4
+  br label %Lx4
+Lx4:
+  %t10 = load i64, ptr %r4
+  store i64 %t10, ptr %r0
+  br label %Lx0
+Lx0:
+  %t11 = load i64, ptr %r0
+  ret i64 %t11
+}
+
+define i64 @l0_f_starts_with(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a1)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 1, ptr %r0
+  br label %Lx0
+Le0:
+  %r3 = alloca i64
+  %t4 = call i64 @l0_is_empty(i64 %a0)
+  %t5 = icmp ne i64 %t4, 0
+  br i1 %t5, label %Lt3, label %Le3
+Lt3:
+  store i64 0, ptr %r3
+  br label %Lx3
+Le3:
+  %r6 = alloca i64
+  %t7 = call i64 @l0_head(i64 %a0)
+  %t8 = call i64 @l0_head(i64 %a1)
+  %t9 = icmp eq i64 %t7, %t8
+  %t10 = zext i1 %t9 to i64
+  %t11 = icmp ne i64 %t10, 0
+  br i1 %t11, label %Lt6, label %Le6
+Lt6:
+  %t12 = call i64 @l0_tail(i64 %a0)
+  %t13 = call i64 @l0_tail(i64 %a1)
+  %t14 = call i64 @l0_f_starts_with(i64 %t12, i64 %t13)
+  store i64 %t14, ptr %r6
+  br label %Lx6
+Le6:
+  store i64 0, ptr %r6
+  br label %Lx6
+Lx6:
+  %t15 = load i64, ptr %r6
+  store i64 %t15, ptr %r3
+  br label %Lx3
+Lx3:
+  %t16 = load i64, ptr %r3
+  store i64 %t16, ptr %r0
+  br label %Lx0
+Lx0:
+  %t17 = load i64, ptr %r0
+  ret i64 %t17
+}
+
+define i64 @l0_f_take_line_onto(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  %t3 = call i64 @l0_f_rev(i64 %a1)
+  store i64 %t3, ptr %r0
+  br label %Lx0
+Le0:
+  %r4 = alloca i64
+  %t5 = call i64 @l0_head(i64 %a0)
+  %t6 = icmp eq i64 %t5, 10
+  %t7 = zext i1 %t6 to i64
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt4, label %Le4
+Lt4:
+  %t9 = call i64 @l0_f_rev(i64 %a1)
+  store i64 %t9, ptr %r4
+  br label %Lx4
+Le4:
+  %t10 = call i64 @l0_tail(i64 %a0)
+  %t11 = call i64 @l0_head(i64 %a0)
+  %t12 = call i64 @l0_cons(i64 %t11, i64 %a1)
+  %t13 = call i64 @l0_f_take_line_onto(i64 %t10, i64 %t12)
+  store i64 %t13, ptr %r4
+  br label %Lx4
+Lx4:
+  %t14 = load i64, ptr %r4
+  store i64 %t14, ptr %r0
+  br label %Lx0
+Lx0:
+  %t15 = load i64, ptr %r0
+  ret i64 %t15
+}
+
+define i64 @l0_f_take_line(i64 %a0) {
+entry:
+  %t0 = call i64 @l0_f_take_line_onto(i64 %a0, i64 0)
+  ret i64 %t0
+}
+
+define i64 @l0_f_drop_line(i64 %a0) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a0, ptr %r0
+  br label %Lx0
+Le0:
+  %r3 = alloca i64
+  %t4 = call i64 @l0_head(i64 %a0)
+  %t5 = icmp eq i64 %t4, 10
+  %t6 = zext i1 %t5 to i64
+  %t7 = icmp ne i64 %t6, 0
+  br i1 %t7, label %Lt3, label %Le3
+Lt3:
+  %t8 = call i64 @l0_tail(i64 %a0)
+  store i64 %t8, ptr %r3
+  br label %Lx3
+Le3:
+  %t9 = call i64 @l0_tail(i64 %a0)
+  %t10 = call i64 @l0_f_drop_line(i64 %t9)
+  store i64 %t10, ptr %r3
+  br label %Lx3
+Lx3:
+  %t11 = load i64, ptr %r3
+  store i64 %t11, ptr %r0
+  br label %Lx0
+Lx0:
+  %t12 = load i64, ptr %r0
+  ret i64 %t12
+}
+
+define i64 @l0_f_skip_digits(i64 %a0) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a0, ptr %r0
+  br label %Lx0
+Le0:
+  %r3 = alloca i64
+  %t4 = call i64 @l0_head(i64 %a0)
+  %t5 = call i64 @l0_f_is_digit(i64 %t4)
+  %t6 = icmp ne i64 %t5, 0
+  br i1 %t6, label %Lt3, label %Le3
+Lt3:
+  %t7 = call i64 @l0_tail(i64 %a0)
+  %t8 = call i64 @l0_f_skip_digits(i64 %t7)
+  store i64 %t8, ptr %r3
+  br label %Lx3
+Le3:
+  store i64 %a0, ptr %r3
+  br label %Lx3
+Lx3:
+  %t9 = load i64, ptr %r3
+  store i64 %t9, ptr %r0
+  br label %Lx0
+Lx0:
+  %t10 = load i64, ptr %r0
+  ret i64 %t10
+}
+
+define i64 @l0_f_skip_spaces(i64 %a0) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a0, ptr %r0
+  br label %Lx0
+Le0:
+  %r3 = alloca i64
+  %t4 = call i64 @l0_head(i64 %a0)
+  %t5 = icmp eq i64 %t4, 32
+  %t6 = zext i1 %t5 to i64
+  %t7 = icmp ne i64 %t6, 0
+  br i1 %t7, label %Lt3, label %Le3
+Lt3:
+  %t8 = call i64 @l0_tail(i64 %a0)
+  %t9 = call i64 @l0_f_skip_spaces(i64 %t8)
+  store i64 %t9, ptr %r3
+  br label %Lx3
+Le3:
+  store i64 %a0, ptr %r3
+  br label %Lx3
+Lx3:
+  %t10 = load i64, ptr %r3
+  store i64 %t10, ptr %r0
+  br label %Lx0
+Lx0:
+  %t11 = load i64, ptr %r0
+  ret i64 %t11
+}
+
+define i64 @l0_f_int_prefix(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a1, ptr %r0
+  br label %Lx0
+Le0:
+  %r3 = alloca i64
+  %t4 = call i64 @l0_head(i64 %a0)
+  %t5 = call i64 @l0_f_is_digit(i64 %t4)
+  %t6 = icmp ne i64 %t5, 0
+  br i1 %t6, label %Lt3, label %Le3
+Lt3:
+  %t7 = call i64 @l0_tail(i64 %a0)
+  %t8 = mul i64 %a1, 10
+  %t9 = call i64 @l0_head(i64 %a0)
+  %t10 = sub i64 %t9, 48
+  %t11 = add i64 %t8, %t10
+  %t12 = call i64 @l0_f_int_prefix(i64 %t7, i64 %t11)
+  store i64 %t12, ptr %r3
+  br label %Lx3
+Le3:
+  store i64 %a1, ptr %r3
+  br label %Lx3
+Lx3:
+  %t13 = load i64, ptr %r3
+  store i64 %t13, ptr %r0
+  br label %Lx0
+Lx0:
+  %t14 = load i64, ptr %r0
+  ret i64 %t14
 }
 
 define i64 @l0_f_rev_strs_onto(i64 %a0, i64 %a1) {

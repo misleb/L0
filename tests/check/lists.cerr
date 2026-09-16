@@ -1,11 +1,11 @@
-10:46: error: expected a type: int, bool, or (list T)
-14:26: error: list needs an element type, as in (list int)
-4:54: error: the element consed onto a list must be int, but this is bool
-5:39: error: the second argument of cons must be a list, but this is int
-6:67: error: the element consed onto a list must be (list int), but this is int
-7:36: error: head must be a list, but this is int
-8:36: error: tail must be a list, but this is int
-9:41: error: is_empty must be a list, but this is int
-11:40: error: unknown type Missing
-13:1: error: head_type_flows declares return type int, but its body is bool
-1:1: error: this program has no main function
+tests/check/lists.l0:10:46: error: expected a type: int, bool, or (list T)
+tests/check/lists.l0:14:26: error: list needs an element type, as in (list int)
+tests/check/lists.l0:4:54: error: the element consed onto a list must be int, but this is bool
+tests/check/lists.l0:5:39: error: the second argument of cons must be a list, but this is int
+tests/check/lists.l0:6:67: error: the element consed onto a list must be (list int), but this is int
+tests/check/lists.l0:7:36: error: head must be a list, but this is int
+tests/check/lists.l0:8:36: error: tail must be a list, but this is int
+tests/check/lists.l0:9:41: error: is_empty must be a list, but this is int
+tests/check/lists.l0:11:40: error: unknown type Missing
+tests/check/lists.l0:13:1: error: head_type_flows declares return type int, but its body is bool
+tests/check/lists.l0:1:1: error: this program has no main function

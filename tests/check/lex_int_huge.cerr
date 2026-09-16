@@ -1,2 +1,2 @@
-1:22: error: integer literal does not fit in 64 bits
-1:1: error: this program has no main function
+tests/check/lex_int_huge.l0:1:22: error: integer literal does not fit in 64 bits
+tests/check/lex_int_huge.l0:1:1: error: this program has no main function

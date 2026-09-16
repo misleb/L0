@@ -1,14 +1,14 @@
-8:1: error: a data type needs at least one constructor
-17:25: error: expected a type: int, bool, or (list T)
-18:22: error: each parameter is (name type)
-19:33: error: unexpected ) where an expression was expected
-20:32: error: this can only appear at the top level
-20:58: error: expected a top-level (def ...)
-6:1: error: data type Shape is already declared
-7:1: error: constructor Circle is already declared
-9:1: error: constructor A is already declared
-12:1: error: function repeated is already defined
-14:1: error: parameter a is declared twice
-15:1: error: unknown type Missing
-16:1: error: unknown type Missing
-1:1: error: this program has no main function
+tests/check/decls.l0:8:1: error: a data type needs at least one constructor
+tests/check/decls.l0:17:25: error: expected a type: int, bool, or (list T)
+tests/check/decls.l0:18:22: error: each parameter is (name type)
+tests/check/decls.l0:19:33: error: unexpected ) where an expression was expected
+tests/check/decls.l0:20:32: error: this can only appear at the top level
+tests/check/decls.l0:20:58: error: expected a top-level (def ...)
+tests/check/decls.l0:6:1: error: data type Shape is already declared
+tests/check/decls.l0:7:1: error: constructor Circle is already declared
+tests/check/decls.l0:9:1: error: constructor A is already declared
+tests/check/decls.l0:12:1: error: function repeated is already defined
+tests/check/decls.l0:14:1: error: parameter a is declared twice
+tests/check/decls.l0:15:1: error: unknown type Missing
+tests/check/decls.l0:16:1: error: unknown type Missing
+tests/check/decls.l0:1:1: error: this program has no main function

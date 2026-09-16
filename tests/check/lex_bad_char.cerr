@@ -1,2 +1,2 @@
-1:22: error: unexpected character
-1:1: error: this program has no main function
+tests/check/lex_bad_char.l0:1:22: error: unexpected character
+tests/check/lex_bad_char.l0:1:1: error: this program has no main function

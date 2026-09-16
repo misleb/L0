@@ -62,6 +62,59 @@
           (cons 45 (digits_onto (neg n) (nil int)))
           (digits_onto n (nil int)))))
 
+; ------------------------------------------------------------------ slicing
+
+(def drop_n ((xs (list int)) (n int)) (list int)
+  (if (le n 0)
+      xs
+      (if (is_empty xs) xs (drop_n (tail xs) (sub n 1)))))
+
+(def starts_with ((s (list int)) (prefix (list int))) bool
+  (if (is_empty prefix)
+      true
+      (if (is_empty s)
+          false
+          (if (eq (head s) (head prefix))
+              (starts_with (tail s) (tail prefix))
+              false))))
+
+; Up to but not including the next newline.
+(def take_line_onto ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      (rev acc)
+      (if (eq (head s) 10)
+          (rev acc)
+          (take_line_onto (tail s) (cons (head s) acc)))))
+
+(def take_line ((s (list int))) (list int)
+  (take_line_onto s (nil int)))
+
+; Everything after the next newline.
+(def drop_line ((s (list int))) (list int)
+  (if (is_empty s)
+      s
+      (if (eq (head s) 10)
+          (tail s)
+          (drop_line (tail s)))))
+
+(def skip_digits ((s (list int))) (list int)
+  (if (is_empty s)
+      s
+      (if (is_digit (head s)) (skip_digits (tail s)) s)))
+
+(def skip_spaces ((s (list int))) (list int)
+  (if (is_empty s)
+      s
+      (if (eq (head s) 32) (skip_spaces (tail s)) s)))
+
+; Leading decimal digits as a number; 0 if there are none.
+(def int_prefix ((s (list int)) (acc int)) int
+  (if (is_empty s)
+      acc
+      (if (is_digit (head s))
+          (int_prefix (tail s) (add (mul acc 10) (sub (head s) 48)))
+          acc)))
+
 ; ------------------------------------------------------------ word tables
 ;
 ; Membership tests against a fixed set of names are common in a compiler.
