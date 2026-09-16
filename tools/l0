@@ -1,0 +1,233 @@
+#!/bin/sh
+# l0 -- the L0 toolchain driver.
+#
+# Usage:
+#   l0 build FILE.l0 [MORE.l0 ...] [-o OUT]   compile and link an executable
+#   l0 check FILE.l0 [MORE.l0 ...]            type check only
+#   l0 run   FILE.l0 [MORE.l0 ...]            build to a temporary file, run
+#   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
+#   l0 init  [DIR]                            scaffold a project for an agent
+#   l0 version
+#
+# Options:
+#   --no-prelude    do not include the standard library
+#
+# Several files are compiled together, because L0 has no module system.
+# The standard library is included automatically; pass --no-prelude to
+# suppress that, which is what the compiler's own bootstrap does.
+#
+# Paths are relative to wherever you are, so this works from anywhere.
+
+set -eu
+
+SELF=$(cd "$(dirname "$0")" && pwd)
+
+# Installed layout is <prefix>/bin/l0 with <prefix>/lib/l0 beside it; the
+# repository layout is tools/l0 with lib/ beside it. Support both so the same
+# driver works before and after installation.
+LIB=""
+for d in "$SELF/../lib/l0" "$SELF/../lib"; do
+    if [ -f "$d/prelude.l0" ]; then
+        LIB=$(cd "$d" && pwd)
+        break
+    fi
+done
+if [ -z "$LIB" ]; then
+    echo "l0: cannot find the L0 library next to $SELF" >&2
+    exit 2
+fi
+
+find_cc() {
+    if [ -n "${L0_CC:-}" ]; then
+        echo "$L0_CC"
+    elif [ -x /opt/homebrew/opt/llvm/bin/clang ]; then
+        echo /opt/homebrew/opt/llvm/bin/clang
+    elif command -v clang > /dev/null 2>&1; then
+        echo clang
+    else
+        echo "l0: no clang found; set L0_CC" >&2
+        exit 2
+    fi
+}
+
+# In a source checkout the compiler and runtime may not be built yet. Build
+# them from the checked-in seed, which needs only a C compiler.
+ensure_toolchain() {
+    if [ -x "$LIB/l0c" ] && [ -f "$LIB/libl0rt.a" ]; then
+        return 0
+    fi
+    root=$(cd "$LIB/.." && pwd)
+    if [ ! -f "$root/bootstrap/stage2.ll" ]; then
+        echo "l0: installation is incomplete (no compiler at $LIB/l0c)" >&2
+        exit 2
+    fi
+    echo "l0: building the toolchain from bootstrap/stage2.ll" >&2
+    "$root/tools/install.sh" --into "$LIB" > /dev/null
+}
+
+usage() {
+    sed -n '2,20p' "$SELF/l0" | sed 's/^# \{0,1\}//'
+    exit 2
+}
+
+# ------------------------------------------------------------------ inputs
+
+WANT_PRELUDE=1
+OUT=""
+FILES=""
+
+parse_args() {
+    while [ $# -gt 0 ]; do
+        case "$1" in
+            --no-prelude) WANT_PRELUDE=0 ;;
+            -o)
+                shift
+                [ $# -gt 0 ] || { echo "l0: -o needs a path" >&2; exit 2; }
+                OUT=$1
+                ;;
+            -*)
+                echo "l0: unknown option $1" >&2
+                exit 2
+                ;;
+            *)
+                if [ ! -f "$1" ]; then
+                    echo "l0: cannot read $1" >&2
+                    exit 1
+                fi
+                FILES="$FILES $1"
+                ;;
+        esac
+        shift
+    done
+    if [ -z "$FILES" ]; then
+        echo "l0: no source files given" >&2
+        exit 2
+    fi
+}
+
+# Writes an input bundle: a table of byte offsets and paths followed by the
+# concatenated sources, so diagnostics can name the file a problem is in
+# rather than a line in the concatenation.
+write_bundle() {
+    dest=$1
+    set -- $SOURCES
+    {
+        echo "#l0bundle"
+        # Checking asks whether the code is well typed, not whether it is a
+        # complete program, so a library file or a work in progress is not
+        # nagged about a missing entry point.
+        [ "${NOMAIN:-0}" = 1 ] && echo "#nomain"
+        offset=0
+        for f in "$@"; do
+            echo "$offset $f"
+            size=$(wc -c < "$f" | tr -d ' ')
+            offset=$((offset + size))
+        done
+        echo "#source"
+        cat "$@"
+    } > "$dest"
+}
+
+# Runs the compiler, leaving IR in $1 on success. Diagnostics go to stderr.
+run_compiler() {
+    irout=$1
+    write_bundle "$TMP/in"
+    if ! "$LIB/l0c" < "$TMP/in" > "$TMP/out"; then
+        echo "l0: the compiler crashed" >&2
+        exit 2
+    fi
+    case "$(head -n 1 "$TMP/out")" in
+        O) tail -n +2 "$TMP/out" > "$irout" ;;
+        E)
+            tail -n +2 "$TMP/out" >&2
+            exit 1
+            ;;
+        *)
+            echo "l0: compiler produced untagged output" >&2
+            exit 2
+            ;;
+    esac
+}
+
+setup() {
+    parse_args "$@"
+    ensure_toolchain
+    SOURCES=$FILES
+    if [ "$WANT_PRELUDE" = 1 ]; then
+        SOURCES="$LIB/prelude.l0 $FILES"
+    fi
+    TMP=$(mktemp -d "${TMPDIR:-/tmp}/l0.XXXXXX")
+    trap 'rm -rf "$TMP"' EXIT
+}
+
+default_out() {
+    first=$(echo "$FILES" | awk '{print $1}')
+    basename "$first" .l0
+}
+
+# ---------------------------------------------------------------- commands
+
+cmd=${1:-}
+[ $# -gt 0 ] && shift || usage
+
+case "$cmd" in
+    emit)
+        setup "$@"
+        run_compiler "$TMP/out.ll"
+        cat "$TMP/out.ll"
+        ;;
+
+    check)
+        setup "$@"
+        NOMAIN=1
+        run_compiler "$TMP/out.ll"
+        echo "ok"
+        ;;
+
+    build)
+        setup "$@"
+        [ -n "$OUT" ] || OUT=$(default_out)
+        run_compiler "$TMP/out.ll"
+        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$LIB/libl0rt.a" \
+            -o "$OUT"
+        ;;
+
+    run)
+        setup "$@"
+        run_compiler "$TMP/out.ll"
+        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$LIB/libl0rt.a" \
+            -o "$TMP/prog"
+        "$TMP/prog"
+        ;;
+
+    init)
+        dir=${1:-.}
+        mkdir -p "$dir/.cursor/skills/l0-code" "$dir/l0"
+        cp "$LIB/AGENTS.md" "$dir/AGENTS.md"
+        cp "$LIB/skill/SKILL.md" "$dir/.cursor/skills/l0-code/SKILL.md"
+        cp "$LIB/L0.md" "$dir/l0/L0.md"
+        cp "$LIB/examples.l0" "$dir/l0/examples.l0"
+        cp "$LIB/prelude.l0" "$dir/l0/prelude.l0"
+        cat <<EOF
+Scaffolded an L0 project in $dir:
+
+  AGENTS.md                          always-on invariants
+  .cursor/skills/l0-code/SKILL.md    how to read, write, and edit L0
+  l0/L0.md                           the language specification
+  l0/examples.l0                     worked examples, all of them compiling
+  l0/prelude.l0                      the standard library, for reference
+
+The prelude is linked automatically; the copy in l0/ is there to be read.
+
+  l0 check prog.l0     type check
+  l0 run   prog.l0     build and run, reading stdin
+  l0 build prog.l0     produce an executable
+EOF
+        ;;
+
+    version)
+        echo "l0 (library at $LIB)"
+        ;;
+
+    *) usage ;;
+esac

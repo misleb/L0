@@ -26,8 +26,11 @@
 (data FileEntry
   (FE int (list int)))                  ; start offset, path
 
+; The file table, the source text, and whether a main is required. A bundle
+; header line of #nomain relaxes that, for checking a library file or a work
+; in progress without being nagged about a missing entry point.
 (data Bundle
-  (Bnd (list FileEntry) (list int)))    ; file table, source text
+  (Bnd (list FileEntry) (list int) bool))
 
 (def fe_start ((f FileEntry)) int (match f ((FE s p) s)))
 (def fe_path ((f FileEntry)) (list int) (match f ((FE s p) p)))
@@ -41,18 +44,22 @@
 (def parse_entry ((ln (list int))) FileEntry
   (FE (int_prefix ln 0) (skip_spaces (skip_digits ln))))
 
-(def parse_entries ((s (list int)) (acc (list FileEntry))) Bundle
+(def parse_entries ((s (list int)) (acc (list FileEntry)) (want_main bool))
+    Bundle
   (if (is_empty s)
-      (Bnd (rev_entries_onto acc (nil FileEntry)) (nil int))
+      (Bnd (rev_entries_onto acc (nil FileEntry)) (nil int) want_main)
       (if (starts_with s "#source")
-          (Bnd (rev_entries_onto acc (nil FileEntry)) (drop_line s))
-          (parse_entries (drop_line s)
-                         (cons (parse_entry (take_line s)) acc)))))
+          (Bnd (rev_entries_onto acc (nil FileEntry)) (drop_line s) want_main)
+          (if (starts_with s "#nomain")
+              (parse_entries (drop_line s) acc false)
+              (parse_entries (drop_line s)
+                             (cons (parse_entry (take_line s)) acc)
+                             want_main)))))
 
 (def parse_bundle ((input (list int))) Bundle
   (if (starts_with input "#l0bundle")
-      (parse_entries (drop_line input) (nil FileEntry))
-      (Bnd (nil FileEntry) input)))
+      (parse_entries (drop_line input) (nil FileEntry) true)
+      (Bnd (nil FileEntry) input true)))
 
 ; The last entry starting at or before this offset, which is the file the
 ; offset falls in. Entries are in ascending order of start.
@@ -88,8 +95,10 @@
     (list int)
   (match d
     ((D o m)
-      (let fe (file_at entries o (FE 0 ""))
-        (render_at src (fe_path fe) (fe_start fe) o m)))))
+      (if (lt o 0)
+          (append "error: " (append m "\n"))
+          (let fe (file_at entries o (FE 0 ""))
+            (render_at src (fe_path fe) (fe_start fe) o m))))))
 
 ; Line and column are measured from the start of the file the offset falls
 ; in, not from the start of the concatenation, which is the whole point of
@@ -125,10 +134,10 @@
 ; never compiled.
 (def compile ((input (list int))) (list int)
   (match (parse_bundle input)
-    ((Bnd entries src)
+    ((Bnd entries src want_main)
       (match (parse_program (lex src))
         ((PP ds perrs)
-          (let all (append_diags perrs (check_program ds))
+          (let all (append_diags perrs (check_program ds want_main))
             (if (is_empty all)
                 (append "O\n" (emit_module ds))
                 (failure src entries all))))))))

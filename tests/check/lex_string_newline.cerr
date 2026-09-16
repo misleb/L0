@@ -1,2 +1,2 @@
 tests/check/lex_string_newline.l0:1:33: error: newline in string literal; use \n
-tests/check/lex_string_newline.l0:1:1: error: this program has no main function
+error: this program has no main function

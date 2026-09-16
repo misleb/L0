@@ -30,3 +30,8 @@ build/
 # correct behavior is. Ignoring them would make tools/test.sh pass against
 # nothing on a fresh clone.
 # ---------------------------------------------------------------------------
+
+# Toolchain artifacts produced by tools/install.sh --into lib
+lib/l0c
+lib/libl0rt.a
+lib/L0.md

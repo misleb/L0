@@ -1,2 +1,2 @@
 tests/check/lex_unclosed_paren.l0:1:1: error: unclosed (
-tests/check/lex_unclosed_paren.l0:1:1: error: this program has no main function
+error: this program has no main function

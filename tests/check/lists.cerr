@@ -8,4 +8,4 @@ tests/check/lists.l0:8:36: error: tail must be a list, but this is int
 tests/check/lists.l0:9:41: error: is_empty must be a list, but this is int
 tests/check/lists.l0:11:40: error: unknown type Missing
 tests/check/lists.l0:13:1: error: head_type_flows declares return type int, but its body is bool
-tests/check/lists.l0:1:1: error: this program has no main function
+error: this program has no main function

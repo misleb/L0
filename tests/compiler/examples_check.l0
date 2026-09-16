@@ -1,0 +1,6 @@
+; The examples shipped to new projects must keep compiling. This checks the
+; very file `l0 init` copies, so it cannot rot into something that no longer
+; works for the first person who reads it.
+
+(def main ((input (list int))) (list int)
+  (check_source_lib input))

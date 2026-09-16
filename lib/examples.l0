@@ -1,0 +1,154 @@
+; examples.l0 -- worked L0 programs, for reading.
+;
+; Every declaration here compiles. This file is checked by the L0 project's
+; own test suite, so nothing in it can quietly rot into something that no
+; longer works.
+;
+; It is meant to be read rather than linked. The names would collide with
+; your own, and the standard library it uses is already linked for you.
+;
+; Nothing here defines main, so it is not a program on its own. Compile it
+; with `l0 check l0/examples.l0` to confirm it still type checks.
+
+; --------------------------------------------------------------- the basics
+
+(def max2 ((a int) (b int)) int
+  (if (gt a b) a b))
+
+; There are no loops. Iteration is recursion.
+(def count_up_to ((n int) (acc int)) int
+  (if (gt acc n) acc (count_up_to n (add acc 1))))
+
+; Prefer an accumulator when the list may be long: this version holds one
+; stack frame regardless of length, because the recursive call is the last
+; thing it does.
+(def sum_tail ((xs (list int)) (acc int)) int
+  (if (is_empty xs) acc (sum_tail (tail xs) (add acc (head xs)))))
+
+; The same thing without an accumulator. Correct, and holds one frame per
+; element. Fine for short lists, and the runtime allows very deep recursion,
+; but the version above is the habit worth having.
+(def sum_naive ((xs (list int))) int
+  (if (is_empty xs) 0 (add (head xs) (sum_naive (tail xs)))))
+
+; ------------------------------------------------------- strings are lists
+
+; A string literal is a (list int) of byte values, so string handling is
+; just list handling. There is no separate string type.
+(def shout ((ignored int)) (list int)
+  "HELLO\n")
+
+(def is_vowel ((c int)) bool
+  (or (eq c 97) (or (eq c 101) (or (eq c 105)
+      (or (eq c 111) (eq c 117))))))
+
+(def count_vowels ((xs (list int)) (acc int)) int
+  (if (is_empty xs)
+      acc
+      (count_vowels (tail xs) (if (is_vowel (head xs)) (add acc 1) acc))))
+
+; ------------------------------------------------------- building output
+
+; Appending to the end of a list copies the whole list, so building output
+; with repeated appends is quadratic and will appear to hang on large
+; inputs. Push chunks onto a reversed accumulator and reverse once at the
+; end. push, rev, and digits are all in the standard library.
+(def report ((n int) (total int)) (list int)
+  (let a (push "count=" (nil int))
+    (let b (push (digits n) a)
+      (let c (push " total=" b)
+        (let d (push (digits total) c)
+          (rev (push "\n" d)))))))
+
+; -------------------------------------------------------------- data types
+
+(data Shape
+  (Circle int)
+  (Rect int int)
+  (Dot))
+
+; match has no wildcard and no default: every constructor must appear
+; exactly once. That is deliberate, so that adding a constructor becomes a
+; compile error at every site that has to handle it.
+(def area ((s Shape)) int
+  (match s
+    ((Circle r) (mul 3 (mul r r)))
+    ((Rect w h) (mul w h))
+    ((Dot) 0)))
+
+; Data types may be recursive, which is how trees are built.
+(data Tree
+  (Leaf int)
+  (Branch Tree Tree))
+
+(def sum_tree ((t Tree)) int
+  (match t
+    ((Leaf n) n)
+    ((Branch l r) (add (sum_tree l) (sum_tree r)))))
+
+(def depth ((t Tree)) int
+  (match t
+    ((Leaf n) 1)
+    ((Branch l r)
+      (let dl (depth l)
+        (let dr (depth r)
+          (add 1 (max2 dl dr)))))))
+
+; Lists may hold any type, including data values and other lists.
+(def total_area ((ss (list Shape))) int
+  (if (is_empty ss)
+      0
+      (add (area (head ss)) (total_area (tail ss)))))
+
+(def two_shapes ((ignored int)) (list Shape)
+  (cons (Circle 2) (cons (Rect 3 4) (nil Shape))))
+
+; ------------------------------------------- returning more than one value
+
+; L0 has no tuples. A small data type does the same job, and is how any
+; function that must thread state through a computation returns its result.
+(data Split
+  (Sp (list int) (list int)))           ; taken, remaining
+
+(def split_at_nl ((xs (list int)) (acc (list int))) Split
+  (if (is_empty xs)
+      (Sp (rev acc) (nil int))
+      (if (eq (head xs) 10)
+          (Sp (rev acc) (tail xs))
+          (split_at_nl (tail xs) (cons (head xs) acc)))))
+
+(def first_line ((xs (list int))) (list int)
+  (match (split_at_nl xs (nil int))
+    ((Sp taken rest) taken)))
+
+; ------------------------------------------------------- reporting failure
+
+; There are no exceptions. A function that can fail returns a data type with
+; a case for each outcome, and callers match on it.
+(data Parsed
+  (Ok int (list int))                   ; value, remaining input
+  (Bad (list int)))                     ; message
+
+(def parse_digits ((xs (list int)) (acc int) (seen bool)) Parsed
+  (if (is_empty xs)
+      (if seen (Ok acc xs) (Bad "expected a digit"))
+      (if (is_digit (head xs))
+          (parse_digits (tail xs) (add (mul acc 10) (sub (head xs) 48)) true)
+          (if seen (Ok acc xs) (Bad "expected a digit")))))
+
+(def parse_or_zero ((xs (list int))) int
+  (match (parse_digits xs 0 false)
+    ((Ok v rest) v)
+    ((Bad msg) 0)))
+
+; --------------------------------------------------------- the entry point
+
+; A program defines main, which takes stdin as a list of bytes and returns
+; the output. The return type may be (list int) for raw bytes, or int or
+; bool, which are printed as a decimal or as true/false.
+;
+;   (def main ((input (list int))) (list int)
+;     (report (count_vowels input 0) (sum_tail input 0)))
+;
+; That is commented out because this file is a reference rather than a
+; program, and two definitions of main could not coexist with yours.

@@ -1,2 +1,2 @@
 tests/check/lex_escape.l0:1:34: error: unknown escape; the escapes are \n \t \r \\ \" \xHH
-tests/check/lex_escape.l0:1:1: error: this program has no main function
+error: this program has no main function

@@ -1,2 +1,2 @@
 tests/check/lex_hex_bad.l0:1:32: error: \x needs exactly two hexadecimal digits
-tests/check/lex_hex_bad.l0:1:1: error: this program has no main function
+error: this program has no main function

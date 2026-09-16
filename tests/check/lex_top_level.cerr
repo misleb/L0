@@ -1,2 +1,2 @@
 tests/check/lex_top_level.l0:1:2: error: expected a top-level (def ...) or (data ...)
-tests/check/lex_top_level.l0:1:1: error: this program has no main function
+error: this program has no main function

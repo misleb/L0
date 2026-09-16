@@ -10,4 +10,4 @@ tests/check/match.l0:27:3: error: the subject of a match must be a data type, bu
 tests/check/match.l0:30:22: error: all match arms must have the same type, but one is int and another is bool
 tests/check/match.l0:33:34: error: unknown constructor Purple
 tests/check/match.l0:36:27: error: w is bound twice in the same pattern
-tests/check/match.l0:1:1: error: this program has no main function
+error: this program has no main function

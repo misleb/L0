@@ -152,7 +152,7 @@ resulting error points at the start of the form rather than the mistake.
 Three fixes, in order of preference:
 
 **Test membership with a word table instead of an `or` chain.** `split_spaces`
-and `any_eq` in [compiler/prelude.l0](../../../compiler/prelude.l0) turn a
+and `any_eq` in [lib/prelude.l0](../../../lib/prelude.l0) turn a
 ten-deep nest into one flat line:
 
 ```

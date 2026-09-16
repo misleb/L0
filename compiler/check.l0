@@ -651,20 +651,24 @@
       acc
       (prepend_diags (tail xs) (cons (head xs) acc))))
 
+; Whole-program problems have no meaningful position, so they carry offset
+; -1 and are rendered without a file, line, or column. Offset 0 would name
+; the first byte of the first file, which is somewhere the reader has no
+; reason to look.
 (def check_main ((sigs (list Sig))) (list Diag)
   (match (find_sig "main" sigs)
-    ((SigMissing) (one_diag 0 "this program has no main function"))
+    ((SigMissing) (one_diag -1 "this program has no main function"))
     ((SigFound s)
       (match s
         ((S n ps ret)
           (if (not (eq (length_tys ps) 1))
-              (one_diag 0 "main must take one parameter of type (list int)")
+              (one_diag -1 "main must take one parameter of type (list int)")
               (if (not (ty_eq (head ps) (TyList (TyInt))))
-                  (one_diag 0
+                  (one_diag -1
                     "main must take one parameter of type (list int)")
                   (if (main_ret_ok ret)
                       (nil Diag)
-                      (one_diag 0
+                      (one_diag -1
                         "main must return (list int), int, or bool")))))))))
 
 (def main_ret_ok ((t Ty)) bool
@@ -676,10 +680,13 @@
       (collect_ctor_infos ds (nil CtorInfo))
       (collect_datas ds (nil DataDef))))
 
-(def check_program ((ds (list Decl))) (list Diag)
+; want_main is false when checking a fragment rather than a whole program,
+; such as a library file or a work in progress. Type correctness is still
+; checked in full; only the requirement to define main is relaxed.
+(def check_program ((ds (list Decl)) (want_main bool)) (list Diag)
   (let ctx (build_ctx ds)
     (rev_diags_onto
       (check_decls ds ctx
         (check_dups ds (nil (list int)) (nil (list int)) (nil (list int))
                     (nil Diag)))
-      (check_main (ctx_sigs ctx)))))
+      (if want_main (check_main (ctx_sigs ctx)) (nil Diag)))))

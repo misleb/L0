@@ -37,22 +37,62 @@ tools/test.sh         # all suites
 tools/test.sh --compiled   # the differential suite, described below
 ```
 
-Compile a program with the L0 compiler and run it. Paths are relative to
-wherever you are, so this works from outside the repository:
+## Installing
 
 ```bash
-/path/to/newlang/tools/l0c hello.l0 > hello.ll
-/path/to/newlang/tools/l0ll hello.ll hello
-./hello
+tools/install.sh --prefix ~/.local     # then put ~/.local/bin on PATH
 ```
 
-Several files are compiled together, since L0 has no module system.
-Diagnostics name the file they came from:
+Only a C compiler is needed: the L0 compiler is built from the checked-in
+seed, not from the L0 sources, so no existing L0 toolchain is required.
+
+```bash
+l0 check prog.l0          # type check
+l0 run   prog.l0 < input  # build and run
+l0 build prog.l0 -o prog  # produce an executable
+```
+
+Several files are compiled together, since L0 has no module system, and
+diagnostics name the file they came from:
 
 ```
-$ tools/l0c util.l0 main.l0
+$ l0 check util.l0 main.l0
 main.l0:2:3: error: argument 1 of double must be int, but this is bool
 ```
+
+## Starting a project
+
+L0 has no package manager and no module system, so `l0 init` scaffolds
+everything a project needs, including what an AI agent needs to write L0 at
+all:
+
+```bash
+l0 init myproject
+```
+
+```
+AGENTS.md                          always-on invariants
+.cursor/skills/l0-code/SKILL.md    how to read, write, and edit L0
+l0/L0.md                           the language specification
+l0/examples.l0                     worked examples, all of them compiling
+l0/prelude.l0                      the standard library, for reference
+```
+
+The specification and examples are copied in rather than linked, because an
+agent has no L0 in its training data and the specification has to be readable
+in the project itself. `lib/examples.l0` is compiled by this repository's own
+test suite, so the examples a newcomer reads cannot rot.
+
+## The standard library
+
+`lib/prelude.l0` is linked into every program automatically. It is the same
+file the compiler itself is built with, so it is exercised continuously rather
+than maintained separately.
+
+It matters more than it might sound: L0 has no `append`, no `length`, and no
+way to render an integer as text among its builtins. Without a prelude, every
+program reimplements decimal formatting, and gets the most-negative-integer
+case wrong.
 
 ## What L0 is not
 
@@ -193,14 +233,21 @@ will tell you. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 ```
 spec/          L0.md (what the language is) and changelog.md (why)
 runtime/       permanent C: values, allocation, host I/O
-stage0/        disposable C interpreter
-compiler/      the L0 compiler, in L0 (not started)
-bootstrap/     checked-in compiler IR, the bootstrap entry point (not yet cut)
-tests/         backend (hand-written IR), lang (must run), check (must fail)
-tools/         build.sh, test.sh, bootstrap.sh, l0check, l0ll
+compiler/      the L0 compiler, written in L0
+lib/           prelude.l0 (the standard library), examples, and the files
+               `l0 init` copies into a new project
+bootstrap/     stage2.ll, the checked-in seed the compiler is built from
+stage0/        frozen C interpreter, kept only as a differential oracle
+tests/         backend (hand-written IR), lang (must run), check (must fail),
+               compiler (stage tests for the compiler itself)
+tools/         l0 (the driver), install.sh, build.sh, test.sh, bootstrap.sh
 seeds/         the original seed spec, superseded by spec/
-.cursor/skills/  agent instructions for writing L0 and evolving it
+.cursor/skills/  agent instructions for developing L0 itself
 ```
+
+The skill under `.cursor/skills/` is for working *on* L0 and refers to the
+compiler sources and test suite. The one under `lib/skill/`, which `l0 init`
+installs, is for working *in* L0 and refers only to files a project has.
 
 `spec/changelog.md` is worth reading before the spec if you want to know why L0
 is shaped the way it is rather than merely what shape it has.

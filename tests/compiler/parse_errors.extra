@@ -1,4 +1,4 @@
-compiler/prelude.l0
+lib/prelude.l0
 compiler/lex.l0
 compiler/parse.l0
 compiler/check.l0

@@ -190,8 +190,15 @@
 
 ; Runs the front end over one source string and renders whatever comes back.
 (def check_source ((src (list int))) (list int)
+  (check_source_as src true))
+
+; Checks a fragment, without requiring it to be a whole program.
+(def check_source_lib ((src (list int))) (list int)
+  (check_source_as src false))
+
+(def check_source_as ((src (list int)) (want_main bool)) (list int)
   (match (parse_program (lex src))
     ((PP ds errs)
       (if (is_empty errs)
-          (fmt_diags (check_program ds))
+          (fmt_diags (check_program ds want_main))
           (rev (fmt_parse_errs errs (nil int)))))))

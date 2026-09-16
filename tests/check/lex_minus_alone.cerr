@@ -1,2 +1,2 @@
 tests/check/lex_minus_alone.l0:1:29: error: expected digits after '-'
-tests/check/lex_minus_alone.l0:1:1: error: this program has no main function
+error: this program has no main function

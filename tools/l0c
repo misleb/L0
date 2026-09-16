@@ -22,7 +22,7 @@ set -eu
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 . "$ROOT/tools/env.sh"
 
-COMPILER_SOURCES="compiler/prelude.l0 compiler/lex.l0 compiler/parse.l0 compiler/check.l0 compiler/emit.l0 compiler/main.l0"
+COMPILER_SOURCES="lib/prelude.l0 compiler/lex.l0 compiler/parse.l0 compiler/check.l0 compiler/emit.l0 compiler/main.l0"
 
 mkdir -p "$BUILD"
 IN="$BUILD/l0c-in.$$"

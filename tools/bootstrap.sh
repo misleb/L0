@@ -63,8 +63,8 @@ done
 
 # Lexicographic glob order, which is stable, because the compiler's input must
 # be byte-identical on every run for the fixpoint to mean anything.
-SOURCES=$(echo compiler/*.l0)
-if [ "$SOURCES" = "compiler/*.l0" ]; then
+SOURCES="lib/prelude.l0 $(echo compiler/*.l0)"
+if [ "$SOURCES" = "lib/prelude.l0 compiler/*.l0" ]; then
     echo "tools/bootstrap.sh: nothing to bootstrap yet."
     echo
     echo "  compiler/*.l0 does not exist, so there is no L0 compiler to"

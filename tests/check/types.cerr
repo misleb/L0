@@ -10,4 +10,4 @@ tests/check/types.l0:13:36: error: an argument of and must be bool, but this is 
 tests/check/types.l0:14:40: error: an argument of lt must be int, but this is bool
 tests/check/types.l0:15:37: error: argument 1 of call_arg_wrong must be bool, but this is int
 tests/check/types.l0:16:45: error: call_count_wrong takes 2 arguments, but got 1
-tests/check/types.l0:1:1: error: this program has no main function
+error: this program has no main function

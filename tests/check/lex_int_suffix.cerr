@@ -1,2 +1,2 @@
 tests/check/lex_int_suffix.l0:1:22: error: invalid character in integer literal
-tests/check/lex_int_suffix.l0:1:1: error: this program has no main function
+error: this program has no main function

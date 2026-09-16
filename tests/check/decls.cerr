@@ -11,4 +11,4 @@ tests/check/decls.l0:12:1: error: function repeated is already defined
 tests/check/decls.l0:14:1: error: parameter a is declared twice
 tests/check/decls.l0:15:1: error: unknown type Missing
 tests/check/decls.l0:16:1: error: unknown type Missing
-tests/check/decls.l0:1:1: error: this program has no main function
+error: this program has no main function
