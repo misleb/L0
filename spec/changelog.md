@@ -7,6 +7,38 @@ New entries go at the top.
 
 ---
 
+## Open questions
+
+Not yet decided. Listed here so they are not mistaken for oversights.
+
+### How does the compiler report that compilation failed?
+
+Section 9 gives `main` a single output channel, and for the L0 compiler that
+channel carries LLVM IR. There is currently **no defined way for a compiled L0
+program to distinguish "here is my output" from "I failed, and here is why."**
+
+This becomes a blocker in Phase 2 rather than a curiosity, because once
+`stage0/` is deleted the L0 compiler is the only type checker in existence, so
+it has to be able to emit diagnostics for bad input. `tools/l0check` depends on
+stage 0 today and has nowhere to go after that.
+
+The likely answer is a protocol on the existing channel rather than a language
+feature: have `main` return a tagged stream, where a leading byte distinguishes
+success from failure and the host demultiplexes to stdout or stderr and sets
+the exit status. That needs no change to L0 at all, which is why this is
+recorded as an open question rather than a feature request.
+
+A closely related question, with the same shape of answer, is that a compiler
+reading `cat compiler/*.l0` on one stream cannot report `file:line:column`, only
+an offset into a concatenation — a real regression from what stage 0 reports
+today. The fix is again a host-side protocol: the host passes a bundle with
+filenames and lengths in a header, and the compiler maps offsets back to files.
+
+Both are worth settling together, since they are the same design decision about
+how much structure the single byte channel carries.
+
+---
+
 ## v1 — initial spec, superseding the seed
 
 [L0.md](L0.md) replaces [../seeds/spec.md](../seeds/spec.md) as the single source
