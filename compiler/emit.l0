@@ -1,0 +1,260 @@
+; emit.l0 -- typed AST to LLVM IR text.
+;
+; This stage cannot fail. The checker has already proved the program correct,
+; so there is no error plumbing here, which is what keeps it readable.
+;
+; Two decisions from spec section 10 do most of the work:
+;
+;   Every value is an i64, so no type information survives into codegen. An
+;   operand is just a piece of text: "42", "%t7", or "%a0".
+;
+;   Temporaries and labels are NAMED. LLVM requires unnamed values (%0, %1) to
+;   be numbered in strict sequence, counting function parameters and implicit
+;   block labels, which is a rich source of bugs that only appear on complex
+;   functions. Named values have no such rule.
+;
+; let needs no memory at all: it binds a name to an operand that already
+; exists. Only if needs storage, and it uses an alloca and a load rather than
+; a phi node, so no basic-block bookkeeping is needed. Emission is structured,
+; so a value is only ever used in the block that defines it or in a block that
+; block dominates.
+
+(data Emit
+  (Em int (list int)))                  ; next name number, reversed output
+
+(data EmitVal
+  (Val (list int) Emit))                ; operand text, new state
+
+(data EmitOps
+  (Ops (list (list int)) Emit))         ; operand texts, new state
+
+(data EBind
+  (EB (list int) (list int)))           ; L0 name, operand text
+
+; ------------------------------------------------------------------ output
+
+(def emit_line ((s (list int)) (st Emit)) Emit
+  (match st
+    ((Em n acc) (Em n (push "\n" (push s acc))))))
+
+(def emit_text ((st Emit)) (list int)
+  (match st ((Em n acc) (rev acc))))
+
+(def fresh_id ((st Emit)) (list int)
+  (match st ((Em n acc) (digits n))))
+
+(def bump ((st Emit)) Emit
+  (match st ((Em n acc) (Em (add n 1) acc))))
+
+(def lookup_operand ((n (list int)) (env (list EBind))) (list int)
+  (if (is_empty env)
+      "0"
+      (match (head env)
+        ((EB bn op)
+          (if (list_eq n bn) op (lookup_operand n (tail env)))))))
+
+; "i64 a, i64 b"
+(def fmt_ops ((ops (list (list int)))) (list int)
+  (if (is_empty ops)
+      ""
+      (if (is_empty (tail ops))
+          (append "i64 " (head ops))
+          (append "i64 " (append (head ops)
+            (append ", " (fmt_ops (tail ops))))))))
+
+; %tN = <rhs>
+(def emit_assign ((rhs (list int)) (st Emit)) EmitVal
+  (let name (append "%t" (fresh_id st))
+    (Val name
+      (emit_line (append "  " (append name (append " = " rhs))) (bump st)))))
+
+(def emit_rt_call ((fn (list int)) (ops (list (list int))) (st Emit)) EmitVal
+  (emit_assign (append "call i64 @" (append fn
+    (append "(" (append (fmt_ops ops) ")")))) st))
+
+(def emit_binop ((op (list int)) (a (list int)) (b (list int)) (st Emit))
+    EmitVal
+  (emit_assign (append op (append " i64 " (append a (append ", " b)))) st))
+
+; icmp yields i1, which is widened to the uniform i64 representation.
+(def emit_cmp ((pred (list int)) (a (list int)) (b (list int)) (st Emit))
+    EmitVal
+  (match (emit_assign (append "icmp " (append pred
+            (append " i64 " (append a (append ", " b))))) st)
+    ((Val c st1) (emit_assign (append "zext i1 " (append c " to i64")) st1))))
+
+(def two_ops ((a (list int)) (b (list int))) (list (list int))
+  (cons a (cons b (nil (list int)))))
+
+(def one_op ((a (list int))) (list (list int))
+  (cons a (nil (list int))))
+
+; ------------------------------------------------------------- expressions
+
+(def emit_expr ((e Expr) (env (list EBind)) (st Emit)) EmitVal
+  (match e
+    ((EInt o v) (Val (digits v) st))
+    ((EBool o v) (Val (if v "1" "0") st))
+    ((ENil o t) (Val "0" st))
+    ((EStr o s) (emit_string (rev s) "0" st))
+    ((EVar o n) (Val (lookup_operand n env) st))
+    ((EIf o c a b) (emit_if c a b env st))
+    ((ELet o n v body) (emit_let n v body env st))
+    ((ECall o n args) (emit_call n args env st))))
+
+; A let binds a name to an operand that already exists, so it costs nothing
+; at runtime and emits no instructions.
+(def emit_let ((n (list int)) (v Expr) (body Expr) (env (list EBind))
+               (st Emit)) EmitVal
+  (match (emit_expr v env st)
+    ((Val vv st1) (emit_expr body (cons (EB n vv) env) st1))))
+
+; Bytes arrive reversed so the chain can be built from the end forwards.
+(def emit_string ((rs (list int)) (acc (list int)) (st Emit)) EmitVal
+  (if (is_empty rs)
+      (Val acc st)
+      (match (emit_rt_call "l0_cons" (two_ops (digits (head rs)) acc) st)
+        ((Val r st1) (emit_string (tail rs) r st1)))))
+
+; Emits one arm of an if: its label, its body, a store into the result slot,
+; and a jump to the join block.
+(def emit_arm ((lbl (list int)) (e Expr) (slot (list int))
+               (lend (list int)) (env (list EBind)) (st Emit)) Emit
+  (let st1 (emit_line (append lbl ":") st)
+    (match (emit_expr e env st1)
+      ((Val v st2)
+        (emit_line (append "  br label %" lend)
+          (emit_line (append "  store i64 " (append v (append ", ptr " slot)))
+                     st2))))))
+
+(def emit_if ((c Expr) (a Expr) (b Expr) (env (list EBind)) (st Emit)) EmitVal
+  (let id (fresh_id st)
+    (let slot (append "%r" id)
+      (let st1 (emit_line (append "  " (append slot " = alloca i64"))
+                          (bump st))
+        (match (emit_expr c env st1)
+          ((Val cv st2) (emit_if_arms id slot cv a b env st2)))))))
+
+(def emit_if_arms ((id (list int)) (slot (list int)) (cv (list int))
+                   (a Expr) (b Expr) (env (list EBind)) (st Emit)) EmitVal
+  (let lthen (append "Lt" id)
+    (let lelse (append "Le" id)
+      (let lend (append "Lx" id)
+        (match (emit_assign (append "icmp ne i64 " (append cv ", 0")) st)
+          ((Val cb st1)
+            (let st2 (emit_line (append "  br i1 " (append cb
+                        (append ", label %" (append lthen
+                          (append ", label %" lelse))))) st1)
+              (let st3 (emit_arm lthen a slot lend env st2)
+                (let st4 (emit_arm lelse b slot lend env st3)
+                  (let st5 (emit_line (append lend ":") st4)
+                    (emit_assign (append "load i64, ptr " slot) st5)))))))))))
+
+(def emit_args ((args (list Expr)) (env (list EBind)) (st Emit)
+                (acc (list (list int)))) EmitOps
+  (if (is_empty args)
+      (Ops (rev_strs_onto acc (nil (list int))) st)
+      (match (emit_expr (head args) env st)
+        ((Val v st1) (emit_args (tail args) env st1 (cons v acc))))))
+
+(def emit_call ((n (list int)) (args (list Expr)) (env (list EBind))
+                (st Emit)) EmitVal
+  (match (emit_args args env st (nil (list int)))
+    ((Ops ops st1) (emit_op n ops st1))))
+
+; ---------------------------------------------------------------- builtins
+
+(def arith_ops ((i int)) (list (list int)) (split_spaces "add sub mul and or"))
+(def cmp_names ((i int)) (list (list int)) (split_spaces "lt le gt ge eq"))
+(def cmp_preds ((i int)) (list (list int)) (split_spaces "slt sle sgt sge eq"))
+(def rt_names ((i int)) (list (list int))
+  (split_spaces "div mod cons head tail is_empty"))
+(def rt_syms ((i int)) (list (list int))
+  (split_spaces "l0_div l0_mod l0_cons l0_head l0_tail l0_is_empty"))
+
+(def nth_str ((xs (list (list int))) (i int)) (list int)
+  (if (le i 0) (head xs) (nth_str (tail xs) (sub i 1))))
+
+(def emit_op ((n (list int)) (ops (list (list int))) (st Emit)) EmitVal
+  (if (any_eq n (arith_ops 0))
+      (emit_binop n (head ops) (head (tail ops)) st)
+      (if (ge (index_of n (cmp_names 0)) 0)
+          (emit_cmp (nth_str (cmp_preds 0) (index_of n (cmp_names 0)))
+                    (head ops) (head (tail ops)) st)
+          (if (ge (index_of n (rt_names 0)) 0)
+              (emit_rt_call (nth_str (rt_syms 0) (index_of n (rt_names 0)))
+                            ops st)
+              (emit_op_rest n ops st)))))
+
+(def emit_op_rest ((n (list int)) (ops (list (list int))) (st Emit)) EmitVal
+  (if (list_eq n "neg")
+      (emit_binop "sub" "0" (head ops) st)
+      (if (list_eq n "not")
+          (emit_binop "xor" (head ops) "1" st)
+          (emit_rt_call (append "l0_f_" n) ops st))))
+
+; -------------------------------------------------------------- functions
+
+(def fmt_ir_params ((ps (list Param)) (i int)) (list int)
+  (if (is_empty ps)
+      ""
+      (append "i64 %a" (append (digits i)
+        (if (is_empty (tail ps))
+            ""
+            (append ", " (fmt_ir_params (tail ps) (add i 1))))))))
+
+(def param_env ((ps (list Param)) (i int) (env (list EBind))) (list EBind)
+  (if (is_empty ps)
+      env
+      (match (head ps)
+        ((P n t)
+          (param_env (tail ps) (add i 1)
+            (cons (EB n (append "%a" (digits i))) env))))))
+
+(def emit_fn ((d Decl) (st Emit)) Emit
+  (match d
+    ((DDef o n ps ret body)
+      (let st1 (emit_line (append "define i64 @l0_f_" (append n
+                  (append "(" (append (fmt_ir_params ps 0) ") {")))) st)
+        (let st2 (emit_line "entry:" st1)
+          (match (emit_expr body (param_env ps 0 (nil EBind)) st2)
+            ((Val v st3)
+              (emit_line ""
+                (emit_line "}"
+                  (emit_line (append "  ret i64 " v) st3))))))))))
+
+; The counter restarts per function purely to keep names short. Numbering is
+; a function of program structure either way, so output stays deterministic.
+(def reset_counter ((st Emit)) Emit
+  (match st ((Em n acc) (Em 0 acc))))
+
+(def emit_fns ((ds (list Decl)) (st Emit)) Emit
+  (if (is_empty ds)
+      st
+      (emit_fns (tail ds) (emit_fn (head ds) (reset_counter st)))))
+
+; ----------------------------------------------------------------- module
+
+(def ir_header ((i int)) (list int)
+  (append "; generated by the L0 compiler\n"
+    (append "declare i64 @l0_cons(i64, i64)\n"
+      (append "declare i64 @l0_head(i64)\n"
+        (append "declare i64 @l0_tail(i64)\n"
+          (append "declare i64 @l0_is_empty(i64)\n"
+            (append "declare i64 @l0_div(i64, i64)\n"
+              "declare i64 @l0_mod(i64, i64)\n\n")))))))
+
+(def ret_kind ((ds (list Decl))) int
+  (if (is_empty ds)
+      2
+      (match (head ds)
+        ((DDef o n ps ret body)
+          (if (list_eq n "main")
+              (if (ty_eq ret (TyInt)) 0 (if (ty_eq ret (TyBool)) 1 2))
+              (ret_kind (tail ds)))))))
+
+(def emit_module ((ds (list Decl))) (list int)
+  (let st0 (Em 0 (push (ir_header 0) (nil int)))
+    (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
+                          (append (digits (ret_kind ds)) "\n")) st0)
+      (emit_text (emit_fns ds st1)))))

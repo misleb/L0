@@ -27,10 +27,12 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" # so diagnostics contain stable relative paths
 
 BLESS=0
+COMPILED=0
 FILTER=""
 for arg in "$@"; do
     case "$arg" in
         --bless) BLESS=1 ;;
+        --compiled) COMPILED=1 ;;
         -*)
             echo "unknown option: $arg" >&2
             exit 2
@@ -38,6 +40,13 @@ for arg in "$@"; do
         *) FILTER=$arg ;;
     esac
 done
+
+if [ "$COMPILED" = 1 ] && [ "$BLESS" = 1 ]; then
+    echo "--compiled and --bless are mutually exclusive: the compiled suite" >&2
+    echo "  must be judged against the interpreter's expectations, never" >&2
+    echo "  against its own output." >&2
+    exit 2
+fi
 
 "$ROOT/tools/build.sh" > /dev/null
 
@@ -154,6 +163,61 @@ extra_sources() {
         tr '\n' ' ' < "$1.extra"
     fi
 }
+
+# ----------------------------------------------------------------- compiled
+#
+# Differential testing: compile each tests/lang program with the L0 compiler,
+# link it, run it, and compare against the very same expectations the stage-0
+# interpreter is held to. The oracle is an independent implementation rather
+# than expectations written by whoever wrote the compiler, which is what makes
+# this the strongest signal available.
+#
+# Programs the compiler cannot handle yet report "not supported by this
+# compiler yet" and are skipped. Nothing is hardcoded, so coverage grows on
+# its own as the compiler gains features. Any OTHER compile failure is a real
+# failure: the interpreter accepts the program, so the compiler must too.
+
+if [ "$COMPILED" = 1 ]; then
+    nskip=0
+    for src in tests/lang/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        stem="tests/lang/$name"
+
+        if ! ./tools/l0c "$src" $(extra_sources "$stem") > "$TMP/$name.ll" \
+            2> "$TMP/$name.cerr"; then
+            if grep -q "not supported by this compiler yet" "$TMP/$name.cerr"; then
+                nskip=$((nskip + 1))
+                continue
+            fi
+            nfail=$((nfail + 1))
+            failures="$failures compiled/$name"
+            echo "FAIL compiled/$name: compiler rejected a valid program"
+            sed 's/^/    /' "$TMP/$name.cerr"
+            continue
+        fi
+
+        if ! ./tools/l0ll "$TMP/$name.ll" "$TMP/$name.exe" \
+            2> "$TMP/$name.lerr"; then
+            nfail=$((nfail + 1))
+            failures="$failures compiled/$name"
+            echo "FAIL compiled/$name: generated IR did not assemble"
+            sed 's/^/    /' "$TMP/$name.lerr"
+            continue
+        fi
+
+        run_case compiled "$name" "$stem" "$TMP/$name.exe"
+    done
+
+    echo
+    echo "compiled suite: $npass passed, $nfail failed, $nskip skipped"
+    if [ "$nfail" -ne 0 ]; then
+        for f in $failures; do echo "  $f"; done
+        exit 1
+    fi
+    exit 0
+fi
 
 # ------------------------------------------------------------------ backend
 

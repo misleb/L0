@@ -1,0 +1,45 @@
+; Type errors. Each snippet is a whole program, so main is always present
+; except where its absence is the case under test.
+;
+; The checker reports at most one error per declaration and keeps going, so a
+; snippet with several bad declarations yields several lines.
+
+; Wraps an expression as the body of a valid main.
+(def m ((body (list int))) (list int)
+  (append "(def main ((input (list int))) int " (append body ")")))
+
+; Appends a trivial main, so a snippet under test can be a non-main
+; declaration without also tripping the missing-main check.
+(def both ((decl (list int))) (list int)
+  (append decl " (def main ((input (list int))) int 0)"))
+
+(def main ((input (list int))) (list int)
+  (let a (push (check_source (m "(if 1 2 3)")) (nil int))
+  (let b (push (check_source (m "(if true 1 false)")) a)
+  (let c (push (check_source (m "(add 1 true)")) b)
+  (let d (push (check_source (m "(add 1)")) c)
+  (let e (push (check_source (m "(add 1 2 3)")) d)
+  (let f (push (check_source (m "(neg true)")) e)
+  (let g (push (check_source (m "(not 1)")) f)
+  (let h (push (check_source (m "(lt true false)")) g)
+  (let i (push (check_source (m "(cons true (nil int))")) h)
+  (let j (push (check_source (m "(cons 1 2)")) i)
+  (let k (push (check_source (m "(head 1)")) j)
+  (let l (push (check_source (m "(head (nil bool))")) k)
+  (let n (push (check_source (m "nope")) l)
+  (let o (push (check_source (m "(nope 1)")) n)
+  (let p (push (check_source (m "(input 1)")) o)
+  (let q (push (check_source (m "input")) p)
+  (let r (push (check_source (m "true")) q)
+  (let s (push (check_source (both "(def f ((a int) (a int)) int a)")) r)
+  (let t (push (check_source (append "(def f ((a int)) int a) "
+                              (both "(def f ((a int)) int a)"))) s)
+  (let u (push (check_source "(def f ((a int)) int a)") t)
+  (let v (push (check_source "(def main ((a int)) int 0)") u)
+  (let w (push (check_source "(def main ((input (list int))) bool 0)") v)
+  (let x (push (check_source
+            "(def main ((input (list int))) (list bool) (nil bool))") w)
+  (let y (push (check_source (append "(def f ((a int)) int (g a)) "
+                              (both "(def g ((a bool)) int 0)"))) x)
+  (let z (push (check_source (both "(def f ((a int)) int (f a a))")) y)
+    (rev z)))))))))))))))))))))))))))

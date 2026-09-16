@@ -1,0 +1,365 @@
+; check.l0 -- name resolution and type checking.
+;
+; The checker only validates; it produces no annotated tree. That is possible
+; because every L0 value is an i64 in the emitted IR (spec section 10.1), so
+; the emitter needs no type information at all. Keeping the checker free of
+; the obligation to rebuild the AST is the main reason it stays short.
+;
+; Checking reports at most one error per declaration and then moves to the
+; next, matching the stage-0 interpreter, so one run surfaces many problems.
+
+(data Diag
+  (D int (list int)))                   ; offset, message
+
+(data Bind
+  (B (list int) Ty))                    ; name, type
+
+(data Sig
+  (S (list int) (list Ty) Ty))          ; name, parameter types, return type
+
+(data FindSig
+  (SigFound Sig)
+  (SigMissing))
+
+(data FindTy
+  (TyFound Ty)
+  (TyMissing))
+
+; Either the type of an expression, or the first error found in it.
+(data CTy
+  (CTyOk Ty)
+  (CTyErr int (list int)))
+
+(data CTys
+  (CTysOk (list Ty))
+  (CTysErr int (list int)))
+
+(def rev_diags_onto ((xs (list Diag)) (acc (list Diag))) (list Diag)
+  (if (is_empty xs)
+      acc
+      (rev_diags_onto (tail xs) (cons (head xs) acc))))
+
+(def rev_tys_onto ((xs (list Ty)) (acc (list Ty))) (list Ty)
+  (if (is_empty xs)
+      acc
+      (rev_tys_onto (tail xs) (cons (head xs) acc))))
+
+; ---------------------------------------------------------------- lookups
+
+(def find_bind ((n (list int)) (env (list Bind))) FindTy
+  (if (is_empty env)
+      (TyMissing)
+      (match (head env)
+        ((B bn bt)
+          (if (list_eq n bn) (TyFound bt) (find_bind n (tail env)))))))
+
+(def find_sig ((n (list int)) (sigs (list Sig))) FindSig
+  (if (is_empty sigs)
+      (SigMissing)
+      (match (head sigs)
+        ((S sn sp sr)
+          (if (list_eq n sn)
+              (SigFound (head sigs))
+              (find_sig n (tail sigs)))))))
+
+; --------------------------------------------------------------- builtins
+
+(def bi_int_int_int ((i int)) (list (list int)) (split_spaces "add sub mul div mod"))
+(def bi_int_int_bool ((i int)) (list (list int)) (split_spaces "lt le gt ge eq"))
+(def bi_bool_bool ((i int)) (list (list int)) (split_spaces "and or"))
+(def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
+
+(def is_builtin ((n (list int))) bool
+  (or (any_eq n (bi_int_int_int 0))
+      (or (any_eq n (bi_int_int_bool 0))
+          (or (any_eq n (bi_bool_bool 0))
+              (or (any_eq n (bi_list_ops 0))
+                  (or (list_eq n "neg") (list_eq n "not")))))))
+
+(def builtin_arity ((n (list int))) int
+  (if (or (list_eq n "neg")
+          (or (list_eq n "not")
+              (or (list_eq n "head")
+                  (or (list_eq n "tail") (list_eq n "is_empty")))))
+      1
+      2))
+
+(def plural ((n int) (word (list int))) (list int)
+  (if (eq n 1) word (append word "s")))
+
+(def wrong_arity_msg ((n (list int)) (want int) (got int)) (list int)
+  (append n (append " takes " (append (digits want)
+    (append " " (append (plural want "argument")
+      (append ", but got " (digits got))))))))
+
+(def type_msg ((what (list int)) (want (list int)) (got Ty)) (list int)
+  (append what (append " must be " (append want
+    (append ", but this is " (ty_str got))))))
+
+; Applies a builtin's typing rule to already-checked argument types.
+(def check_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
+  (if (not (eq (length_tys ats) (builtin_arity n)))
+      (CTyErr o (wrong_arity_msg n (builtin_arity n) (length_tys ats)))
+      (if (any_eq n (bi_int_int_int 0))
+          (need_all n ats o (TyInt) (TyInt))
+          (if (any_eq n (bi_int_int_bool 0))
+              (need_all n ats o (TyInt) (TyBool))
+              (if (any_eq n (bi_bool_bool 0))
+                  (need_all n ats o (TyBool) (TyBool))
+                  (if (list_eq n "neg")
+                      (need_all n ats o (TyInt) (TyInt))
+                      (if (list_eq n "not")
+                          (need_all n ats o (TyBool) (TyBool))
+                          (check_list_builtin n ats o))))))))
+
+(def length_tys ((ts (list Ty))) int
+  (if (is_empty ts) 0 (add 1 (length_tys (tail ts)))))
+
+; Every argument must have type want; the result is res.
+(def need_all ((n (list int)) (ats (list Ty)) (o int) (want Ty) (res Ty)) CTy
+  (if (is_empty ats)
+      (CTyOk res)
+      (if (ty_eq (head ats) want)
+          (need_all n (tail ats) o want res)
+          (CTyErr o (type_msg (append "an argument of " n) (ty_str want)
+                              (head ats))))))
+
+; cons, head, tail, and is_empty are polymorphic in the element type, which
+; the list argument determines. No inference is needed anywhere.
+(def check_list_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
+  (if (list_eq n "cons")
+      (check_cons ats o)
+      (let a (head ats)
+        (if (not (ty_is_list a))
+            (CTyErr o (type_msg n "a list" a))
+            (if (list_eq n "head")
+                (CTyOk (ty_elem a))
+                (if (list_eq n "tail")
+                    (CTyOk a)
+                    (CTyOk (TyBool))))))))
+
+(def check_cons ((ats (list Ty)) (o int)) CTy
+  (let x (head ats)
+    (let xs (head (tail ats))
+      (if (not (ty_is_list xs))
+          (CTyErr o (type_msg "the second argument of cons" "a list" xs))
+          (if (ty_eq x (ty_elem xs))
+              (CTyOk xs)
+              (CTyErr o (type_msg "the element consed onto a list"
+                                  (ty_str (ty_elem xs)) x)))))))
+
+; ------------------------------------------------------------ expressions
+
+(def check_expr ((e Expr) (env (list Bind)) (sigs (list Sig))) CTy
+  (match e
+    ((EInt o v) (CTyOk (TyInt)))
+    ((EBool o v) (CTyOk (TyBool)))
+    ((EStr o s) (CTyOk (TyList (TyInt))))
+    ((ENil o elem) (CTyOk (TyList elem)))
+    ((EVar o n) (check_var o n env sigs))
+    ((EIf o c a b) (check_if o c a b env sigs))
+    ((ELet o n v body) (check_let o n v body env sigs))
+    ((ECall o n args) (check_call o n args env sigs))))
+
+(def check_var ((o int) (n (list int)) (env (list Bind)) (sigs (list Sig))) CTy
+  (match (find_bind n env)
+    ((TyFound t) (CTyOk t))
+    ((TyMissing)
+      (if (or (is_builtin n) (sig_exists n sigs))
+          (CTyErr o (append n " is a function, and L0 has no function values"))
+          (CTyErr o (append "unknown variable " n))))))
+
+(def sig_exists ((n (list int)) (sigs (list Sig))) bool
+  (match (find_sig n sigs)
+    ((SigFound s) true)
+    ((SigMissing) false)))
+
+(def if_branch_msg ((at Ty) (bt Ty)) (list int)
+  (append "the branches of an if must have the same type, but then is "
+    (append (ty_str at) (append " and else is " (ty_str bt)))))
+
+(def check_if ((o int) (c Expr) (a Expr) (b Expr) (env (list Bind))
+               (sigs (list Sig))) CTy
+  (match (check_expr c env sigs)
+    ((CTyErr eo m) (CTyErr eo m))
+    ((CTyOk ct)
+      (if (not (ty_eq ct (TyBool)))
+          (CTyErr o (type_msg "the condition of an if" "bool" ct))
+          (check_if_branches o a b env sigs)))))
+
+(def check_if_branches ((o int) (a Expr) (b Expr) (env (list Bind))
+                        (sigs (list Sig))) CTy
+  (match (check_expr a env sigs)
+    ((CTyErr eo m) (CTyErr eo m))
+    ((CTyOk at)
+      (match (check_expr b env sigs)
+        ((CTyErr eo m) (CTyErr eo m))
+        ((CTyOk bt)
+          (if (ty_eq at bt)
+              (CTyOk at)
+              (CTyErr o (if_branch_msg at bt))))))))
+
+(def check_let ((o int) (n (list int)) (v Expr) (body Expr) (env (list Bind))
+                (sigs (list Sig))) CTy
+  (match (check_expr v env sigs)
+    ((CTyErr eo m) (CTyErr eo m))
+    ((CTyOk vt) (check_expr body (cons (B n vt) env) sigs))))
+
+(def check_args ((args (list Expr)) (env (list Bind)) (sigs (list Sig))
+                 (acc (list Ty))) CTys
+  (if (is_empty args)
+      (CTysOk (rev_tys_onto acc (nil Ty)))
+      (match (check_expr (head args) env sigs)
+        ((CTyErr o m) (CTysErr o m))
+        ((CTyOk t) (check_args (tail args) env sigs (cons t acc))))))
+
+(def check_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
+                 (sigs (list Sig))) CTy
+  (match (check_args args env sigs (nil Ty))
+    ((CTysErr eo m) (CTyErr eo m))
+    ((CTysOk ats)
+      (if (is_builtin n)
+          (check_builtin n ats o)
+          (match (find_sig n sigs)
+            ((SigMissing) (check_call_missing o n env))
+            ((SigFound s) (check_user_call o n ats s)))))))
+
+(def check_call_missing ((o int) (n (list int)) (env (list Bind))) CTy
+  (match (find_bind n env)
+    ((TyFound t)
+      (CTyErr o (append n
+        " is a local value, and L0 cannot call a value")))
+    ((TyMissing) (CTyErr o (append "unknown function " n)))))
+
+(def check_user_call ((o int) (n (list int)) (ats (list Ty)) (s Sig)) CTy
+  (match s
+    ((S sn sps sr)
+      (if (not (eq (length_tys ats) (length_tys sps)))
+          (CTyErr o (wrong_arity_msg n (length_tys sps) (length_tys ats)))
+          (match (match_params n ats sps o 1)
+            ((CTyErr eo m) (CTyErr eo m))
+            ((CTyOk ignored) (CTyOk sr)))))))
+
+(def match_params ((n (list int)) (ats (list Ty)) (sps (list Ty)) (o int)
+                   (i int)) CTy
+  (if (is_empty ats)
+      (CTyOk (TyInt))
+      (if (ty_eq (head ats) (head sps))
+          (match_params n (tail ats) (tail sps) o (add i 1))
+          (CTyErr o (type_msg
+            (append "argument " (append (digits i) (append " of " n)))
+            (ty_str (head sps)) (head ats))))))
+
+; ----------------------------------------------------------- declarations
+
+(def collect_sigs ((ds (list Decl)) (acc (list Sig))) (list Sig)
+  (if (is_empty ds)
+      acc
+      (match (head ds)
+        ((DDef o n ps ret body)
+          (collect_sigs (tail ds) (cons (S n (param_tys ps) ret) acc))))))
+
+(def param_tys ((ps (list Param))) (list Ty)
+  (if (is_empty ps)
+      (nil Ty)
+      (match (head ps)
+        ((P n t) (cons t (param_tys (tail ps)))))))
+
+(def params_to_env ((ps (list Param)) (env (list Bind))) (list Bind)
+  (if (is_empty ps)
+      env
+      (match (head ps)
+        ((P n t) (params_to_env (tail ps) (cons (B n t) env))))))
+
+; A parameter name repeated in one function.
+(def dup_param ((ps (list Param)) (seen (list (list int)))) (list int)
+  (if (is_empty ps)
+      (nil int)
+      (match (head ps)
+        ((P n t)
+          (if (any_eq n seen)
+              n
+              (dup_param (tail ps) (cons n seen)))))))
+
+(def one_diag ((o int) (m (list int))) (list Diag)
+  (cons (D o m) (nil Diag)))
+
+(def ret_mismatch_msg ((n (list int)) (ret Ty) (bt Ty)) (list int)
+  (append n (append " declares return type "
+    (append (ty_str ret) (append ", but its body is " (ty_str bt))))))
+
+(def check_decl ((d Decl) (sigs (list Sig))) (list Diag)
+  (match d
+    ((DDef o n ps ret body)
+      (let dup (dup_param ps (nil (list int)))
+        (if (not (is_empty dup))
+            (one_diag o (append "parameter " (append dup " is declared twice")))
+            (check_body o n ps ret body sigs))))))
+
+(def check_body ((o int) (n (list int)) (ps (list Param)) (ret Ty)
+                 (body Expr) (sigs (list Sig))) (list Diag)
+  (match (check_expr body (params_to_env ps (nil Bind)) sigs)
+    ((CTyErr eo m) (one_diag eo m))
+    ((CTyOk bt)
+      (if (ty_eq bt ret)
+          (nil Diag)
+          (one_diag o (ret_mismatch_msg n ret bt))))))
+
+(def decl_name ((d Decl)) (list int)
+  (match d ((DDef o n ps ret body) n)))
+
+(def decl_offset ((d Decl)) int
+  (match d ((DDef o n ps ret body) o)))
+
+(def check_dups ((ds (list Decl)) (seen (list (list int)))
+                 (acc (list Diag))) (list Diag)
+  (if (is_empty ds)
+      acc
+      (let n (decl_name (head ds))
+        (if (any_eq n seen)
+            (check_dups (tail ds) seen
+              (cons (D (decl_offset (head ds))
+                       (append "function " (append n " is already defined")))
+                    acc))
+            (check_dups (tail ds) (cons n seen) acc)))))
+
+(def check_decls ((ds (list Decl)) (sigs (list Sig)) (acc (list Diag)))
+    (list Diag)
+  (if (is_empty ds)
+      acc
+      (check_decls (tail ds) sigs
+        (prepend_diags (check_decl (head ds) sigs) acc))))
+
+(def prepend_diags ((xs (list Diag)) (acc (list Diag))) (list Diag)
+  (if (is_empty xs)
+      acc
+      (prepend_diags (tail xs) (cons (head xs) acc))))
+
+; main must exist, take one (list int), and return int, bool, or (list int).
+(def check_main ((sigs (list Sig))) (list Diag)
+  (match (find_sig "main" sigs)
+    ((SigMissing) (cons (D 0 "this program has no main function") (nil Diag)))
+    ((SigFound s)
+      (match s
+        ((S n ps ret)
+          (if (not (eq (length_tys ps) 1))
+              (cons (D 0 "main must take one parameter of type (list int)")
+                    (nil Diag))
+              (if (not (ty_eq (head ps) (TyList (TyInt))))
+                  (cons (D 0 "main must take one parameter of type (list int)")
+                        (nil Diag))
+                  (if (main_ret_ok ret)
+                      (nil Diag)
+                      (cons (D 0
+                        "main must return (list int), int, or bool")
+                        (nil Diag))))))))))
+
+(def main_ret_ok ((t Ty)) bool
+  (or (ty_eq t (TyInt))
+      (or (ty_eq t (TyBool)) (ty_eq t (TyList (TyInt))))))
+
+(def check_program ((ds (list Decl))) (list Diag)
+  (let sigs (collect_sigs ds (nil Sig))
+    (rev_diags_onto
+      (check_decls ds sigs (check_dups ds (nil (list int)) (nil Diag)))
+      (check_main sigs))))

@@ -1,0 +1,62 @@
+; main.l0 -- the compiler's entry point and output protocol.
+;
+; The compiler is a pure byte function: L0 source in, LLVM IR text out. It has
+; exactly one output channel, so success and failure are distinguished by a
+; tag on the first line:
+;
+;   "O\n" followed by LLVM IR
+;   "E\n" followed by diagnostics, one per line
+;
+; tools/l0c strips the tag, routes the rest to stdout or stderr, and sets the
+; exit status. This settles the open question recorded in spec/changelog.md,
+; and needs no language feature: it is a protocol on the channel L0 already
+; provides.
+
+; Tokens carry byte offsets, so line and column are recovered here by scanning
+; the source. Diagnostics are rare, so the cost of scanning per diagnostic
+; does not matter, and the front end stays free of line tracking.
+(def line_at ((src (list int)) (off int) (i int) (line int)) int
+  (if (is_empty src)
+      line
+      (if (ge i off)
+          line
+          (line_at (tail src) off (add i 1)
+            (if (eq (head src) 10) (add line 1) line)))))
+
+(def col_at ((src (list int)) (off int) (i int) (col int)) int
+  (if (is_empty src)
+      col
+      (if (ge i off)
+          col
+          (col_at (tail src) off (add i 1)
+            (if (eq (head src) 10) 1 (add col 1))))))
+
+(def render_diag ((src (list int)) (d Diag)) (list int)
+  (match d
+    ((D o m)
+      (append (digits (line_at src o 0 1))
+        (append ":" (append (digits (col_at src o 0 1))
+          (append ": error: " (append m "\n"))))))))
+
+(def render_diags ((src (list int)) (ds (list Diag)) (acc (list int)))
+    (list int)
+  (if (is_empty ds)
+      acc
+      (render_diags src (tail ds) (push (render_diag src (head ds)) acc))))
+
+(def failure ((src (list int)) (ds (list Diag))) (list int)
+  (append "E\n" (rev (render_diags src ds (nil int)))))
+
+(def compile ((src (list int))) (list int)
+  (match (parse_program (lex src))
+    ((PPErr o m) (failure src (cons (D o m) (nil Diag))))
+    ((PPOk ds) (compile_checked src ds))))
+
+(def compile_checked ((src (list int)) (ds (list Decl))) (list int)
+  (let diags (check_program ds)
+    (if (is_empty diags)
+        (append "O\n" (emit_module ds))
+        (failure src diags))))
+
+(def main ((input (list int))) (list int)
+  (compile input))

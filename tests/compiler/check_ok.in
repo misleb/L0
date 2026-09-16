@@ -1,0 +1,22 @@
+(def count ((xs (list int))) int
+  (if (is_empty xs) 0 (add 1 (count (tail xs)))))
+
+(def shadow ((x int)) int
+  (let x (add x 1) (let x (mul x 10) x)))
+
+(def poly ((xs (list (list int)))) int
+  (if (is_empty xs) 0 (length_of (head xs))))
+
+(def length_of ((xs (list int))) int
+  (if (is_empty xs) 0 (add 1 (length_of (tail xs)))))
+
+(def bools ((a bool) (b bool)) bool
+  (and (or a b) (not (and a b))))
+
+(def strs ((ignored int)) (list int) "hello\n")
+
+(def mutual_a ((n int)) bool (if (eq n 0) true (mutual_b (sub n 1))))
+(def mutual_b ((n int)) bool (if (eq n 0) false (mutual_a (sub n 1))))
+
+(def main ((input (list int))) (list int)
+  (if (mutual_a (count input)) (strs 0) (cons 110 (nil int))))

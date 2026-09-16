@@ -11,31 +11,40 @@ New entries go at the top.
 
 Not yet decided. Listed here so they are not mistaken for oversights.
 
-### How does the compiler report that compilation failed?
+### How does a diagnostic name which file it came from?
 
-Section 9 gives `main` a single output channel, and for the L0 compiler that
-channel carries LLVM IR. There is currently **no defined way for a compiled L0
-program to distinguish "here is my output" from "I failed, and here is why."**
+The compiler reads one concatenated stream, so it can report `line:column` but
+not `file:line:column`. That is a regression from the stage-0 interpreter,
+which reads files separately and names them.
 
-This becomes a blocker in Phase 2 rather than a curiosity, because once
-`stage0/` is deleted the L0 compiler is the only type checker in existence, so
-it has to be able to emit diagnostics for bad input. `tools/l0check` depends on
-stage 0 today and has nowhere to go after that.
+The answer has the same shape as the resolved question below: a host-side
+protocol rather than a language feature. The host would pass a bundle with
+filenames and lengths in a header, and the compiler would map offsets back to
+files. Nothing about L0 needs to change.
 
-The likely answer is a protocol on the existing channel rather than a language
-feature: have `main` return a tagged stream, where a leading byte distinguishes
-success from failure and the host demultiplexes to stdout or stderr and sets
-the exit status. That needs no change to L0 at all, which is why this is
-recorded as an open question rather than a feature request.
+This is not urgent. It costs nothing during the bootstrap, where the compiler
+source is expected to be valid, and matters only for the quality of diagnostics
+shown to someone writing L0.
 
-A closely related question, with the same shape of answer, is that a compiler
-reading `cat compiler/*.l0` on one stream cannot report `file:line:column`, only
-an offset into a concatenation — a real regression from what stage 0 reports
-today. The fix is again a host-side protocol: the host passes a bundle with
-filenames and lengths in a header, and the compiler maps offsets back to files.
+---
 
-Both are worth settling together, since they are the same design decision about
-how much structure the single byte channel carries.
+## Compiler output protocol — resolved
+
+The question of how a compiled program distinguishes "here is my output" from
+"I failed, and here is why" is settled, and needed no language change.
+
+`main` returns a **tagged stream**: `O` and a newline followed by LLVM IR, or
+`E` and a newline followed by diagnostics, one per line.
+[tools/l0c](../tools/l0c) strips the tag, routes the remainder to stdout or
+stderr, and sets the exit status, so callers see an ordinary unix compiler.
+
+A printable tag was chosen over a leading zero byte so that raw compiler
+output stays readable under `head` while debugging.
+
+This confirms the reasoning recorded when the question was opened: a pure
+`bytes -> bytes` function plus a slightly richer host protocol goes much
+further than it appears, and the things that look like they need I/O
+primitives usually do not.
 
 ---
 

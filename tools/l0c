@@ -1,0 +1,60 @@
+#!/bin/sh
+# Compiles L0 source to LLVM IR text on stdout.
+#
+# Usage: tools/l0c [FILE.l0 ...] > out.ll
+#
+# With no files, reads source on stdin. With several, they are concatenated,
+# which is all that "linking" means in a language with no module system.
+#
+# The compiler itself is a pure byte function with one output channel, so it
+# tags its output: "O" then IR, or "E" then diagnostics. This script strips
+# the tag, sends diagnostics to stderr, and sets the exit status, so callers
+# see an ordinary unix compiler.
+#
+# It runs the compiler natively when build/l0c-native exists and under the
+# stage-0 interpreter otherwise, so the interface does not change as the
+# bootstrap progresses.
+
+set -eu
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+. "$ROOT/tools/env.sh"
+cd "$ROOT"
+
+COMPILER_SOURCES="compiler/prelude.l0 compiler/lex.l0 compiler/parse.l0 compiler/check.l0 compiler/emit.l0 compiler/main.l0"
+
+mkdir -p "$BUILD"
+IN="$BUILD/l0c-in.$$"
+OUT="$BUILD/l0c-out.$$"
+trap 'rm -f "$IN" "$OUT"' EXIT
+
+if [ $# -gt 0 ]; then
+    cat "$@" > "$IN"
+else
+    cat > "$IN"
+fi
+
+if [ -x "$BUILD/l0c-native" ]; then
+    "$BUILD/l0c-native" < "$IN" > "$OUT"
+else
+    if [ ! -x "$BUILD/l0i" ]; then
+        "$ROOT/tools/build.sh" > /dev/null
+    fi
+    # shellcheck disable=SC2086
+    "$BUILD/l0i" run $COMPILER_SOURCES < "$IN" > "$OUT"
+fi
+
+case "$(head -n 1 "$OUT")" in
+    O)
+        tail -n +2 "$OUT"
+        ;;
+    E)
+        tail -n +2 "$OUT" >&2
+        exit 1
+        ;;
+    *)
+        echo "l0c: compiler produced untagged output" >&2
+        head -n 5 "$OUT" >&2
+        exit 2
+        ;;
+esac

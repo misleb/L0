@@ -16,22 +16,49 @@ specification is not documentation here; it is the substrate.
 
 ## Status
 
-Phase 1 is complete. The language is specified, runs, and is tested. No L0
-compiler has been written yet.
+The compiler exists and works on a subset of the language. It is written in
+L0, it compiles L0 to LLVM IR, and the result runs.
 
 - `spec/L0.md` — L0 v1, complete
 - `runtime/` — value representation, allocation, and host I/O, in C
 - `stage0/l0i.c` — an interpreter for all of L0 v1, in C, deliberately
   disposable
-- `tests/` — 45 golden test cases, 115 in-language assertions
-- `compiler/` — not started
+- `compiler/*.l0` — lexer, parser, checker, and emitter, **written in L0**,
+  covering everything except `data` declarations and `match`
+- `tests/` — 51 golden test cases, plus a differential suite
+
+Self-compilation has not been attempted. The compiler's own source uses
+`data` and `match` heavily, so it cannot yet compile itself; teaching it those
+two constructs is the remaining work before a fixpoint is possible.
 
 ## Quick start
 
 ```bash
 tools/build.sh        # needs LLVM; set LLVM_PREFIX if not /opt/homebrew/opt/llvm
 tools/test.sh         # all suites
+tools/test.sh --compiled   # the differential suite, described below
 ```
+
+Compile a program with the L0 compiler and run it:
+
+```bash
+tools/l0c hello.l0 > hello.ll
+tools/l0ll hello.ll hello
+./hello
+```
+
+## How the compiler is tested
+
+The strongest signal is differential. `tools/test.sh --compiled` compiles each
+program in `tests/lang/` with the L0 compiler, links it, runs it, and compares
+against the very same expectations the stage-0 interpreter is held to. The
+oracle is an independent implementation rather than expectations written by
+whoever wrote the compiler.
+
+Programs using constructs the compiler does not support yet are skipped
+automatically, so coverage grows on its own as the compiler gains features.
+Any *other* compile failure is a real failure: the interpreter accepts the
+program, so the compiler must too.
 
 Write a program:
 

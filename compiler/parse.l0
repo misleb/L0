@@ -31,6 +31,38 @@
 (data Decl
   (DDef int (list int) (list Param) Ty Expr))
 
+; ----------------------------------------------------------------- on types
+
+(def ty_kind ((t Ty)) int
+  (match t
+    ((TyInt) 0)
+    ((TyBool) 1)
+    ((TyList e) 2)))
+
+(def ty_is_list ((t Ty)) bool (eq (ty_kind t) 2))
+
+; The element type of a list. The result is meaningless for non-lists, which
+; callers guard with ty_is_list.
+(def ty_elem ((t Ty)) Ty
+  (match t
+    ((TyList e) e)
+    ((TyInt) (TyInt))
+    ((TyBool) (TyBool))))
+
+(def ty_eq ((a Ty) (b Ty)) bool
+  (if (not (eq (ty_kind a) (ty_kind b)))
+      false
+      (if (ty_is_list a)
+          (ty_eq (ty_elem a) (ty_elem b))
+          true)))
+
+; Renders a type as spec-legal source text, for diagnostics.
+(def ty_str ((t Ty)) (list int)
+  (match t
+    ((TyInt) "int")
+    ((TyBool) "bool")
+    ((TyList e) (append "(list " (append (ty_str e) ")")))))
+
 (data PTy
   (PTOk Ty (list Token))
   (PTErr int (list int)))

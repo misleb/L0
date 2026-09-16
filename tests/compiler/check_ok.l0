@@ -1,0 +1,5 @@
+; Valid programs must produce no diagnostics at all. Reads stdin so the same
+; harness can be pointed at any .l0 file.
+
+(def main ((input (list int))) (list int)
+  (check_source input))

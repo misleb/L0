@@ -110,3 +110,27 @@
       (append "parse error at offset " (append (digits o) (append ": "
         (append m "\n")))))
     ((PPOk ds) (rev (fmt_decls_onto ds (nil int))))))
+
+; ------------------------------------------------------------- diagnostics
+
+(def fmt_diag ((d Diag)) (list int)
+  (match d
+    ((D o m) (append (digits o) (append ": " m)))))
+
+(def fmt_diags_onto ((ds (list Diag)) (acc (list int))) (list int)
+  (if (is_empty ds)
+      acc
+      (fmt_diags_onto (tail ds) (push "\n" (push (fmt_diag (head ds)) acc)))))
+
+(def fmt_diags ((ds (list Diag))) (list int)
+  (if (is_empty ds)
+      "ok\n"
+      (rev (fmt_diags_onto ds (nil int)))))
+
+; Runs the front end over one source string and renders whatever comes back.
+(def check_source ((src (list int))) (list int)
+  (match (parse_program (lex src))
+    ((PPErr o m)
+      (append "parse error at offset " (append (digits o)
+        (append ": " (append m "\n")))))
+    ((PPOk ds) (fmt_diags (check_program ds)))))

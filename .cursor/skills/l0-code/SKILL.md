@@ -142,6 +142,37 @@ backwards, so one `rev` at the very end puts it right:
 
 Never call `rev` in a loop or per chunk. Exactly once, at the end.
 
+## Keep nesting shallow, or you will miscount parentheses
+
+This is the most common way to waste time writing L0, and it was the cause of
+every parse error hit while writing the compiler. A chain of six `if`s or ten
+`or`s ends in a run of a dozen `)`, and getting that run wrong is easy and the
+resulting error points at the start of the form rather than the mistake.
+
+Three fixes, in order of preference:
+
+**Test membership with a word table instead of an `or` chain.** `split_spaces`
+and `any_eq` in [compiler/prelude.l0](../../../compiler/prelude.l0) turn a
+ten-deep nest into one flat line:
+
+```
+(def is_reserved ((n (list int))) bool
+  (any_eq n (split_spaces "def data if let match nil true false int bool list")))
+```
+
+`index_of` does the same for dispatch tables, mapping a name to a position so
+two parallel tables can be indexed together.
+
+**Collapse a `match` to a predicate.** `match` has no wildcard, so inspecting
+a six-constructor type inline costs six lines every time. Write the match once
+as a `kind` function returning an int, then build predicates on it; see
+`tok_kind` and `tok_is_lparen` in [compiler/lex.l0](../../../compiler/lex.l0).
+
+**Split the function.** A function whose body nests more than about four
+levels should hand the tail off to a helper. `check_if` and `check_if_branches`
+in [compiler/check.l0](../../../compiler/check.l0) are one expression split at
+the point where nesting got out of hand, and both are readable as a result.
+
 ## Idioms worth copying
 
 Accumulator-passing for iteration, since there are no loops:

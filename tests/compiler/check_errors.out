@@ -1,0 +1,25 @@
+35: the condition of an if must be bool, but this is int
+35: the branches of an if must have the same type, but then is int and else is bool
+35: an argument of add must be int, but this is bool
+35: add takes 2 arguments, but got 1
+35: add takes 2 arguments, but got 3
+35: an argument of neg must be int, but this is bool
+35: an argument of not must be bool, but this is int
+35: an argument of lt must be int, but this is bool
+35: the element consed onto a list must be int, but this is bool
+35: the second argument of cons must be a list, but this is int
+35: head must be a list, but this is int
+0: main declares return type int, but its body is bool
+35: unknown variable nope
+35: unknown function nope
+35: input is a local value, and L0 cannot call a value
+0: main declares return type int, but its body is (list int)
+0: main declares return type int, but its body is bool
+0: parameter a is declared twice
+24: function f is already defined
+0: this program has no main function
+0: main must take one parameter of type (list int)
+0: main declares return type bool, but its body is int
+0: main must return (list int), int, or bool
+21: argument 1 of g must be bool, but this is int
+21: f takes 1 argument, but got 2
