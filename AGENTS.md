@@ -19,11 +19,18 @@ the bug, and the fix belongs in the spec.
 that looks plausible is routinely invalid, because L0 is not any language you
 have seen.
 
-**`tools/test.sh` must be green before any change is done.** No exceptions for
-small changes.
+**`tools/test.sh` and `tools/test.sh --compiled` must both be green before any
+change is done.** No exceptions for small changes.
+
+**`stage0/l0i.c` is frozen. Do not extend it.** It is no longer part of the
+bootstrap. It is kept as an independent implementation so the compiled suite
+has an oracle that is not the code under test, and editing it to agree with
+the compiler destroys exactly that.
 
 **`--bless` overwrites the definition of correct.** Use it only for a deliberate
-change, and always read the `git diff` afterward.
+change, and always read the `git diff` afterward. It is refused together with
+`--compiled`, because blessing the compiled suite from compiler output would
+remove the only independent check on the compiler.
 
 **Never hand-edit generated files.** Anything under `build/` is reproducible
 from source. `bootstrap/stage2.ll`, once it exists, is compiler output and is
@@ -47,10 +54,12 @@ that this file deliberately omits.
 ```
 spec/          L0.md (the language) and changelog.md (why it is that way)
 runtime/       permanent C: value representation, allocation, host I/O
-stage0/        disposable C interpreter, deleted once the fixpoint holds
 compiler/      the L0 compiler, written in L0
-tests/         backend (hand-written IR), lang (must run), check (must fail)
-tools/         build.sh, test.sh, l0check, l0ll
+bootstrap/     stage2.ll, the checked-in seed the compiler is built from
+stage0/        frozen C interpreter, kept only as a differential oracle
+tests/         backend (hand-written IR), lang (must run), check (must fail),
+               compiler (stage tests for the compiler itself)
+tools/         build.sh, test.sh, bootstrap.sh, l0c, l0check, l0ll
 seeds/         the original seed spec, kept for history, superseded by spec/
 ```
 

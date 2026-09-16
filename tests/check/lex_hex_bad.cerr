@@ -1,0 +1,2 @@
+1:32: error: \x needs exactly two hexadecimal digits
+1:1: error: this program has no main function

@@ -1,0 +1,13 @@
+39:21: error: a field binding name must be lowercase and not reserved
+42:3: error: match needs a subject and at least one arm
+9:3: error: match on Shape is missing an arm for Rect
+12:42: error: Red is a constructor of Color, not Shape
+15:22: error: Red already has an arm in this match
+18:12: error: Circle has 1 field, but this pattern binds 2
+21:27: error: Rect has 2 fields, but this pattern binds 1
+24:3: error: the subject of a match must be a data type, but this is int
+27:3: error: the subject of a match must be a data type, but this is (list int)
+30:22: error: all match arms must have the same type, but one is int and another is bool
+33:34: error: unknown constructor Purple
+36:27: error: w is bound twice in the same pattern
+1:1: error: this program has no main function

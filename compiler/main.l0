@@ -47,16 +47,22 @@
 (def failure ((src (list int)) (ds (list Diag))) (list int)
   (append "E\n" (rev (render_diags src ds (nil int)))))
 
+; Declarations that failed to parse are dropped, and the rest are still type
+; checked, so one bad declaration does not hide type errors everywhere else.
+; Emission happens only when nothing at all was reported, so a partial AST is
+; never compiled.
 (def compile ((src (list int))) (list int)
   (match (parse_program (lex src))
-    ((PPErr o m) (failure src (cons (D o m) (nil Diag))))
-    ((PPOk ds) (compile_checked src ds))))
+    ((PP ds perrs)
+      (let all (append_diags perrs (check_program ds))
+        (if (is_empty all)
+            (append "O\n" (emit_module ds))
+            (failure src all))))))
 
-(def compile_checked ((src (list int)) (ds (list Decl))) (list int)
-  (let diags (check_program ds)
-    (if (is_empty diags)
-        (append "O\n" (emit_module ds))
-        (failure src diags))))
+(def append_diags ((xs (list Diag)) (ys (list Diag))) (list Diag)
+  (if (is_empty xs)
+      ys
+      (cons (head xs) (append_diags (tail xs) ys))))
 
 (def main ((input (list int))) (list int)
   (compile input))

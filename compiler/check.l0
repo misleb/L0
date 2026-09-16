@@ -9,9 +9,6 @@
 ; Checking reports at most one error per declaration and then moves to the
 ; next, matching the stage-0 interpreter, so one run surfaces many problems.
 
-(data Diag
-  (D int (list int)))                   ; offset, message
-
 (data Bind
   (B (list int) Ty))                    ; name, type
 

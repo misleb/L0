@@ -1,0 +1,13 @@
+5:37: error: the condition of an if must be bool, but this is int
+6:40: error: the branches of an if must have the same type, but then is int and else is bool
+7:1: error: return_type_wrong declares return type bool, but its body is int
+8:35: error: an argument of add must be int, but this is bool
+9:34: error: add takes 2 arguments, but got 1
+10:35: error: add takes 2 arguments, but got 3
+11:35: error: an argument of neg must be int, but this is bool
+12:36: error: an argument of not must be bool, but this is int
+13:36: error: an argument of and must be bool, but this is int
+14:40: error: an argument of lt must be int, but this is bool
+15:37: error: argument 1 of call_arg_wrong must be bool, but this is int
+16:45: error: call_count_wrong takes 2 arguments, but got 1
+1:1: error: this program has no main function

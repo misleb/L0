@@ -21,11 +21,13 @@ implementation that runs ahead of it produces code no future agent can justify.
 ```
 1. spec/L0.md        state the new rule precisely
 2. spec/changelog.md record what changed and WHY, with the blocker
-3. stage0/l0i.c      reader, then checker, then evaluator
+3. compiler/*.l0     lexer, parser, checker, emitter (see two-step below)
 4. tests/            a passing case and a failing case for every new rule
-5. compiler/*.l0     teach the L0 compiler to compile it (see two-step below)
-6. tools/test.sh     green, then the bootstrap green
+5. tools/test.sh     green, and tools/test.sh --compiled green
+6. tools/bootstrap.sh --refresh-seed, and commit the seed
 ```
+
+**Do not touch `stage0/l0i.c`.** It is frozen; see below.
 
 Skipping step 2 is the most common mistake and the most costly, because the
 reason a feature exists is exactly what is unrecoverable later. The changelog is
@@ -53,34 +55,45 @@ last working compiler cannot compile. Nothing in the chain can then build it,
 and the only ways out are hand-editing generated IR or reverting. Neither is
 pleasant.
 
-**Step 1b is not optional once `stage0/` is deleted, and its position between
-the two steps is the whole point.** The seed is a frozen compiler, so it can
-only compile features that existed when it was cut. Refreshing after step 2 is
-too late: your working tree keeps building because it already has a current
-compiler, while a fresh clone becomes unbuildable because its only entry point
-never learned the feature. Nothing you can run locally will reveal that, which
-is what makes the ordering worth the ceremony.
+**Step 1b is not optional, and its position between the two steps is the whole
+point.** The seed is a frozen compiler, so it can only compile features that
+existed when it was cut. Refreshing after step 2 is too late: your working
+tree keeps building because it already has a current compiler, while a fresh
+clone becomes unbuildable because its only entry point never learned the
+feature. Nothing you can run locally will reveal that, which is what makes the
+ordering worth the ceremony.
 
-While `stage0/` still exists there is no seed and step 1b does nothing, so the
-rule costs nothing to follow from the start.
+`tools/bootstrap.sh` prints `SEED: STALE` when the seed no longer reproduces
+itself from the current source. That is a warning, not an error, because a
+stale seed still builds; it becomes a real problem only at step 2.
 
 The same rule applies to *removing* or changing the meaning of a feature, in
 reverse: stop using it, bootstrap, refresh the seed, then drop support, then
 bootstrap again.
 
-## Keeping the implementations honest
+## Stage 0 is frozen
 
-Until the fixpoint is reached, L0 has two implementations: `stage0/l0i.c` and
-`compiler/*.l0`. Every feature must land in both. This duplication is temporary
-and is the reason stage 0 is deliberately minimal and disposable.
+`stage0/l0i.c` is an interpreter for L0 as it stood when self-hosting was
+reached. **Do not extend it for new language features.** It is no longer part
+of the bootstrap, which runs entirely from `bootstrap/stage2.ll`, so adding a
+feature to it buys nothing.
 
-Once `bootstrap/stage2.ll` is checked in and `stage0/` is deleted, there is exactly
-one implementation, and language changes stop needing any host-language work at
-all. Getting there is why the goal is worth pursuing.
+It is kept for one reason: it is an **independent implementation**, and
+`tools/test.sh --compiled` judges the compiler against its behavior rather
+than against expectations written by whoever wrote the compiler. That is the
+strongest testing signal in this project, and it survives only as long as
+stage 0 is not edited to agree with the compiler.
 
-While both exist and they disagree, **the spec decides which is wrong.** Do not
-"fix" one to match the other without first confirming what the spec requires; if
-the spec is silent, that is the actual bug, and the fix belongs in the spec.
+The consequence for a new feature is that programs using it cannot run under
+stage 0. That is expected and handled: the compiled suite skips a program when
+the compiler cannot build it, and a test using a new feature simply has no
+interpreted counterpart. Coverage of the old language stays intact.
+
+If the two disagree on something both support, **the spec decides which is
+wrong.** Do not "fix" either to match the other without first confirming what
+the spec requires; if the spec is silent, that is the actual bug, and the fix
+belongs in the spec. Resist the reflex to edit stage 0, since that is how an
+oracle quietly stops being independent.
 
 ## What makes a good feature
 

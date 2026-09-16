@@ -25,12 +25,9 @@ works.
 - `runtime/` — value representation, allocation, and host I/O, in C
 - `compiler/*.l0` — lexer, parser, checker, and emitter, **written in L0**
 - `bootstrap/stage2.ll` — the compiler, compiled, as checked-in LLVM IR text
-- `stage0/l0i.c` — an interpreter in C, now redundant and awaiting deletion
-- `tests/` — 52 golden test cases, plus a differential suite
-
-Deleting `stage0/` is the remaining step. It is held up only because the
-`tests/lang` and `tests/check` suites still run through the interpreter and
-need repointing at the compiler first.
+- `stage0/l0i.c` — an interpreter in C, now **frozen**: no longer part of the
+  bootstrap, kept as an independent oracle for the differential suite
+- `tests/` — 52 golden test cases, plus 47 run again through the compiler
 
 ## Quick start
 
@@ -50,16 +47,20 @@ tools/l0ll hello.ll hello
 
 ## How the compiler is tested
 
-The strongest signal is differential. `tools/test.sh --compiled` compiles each
-program in `tests/lang/` with the L0 compiler, links it, runs it, and compares
+The strongest signal is differential. `tools/test.sh --compiled` bootstraps
+the compiler from source, then re-runs the whole suite through it and compares
 against the very same expectations the stage-0 interpreter is held to. The
 oracle is an independent implementation rather than expectations written by
 whoever wrote the compiler.
 
-Programs using constructs the compiler does not support yet are skipped
-automatically, so coverage grows on its own as the compiler gains features.
-Any *other* compile failure is a real failure: the interpreter accepts the
-program, so the compiler must too.
+This is why `stage0/` still exists after self-hosting. It is frozen — never
+extended for new language features, because the moment it is edited to agree
+with the compiler it stops being independent. Programs using constructs it
+cannot handle simply skip.
+
+`--bless` is refused together with `--compiled`. Blessing the compiled suite
+from compiler output would replace the oracle with the code under test, which
+is the one mistake that would quietly remove all of this value.
 
 Write a program:
 

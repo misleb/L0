@@ -34,9 +34,30 @@ silent and converts a caught bug into a permanent one.
 - `runtime/l0core.c`, `runtime/l0rt.c` — **permanent.** Value representation,
   allocation, host I/O. Shared with stage 0 so the interpreter and compiled
   code can never disagree about what a value is.
-- `stage0/l0i.c` — **disposable.** Interpreter, deleted once the fixpoint holds.
-- `compiler/*.l0` — the real L0 compiler, written in L0
+- `compiler/*.l0` — the L0 compiler, written in L0
+- `bootstrap/stage2.ll` — the compiler, compiled. The bootstrap entry point.
+- `stage0/l0i.c` — **frozen.** No longer part of the bootstrap, and never
+  extended for new features. Kept solely as an independent implementation for
+  `tools/test.sh --compiled` to judge the compiler against.
 - `tests/backend/*.ll` — hand-written IR pinning down the ABI in spec section 10
+
+## The two suites
+
+`tools/test.sh` runs everything through the stage-0 interpreter.
+`tools/test.sh --compiled` bootstraps the current compiler from source and
+re-runs the same programs through it:
+
+- `tests/lang` — compiled, run, and compared against **the interpreter's**
+  expectations, which is what makes it differential
+- `tests/compiler` — the compiler's own stage tests, against the same goldens
+  both ways, so any divergence between implementations shows up immediately
+- `tests/check` — programs that must be rejected, compared against `.cerr`
+  files holding the compiler's own wording. What matters is that every
+  program the interpreter rejects, the compiler rejects too.
+
+`--compiled` bootstraps first rather than using the checked-in seed, so it
+always tests the current compiler. Using the seed would silently test an old
+one whenever the seed is stale.
 
 ## The bootstrap chain
 

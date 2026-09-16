@@ -27,11 +27,13 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT" # so diagnostics contain stable relative paths
 
 BLESS=0
+BLESS_CHECK=0
 COMPILED=0
 FILTER=""
 for arg in "$@"; do
     case "$arg" in
         --bless) BLESS=1 ;;
+        --bless-check) BLESS_CHECK=1 ;;
         --compiled) COMPILED=1 ;;
         -*)
             echo "unknown option: $arg" >&2
@@ -43,8 +45,15 @@ done
 
 if [ "$COMPILED" = 1 ] && [ "$BLESS" = 1 ]; then
     echo "--compiled and --bless are mutually exclusive: the compiled suite" >&2
-    echo "  must be judged against the interpreter's expectations, never" >&2
-    echo "  against its own output." >&2
+    echo "  is judged against the interpreter's expectations, so blessing it" >&2
+    echo "  from compiler output would destroy the differential property." >&2
+    echo "  To update the compiler's own diagnostics for tests/check, use" >&2
+    echo "  --compiled --bless-check." >&2
+    exit 2
+fi
+
+if [ "$BLESS_CHECK" = 1 ] && [ "$COMPILED" = 0 ]; then
+    echo "--bless-check applies to the compiled suite; add --compiled" >&2
     exit 2
 fi
 
@@ -178,36 +187,116 @@ extra_sources() {
 # failure: the interpreter accepts the program, so the compiler must too.
 
 if [ "$COMPILED" = 1 ]; then
+    # Test the CURRENT compiler, not whatever the checked-in seed happens to
+    # hold. Bootstrapping from source first is the only way to be sure of
+    # that, and it makes --compiled verify the fixpoint as a side effect.
+    # Using a stale seed here would silently test an old compiler.
+    rm -f "$BUILD/l0c-native"
+    if ! ./tools/bootstrap.sh > "$TMP/bootstrap.log" 2>&1; then
+        echo "FAIL: bootstrap failed, so there is no compiler to test with"
+        sed 's/^/    /' "$TMP/bootstrap.log"
+        exit 1
+    fi
+    cp "$BUILD/stage2" "$BUILD/l0c-native"
+
     nskip=0
+
+    # build_exe SUITE NAME SRC STEM -> 0 built, 1 failed, 2 unsupported
+    build_exe() {
+        bsuite=$1
+        bname=$2
+        bsrc=$3
+        bstem=$4
+        # shellcheck disable=SC2046
+        if ! ./tools/l0c "$bsrc" $(extra_sources "$bstem") > "$TMP/$bname.ll" \
+            2> "$TMP/$bname.cerr"; then
+            if grep -q "not supported by this compiler yet" \
+                "$TMP/$bname.cerr"; then
+                return 2
+            fi
+            nfail=$((nfail + 1))
+            failures="$failures $bsuite/$bname"
+            echo "FAIL $bsuite/$bname: compiler rejected a valid program"
+            sed 's/^/    /' "$TMP/$bname.cerr"
+            return 1
+        fi
+        if ! ./tools/l0ll "$TMP/$bname.ll" "$TMP/$bname.exe" \
+            2> "$TMP/$bname.lerr"; then
+            nfail=$((nfail + 1))
+            failures="$failures $bsuite/$bname"
+            echo "FAIL $bsuite/$bname: generated IR did not assemble"
+            sed 's/^/    /' "$TMP/$bname.lerr"
+            return 1
+        fi
+        return 0
+    }
+
+    # Programs that must run. Judged against the interpreter's expectations,
+    # which is what makes this differential rather than self-referential.
     for src in tests/lang/*.l0; do
         [ -f "$src" ] || continue
         name=$(basename "$src" .l0)
         selected "$name" || continue
         stem="tests/lang/$name"
-
-        if ! ./tools/l0c "$src" $(extra_sources "$stem") > "$TMP/$name.ll" \
-            2> "$TMP/$name.cerr"; then
-            if grep -q "not supported by this compiler yet" "$TMP/$name.cerr"; then
-                nskip=$((nskip + 1))
-                continue
-            fi
-            nfail=$((nfail + 1))
-            failures="$failures compiled/$name"
-            echo "FAIL compiled/$name: compiler rejected a valid program"
-            sed 's/^/    /' "$TMP/$name.cerr"
-            continue
-        fi
-
-        if ! ./tools/l0ll "$TMP/$name.ll" "$TMP/$name.exe" \
-            2> "$TMP/$name.lerr"; then
-            nfail=$((nfail + 1))
-            failures="$failures compiled/$name"
-            echo "FAIL compiled/$name: generated IR did not assemble"
-            sed 's/^/    /' "$TMP/$name.lerr"
-            continue
-        fi
-
+        build_exe compiled "$name" "$src" "$stem"
+        case $? in
+            2) nskip=$((nskip + 1)); continue ;;
+            1) continue ;;
+        esac
         run_case compiled "$name" "$stem" "$TMP/$name.exe"
+    done
+
+    # Compiler stage tests, against the very same goldens the interpreted run
+    # uses. These are pure functions of stdin, so any difference at all means
+    # the two implementations disagree.
+    for src in tests/compiler/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        case "$name" in fmt) continue ;; esac
+        selected "$name" || continue
+        stem="tests/compiler/$name"
+        build_exe compiled "$name" "$src" "$stem"
+        case $? in
+            2) nskip=$((nskip + 1)); continue ;;
+            1) continue ;;
+        esac
+        run_case compiled "$name" "$stem" "$TMP/$name.exe"
+    done
+
+    # Programs that must be REJECTED. The compiler's wording differs from the
+    # interpreter's, so these have their own .cerr expectations; what matters
+    # is that every program the interpreter rejects, the compiler rejects too.
+    for src in tests/check/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        cerr="tests/check/$name.cerr"
+
+        if ./tools/l0c "$src" > /dev/null 2> "$TMP/$name.cerr"; then
+            nfail=$((nfail + 1))
+            failures="$failures compiled-check/$name"
+            echo "FAIL compiled-check/$name: compiler ACCEPTED a program the interpreter rejects"
+            continue
+        fi
+
+        if [ "$BLESS_CHECK" = 1 ]; then
+            cp "$TMP/$name.cerr" "$cerr"
+            echo "bless compiled-check/$name"
+            npass=$((npass + 1))
+            continue
+        fi
+        if [ ! -f "$cerr" ]; then
+            nfail=$((nfail + 1))
+            failures="$failures compiled-check/$name"
+            echo "FAIL compiled-check/$name: no expectation file"
+        elif ! cmp -s "$TMP/$name.cerr" "$cerr"; then
+            nfail=$((nfail + 1))
+            failures="$failures compiled-check/$name"
+            echo "FAIL compiled-check/$name: diagnostics differ"
+            diff -u "$cerr" "$TMP/$name.cerr" | sed 's/^/    /' || true
+        else
+            npass=$((npass + 1))
+        fi
     done
 
     echo

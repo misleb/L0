@@ -121,9 +121,17 @@
   (PDOk Decl (list Token))
   (PDErr int (list int)))
 
+; A diagnostic: byte offset and message. Defined here rather than in check.l0
+; because the parser produces them too. Declaration order across files does
+; not matter in L0, so either file could hold it.
+(data Diag
+  (D int (list int)))
+
+; The declarations that parsed, and the errors found. Both at once, so that
+; a file with one bad declaration still gets its remaining declarations type
+; checked instead of only reporting the syntax error.
 (data PProg
-  (PPOk (list Decl))
-  (PPErr int (list int)))
+  (PP (list Decl) (list Diag)))
 
 ; ------------------------------------------------------------------- names
 
@@ -581,14 +589,41 @@
           (PDErr (tok_offset (head ts))
             "a def is (def name (params...) return-type body)"))))
 
-(def parse_decls ((ts (list Token)) (acc (list Decl))) PProg
+; ------------------------------------------------------- error recovery
+
+; Does this position begin a top-level declaration?
+(def starts_decl ((ts (list Token))) bool
   (if (is_empty ts)
-      (PPOk (rev_decls_onto acc (nil Decl)))
+      false
+      (if (not (tok_is_lparen (head ts)))
+          false
+          (if (is_empty (tail ts))
+              false
+              (let t (head (tail ts))
+                (and (tok_is_name t)
+                     (or (list_eq (tok_bytes t) "def")
+                         (list_eq (tok_bytes t) "data"))))))))
+
+; Skips forward to the next top-level declaration so that one bad
+; declaration does not hide every later one. Callers always drop at least
+; one token first, which is what guarantees progress.
+(def resync ((ts (list Token))) (list Token)
+  (if (is_empty ts)
+      ts
+      (if (starts_decl ts)
+          ts
+          (resync (tail ts)))))
+
+(def parse_decls ((ts (list Token)) (acc (list Decl)) (diags (list Diag)))
+    PProg
+  (if (is_empty ts)
+      (PP (rev_decls_onto acc (nil Decl)) (rev_diags_onto diags (nil Diag)))
       (match (parse_decl ts)
-        ((PDErr o m) (PPErr o m))
-        ((PDOk d rest) (parse_decls rest (cons d acc))))))
+        ((PDOk d rest) (parse_decls rest (cons d acc) diags))
+        ((PDErr o m)
+          (parse_decls (resync (tail ts)) acc (cons (D o m) diags))))))
 
 (def parse_program ((ts (list Token))) PProg
   (if (is_empty ts)
-      (PPErr 0 "no declarations found")
-      (parse_decls ts (nil Decl))))
+      (PP (nil Decl) (cons (D 0 "no declarations found") (nil Diag)))
+      (parse_decls ts (nil Decl) (nil Diag))))
