@@ -47,10 +47,21 @@ This needs `clang` and nothing from L0. **Installing L0 does not require an
 existing L0 compiler**, which is the whole point of checking in
 `bootstrap/stage2.ll`.
 
-`clang` specifically, rather than any C compiler, because it does two jobs
-here. It compiles the 317-line C runtime, and it assembles
-`bootstrap/stage2.ll`, which is LLVM IR text rather than a binary. GCC has no
-LLVM IR frontend and could only do the first.
+C is compiled exactly once, at install:
+
+- the 317-line runtime becomes `lib/l0/libl0rt.a`
+- `bootstrap/stage2.ll`, which is LLVM IR text rather than a binary, is
+  assembled and linked into the `lib/l0/l0c` compiler
+
+**After that, no C is ever compiled.** `l0 build` links the prebuilt archive
+into your program. You can delete `runtime/`, `compiler/`, and `lib/` from a
+checkout and an installed `l0` keeps working.
+
+`clang` is still invoked on every build, but only as an assembler and linker
+for the LLVM IR the compiler emits. GCC could compile the runtime but has no
+LLVM IR frontend, so it cannot do that job. Removing the dependency entirely
+would mean emitting machine code directly, which means instruction selection,
+register allocation, and object-file writing, all in L0.
 
 The runtime is permanent, not a bootstrapping crutch. L0 has no pointers, no
 allocation, and no I/O, so it cannot express `cons` allocating a cell, or
