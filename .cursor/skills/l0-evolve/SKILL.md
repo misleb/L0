@@ -5,9 +5,34 @@ description: Add or change a feature in the L0 language itself, keeping the spec
 
 # Evolving L0
 
-L0 grows only when the self-hosting goal demands it. A feature request with no
-concrete blocker behind it is out of scope; the pressure of writing the compiler
-is what justifies each addition.
+L0 grows only when real code cannot be written without the addition. Self
+compilation supplied that pressure until it was reached; applications written
+in L0 supply it now. A request with no concrete blocker behind it is out of
+scope either way.
+
+## Requests arriving from projects that use L0
+
+Projects scaffolded by `l0 init` carry the `l0-limits` skill, which tells an
+agent to work around a limitation and, when it is worth reporting, produce a
+document under `l0/requests/`. Those documents are the input to this process.
+
+A request is evidence, not a decision. Judge it against
+[../../../lib/skills/l0-limits/SKILL.md](../../../lib/skills/l0-limits/SKILL.md),
+which is the standard its author was held to, and send it back rather than
+acting on it when:
+
+- no workaround was actually written, so the cost is speculative
+- the cost is constant per use site and has appeared in only one place
+- it is really a host protocol question, which is what most requests about
+  input, output, or file names turn out to be
+- it is really an ordinary function, in which case the prelude may be the
+  right home and no language change is needed
+
+When a request is accepted, its "what could not be written" and "what the
+workaround costs" sections are exactly what
+[../../../spec/changelog.md](../../../spec/changelog.md) needs as the blocker
+that motivated the change. Quote them rather than paraphrasing: the concrete
+case is the part that becomes unrecoverable later.
 
 Changing the language is not the same as changing a program in it. The spec, the
 stage-0 interpreter, and eventually the L0 compiler all encode the same rules,

@@ -95,17 +95,51 @@ l0 init myproject
 ```
 
 ```
-AGENTS.md                          always-on invariants
-.cursor/skills/l0-code/SKILL.md    how to read, write, and edit L0
-l0/L0.md                           the language specification
-l0/examples.l0                     worked examples, all of them compiling
-l0/prelude.l0                      the standard library, for reference
+AGENTS.md                           always-on invariants
+.cursor/skills/l0-code/SKILL.md     how to read, write, and edit L0
+.cursor/skills/l0-limits/SKILL.md   what to do when L0 cannot express
+                                    something
+l0/L0.md                            the language specification
+l0/examples.l0                      worked examples, all of them compiling
+l0/prelude.l0                       the standard library, for reference
+l0/requests/                        feature requests, for the maintainer
 ```
 
 The specification and examples are copied in rather than linked, because an
 agent has no L0 in its training data and the specification has to be readable
 in the project itself. `lib/examples.l0` is compiled by this repository's own
 test suite, so the examples a newcomer reads cannot rot.
+
+## How L0 grows
+
+L0 grows only when real code cannot be written without the addition. Self
+compilation supplied that pressure until it was reached; applications written
+in L0 supply it now.
+
+A project scaffolded by `l0 init` carries the `l0-limits` skill, which tells
+an agent to treat the toolchain as read-only, work around the limitation, and
+only then decide whether it is worth reporting:
+
+- anything about getting data in or out is a **host protocol** question, not
+  a language one. Three separate problems in this project's own history
+  looked like they needed a new primitive and none of them did.
+- anything a ten-line function solves is not a language request either,
+  though it may be a prelude one
+- a cost that is **constant per use site** is worked around, however tedious.
+  The compiler carries nine near-identical result types for want of generics
+  and that never justified a change.
+- a cost that **loses a correctness property**, **grows with the program**,
+  or has appeared in **three unrelated places** is worth reporting
+
+`l0 request SLUG` then produces a document under `l0/requests/` whose
+sections are what `spec/changelog.md` needs as the blocker behind a change.
+Bringing that file back to this repository is the input to the `l0-evolve`
+skill, which judges it against the same standard rather than acting on it
+directly.
+
+The point of the ceremony is that the workaround has to exist before the
+request does. Requests then contain evidence rather than preferences, and
+the default answer stays no.
 
 ## The standard library
 
@@ -269,9 +303,9 @@ seeds/         the original seed spec, superseded by spec/
 .cursor/skills/  agent instructions for developing L0 itself
 ```
 
-The skill under `.cursor/skills/` is for working *on* L0 and refers to the
-compiler sources and test suite. The one under `lib/skill/`, which `l0 init`
-installs, is for working *in* L0 and refers only to files a project has.
+The skills under `.cursor/skills/` are for working *on* L0 and refer to the
+compiler sources and test suite. Those under `lib/skills/`, which `l0 init`
+installs, are for working *in* L0 and refer only to files a project has.
 
 `spec/changelog.md` is worth reading before the spec if you want to know why L0
 is shaped the way it is rather than merely what shape it has.

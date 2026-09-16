@@ -29,6 +29,20 @@ Several files are compiled together, since L0 has no module system. The
 standard library is linked automatically; `l0/prelude.l0` is a readable copy
 and must not be passed on the command line.
 
+## When L0 cannot express something
+
+**The L0 toolchain is read-only.** Never edit the installed prelude or
+compiler, and never vendor a patched copy. Write the workaround, and if the
+limitation is worth reporting, `l0 request SLUG` starts a feature request
+for the L0 maintainer.
+
+Most walls are not language problems. Anything about getting data in or out
+is a question of putting more structure on the byte channel, and anything
+that a ten-line function would solve is not a language request. Work around
+a cost that is constant per use site; report one that loses a correctness
+property, grows with the program, or has now appeared in three unrelated
+places. The `l0-limits` skill covers the decision in full.
+
 ## Two traps specific to L0
 
 **Quadratic output.** Building output by appending is quadratic; it passes

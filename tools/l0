@@ -202,27 +202,60 @@ case "$cmd" in
 
     init)
         dir=${1:-.}
-        mkdir -p "$dir/.cursor/skills/l0-code" "$dir/l0"
+        mkdir -p "$dir/.cursor/skills" "$dir/l0/requests"
+        cp -R "$LIB/skills/." "$dir/.cursor/skills/"
         cp "$LIB/AGENTS.md" "$dir/AGENTS.md"
-        cp "$LIB/skill/SKILL.md" "$dir/.cursor/skills/l0-code/SKILL.md"
         cp "$LIB/L0.md" "$dir/l0/L0.md"
         cp "$LIB/examples.l0" "$dir/l0/examples.l0"
         cp "$LIB/prelude.l0" "$dir/l0/prelude.l0"
         cat <<EOF
 Scaffolded an L0 project in $dir:
 
-  AGENTS.md                          always-on invariants
-  .cursor/skills/l0-code/SKILL.md    how to read, write, and edit L0
-  l0/L0.md                           the language specification
-  l0/examples.l0                     worked examples, all of them compiling
-  l0/prelude.l0                      the standard library, for reference
+  AGENTS.md                           always-on invariants
+  .cursor/skills/l0-code/SKILL.md     how to read, write, and edit L0
+  .cursor/skills/l0-limits/SKILL.md   what to do when L0 cannot express
+                                      something, and when that is worth
+                                      reporting rather than working around
+  l0/L0.md                            the language specification
+  l0/examples.l0                      worked examples, all of them compiling
+  l0/prelude.l0                       the standard library, for reference
+  l0/requests/                        feature requests, for the L0 maintainer
 
 The prelude is linked automatically; the copy in l0/ is there to be read.
 
   l0 check prog.l0     type check
   l0 run   prog.l0     build and run, reading stdin
   l0 build prog.l0     produce an executable
+  l0 request SLUG      start a feature request
 EOF
+        ;;
+
+    request)
+        slug=${1:-}
+        if [ -z "$slug" ]; then
+            echo "l0: usage: l0 request SHORT-SLUG" >&2
+            exit 2
+        fi
+        mkdir -p l0/requests
+        n=1
+        for existing in l0/requests/[0-9]*.md; do
+            [ -f "$existing" ] || continue
+            num=$(basename "$existing" | sed 's/^\([0-9]*\).*/\1/')
+            num=$(printf '%d' "$((10#$num))" 2>/dev/null || echo 0)
+            [ "$num" -ge "$n" ] && n=$((num + 1))
+        done
+        out=$(printf 'l0/requests/%04d-%s.md' "$n" "$slug")
+        if [ -e "$out" ]; then
+            echo "l0: $out already exists" >&2
+            exit 1
+        fi
+        sed -e "s/^# Feature request: TITLE/# Feature request: $slug/" \
+            -e "s/^Project: PROJECT/Project: $(basename "$PWD")/" \
+            "$LIB/request-template.md" > "$out"
+        echo "$out"
+        echo
+        echo "Fill in every section. A request without the workaround and its"
+        echo "cost cannot be acted on: it is weighed against keeping L0 small."
         ;;
 
     version)

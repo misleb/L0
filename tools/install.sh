@@ -13,7 +13,8 @@
 #   <prefix>/lib/l0/L0.md        the specification
 #   <prefix>/lib/l0/examples.l0  worked examples
 #   <prefix>/lib/l0/AGENTS.md    project invariants, copied by `l0 init`
-#   <prefix>/lib/l0/skill/       the agent skill, copied by `l0 init`
+#   <prefix>/lib/l0/skills/      agent skills, copied by `l0 init`
+#   <prefix>/lib/l0/request-template.md
 #
 # Requires clang and nothing from L0: the compiler is built from the
 # checked-in seed rather than from the L0 sources, so no existing L0
@@ -53,7 +54,7 @@ else
     BINDIR="$PREFIX/bin"
 fi
 
-mkdir -p "$LIBDIR/skill" "$BUILD"
+mkdir -p "$LIBDIR" "$BUILD"
 [ -n "$BINDIR" ] && mkdir -p "$BINDIR"
 
 CFLAGS="-std=c11 -O2 -Wall -Wextra -Wpedantic -Werror"
@@ -75,7 +76,9 @@ if [ "$(cd "$LIBDIR" && pwd)" != "$(cd "$ROOT/lib" && pwd)" ]; then
     cp "$ROOT/lib/examples.l0" "$LIBDIR/examples.l0"
     cp "$ROOT/spec/L0.md" "$LIBDIR/L0.md"
     cp "$ROOT/lib/AGENTS.md" "$LIBDIR/AGENTS.md"
-    cp "$ROOT/lib/skill/SKILL.md" "$LIBDIR/skill/SKILL.md"
+    cp "$ROOT/lib/request-template.md" "$LIBDIR/request-template.md"
+    rm -rf "$LIBDIR/skills"
+    cp -R "$ROOT/lib/skills" "$LIBDIR/skills"
 else
     # The driver's init command reads L0.md from the library directory, so
     # give it one even when running straight out of the repository.
