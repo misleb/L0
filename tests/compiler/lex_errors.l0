@@ -1,0 +1,5 @@
+; Lexical errors become TErr tokens and scanning continues, so one run
+; surfaces every problem in the input rather than only the first.
+
+(def main ((input (list int))) (list int)
+  (fmt_tokens (lex input)))

@@ -1,0 +1,5 @@
+; Parses stdin and prints the AST back as S-expressions. A round trip that
+; differs only in whitespace means the parse was structurally right.
+
+(def main ((input (list int))) (list int)
+  (fmt_program (parse_program (lex input))))

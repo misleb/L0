@@ -187,6 +187,23 @@ for src in tests/lang/*.l0; do
     run_case lang "$name" "$stem" "$BUILD/l0i" run "$src" $(extra_sources "$stem")
 done
 
+# ----------------------------------------------------------------- compiler
+
+# Compiler stage tests. Each supplies its own main and names the compiler
+# sources it needs in a .extra file, so a lexer test can link lex.l0 without
+# pulling in the compiler's own main.
+for src in tests/compiler/*.l0; do
+    [ -f "$src" ] || continue
+    name=$(basename "$src" .l0)
+    case "$name" in
+        fmt) continue ;; # shared helper, not a test
+    esac
+    selected "$name" || continue
+    stem="tests/compiler/$name"
+    # shellcheck disable=SC2046
+    run_case compiler "$name" "$stem" "$BUILD/l0i" run "$src" $(extra_sources "$stem")
+done
+
 # -------------------------------------------------------------------- check
 
 for src in tests/check/*.l0; do

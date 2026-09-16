@@ -1,0 +1,41 @@
+0:LPAREN
+1:NAME a
+8:ERR unknown escape; the escapes are \n \t \r \\ \" \xHH
+11:NAME escape
+19:ERR newline in string literal; use \n
+20:LPAREN
+21:NAME b
+23:ERR invalid character in integer literal
+25:RPAREN
+27:LPAREN
+28:NAME c
+30:ERR integer literal does not fit in 64 bits
+49:RPAREN
+51:LPAREN
+52:NAME d
+54:ERR integer literal does not fit in 64 bits
+73:RPAREN
+75:LPAREN
+76:NAME e
+78:ERR integer literal does not fit in 64 bits
+96:RPAREN
+98:LPAREN
+99:NAME f
+101:ERR unexpected character
+102:RPAREN
+104:LPAREN
+105:NAME g
+107:ERR expected digits after '-'
+109:INT 3
+110:RPAREN
+112:LPAREN
+113:NAME h
+118:ERR \x needs exactly two hexadecimal digits
+120:RPAREN
+122:LPAREN
+123:NAME i
+128:ERR \x needs exactly two hexadecimal digits
+132:ERR newline in string literal; use \n
+133:LPAREN
+134:NAME j
+136:ERR unterminated string literal

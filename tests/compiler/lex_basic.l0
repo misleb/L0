@@ -1,0 +1,5 @@
+; Lexes whatever arrives on stdin and prints one token per line.
+; The input is tests/compiler/lex_basic.in.
+
+(def main ((input (list int))) (list int)
+  (fmt_tokens (lex input)))

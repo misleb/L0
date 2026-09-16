@@ -1,0 +1,9 @@
+; a comment, skipped entirely
+(def count ((xs (list int))) int
+  (if (is_empty xs) 0 (add 1 (count (tail xs)))))
+
+; literals of every kind
+(def lits ((a int)) int
+  -3 0 7 -9223372036854775808 9223372036854775807
+  true false
+  "hi\n" "" "\x41\x42" "tab\there" "q\"q" "back\\slash")

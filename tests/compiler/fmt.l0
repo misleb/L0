@@ -1,0 +1,112 @@
+; fmt.l0 -- test support: renders compiler intermediate values as text.
+;
+; Not part of the compiler. Stage tests use this so their golden files show
+; the actual token or AST structure, which makes a failure diagnosable by
+; reading the diff instead of by guessing.
+
+(def fmt_token ((t Token)) (list int)
+  (match t
+    ((TLParen o) (append (digits o) ":LPAREN"))
+    ((TRParen o) (append (digits o) ":RPAREN"))
+    ((TInt o v) (append (digits o) (append ":INT " (digits v))))
+    ((TStr o s) (append (digits o) (append ":STR " (fmt_quoted s))))
+    ((TName o s) (append (digits o) (append ":NAME " s)))
+    ((TErr o m) (append (digits o) (append ":ERR " m)))))
+
+; Renders bytes with non-printable characters escaped, so a golden file stays
+; a single readable line.
+(def fmt_quoted ((s (list int))) (list int)
+  (cons 34 (rev (cons 34 (fmt_quoted_onto s (nil int))))))
+
+(def fmt_quoted_onto ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      acc
+      (fmt_quoted_onto (tail s) (push (fmt_byte (head s)) acc))))
+
+(def fmt_byte ((b int)) (list int)
+  (if (eq b 10)
+      "\\n"
+      (if (eq b 9)
+          "\\t"
+          (if (eq b 13)
+              "\\r"
+              (if (eq b 92)
+                  "\\\\"
+                  (if (eq b 34)
+                      "\\\""
+                      (if (or (lt b 32) (gt b 126))
+                          (append "\\x" (digits b))
+                          (cons b (nil int)))))))))
+
+(def fmt_tokens_onto ((ts (list Token)) (acc (list int))) (list int)
+  (if (is_empty ts)
+      acc
+      (fmt_tokens_onto (tail ts)
+        (push "\n" (push (fmt_token (head ts)) acc)))))
+
+(def fmt_tokens ((ts (list Token))) (list int)
+  (rev (fmt_tokens_onto ts (nil int))))
+
+; --------------------------------------------------------------------- AST
+;
+; Rendered as S-expressions so a golden file reads like the source it came
+; from, and a structural mistake shows up as a visibly wrong shape.
+
+(def fmt_ty ((t Ty)) (list int)
+  (match t
+    ((TyInt) "int")
+    ((TyBool) "bool")
+    ((TyList e) (append "(list " (append (fmt_ty e) ")")))))
+
+(def fmt_expr ((e Expr)) (list int)
+  (match e
+    ((EInt o v) (digits v))
+    ((EBool o v) (if v "true" "false"))
+    ((EStr o s) (fmt_quoted s))
+    ((EVar o n) n)
+    ((EIf o c a b)
+      (append "(if " (append (fmt_expr c)
+        (append " " (append (fmt_expr a)
+          (append " " (append (fmt_expr b) ")")))))))
+    ((ELet o n v body)
+      (append "(let " (append n
+        (append " " (append (fmt_expr v)
+          (append " " (append (fmt_expr body) ")")))))))
+    ((ENil o elem) (append "(nil " (append (fmt_ty elem) ")")))
+    ((ECall o n args)
+      (append "(" (append n (append (fmt_args args) ")"))))))
+
+(def fmt_args ((args (list Expr))) (list int)
+  (if (is_empty args)
+      ""
+      (append " " (append (fmt_expr (head args)) (fmt_args (tail args))))))
+
+(def fmt_params ((ps (list Param))) (list int)
+  (if (is_empty ps)
+      ""
+      (match (head ps)
+        ((P n t)
+          (append "(" (append n (append " " (append (fmt_ty t)
+            (append ")" (if (is_empty (tail ps))
+                            ""
+                            (append " " (fmt_params (tail ps)))))))))))))
+
+(def fmt_decl ((d Decl)) (list int)
+  (match d
+    ((DDef o n ps ret body)
+      (append "(def " (append n
+        (append " (" (append (fmt_params ps)
+          (append ") " (append (fmt_ty ret)
+            (append " " (append (fmt_expr body) ")")))))))))))
+
+(def fmt_decls_onto ((ds (list Decl)) (acc (list int))) (list int)
+  (if (is_empty ds)
+      acc
+      (fmt_decls_onto (tail ds) (push "\n" (push (fmt_decl (head ds)) acc)))))
+
+(def fmt_program ((p PProg)) (list int)
+  (match p
+    ((PPErr o m)
+      (append "parse error at offset " (append (digits o) (append ": "
+        (append m "\n")))))
+    ((PPOk ds) (rev (fmt_decls_onto ds (nil int))))))

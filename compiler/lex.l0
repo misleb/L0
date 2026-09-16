@@ -1,0 +1,287 @@
+; lex.l0 -- source bytes to tokens.
+;
+; The lexer never fails. Problems become TErr tokens and scanning continues,
+; so there is no error plumbing here at all; the parser reports any TErr it
+; meets. This keeps the lexer a plain fold over the input.
+;
+; Every token carries a byte offset rather than a line and column. Rendering a
+; diagnostic turns an offset into line:column by scanning the source, which
+; keeps positions to one int and means a future multi-file input bundle only
+; changes the renderer.
+
+(data Token
+  (TLParen int)                ; offset
+  (TRParen int)                ; offset
+  (TInt int int)               ; offset, value
+  (TStr int (list int))        ; offset, bytes
+  (TName int (list int))       ; offset, name
+  (TErr int (list int)))       ; offset, message
+
+; A position in the input: what is left, and the offset it starts at.
+(data Cursor
+  (Cur (list int) int))
+
+; A scanned token plus the cursor after it.
+(data Scan
+  (Scanned Token (list int) int))
+
+(def tok_offset ((t Token)) int
+  (match t
+    ((TLParen o) o)
+    ((TRParen o) o)
+    ((TInt o v) o)
+    ((TStr o s) o)
+    ((TName o s) o)
+    ((TErr o m) o)))
+
+; ---------------------------------------------------------------- accessors
+;
+; match has no wildcard arm, so inspecting a token inline costs six lines
+; every time. These collapse that to a predicate, which is what makes the
+; parser readable.
+
+(def tok_kind ((t Token)) int
+  (match t
+    ((TLParen o) 0)
+    ((TRParen o) 1)
+    ((TInt o v) 2)
+    ((TStr o s) 3)
+    ((TName o s) 4)
+    ((TErr o m) 5)))
+
+(def tok_is_lparen ((t Token)) bool (eq (tok_kind t) 0))
+(def tok_is_rparen ((t Token)) bool (eq (tok_kind t) 1))
+(def tok_is_int ((t Token)) bool (eq (tok_kind t) 2))
+(def tok_is_str ((t Token)) bool (eq (tok_kind t) 3))
+(def tok_is_name ((t Token)) bool (eq (tok_kind t) 4))
+(def tok_is_err ((t Token)) bool (eq (tok_kind t) 5))
+
+(def tok_int ((t Token)) int
+  (match t
+    ((TInt o v) v)
+    ((TLParen o) 0)
+    ((TRParen o) 0)
+    ((TStr o s) 0)
+    ((TName o s) 0)
+    ((TErr o m) 0)))
+
+; The payload of whichever token kinds carry bytes.
+(def tok_bytes ((t Token)) (list int)
+  (match t
+    ((TStr o s) s)
+    ((TName o s) s)
+    ((TErr o m) m)
+    ((TLParen o) (nil int))
+    ((TRParen o) (nil int))
+    ((TInt o v) (nil int))))
+
+; Offset of the first token, or the supplied fallback when there is none.
+(def head_offset ((ts (list Token)) (fallback int)) int
+  (if (is_empty ts) fallback (tok_offset (head ts))))
+
+(def rev_tokens_onto ((xs (list Token)) (acc (list Token))) (list Token)
+  (if (is_empty xs)
+      acc
+      (rev_tokens_onto (tail xs) (cons (head xs) acc))))
+
+(def rev_tokens ((xs (list Token))) (list Token)
+  (rev_tokens_onto xs (nil Token)))
+
+; ------------------------------------------------------------------ trivia
+
+(def skip_trivia ((src (list int)) (off int)) Cursor
+  (if (is_empty src)
+      (Cur src off)
+      (let c (head src)
+        (if (is_space c)
+            (skip_trivia (tail src) (add off 1))
+            (if (eq c 59)
+                (skip_comment (tail src) (add off 1))
+                (Cur src off))))))
+
+(def skip_comment ((src (list int)) (off int)) Cursor
+  (if (is_empty src)
+      (Cur src off)
+      (if (eq (head src) 10)
+          (skip_trivia (tail src) (add off 1))
+          (skip_comment (tail src) (add off 1)))))
+
+; ------------------------------------------------------------------ strings
+
+; Accumulates bytes in reverse; start is the offset of the opening quote.
+(def scan_string ((src (list int)) (off int) (start int) (acc (list int))) Scan
+  (if (is_empty src)
+      (Scanned (TErr start "unterminated string literal") src off)
+      (let c (head src)
+        (if (eq c 34)
+            (Scanned (TStr start (rev acc)) (tail src) (add off 1))
+            (if (eq c 10)
+                (Scanned (TErr off "newline in string literal; use \\n")
+                         (tail src) (add off 1))
+                (if (eq c 92)
+                    (scan_escape (tail src) (add off 1) start acc)
+                    (scan_string (tail src) (add off 1) start (cons c acc))))))))
+
+; The byte an escape letter denotes, or -1 if it is not an escape. Keeping
+; this separate holds scan_escape to a readable nesting depth.
+(def escape_byte ((e int)) int
+  (if (eq e 110) 10
+  (if (eq e 116) 9
+  (if (eq e 114) 13
+  (if (eq e 92) 92
+  (if (eq e 34) 34
+    -1))))))
+
+(def scan_escape ((src (list int)) (off int) (start int) (acc (list int))) Scan
+  (if (is_empty src)
+      (Scanned (TErr start "unterminated string literal") src off)
+      (let e (head src)
+        (if (eq e 120)
+            (scan_hex (tail src) (add off 1) start acc)
+            (let b (escape_byte e)
+              (if (lt b 0)
+                  (Scanned
+                    (TErr (sub off 1)
+                      "unknown escape; the escapes are \\n \\t \\r \\\\ \\\" \\xHH")
+                    (tail src) (add off 1))
+                  (scan_string (tail src) (add off 1) start (cons b acc))))))))
+
+(def scan_hex ((src (list int)) (off int) (start int) (acc (list int))) Scan
+  (if (is_empty src)
+      (Scanned (TErr off "incomplete \\x escape") src off)
+      (if (is_empty (tail src))
+          (Scanned (TErr off "incomplete \\x escape") (tail src) (add off 1))
+          (let h1 (hex_val (head src))
+            (let h2 (hex_val (head (tail src)))
+              (if (or (lt h1 0) (lt h2 0))
+                  (Scanned (TErr off "\\x needs exactly two hexadecimal digits")
+                           (tail (tail src)) (add off 2))
+                  (scan_string (tail (tail src)) (add off 2) start
+                               (cons (add (mul h1 16) h2) acc))))))))
+
+; ------------------------------------------------------------------ numbers
+
+; Digits accumulate as a non-positive value so that the most negative integer
+; is representable on the way in; a positive literal is negated at the end.
+(def acc_overflows ((n int) (d int)) bool
+  (or (lt n -922337203685477580)
+      (and (eq n -922337203685477580) (gt d 8))))
+
+(def scan_digits ((src (list int)) (off int) (n int) (count int)) Scan
+  (if (is_empty src)
+      (Scanned (TInt off n) src off)
+      (let c (head src)
+        (if (is_digit c)
+            (if (acc_overflows n (sub c 48))
+                (Scanned (TErr off "integer literal does not fit in 64 bits")
+                         (skip_name_rest (tail src)) off)
+                (scan_digits (tail src) (add off 1)
+                             (sub (mul n 10) (sub c 48)) (add count 1)))
+            (Scanned (TInt off n) src off)))))
+
+(def skip_name_rest ((src (list int))) (list int)
+  (if (is_empty src)
+      src
+      (if (is_name_rest (head src))
+          (skip_name_rest (tail src))
+          src)))
+
+(def count_digits ((src (list int)) (n int)) int
+  (if (is_empty src)
+      n
+      (if (is_digit (head src))
+          (count_digits (tail src) (add n 1))
+          n)))
+
+(def scan_number ((src (list int)) (off int)) Scan
+  (let negative (eq (head src) 45)
+    (let body (if negative (tail src) src)
+      (let body_off (if negative (add off 1) off)
+        (if (eq (count_digits body 0) 0)
+            (Scanned (TErr off "expected digits after '-'") body body_off)
+            (finish_number (scan_digits body body_off 0 0) off negative))))))
+
+; scan_digits produced a non-positive magnitude. Fix the sign, reject a
+; positive literal that only fits as a negative one, and reject a name
+; character glued to the end such as 12abc.
+(def finish_number ((s Scan) (start int) (negative bool)) Scan
+  (match s
+    ((Scanned t rest off)
+      (match t
+        ((TErr o m) (Scanned (TErr start m) rest off))
+        ((TInt o n)
+          (if (and (not (is_empty rest)) (is_name_rest (head rest)))
+              (Scanned (TErr start "invalid character in integer literal")
+                       (skip_name_rest rest) off)
+              (if negative
+                  (Scanned (TInt start n) rest off)
+                  (if (eq n (int_min 0))
+                      (Scanned (TErr start
+                                 "integer literal does not fit in 64 bits")
+                               rest off)
+                      (Scanned (TInt start (neg n)) rest off)))))
+        ((TLParen o) s)
+        ((TRParen o) s)
+        ((TStr o v) s)
+        ((TName o v) s)))))
+
+; -------------------------------------------------------------------- names
+
+(def scan_name_bytes ((src (list int)) (off int) (acc (list int))) Scan
+  (if (is_empty src)
+      (Scanned (TName off (rev acc)) src off)
+      (if (is_name_rest (head src))
+          (scan_name_bytes (tail src) (add off 1) (cons (head src) acc))
+          (Scanned (TName off (rev acc)) src off))))
+
+(def scan_name ((src (list int)) (off int)) Scan
+  (match (scan_name_bytes src off (nil int))
+    ((Scanned t rest noff)
+      (match t
+        ((TName o s) (Scanned (TName off s) rest noff))
+        ((TLParen o) (Scanned t rest noff))
+        ((TRParen o) (Scanned t rest noff))
+        ((TInt o v) (Scanned t rest noff))
+        ((TStr o v) (Scanned t rest noff))
+        ((TErr o m) (Scanned t rest noff))))))
+
+; ------------------------------------------------------------------- driver
+
+(def scan_token ((src (list int)) (off int)) Scan
+  (let c (head src)
+    (if (eq c 40)
+        (Scanned (TLParen off) (tail src) (add off 1))
+        (if (eq c 41)
+            (Scanned (TRParen off) (tail src) (add off 1))
+            (if (eq c 34)
+                (scan_string (tail src) (add off 1) off (nil int))
+                (if (or (is_digit c) (eq c 45))
+                    (scan_number src off)
+                    (if (is_name_start c)
+                        (scan_name src off)
+                        (Scanned (TErr off "unexpected character")
+                                 (tail src) (add off 1)))))))))
+
+(def lex_onto ((src (list int)) (off int) (acc (list Token))) (list Token)
+  (match (skip_trivia src off)
+    ((Cur rest roff)
+      (if (is_empty rest)
+          acc
+          (match (scan_token rest roff)
+            ((Scanned t rest2 off2) (lex_onto rest2 off2 (cons t acc))))))))
+
+(def lex ((src (list int))) (list Token)
+  (rev_tokens (lex_onto src 0 (nil Token))))
+
+; First error token in a stream, if any. The parser uses this to report
+; lexical problems before attempting to build an AST.
+(def first_lex_error ((ts (list Token))) (list int)
+  (if (is_empty ts)
+      (nil int)
+      (match (head ts)
+        ((TErr o m) m)
+        ((TLParen o) (first_lex_error (tail ts)))
+        ((TRParen o) (first_lex_error (tail ts)))
+        ((TInt o v) (first_lex_error (tail ts)))
+        ((TStr o s) (first_lex_error (tail ts)))
+        ((TName o s) (first_lex_error (tail ts))))))

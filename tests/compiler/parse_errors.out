@@ -1,0 +1,19 @@
+parse error at offset 28: if takes exactly 3 parts: (if condition then else)
+parse error at offset 20: unexpected ) where an expression was expected
+parse error at offset 8: each parameter is (name type)
+parse error at offset 5: a function name must be lowercase and not reserved
+parse error at offset 5: a function name must be lowercase and not reserved
+parse error at offset 25: expected a type: int, bool, or (list T)
+parse error at offset 30: nil takes exactly one element type, as in (nil int)
+parse error at offset 17: unknown type
+parse error at offset 22: expected a type: int, bool, or (list T)
+parse error at offset 1: data declarations are not supported by this compiler yet
+parse error at offset 22: match is not supported by this compiler yet
+parse error at offset 26: expected a name after let
+parse error at offset 22: expected a function or special form name after (
+parse error at offset 0: expected a top-level (def ...)
+parse error at offset 22: constructors are not supported by this compiler yet
+parse error at offset 0: unclosed (
+parse error at offset 26: a def is (def name (params...) return-type body)
+parse error at offset 9: a parameter name must be lowercase and not reserved
+parse error at offset 0: no declarations found

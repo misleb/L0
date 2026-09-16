@@ -1,0 +1,28 @@
+; Parsing stops at the first error, so each snippet is parsed separately to
+; get one diagnostic per case. Snippets are embedded rather than read from
+; stdin because there is one input stream and many cases.
+
+(def try_parse ((src (list int))) (list int)
+  (fmt_program (parse_program (lex src))))
+
+(def main ((input (list int))) (list int)
+  (let a (push (try_parse "(def f ((x int)) int (if 1 2))") (nil int))
+  (let b (push (try_parse "(def f ((x int)) int)") a)
+  (let c (push (try_parse "(def f (x int) int 1)") b)
+  (let d (push (try_parse "(def F ((x int)) int 1)") c)
+  (let e (push (try_parse "(def let ((x int)) int 1)") d)
+  (let f (push (try_parse "(def f ((x int)) int (nil))") e)
+  (let g (push (try_parse "(def f ((x int)) int (nil int extra))") f)
+  (let h (push (try_parse "(def f ((x int)) nope 1)") g)
+  (let i (push (try_parse "(def f ((x int)) (list) 1)") h)
+  (let j (push (try_parse "(data Foo (Bar))") i)
+  (let k (push (try_parse "(def f ((x int)) int (match x))") j)
+  (let l (push (try_parse "(def f ((x int)) int (let 1 2 3))") k)
+  (let m (push (try_parse "(def f ((x int)) int ())") l)
+  (let n (push (try_parse "notadecl") m)
+  (let o (push (try_parse "(def f ((x int)) int (Foo))") n)
+  (let p (push (try_parse "(def f ((x int)) int x") o)
+  (let q (push (try_parse "(def f ((x int)) int true false)") p)
+  (let r (push (try_parse "(def f ((let int)) int 1)") q)
+  (let s (push (try_parse "") r)
+    (rev s)))))))))))))))))))))
