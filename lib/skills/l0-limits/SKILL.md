@@ -125,3 +125,10 @@ parametric constructor' restriction."
 
 The difference is not tone. It is that the good one contains evidence, names
 a cost that grows, and proposes the least the language could change.
+
+## This is not for skill improvements
+
+If you changed a shipped skill because the practice it taught was wrong or
+incomplete, that is a different document. Language requests change the spec;
+skill notes change what `l0 init` copies. See the `l0-code` skill, and start
+one with `l0 request --skill short-slug`.

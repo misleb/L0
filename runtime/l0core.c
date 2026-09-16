@@ -1,5 +1,9 @@
 /* l0core.c -- see l0core.h */
 
+/* sigaltstack, siginfo_t and SA_ONSTACK are XSI, and glibc hides them under
+ * -std=c11, which defines __STRICT_ANSI__. Must precede every header. */
+#define _XOPEN_SOURCE 700
+
 #include "l0core.h"
 
 #include <pthread.h>

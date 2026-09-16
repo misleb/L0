@@ -15,6 +15,7 @@
 #   <prefix>/lib/l0/AGENTS.md    project invariants, copied by `l0 init`
 #   <prefix>/lib/l0/skills/      agent skills, copied by `l0 init`
 #   <prefix>/lib/l0/request-template.md
+#   <prefix>/lib/l0/skill-note-template.md
 #
 # Requires clang and nothing from L0: the compiler is built from the
 # checked-in seed rather than from the L0 sources, so no existing L0
@@ -77,6 +78,7 @@ if [ "$(cd "$LIBDIR" && pwd)" != "$(cd "$ROOT/lib" && pwd)" ]; then
     cp "$ROOT/spec/L0.md" "$LIBDIR/L0.md"
     cp "$ROOT/lib/AGENTS.md" "$LIBDIR/AGENTS.md"
     cp "$ROOT/lib/request-template.md" "$LIBDIR/request-template.md"
+    cp "$ROOT/lib/skill-note-template.md" "$LIBDIR/skill-note-template.md"
     rm -rf "$LIBDIR/skills"
     cp -R "$ROOT/lib/skills" "$LIBDIR/skills"
 else

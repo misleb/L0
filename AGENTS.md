@@ -46,7 +46,8 @@ Read the matching skill before starting these tasks. They contain the specifics
 that this file deliberately omits.
 
 - **`l0-code`** — reading, writing, or editing any `.l0` file
-- **`l0-evolve`** — changing the L0 language itself
+- **`l0-evolve`** — changing the L0 language itself, or merging a skill note
+  from a project that uses L0 into the shipped skills
 - **`l0-bootstrap`** — building, testing, or debugging a broken bootstrap
 
 ## Layout

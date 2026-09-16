@@ -102,7 +102,8 @@ AGENTS.md                           always-on invariants
 l0/L0.md                            the language specification
 l0/examples.l0                      worked examples, all of them compiling
 l0/prelude.l0                       the standard library, for reference
-l0/requests/                        feature requests, for the maintainer
+l0/requests/                        feature requests and skill notes,
+                                    for the maintainer
 ```
 
 The specification and examples are copied in rather than linked, because an
@@ -155,6 +156,14 @@ records why the language did not change.
 The point of the ceremony is that the workaround has to exist before the
 request does. Requests then contain evidence rather than preferences, and
 the default answer stays no.
+
+The same path carries **skill notes**. The skills `l0 init` copies are how an
+agent learns to write L0 at all, and they are not the spec: a better testing
+convention or a syntax trap belongs in `lib/skills/`, not in `spec/L0.md`.
+`l0 request --skill SLUG` starts a note that quotes the old skill text, the
+replacement, and the project code that proved it better. `l0 submit` sends
+it; triage merges what would help any L0 project and sends back anything
+project-specific.
 
 ## The standard library
 
@@ -321,6 +330,8 @@ seeds/         the original seed spec, superseded by spec/
 The skills under `.cursor/skills/` are for working *on* L0 and refer to the
 compiler sources and test suite. Those under `lib/skills/`, which `l0 init`
 installs, are for working *in* L0 and refer only to files a project has.
+Improvements to the shipped skills come back as skill notes on the same
+`l0 submit` path as language requests.
 
 `spec/changelog.md` is worth reading before the spec if you want to know why L0
 is shaped the way it is rather than merely what shape it has.

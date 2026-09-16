@@ -1,6 +1,6 @@
 ---
 name: l0-code
-description: Read, write, and edit L0 source code (.l0 files). Covers L0 syntax, the standard library, the idioms that keep generated output linear rather than quadratic, and the mandatory l0 check validation loop. Use whenever creating or modifying .l0 files, reading L0 code, or diagnosing L0 type errors.
+description: Read, write, and edit L0 source code (.l0 files). Covers L0 syntax, the standard library, the idioms that keep generated output linear rather than quadratic, the mandatory l0 check validation loop, and the testing convention. Use whenever creating or modifying .l0 files, reading L0 code, diagnosing L0 type errors, or writing tests. Also use when a shipped skill is wrong or incomplete and the improvement should go back to L0.
 ---
 
 # Writing L0
@@ -158,19 +158,50 @@ bytes to bytes.
 
 ## Testing
 
-L0 has no test framework. The convention that works well is one character per
-assertion, `y` for pass and `n` for fail, so a diff points at exactly which
-assertion broke:
+L0 has no test framework. The convention that works well is one line per
+assertion, `y ` or `n ` followed by the name of what was asserted, so that a
+failure says what broke rather than which position in a row of characters
+broke:
 
 ```
-(def yn ((ok bool) (rest (list int))) (list int)
-  (cons (if ok 121 110) rest))
+(def check ((name (list int)) (ok bool) (rest (list int))) (list int)
+  (cons (if ok 121 110)
+    (cons 32 (append name (cons 10 rest)))))
 
 (def main ((input (list int))) (list int)
-  (yn (eq (add 2 3) 5)
-  (yn (eq (mul 6 7) 42)
-  "\n")))
+  (check "addition" (eq (add 2 3) 5)
+  (check "multiplication" (eq (mul 6 7) 42)
+  (nil int))))
 ```
 
-`yn` conses, so nesting inward yields the assertions in source order. Run it
-with `l0 run tests.l0` and confirm the output is all `y`.
+`check` conses, so nesting inward yields the assertions in source order.
+`append` is the right tool for the name: names are short. Run the test with
+`l0 run tests.l0` and confirm every line starts with `y`. A host-side runner
+can parse this format; a line in any other shape should fail the test rather
+than be ignored, so stray output cannot hide a missing assertion.
+
+A program must define exactly one `main`, so a test cannot be linked with the
+entry point it is testing. The test file defines its own `main` and is linked
+only with library files (those that do not define `main`). End-to-end
+coverage of an entry point is a host-side comparison of its stdout against a
+file of expected bytes.
+
+Keep `check` in a support file that is not itself a test, and link it in. A
+test then only writes the assertions.
+
+## This skill travels
+
+This file was copied into the project by `l0 init`. If you change it because
+the convention it taught was wrong, incomplete, or worse than what you
+actually used, that change belongs in every L0 project, not only this one.
+
+`l0 request --skill short-slug` starts a note. Quote the old text, the new
+text, and the project code that proved the new one better. `l0 submit` sends
+it the same way a language request is sent. The L0 maintainer merges what
+would help any project into the skill that `l0 init` copies, and leaves
+behind anything that names this project's files, scripts, or layout.
+
+Do not file this as a language request. A better testing convention, a
+syntax trap the checker did not catch first, or an idiom that actually
+worked are all in scope. Language walls still go through the `l0-limits`
+skill.

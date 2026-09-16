@@ -1,14 +1,15 @@
 ---
 name: l0-evolve
-description: Add or change a feature in the L0 language itself, keeping the spec, stage-0 interpreter, compiler, and tests in agreement. Covers the two-step rule for using a new feature inside the L0 compiler without breaking self-compilation. Use when changing spec/L0.md, adding a builtin or syntax form, or altering L0 semantics.
+description: Add or change a feature in the L0 language itself, or merge a skill note from a project that uses L0 into the shipped skills. Covers the two-step rule for using a new feature inside the L0 compiler without breaking self-compilation. Use when changing spec/L0.md, adding a builtin or syntax form, altering L0 semantics, or when a request or skill note arrives in requests/.
 ---
 
 # Evolving L0
 
 L0 grows only when real code cannot be written without the addition. Self
 compilation supplied that pressure until it was reached; applications written
-in L0 supply it now. A request with no concrete blocker behind it is out of
-scope either way.
+in L0 supply it now. A language request with no concrete blocker behind it
+is out of scope. Skill notes are a different kind of input: they change what
+agents are taught, not what the language is.
 
 ## Requests arriving from projects that use L0
 
@@ -42,6 +43,25 @@ workaround costs" sections are exactly what
 [../../../spec/changelog.md](../../../spec/changelog.md) needs as the blocker
 that motivated the change. Quote them rather than paraphrasing: the concrete
 case is the part that becomes unrecoverable later.
+
+## Skill notes arriving from projects that use L0
+
+Language requests are not the only useful thing a project produces. The
+skills under [../../../lib/skills/](../../../lib/skills/) are what every
+`l0 init` copies, and they are how an agent learns to write L0 at all. A
+better testing convention, a syntax trap, or an idiom that actually worked
+belongs there, not in the spec.
+
+A skill note quotes the old text, the new text, and the project code that
+proved the new one better. Judge it as practice, not as a language change:
+
+- merge the part that would help any L0 project into the matching
+  `lib/skills/` file
+- send back the part that names this project's files, scripts, or layout
+- do not put it in the spec or the changelog; those are for the language
+
+Keep the note after triage either way. A rejected skill note records a
+practice that looked general and was not.
 
 Changing the language is not the same as changing a program in it. The spec, the
 stage-0 interpreter, and eventually the L0 compiler all encode the same rules,

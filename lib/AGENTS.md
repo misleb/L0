@@ -23,6 +23,9 @@ several values, and reporting failure.
 l0 check FILE.l0 ...      type check
 l0 run   FILE.l0 ...      build and run, reading stdin
 l0 build FILE.l0 -o PROG  produce an executable
+l0 request SLUG           start a language request under l0/requests/
+l0 request --skill SLUG   start a skill note under l0/requests/
+l0 submit FILE            send a finished request or note to L0
 ```
 
 Several files are compiled together, since L0 has no module system. The
@@ -43,6 +46,18 @@ that a ten-line function would solve is not a language request. Work around
 a cost that is constant per use site; report one that loses a correctness
 property, grows with the program, or has now appeared in three unrelated
 places. The `l0-limits` skill covers the decision in full.
+
+## When a shipped skill is wrong or incomplete
+
+The files under `.cursor/skills/` were copied by `l0 init`. If you change
+one because the practice it taught was worse than what you actually used,
+that change belongs in every L0 project, not only this one.
+
+`l0 request --skill SLUG` writes a note under `l0/requests/`. Quote the old
+skill text, the replacement, and the project code that proved it better.
+`l0 submit FILE` sends it the same way a language request is sent.
+Submitting prints a link for the operator to click; do not open it yourself.
+The `l0-code` skill covers the decision in full.
 
 ## Two traps specific to L0
 
