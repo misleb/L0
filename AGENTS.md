@@ -26,7 +26,7 @@ small changes.
 change, and always read the `git diff` afterward.
 
 **Never hand-edit generated files.** Anything under `build/` is reproducible
-from source. `seed/stage2.ll`, once it exists, is compiler output and is
+from source. `bootstrap/stage2.ll`, once it exists, is compiler output and is
 replaced only by a successful bootstrap.
 
 **Record language decisions in [spec/changelog.md](spec/changelog.md).** The

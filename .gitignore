@@ -22,8 +22,9 @@ build/
 #
 #   *.out  *.err  *.exit  *.in      golden test expectations in tests/
 #   *.ll                            hand-written ABI tests in tests/backend/,
-#                                   and eventually the checked-in bootstrap
-#                                   seed at seed/stage2.ll
+#                                   and eventually bootstrap/stage2.ll, which
+#                                   is the only way to build the compiler once
+#                                   stage0/ is deleted
 #
 # These extensions normally mean "build output", but here they define what
 # correct behavior is. Ignoring them would make tools/test.sh pass against

@@ -38,11 +38,14 @@ compile it before you ship any use of it.** Two separate, individually
 bootstrapped changes:
 
 ```
-Step 1   compiler/*.l0 can COMPILE the feature, but uses none of it.
-         Re-bootstrap. The fixpoint must hold.
+Step 1    compiler/*.l0 can COMPILE the feature, but uses none of it.
+          tools/bootstrap.sh          -- the fixpoint must hold
 
-Step 2   compiler/*.l0 now USES the feature in its own source.
-         Re-bootstrap. The fixpoint must hold again.
+Step 1b   Install that compiler as the bootstrap seed, and commit it.
+          tools/bootstrap.sh --refresh-seed
+
+Step 2    compiler/*.l0 now USES the feature in its own source.
+          tools/bootstrap.sh          -- the fixpoint must hold again
 ```
 
 Doing both at once produces a compiler whose source needs a feature that the
@@ -50,8 +53,20 @@ last working compiler cannot compile. Nothing in the chain can then build it,
 and the only ways out are hand-editing generated IR or reverting. Neither is
 pleasant.
 
+**Step 1b is not optional once `stage0/` is deleted, and its position between
+the two steps is the whole point.** The seed is a frozen compiler, so it can
+only compile features that existed when it was cut. Refreshing after step 2 is
+too late: your working tree keeps building because it already has a current
+compiler, while a fresh clone becomes unbuildable because its only entry point
+never learned the feature. Nothing you can run locally will reveal that, which
+is what makes the ordering worth the ceremony.
+
+While `stage0/` still exists there is no seed and step 1b does nothing, so the
+rule costs nothing to follow from the start.
+
 The same rule applies to *removing* or changing the meaning of a feature, in
-reverse: stop using it, bootstrap, then drop support, then bootstrap again.
+reverse: stop using it, bootstrap, refresh the seed, then drop support, then
+bootstrap again.
 
 ## Keeping the implementations honest
 
@@ -59,7 +74,7 @@ Until the fixpoint is reached, L0 has two implementations: `stage0/l0i.c` and
 `compiler/*.l0`. Every feature must land in both. This duplication is temporary
 and is the reason stage 0 is deliberately minimal and disposable.
 
-Once `seed/stage2.ll` is checked in and `stage0/` is deleted, there is exactly
+Once `bootstrap/stage2.ll` is checked in and `stage0/` is deleted, there is exactly
 one implementation, and language changes stop needing any host-language work at
 all. Getting there is why the goal is worth pursuing.
 

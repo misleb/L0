@@ -100,6 +100,39 @@ When that holds, `stage2.ll` is checked in as a bootstrap seed and `stage0/` is
 **deleted**. From that point L0 has exactly one implementation, written in
 itself, and the language can grow with no host-language work at all.
 
+Run the chain with:
+
+```bash
+tools/bootstrap.sh
+```
+
+## Building the compiler from a fresh clone
+
+Once `stage0/` is gone, the only bootstrap entry point is `bootstrap/stage2.ll`.
+That file is LLVM IR **text**, so `clang` alone turns it into a working
+compiler — which is what makes deleting the interpreter safe. The seed is a
+compiler you can build without already having a compiler, and it needs no L0
+tooling, no interpreter, and no prebuilt binary.
+
+```bash
+tools/build.sh                                  # the C runtime
+tools/l0ll bootstrap/stage2.ll build/l0c-seed        # a compiler, from text alone
+cat compiler/*.l0 | build/l0c-seed > build/stage1.ll
+tools/l0ll build/stage1.ll build/l0c            # the compiler, from its source
+```
+
+`cat` is the whole of linking, because L0 has no module system and declaration
+order does not matter. `tools/bootstrap.sh` does all of the above and then
+verifies the fixpoint.
+
+**The seed is frozen, so it only knows the language as it was when it was cut.**
+That makes one ordering rule load-bearing: when the compiler gains the ability
+to compile a new feature, the seed must be refreshed *before* the compiler
+starts using that feature, not after. Refreshing late leaves your own tree
+building fine while a fresh clone becomes unbuildable, and no local command
+will tell you. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
+`tools/bootstrap.sh` warns when the current one has gone stale.
+
 ## Repository layout
 
 ```
@@ -107,8 +140,9 @@ spec/          L0.md (what the language is) and changelog.md (why)
 runtime/       permanent C: values, allocation, host I/O
 stage0/        disposable C interpreter
 compiler/      the L0 compiler, in L0 (not started)
+bootstrap/     checked-in compiler IR, the bootstrap entry point (not yet cut)
 tests/         backend (hand-written IR), lang (must run), check (must fail)
-tools/         build.sh, test.sh, l0check, l0ll
+tools/         build.sh, test.sh, bootstrap.sh, l0check, l0ll
 seeds/         the original seed spec, superseded by spec/
 .cursor/skills/  agent instructions for writing L0 and evolving it
 ```

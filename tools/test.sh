@@ -41,6 +41,16 @@ done
 
 "$ROOT/tools/build.sh" > /dev/null
 
+# The lang and check suites run through the stage-0 interpreter. When stage0/
+# is deleted they will need to be repointed at the L0 compiler; until that is
+# done, say so rather than reporting a pile of confusing failures.
+if [ ! -x "$BUILD/l0i" ]; then
+    echo "error: tests/lang and tests/check need an L0 implementation to run," >&2
+    echo "  and stage0/ has been deleted. Repoint this script at the compiler" >&2
+    echo "  built by tools/bootstrap.sh." >&2
+    exit 1
+fi
+
 TMP="$BUILD/test-tmp"
 rm -rf "$TMP"
 mkdir -p "$TMP"

@@ -2,7 +2,7 @@
  *
  * THIS FILE IS DISPOSABLE. It exists only to run the L0 compiler that is
  * written in L0, long enough to reach a self-compilation fixpoint. Once
- * seed/stage2.ll is checked in, this file is deleted and L0 has exactly one
+ * bootstrap/stage2.ll is checked in, this file is deleted and L0 has exactly one
  * implementation. Do not invest in it beyond correctness: it does not need to
  * be fast, and it does not need to produce beautiful code.
  *

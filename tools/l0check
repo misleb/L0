@@ -25,6 +25,14 @@ if [ ! -x "$BUILD/l0i" ]; then
     "$ROOT/tools/build.sh" > /dev/null
 fi
 
+if [ ! -x "$BUILD/l0i" ]; then
+    echo "error: no type checker available." >&2
+    echo "  stage0/ has been deleted, so checking now goes through the L0" >&2
+    echo "  compiler. Build it with tools/bootstrap.sh and check with:" >&2
+    echo "    cat FILE.l0 | build/l0c > /dev/null" >&2
+    exit 1
+fi
+
 if "$BUILD/l0i" check "$@"; then
     if [ $# -eq 1 ]; then
         echo "ok: $1 type checks"
