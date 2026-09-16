@@ -1,0 +1,1 @@
+tests/check/lex_top_level.l0:1:1: error: expected a top-level (def ...) or (data ...)

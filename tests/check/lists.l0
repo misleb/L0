@@ -1,0 +1,14 @@
+; List typing errors, including the rule that the list argument of cons
+; determines the required element type. See spec section 6.
+
+(def cons_wrong_element ((xs (list int))) (list int) (cons true xs))
+(def cons_onto_non_list ((a int)) int (cons a a))
+(def cons_nested_wrong ((xs (list (list int)))) (list (list int)) (cons 1 xs))
+(def head_needs_list ((a int)) int (head a))
+(def tail_needs_list ((a int)) int (tail a))
+(def is_empty_needs_list ((a int)) bool (is_empty a))
+(def nil_needs_type ((a int)) (list int) (nil))
+(def nil_bad_type ((a int)) (list int) (nil Missing))
+(def list_needs_element ((a int)) int 1)
+(def head_type_flows ((xs (list bool))) int (head xs))
+(def bare_list_type ((xs list)) int 1)

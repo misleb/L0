@@ -1,0 +1,20 @@
+; Declaration-level errors. Constructor names share one global namespace
+; because a match arm names a constructor without naming its type, so the
+; constructor alone has to determine the type. See spec section 4.
+
+(data Shape (Circle int) (Rect int int))
+(data Shape (Square int))
+(data Other (Circle bool))
+(data Empty)
+(data Dup (A) (A))
+
+(def repeated ((a int)) int a)
+(def repeated ((a int)) int a)
+
+(def duplicate_param ((a int) (a int)) int a)
+(def unknown_param_type ((a Missing)) int 1)
+(def unknown_return_type ((a int)) Missing 1)
+(def bad_param_shape ((a)) int 1)
+(def bad_param_list (a) int 1)
+(def too_few_parts ((a int)) int)
+(def nested_def ((a int)) int (def inner ((b int)) int b))

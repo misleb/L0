@@ -1,0 +1,54 @@
+; Shared helpers for the golden tests. Not part of L0 and not a standard
+; library: just enough to let a test report results without a formatter.
+;
+; The convention is that a test returns one character per assertion, 'y' for
+; pass and 'n' for fail, so a diff points straight at which assertion broke
+; rather than at an aggregate number.
+;
+;   (def main ((input (list int))) (list int)
+;     (yn (eq (add 2 3) 5)
+;     (yn (eq (mul 6 7) 42)
+;     "\n")))
+;
+; Because yn conses, nesting inward produces the results in source order.
+
+(def yn ((ok bool) (rest (list int))) (list int)
+  (cons (if ok 121 110) rest))
+
+(def rev_onto ((xs (list int)) (acc (list int))) (list int)
+  (if (is_empty xs)
+      acc
+      (rev_onto (tail xs) (cons (head xs) acc))))
+
+(def rev ((xs (list int))) (list int)
+  (rev_onto xs (nil int)))
+
+; Pushes a chunk onto a reversed accumulator. See spec section 11.1.
+(def push ((chunk (list int)) (acc (list int))) (list int)
+  (if (is_empty chunk)
+      acc
+      (push (tail chunk) (cons (head chunk) acc))))
+
+(def length ((xs (list int))) int
+  (if (is_empty xs)
+      0
+      (add 1 (length (tail xs)))))
+
+(def list_eq ((xs (list int)) (ys (list int))) bool
+  (if (is_empty xs)
+      (is_empty ys)
+      (if (is_empty ys)
+          false
+          (and (eq (head xs) (head ys))
+               (list_eq (tail xs) (tail ys))))))
+
+(def digits_onto ((n int) (acc (list int))) (list int)
+  (if (lt n 10)
+      (cons (add 48 n) acc)
+      (digits_onto (div n 10) (cons (add 48 (mod n 10)) acc))))
+
+; Decimal formatting, written in L0 because the language has no such builtin.
+(def digits ((n int)) (list int)
+  (if (lt n 0)
+      (cons 45 (digits_onto (neg n) (nil int)))
+      (digits_onto n (nil int))))

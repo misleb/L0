@@ -1,0 +1,1 @@
+tests/check/lex_extra_paren.l0:1:24: error: unexpected ')'

@@ -1,0 +1,6 @@
+; Arguments are evaluated left to right, so the division error is reported
+; even though the second argument would also fail. This is the only way
+; evaluation order is observable in a pure language. See spec section 8.
+
+(def main ((input (list int))) int
+  (add (div 1 0) (head (nil int))))

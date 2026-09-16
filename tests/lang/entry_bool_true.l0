@@ -1,0 +1,5 @@
+; A main returning bool is written as true or false followed by a newline.
+; This case has non-empty stdin, so the result is true.
+
+(def main ((input (list int))) bool
+  (not (is_empty input)))

@@ -1,0 +1,4 @@
+; A zero divisor is a runtime error: one line on stderr, no stdout, exit 70.
+
+(def main ((input (list int))) int
+  (div 1 0))

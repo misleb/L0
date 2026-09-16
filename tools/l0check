@@ -1,0 +1,36 @@
+#!/bin/sh
+# Type checks L0 source files. This is the feedback loop for writing L0:
+# nothing should be called done until l0check passes on it.
+#
+# Usage: tools/l0check FILE.l0 [MORE.l0 ...]
+#
+# All files given are checked together as one program, since L0 has no module
+# system and declaration order does not matter. A file that is only part of a
+# program will report unknown names unless its companions are listed too.
+#
+# Exit status is 0 when everything checks, 1 when it does not. Diagnostics are
+# written to stderr as file:line:column: error: message.
+
+set -eu
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+. "$ROOT/tools/env.sh"
+
+if [ $# -eq 0 ]; then
+    echo "usage: tools/l0check FILE.l0 [MORE.l0 ...]" >&2
+    exit 2
+fi
+
+if [ ! -x "$BUILD/l0i" ]; then
+    "$ROOT/tools/build.sh" > /dev/null
+fi
+
+if "$BUILD/l0i" check "$@"; then
+    if [ $# -eq 1 ]; then
+        echo "ok: $1 type checks"
+    else
+        echo "ok: $# files type check together"
+    fi
+else
+    exit 1
+fi

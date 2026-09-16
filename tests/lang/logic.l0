@@ -1,0 +1,31 @@
+; Comparisons, boolean builtins, and the strictness of and/or.
+;
+; Strictness is observable through errors: if and/or short-circuited, the
+; second argument below would not be evaluated and the program would not fail.
+; That case is covered by tests/lang/err_and_strict.l0, since a program can
+; only demonstrate it by dying. Here we only check values.
+
+(def main ((input (list int))) (list int)
+  (yn (lt 1 2)
+  (yn (not (lt 2 1))
+  (yn (not (lt 2 2))
+  (yn (le 2 2)
+  (yn (le 1 2)
+  (yn (not (le 3 2))
+  (yn (gt 2 1)
+  (yn (not (gt 1 2))
+  (yn (ge 2 2)
+  (yn (ge 3 2)
+  (yn (not (ge 1 2))
+  (yn (eq 2 2)
+  (yn (not (eq 2 3))
+  (yn (and true true)
+  (yn (not (and true false))
+  (yn (not (and false true))
+  (yn (not (and false false))
+  (yn (or true false)
+  (yn (or false true)
+  (yn (not (or false false))
+  (yn (not false)
+  (yn (not (not true))
+  "\n")))))))))))))))))))))))

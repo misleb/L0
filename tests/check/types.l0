@@ -1,0 +1,16 @@
+; Type errors. Each declaration contains exactly one, because the checker
+; reports the first error per declaration and then moves to the next, so
+; grouping one error per def gives one diagnostic per line.
+
+(def if_cond_not_bool ((x int)) int (if x 1 2))
+(def if_branches_differ ((x bool)) int (if x 1 true))
+(def return_type_wrong ((a int)) bool a)
+(def arg_type_wrong ((a int)) int (add a true))
+(def arg_count_low ((a int)) int (add a))
+(def arg_count_high ((a int)) int (add a 1 2))
+(def neg_needs_int ((b bool)) int (neg b))
+(def not_needs_bool ((a int)) bool (not a))
+(def and_needs_bool ((a int)) bool (and true a))
+(def compare_needs_int ((b bool)) bool (lt b b))
+(def call_arg_wrong ((b bool)) bool (call_arg_wrong 1))
+(def call_count_wrong ((a int) (b int)) int (call_count_wrong a))

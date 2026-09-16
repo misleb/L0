@@ -1,0 +1,13 @@
+; The reversed-accumulator output idiom from spec section 11.1, which is how
+; the L0 compiler is expected to build its output. Chunks are pushed onto a
+; backwards accumulator and reversed once at the end.
+
+(def report ((n int)) (list int)
+  (let a (push "count=" (nil int))
+    (let b (push (digits n) a)
+      (let c (push " doubled=" b)
+        (let d (push (digits (mul n 2)) c)
+          (rev (push "\n" d)))))))
+
+(def main ((input (list int))) (list int)
+  (report (length input)))

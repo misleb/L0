@@ -1,0 +1,19 @@
+; Name resolution errors, including the consequences of L0 having no function
+; values and of call position never resolving to a local. See spec section 7.
+
+(data Color (Red) (Green))
+
+(def unknown_variable ((a int)) int nope)
+(def unknown_function ((a int)) int (nope a))
+(def call_a_local ((f int)) int (f 1))
+(def function_as_value ((a int)) int (add a unknown_variable))
+(def builtin_as_value ((a int)) int (add a add))
+(def bare_constructor ((a int)) Color Red)
+(def bare_type_name ((a int)) int Color)
+(def reserved_as_param ((let int)) int 1)
+(def reserved_as_binding ((a int)) int (let if 1 2))
+(def upper_param ((A int)) int 1)
+(def call_true ((a int)) int (true a))
+(def empty_call ((a int)) int ())
+(def head_not_a_name ((a int)) int (1 2))
+(def Upper_function ((a int)) int 1)

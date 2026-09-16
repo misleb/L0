@@ -1,0 +1,33 @@
+; List builtins, (nil T) at several element types, and nested list types.
+
+(def three ((ignored int)) (list int)
+  (cons 1 (cons 2 (cons 3 (nil int)))))
+
+(def empty_bools ((ignored int)) (list bool)
+  (nil bool))
+
+; (list (list int)) is a legal type: list is the only parametric constructor
+; but its element may itself be a list.
+(def nested ((ignored int)) (list (list int))
+  (cons (cons 7 (nil int))
+        (cons (nil int)
+              (nil (list int)))))
+
+(def main ((input (list int))) (list int)
+  (yn (is_empty (nil int))
+  (yn (not (is_empty (three 0)))
+  (yn (eq (head (three 0)) 1)
+  (yn (eq (head (tail (three 0))) 2)
+  (yn (eq (head (tail (tail (three 0)))) 3)
+  (yn (is_empty (tail (tail (tail (three 0)))))
+  (yn (eq (length (three 0)) 3)
+  (yn (eq (length (nil int)) 0)
+  (yn (is_empty (empty_bools 0))
+  (yn (head (cons true (nil bool)))
+  (yn (eq (length (head (nested 0))) 1)
+  (yn (eq (head (head (nested 0))) 7)
+  (yn (is_empty (head (tail (nested 0))))
+  (yn (list_eq (three 0) (rev (rev (three 0))))
+  (yn (not (list_eq (three 0) (tail (three 0))))
+  (yn (list_eq (rev (three 0)) (cons 3 (cons 2 (cons 1 (nil int)))))
+  "\n")))))))))))))))))

@@ -1,0 +1,15 @@
+; Multiple source files are concatenated and checked as one program, with no
+; imports and no ordering requirement. See spec section 9.
+;
+; Everything below comes from tests/lib/assert.l0 or tests/lib/extra.l0, and
+; both are named in multifile.extra. A type declared in another file is usable
+; here exactly as if it were local.
+
+(def main ((input (list int))) (list int)
+  (yn (eq (triple 4) 12)
+  (yn (eq (pair_sum (Both 20 22)) 42)
+  (yn (eq (length (digits 12345)) 5)
+  (yn (list_eq (digits 12345) "12345")
+  (yn (list_eq (digits -7) "-7")
+  (yn (list_eq (digits 0) "0")
+  "\n")))))))

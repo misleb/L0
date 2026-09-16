@@ -1,0 +1,1 @@
+tests/check/lex_bad_char.l0:1:22: error: unexpected character '#'

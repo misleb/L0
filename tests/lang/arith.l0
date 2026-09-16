@@ -1,0 +1,21 @@
+; Arithmetic builtins, including every sign combination of div and mod and the
+; identity that ties them together. See spec section 6.1.
+
+(def main ((input (list int))) (list int)
+  (yn (eq (add 2 3) 5)
+  (yn (eq (sub 2 3) -1)
+  (yn (eq (mul 6 7) 42)
+  (yn (eq (neg 5) -5)
+  (yn (eq (neg -5) 5)
+  (yn (eq (div 7 2) 3)
+  (yn (eq (div -7 2) -3)
+  (yn (eq (div 7 -2) -3)
+  (yn (eq (div -7 -2) 3)
+  (yn (eq (mod 7 2) 1)
+  (yn (eq (mod -7 2) -1)
+  (yn (eq (mod 7 -2) 1)
+  (yn (eq (mod -7 -2) -1)
+  (yn (eq (add (mul (div -7 2) 2) (mod -7 2)) -7)
+  (yn (eq (div 6 3) 2)
+  (yn (eq (mod 6 3) 0)
+  "\n")))))))))))))))))

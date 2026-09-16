@@ -1,0 +1,13 @@
+tests/check/decls.l0:6:7: error: data type 'Shape' is already declared at tests/check/decls.l0:5:7
+tests/check/decls.l0:8:1: error: data type 'Empty' needs at least one constructor
+tests/check/decls.l0:7:14: error: constructor 'Circle' is already declared at tests/check/decls.l0:5:14; constructor names must be unique across all data types
+tests/check/decls.l0:9:16: error: constructor 'A' is already declared at tests/check/decls.l0:9:12; constructor names must be unique across all data types
+tests/check/decls.l0:7:7: error: data type 'Other' has no usable constructors
+tests/check/decls.l0:12:6: error: function 'repeated' is already defined at tests/check/decls.l0:11:6
+tests/check/decls.l0:14:32: error: parameter 'a' is declared twice
+tests/check/decls.l0:15:29: error: unknown type 'Missing'
+tests/check/decls.l0:16:36: error: unknown type 'Missing'
+tests/check/decls.l0:17:23: error: each parameter is (name type)
+tests/check/decls.l0:18:22: error: each parameter is (name type)
+tests/check/decls.l0:19:1: error: a def is (def name (params...) return-type body)
+tests/check/decls.l0:20:32: error: 'def' can only appear at the top level

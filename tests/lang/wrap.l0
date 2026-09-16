@@ -1,0 +1,18 @@
+; Overflow wraps rather than trapping, including the three cases LLVM treats
+; as undefined behavior. See spec section 6.1 and the changelog entry on
+; overflow.
+
+(def int_max ((ignored int)) int 9223372036854775807)
+(def int_min ((ignored int)) int -9223372036854775808)
+
+(def main ((input (list int))) (list int)
+  (yn (eq (add (int_max 0) 1) (int_min 0))
+  (yn (eq (sub (int_min 0) 1) (int_max 0))
+  (yn (eq (mul (int_max 0) 2) -2)
+  (yn (eq (neg (int_min 0)) (int_min 0))
+  (yn (eq (div (int_min 0) -1) (int_min 0))
+  (yn (eq (mod (int_min 0) -1) 0)
+  (yn (eq (mul (int_min 0) -1) (int_min 0))
+  (yn (lt (int_min 0) 0)
+  (yn (gt (int_max 0) 0)
+  "\n"))))))))))

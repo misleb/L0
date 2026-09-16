@@ -1,0 +1,1 @@
+tests/check/lex_string_unterminated.l0:1:29: error: unterminated string literal

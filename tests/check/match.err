@@ -1,0 +1,12 @@
+tests/check/match.l0:9:3: error: match on Shape is missing an arm for 'Rect'
+tests/check/match.l0:12:43: error: 'Red' is a constructor of Color, not Shape
+tests/check/match.l0:15:23: error: 'Red' already has an arm in this match
+tests/check/match.l0:18:13: error: 'Circle' has 1 field, but this pattern binds 2 names
+tests/check/match.l0:21:28: error: 'Rect' has 2 fields, but this pattern binds 1 name
+tests/check/match.l0:24:10: error: match needs a data type to examine, but this is int
+tests/check/match.l0:27:10: error: match needs a data type to examine, but this is (list int)
+tests/check/match.l0:30:31: error: all match arms must have the same type, but an earlier arm is int and this one is bool
+tests/check/match.l0:33:35: error: unknown constructor 'Purple'
+tests/check/match.l0:36:36: error: 'w' is bound twice in the same pattern
+tests/check/match.l0:39:21: error: a field binding name must start with a lowercase letter or underscore: R
+tests/check/match.l0:42:3: error: match needs a subject and at least one arm

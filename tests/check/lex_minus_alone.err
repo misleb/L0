@@ -1,0 +1,1 @@
+tests/check/lex_minus_alone.l0:1:29: error: expected digits after '-'

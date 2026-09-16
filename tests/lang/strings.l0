@@ -1,0 +1,22 @@
+; String literals desugar to (list int) of byte values, and the escape set is
+; exactly \n \t \r \\ \" \xHH. See spec section 2.2.
+
+(def main ((input (list int))) (list int)
+  (yn (list_eq "AB" (cons 65 (cons 66 (nil int))))
+  (yn (is_empty "")
+  (yn (eq (length "hello") 5)
+  (yn (eq (head "\n") 10)
+  (yn (eq (head "\t") 9)
+  (yn (eq (head "\r") 13)
+  (yn (eq (head "\\") 92)
+  (yn (eq (head "\"") 34)
+  (yn (eq (head "\x00") 0)
+  (yn (eq (head "\xff") 255)
+  (yn (eq (head "\xFF") 255)
+  (yn (eq (head "\x41") 65)
+  (yn (list_eq "\x41\x42" "AB")
+  (yn (eq (length "a\nb") 3)
+  (yn (eq (head (tail "a\nb")) 10)
+  ; A literal is never negative, even at byte 255.
+  (yn (gt (head "\xff") 0)
+  "\n")))))))))))))))))

@@ -1,0 +1,10 @@
+tests/check/lists.l0:14:26: error: 'list' needs an element type, as in (list int)
+tests/check/lists.l0:4:60: error: cons onto (list int) needs an element of type int, but this is bool
+tests/check/lists.l0:5:47: error: the second argument of cons must be a list, but this is int
+tests/check/lists.l0:6:73: error: cons onto (list (list int)) needs an element of type (list int), but this is int
+tests/check/lists.l0:7:42: error: head needs a list, but this is int
+tests/check/lists.l0:8:42: error: tail needs a list, but this is int
+tests/check/lists.l0:9:51: error: is_empty needs a list, but this is int
+tests/check/lists.l0:10:42: error: nil takes exactly one element type, as in (nil int)
+tests/check/lists.l0:11:45: error: unknown type 'Missing'
+tests/check/lists.l0:13:45: error: head_type_flows declares return type int, but its body is bool

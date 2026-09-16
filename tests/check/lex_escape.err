@@ -1,0 +1,1 @@
+tests/check/lex_escape.l0:1:35: error: unknown escape \q; the escapes are \n \t \r \\ \" \xHH

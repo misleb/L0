@@ -1,0 +1,10 @@
+; Output elements are reduced modulo 256, and the reduction is the
+; mathematical one, so negative elements come out positive. Every element
+; below reduces to 65 ("A") except the last, which reduces to 10 (newline).
+; See spec section 9.
+
+(def main ((input (list int))) (list int)
+  (cons 65
+    (cons 321
+      (cons -191
+        (cons 266 (nil int))))))

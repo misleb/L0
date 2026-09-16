@@ -1,0 +1,13 @@
+; A second helper file, used only by tests/lang/multifile.l0 to show that a
+; program can be split across more than two files and that a definition may be
+; used before the file declaring it is even reached.
+
+(data Pair
+  (Both int int))
+
+(def pair_sum ((p Pair)) int
+  (match p
+    ((Both a b) (add a b))))
+
+(def triple ((n int)) int
+  (mul n 3))

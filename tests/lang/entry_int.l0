@@ -1,0 +1,10 @@
+; A main returning int is written as a decimal followed by a newline. Negative
+; here, to cover the sign. See spec section 9.
+
+(def count ((xs (list int))) int
+  (if (is_empty xs)
+      0
+      (add 1 (count (tail xs)))))
+
+(def main ((input (list int))) int
+  (neg (count input)))

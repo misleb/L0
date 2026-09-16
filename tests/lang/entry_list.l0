@@ -1,0 +1,6 @@
+; The entry point contract: main receives stdin as a byte list and a
+; (list int) result is written out as raw bytes. This program is the identity,
+; so stdout must equal stdin exactly. See spec section 9.
+
+(def main ((input (list int))) (list int)
+  input)

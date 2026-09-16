@@ -1,0 +1,42 @@
+; match errors. Exhaustiveness and non-redundancy are what make adding a
+; constructor a compile error at every site that must handle it, so these are
+; the most important diagnostics in the language.
+
+(data Shape (Circle int) (Rect int int))
+(data Color (Red) (Green))
+
+(def missing_arm ((s Shape)) int
+  (match s ((Circle r) r)))
+
+(def constructor_of_other_type ((s Shape)) int
+  (match s ((Circle r) r) ((Rect w h) w) ((Red) 0)))
+
+(def duplicate_arm ((c Color)) int
+  (match c ((Red) 0) ((Red) 1) ((Green) 2)))
+
+(def too_many_bindings ((s Shape)) int
+  (match s ((Circle r q) r) ((Rect w h) w)))
+
+(def too_few_bindings ((s Shape)) int
+  (match s ((Circle r) r) ((Rect w) w)))
+
+(def subject_not_data ((n int)) int
+  (match n ((Red) 0) ((Green) 1)))
+
+(def subject_is_list ((xs (list int))) int
+  (match xs ((Red) 0) ((Green) 1)))
+
+(def arms_differ ((c Color)) int
+  (match c ((Red) 0) ((Green) true)))
+
+(def unknown_constructor ((c Color)) int
+  (match c ((Red) 0) ((Green) 1) ((Purple) 2)))
+
+(def duplicate_binding ((s Shape)) int
+  (match s ((Circle r) r) ((Rect w w) w)))
+
+(def binding_not_lower ((s Shape)) int
+  (match s ((Circle R) 0) ((Rect w h) w)))
+
+(def no_arms ((c Color)) int
+  (match c))

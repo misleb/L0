@@ -1,0 +1,12 @@
+tests/check/types.l0:5:41: error: the condition of an if must be bool, but this is int
+tests/check/types.l0:6:48: error: the branches of an if must have the same type, but then is int and else is bool
+tests/check/types.l0:7:39: error: return_type_wrong declares return type bool, but its body is int
+tests/check/types.l0:8:42: error: add needs int arguments, but this is bool
+tests/check/types.l0:9:34: error: add takes 2 arguments, but 1 was given
+tests/check/types.l0:10:35: error: add takes 2 arguments, but 3 were given
+tests/check/types.l0:11:40: error: neg needs an int, but this is bool
+tests/check/types.l0:12:41: error: not needs a bool, but this is int
+tests/check/types.l0:13:46: error: and needs bool arguments, but this is int
+tests/check/types.l0:14:44: error: lt compares int values, but this is bool
+tests/check/types.l0:15:53: error: argument 1 of call_arg_wrong must be bool, but this is int
+tests/check/types.l0:16:45: error: call_count_wrong takes 2 arguments, but 1 was given

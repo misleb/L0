@@ -1,0 +1,31 @@
+# Build output. Everything here is reproducible from source via tools/build.sh,
+# including the stage-0 interpreter, the runtime objects, intermediate bootstrap
+# stages, and scratch files.
+build/
+
+# Compiled artifacts, in case any escape build/.
+*.o
+*.dSYM/
+
+# Per-task planning notes. Transient by nature and superseded by README.md and
+# spec/changelog.md once work lands. Agent skills in .cursor/skills/ ARE
+# tracked, since they are project governance rather than scratch work.
+.cursor/plans/
+
+# macOS and editor noise.
+.DS_Store
+*.swp
+*~
+
+# ---------------------------------------------------------------------------
+# Do NOT add the patterns below, however tempting a generic template makes it.
+#
+#   *.out  *.err  *.exit  *.in      golden test expectations in tests/
+#   *.ll                            hand-written ABI tests in tests/backend/,
+#                                   and eventually the checked-in bootstrap
+#                                   seed at seed/stage2.ll
+#
+# These extensions normally mean "build output", but here they define what
+# correct behavior is. Ignoring them would make tools/test.sh pass against
+# nothing on a fresh clone.
+# ---------------------------------------------------------------------------

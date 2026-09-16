@@ -1,0 +1,2 @@
+(def main ((input (list int))) int
+  (head (nil int)))

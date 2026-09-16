@@ -1,0 +1,4 @@
+; The false half of the bool output contract. No .in file, so stdin is empty.
+
+(def main ((input (list int))) bool
+  (not (is_empty input)))

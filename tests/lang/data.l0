@@ -1,0 +1,106 @@
+; data declarations and match: nullary constructors, multi-field constructors,
+; recursive types, mutually recursive types, and lists of data values.
+
+(data Color
+  (Red)
+  (Green)
+  (Blue))
+
+(data Shape
+  (Circle int)
+  (Rect int int))
+
+(data Tree
+  (Leaf int)
+  (Branch Tree Tree))
+
+; Mutually recursive data types. Order of declaration does not matter, so Expr
+; may refer to Stmt before Stmt is declared.
+(data Expr
+  (Lit int)
+  (Neg Expr)
+  (Seq Stmt))
+
+(data Stmt
+  (Done)
+  (Then Expr Expr))
+
+(def code ((c Color)) int
+  (match c
+    ((Red) 1)
+    ((Green) 2)
+    ((Blue) 3)))
+
+(def area ((s Shape)) int
+  (match s
+    ((Circle r) (mul 3 (mul r r)))
+    ((Rect w h) (mul w h))))
+
+; Arms may appear in any order, not just declaration order.
+(def area_reordered ((s Shape)) int
+  (match s
+    ((Rect w h) (mul w h))
+    ((Circle r) (mul 3 (mul r r)))))
+
+(def sum_tree ((t Tree)) int
+  (match t
+    ((Leaf n) n)
+    ((Branch l r) (add (sum_tree l) (sum_tree r)))))
+
+(def depth ((t Tree)) int
+  (match t
+    ((Leaf n) 1)
+    ((Branch l r)
+      (let dl (depth l)
+        (let dr (depth r)
+          (add 1 (if (gt dl dr) dl dr)))))))
+
+(def eval_expr ((e Expr)) int
+  (match e
+    ((Lit n) n)
+    ((Neg inner) (neg (eval_expr inner)))
+    ((Seq s) (eval_stmt s))))
+
+(def eval_stmt ((s Stmt)) int
+  (match s
+    ((Done) 0)
+    ((Then a b) (add (eval_expr a) (eval_expr b)))))
+
+; A list whose elements are data values.
+(def shapes ((ignored int)) (list Shape)
+  (cons (Circle 2) (cons (Rect 3 4) (nil Shape))))
+
+(def total_area ((ss (list Shape))) int
+  (if (is_empty ss)
+      0
+      (add (area (head ss)) (total_area (tail ss)))))
+
+; An arm binding shadows an outer binding of the same name.
+(def shadowing_arm ((r int) (s Shape)) int
+  (match s
+    ((Circle r) r)
+    ((Rect w h) r)))
+
+(def sample_tree ((ignored int)) Tree
+  (Branch (Leaf 1) (Branch (Leaf 2) (Leaf 39))))
+
+(def main ((input (list int))) (list int)
+  (yn (eq (code (Red)) 1)
+  (yn (eq (code (Green)) 2)
+  (yn (eq (code (Blue)) 3)
+  (yn (eq (area (Circle 5)) 75)
+  (yn (eq (area (Rect 6 7)) 42)
+  (yn (eq (area_reordered (Rect 6 7)) 42)
+  (yn (eq (area_reordered (Circle 5)) 75)
+  (yn (eq (sum_tree (sample_tree 0)) 42)
+  (yn (eq (depth (sample_tree 0)) 3)
+  (yn (eq (depth (Leaf 9)) 1)
+  (yn (eq (eval_expr (Lit 5)) 5)
+  (yn (eq (eval_expr (Neg (Lit 5))) -5)
+  (yn (eq (eval_expr (Seq (Done))) 0)
+  (yn (eq (eval_expr (Seq (Then (Lit 3) (Neg (Lit 1))))) 2)
+  (yn (eq (total_area (shapes 0)) 24)
+  (yn (eq (total_area (nil Shape)) 0)
+  (yn (eq (shadowing_arm 7 (Circle 5)) 5)
+  (yn (eq (shadowing_arm 7 (Rect 1 2)) 7)
+  "\n")))))))))))))))))))

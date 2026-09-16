@@ -1,0 +1,47 @@
+; if, let, shadowing, and the separation of namespaces in spec section 7.
+
+; A parameter named the same as a function. In call position the name resolves
+; to the function; everywhere else to the parameter. Both appear here.
+(def double ((n int)) int (mul n 2))
+
+(def namespaces ((double int)) int
+  (add double (double 5)))
+
+; An inner let shadows an outer binding of the same name.
+(def shadow_let ((x int)) int
+  (let x (add x 1)
+    (let x (mul x 10)
+      x)))
+
+; A let shadowing a parameter.
+(def shadow_param ((v int)) int
+  (let v 99 v))
+
+; The bound name is not in scope inside its own value, so the x below refers
+; to the parameter, not to the binding being introduced.
+(def not_recursive ((x int)) int
+  (let x (add x 1) x))
+
+(def nested_if ((n int)) int
+  (if (lt n 0)
+      0
+      (if (lt n 10)
+          1
+          (if (lt n 100) 2 3))))
+
+(def main ((input (list int))) (list int)
+  (yn (eq (namespaces 3) 13)
+  (yn (eq (shadow_let 4) 50)
+  (yn (eq (shadow_param 1) 99)
+  (yn (eq (not_recursive 7) 8)
+  (yn (eq (nested_if -5) 0)
+  (yn (eq (nested_if 5) 1)
+  (yn (eq (nested_if 50) 2)
+  (yn (eq (nested_if 500) 3)
+  (yn (eq (if true 1 2) 1)
+  (yn (eq (if false 1 2) 2)
+  ; Only the selected branch is evaluated, so the dead branch's division by
+  ; zero never happens.
+  (yn (eq (if true 1 (div 1 0)) 1)
+  (yn (eq (if false (div 1 0) 2) 2)
+  "\n")))))))))))))
