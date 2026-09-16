@@ -51,7 +51,7 @@ find_cc() {
 }
 
 # In a source checkout the compiler and runtime may not be built yet. Build
-# them from the checked-in seed, which needs only a C compiler.
+# them from the checked-in seed, which needs clang but no existing L0.
 ensure_toolchain() {
     if [ -x "$LIB/l0c" ] && [ -f "$LIB/libl0rt.a" ]; then
         return 0

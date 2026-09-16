@@ -15,8 +15,10 @@
 #   <prefix>/lib/l0/AGENTS.md    project invariants, copied by `l0 init`
 #   <prefix>/lib/l0/skill/       the agent skill, copied by `l0 init`
 #
-# Only a C compiler is needed: the compiler is built from the checked-in seed
-# rather than from the L0 sources, so no existing L0 toolchain is required.
+# Requires clang and nothing from L0: the compiler is built from the
+# checked-in seed rather than from the L0 sources, so no existing L0
+# toolchain is needed. clang specifically, because it both compiles the C
+# runtime and assembles bootstrap/stage2.ll, which is LLVM IR text.
 
 set -eu
 

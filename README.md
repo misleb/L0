@@ -43,8 +43,21 @@ tools/test.sh --compiled   # the differential suite, described below
 tools/install.sh --prefix ~/.local     # then put ~/.local/bin on PATH
 ```
 
-Only a C compiler is needed: the L0 compiler is built from the checked-in
-seed, not from the L0 sources, so no existing L0 toolchain is required.
+This needs `clang` and nothing from L0. **Installing L0 does not require an
+existing L0 compiler**, which is the whole point of checking in
+`bootstrap/stage2.ll`.
+
+`clang` specifically, rather than any C compiler, because it does two jobs
+here. It compiles the 317-line C runtime, and it assembles
+`bootstrap/stage2.ll`, which is LLVM IR text rather than a binary. GCC has no
+LLVM IR frontend and could only do the first.
+
+The runtime is permanent, not a bootstrapping crutch. L0 has no pointers, no
+allocation, and no I/O, so it cannot express `cons` allocating a cell, or
+reading stdin, or running on a large stack and reporting exhaustion as an
+error. Every compiled L0 program links against it. Self-hosting means the
+compiler is written in L0; it does not mean the system is built from L0
+alone, and a pure language with no I/O could never make that second claim.
 
 ```bash
 l0 check prog.l0          # type check
