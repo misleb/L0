@@ -7,6 +7,8 @@
 #   l0 run   FILE.l0 [MORE.l0 ...]            build to a temporary file, run
 #   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
 #   l0 init  [DIR]                            scaffold a project for an agent
+#   l0 request SLUG                           start a feature request
+#   l0 submit FILE [--open]                   send a finished request to L0
 #   l0 version
 #
 # Options:
@@ -228,6 +230,81 @@ The prelude is linked automatically; the copy in l0/ is there to be read.
   l0 build prog.l0     produce an executable
   l0 request SLUG      start a feature request
 EOF
+        ;;
+
+    submit)
+        file=${1:-}
+        if [ -z "$file" ] || [ ! -f "$file" ]; then
+            echo "l0: usage: l0 submit l0/requests/NNNN-slug.md" >&2
+            exit 2
+        fi
+
+        # Enforce mechanically what the l0-limits skill asks for. An unfilled
+        # code block means the request has no quoted code, and a request
+        # without the workaround and its cost cannot be judged.
+        empty=$(awk 'prev=="```" && $0=="```" {c++} {prev=$0} END {print c+0}' \
+            "$file")
+        if [ "$empty" -gt 0 ]; then
+            echo "l0: $file still has $empty empty code block(s)." >&2
+            echo "  A request is weighed against keeping L0 small, so it has" >&2
+            echo "  to quote the code that could not be written and the" >&2
+            echo "  workaround that shipped instead. Fill those in first." >&2
+            exit 1
+        fi
+
+        abs=$(cd "$(dirname "$file")" && pwd)/$(basename "$file")
+        project=$(basename "$PWD")
+
+        # Copy into the L0 repository's inbox when it is on this machine.
+        if [ -n "${L0_HOME:-}" ] && [ -d "$L0_HOME" ]; then
+            mkdir -p "$L0_HOME/requests"
+            dest="$L0_HOME/requests/$project-$(basename "$file")"
+            cp "$file" "$dest"
+            echo "copied to $dest"
+            abs=$dest
+        fi
+
+        # Percent-encode for the deeplink. awk rather than python so the
+        # driver keeps depending on nothing but a POSIX shell and clang.
+        prompt="A feature request for L0 arrived from the project at $PWD.
+
+Read $abs and triage it with the l0-evolve skill: judge it against
+lib/skills/l0-limits/SKILL.md, then either send it back with the reason, or
+accept it and quote its evidence into spec/changelog.md as the blocker."
+
+        encoded=$(printf '%s\n' "$prompt" | LC_ALL=C awk '
+            BEGIN { for (i = 0; i < 256; i++) ord[sprintf("%c", i)] = i }
+            {
+                s = $0; out = ""
+                for (i = 1; i <= length(s); i++) {
+                    c = substr(s, i, 1)
+                    if (c ~ /[A-Za-z0-9._~-]/) out = out c
+                    else out = out sprintf("%%%02X", ord[c])
+                }
+                printf "%s%%0A", out
+            }')
+
+        link="cursor://anysphere.cursor-deeplink/prompt?text=$encoded"
+        if [ "${#link}" -gt 10000 ]; then
+            echo "l0: deeplink exceeds Cursor's 10000 character limit" >&2
+            exit 1
+        fi
+
+        if [ "${2:-}" = "--open" ] || [ "${L0_SUBMIT_OPEN:-0}" = 1 ]; then
+            if command -v open > /dev/null 2>&1; then
+                open "$link"
+                echo "opened Cursor with a triage prompt; confirm it there"
+                exit 0
+            fi
+            echo "l0: no 'open' command available; the link is below" >&2
+        fi
+
+        echo
+        echo "$link"
+        echo
+        echo "Click that to pre-fill a triage prompt in Cursor. It will wait"
+        echo "for you to confirm, and lands in whichever window is active, so"
+        echo "open the L0 repository first."
         ;;
 
     request)

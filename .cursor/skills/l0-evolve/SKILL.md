@@ -16,6 +16,15 @@ Projects scaffolded by `l0 init` carry the `l0-limits` skill, which tells an
 agent to work around a limitation and, when it is worth reporting, produce a
 document under `l0/requests/`. Those documents are the input to this process.
 
+They arrive in [../../../requests/](../../../requests/), copied there by
+`l0 submit` when the submitting project has `L0_HOME` set, or pasted in by
+hand. `l0 submit` also prints a Cursor deeplink that pre-fills a triage
+prompt; clicking it is how a request usually reaches this repository.
+
+Keep requests after triage whether or not they are accepted. A rejected one
+records a limitation somebody actually hit and the reason the language did
+not change, which is the argument that would otherwise be relitigated later.
+
 A request is evidence, not a decision. Judge it against
 [../../../lib/skills/l0-limits/SKILL.md](../../../lib/skills/l0-limits/SKILL.md),
 which is the standard its author was held to, and send it back rather than

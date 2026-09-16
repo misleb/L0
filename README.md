@@ -132,10 +132,25 @@ only then decide whether it is worth reporting:
   or has appeared in **three unrelated places** is worth reporting
 
 `l0 request SLUG` then produces a document under `l0/requests/` whose
-sections are what `spec/changelog.md` needs as the blocker behind a change.
-Bringing that file back to this repository is the input to the `l0-evolve`
-skill, which judges it against the same standard rather than acting on it
-directly.
+sections are what `spec/changelog.md` needs as the blocker behind a change,
+and `l0 submit FILE` sends it here:
+
+```bash
+export L0_HOME=/path/to/newlang     # optional, if L0 is on this machine
+l0 submit l0/requests/0001-no-generics.md
+```
+
+Submitting refuses a request whose code blocks are still empty, so the
+evidence rule is enforced by the tool rather than by exhortation. It copies
+the request into `requests/` when `L0_HOME` is set, and prints a
+`cursor://` deeplink that pre-fills a triage prompt in Cursor.
+
+That link is as automated as this can get. Cursor's deeplinks always wait
+for the user to confirm and cannot choose which window they land in, so open
+this repository before clicking. There is no way for an agent here to listen
+for requests; the flow is a push from the project that hit the limitation.
+Requests are kept after triage whether accepted or not, since a rejection
+records why the language did not change.
 
 The point of the ceremony is that the workaround has to exist before the
 request does. Requests then contain evidence rather than preferences, and

@@ -74,13 +74,20 @@ case where a constant cost still justifies a request.
 ## Writing the request
 
 ```bash
-l0 request short-slug
+l0 request short-slug        # creates l0/requests/NNNN-short-slug.md
+# fill it in
+l0 submit l0/requests/NNNN-short-slug.md
 ```
 
-creates `l0/requests/NNNN-short-slug.md` from a template. Fill in every
-section; a request missing the workaround or the cost evidence cannot be
-acted on, because the person receiving it has to weigh your problem against
-keeping the language small.
+Fill in every section. `l0 submit` refuses a request whose code blocks are
+still empty, because the person receiving it has to weigh your problem
+against keeping the language small and cannot do that without the code.
+
+`l0 submit` prints a `cursor://` deeplink that pre-fills a triage prompt in
+Cursor. Clicking it is the operator's job, not yours: it lands in whichever
+window is active and always waits for confirmation. Print the link and say
+it is ready. If `L0_HOME` points at the L0 repository on this machine, the
+request is also copied into its `requests/` inbox.
 
 Be specific about the smallest change that would help. "Generics" is not
 actionable; "a `Result` type parameterised over one type variable, with no

@@ -34,7 +34,8 @@ and must not be passed on the command line.
 **The L0 toolchain is read-only.** Never edit the installed prelude or
 compiler, and never vendor a patched copy. Write the workaround, and if the
 limitation is worth reporting, `l0 request SLUG` starts a feature request
-for the L0 maintainer.
+and `l0 submit FILE` sends it. Submitting prints a link for the operator to
+click; do not open it yourself.
 
 Most walls are not language problems. Anything about getting data in or out
 is a question of putting more structure on the byte channel, and anything
