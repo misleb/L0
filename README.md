@@ -16,20 +16,21 @@ specification is not documentation here; it is the substrate.
 
 ## Status
 
-The compiler exists and works on a subset of the language. It is written in
-L0, it compiles L0 to LLVM IR, and the result runs.
+**L0 compiles itself.** The compiler is written in L0, covers all of L0 v1,
+and reaches a byte-identical self-compilation fixpoint. With `stage0/` removed
+entirely, the checked-in seed rebuilds the compiler from source and the result
+works.
 
 - `spec/L0.md` — L0 v1, complete
 - `runtime/` — value representation, allocation, and host I/O, in C
-- `stage0/l0i.c` — an interpreter for all of L0 v1, in C, deliberately
-  disposable
-- `compiler/*.l0` — lexer, parser, checker, and emitter, **written in L0**,
-  covering everything except `data` declarations and `match`
-- `tests/` — 51 golden test cases, plus a differential suite
+- `compiler/*.l0` — lexer, parser, checker, and emitter, **written in L0**
+- `bootstrap/stage2.ll` — the compiler, compiled, as checked-in LLVM IR text
+- `stage0/l0i.c` — an interpreter in C, now redundant and awaiting deletion
+- `tests/` — 52 golden test cases, plus a differential suite
 
-Self-compilation has not been attempted. The compiler's own source uses
-`data` and `match` heavily, so it cannot yet compile itself; teaching it those
-two constructs is the remaining work before a fixpoint is possible.
+Deleting `stage0/` is the remaining step. It is held up only because the
+`tests/lang` and `tests/check` suites still run through the interpreter and
+need repointing at the compiler first.
 
 ## Quick start
 
@@ -118,10 +119,15 @@ stage2 + compiler.l0                  ->  stage3.ll
 stage2.ll == stage3.ll
 ```
 
-`stage1.ll` and `stage2.ll` differ, because stage 0 and `compiler.l0` are
-different programs emitting different but equivalent IR. The stage2/stage3
-identity is the one that means something: the compiler maps its own source to
-exactly the compiler that produced it.
+The stage2/stage3 identity is the one that means something: the compiler maps
+its own source to exactly the compiler that produced it.
+
+Here all three stages are byte-identical, because stage 0 is an *interpreter*
+running the same `compiler/*.l0` that stage 1 is compiled from. Both compute
+the same pure function of the same input, so `stage1.ll == stage2.ll` is an
+extra check, and a difference would mean the compiler miscompiled itself. That
+equality would not hold if stage 0 were a separate compiler emitting
+equivalent but differently-shaped IR.
 
 When that holds, `stage2.ll` is checked in as a bootstrap seed and `stage0/` is
 **deleted**. From that point L0 has exactly one implementation, written in

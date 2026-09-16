@@ -1,0 +1,5 @@
+; Checker errors for data and match. One snippet per line of stdin, which
+; scales better than nesting one let per case.
+
+(def main ((input (list int))) (list int)
+  (check_lines (split_lines input) (nil int)))

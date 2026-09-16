@@ -1,0 +1,22 @@
+91: match on Shape is missing an arm for Rect
+110: Red already has an arm in this match
+130: Red is a constructor of Color, not Shape
+100: Circle has 1 field, but this pattern binds 2
+115: Rect has 2 fields, but this pattern binds 1
+89: the subject of a match must be a data type, but this is int
+97: the subject of a match must be a data type, but this is (list int)
+110: all match arms must have the same type, but one is int and another is bool
+122: unknown constructor Purple
+115: w is bound twice in the same pattern
+91: Circle takes 1 field, but got 0
+91: Circle takes 1 field, but got 2
+91: argument 1 of Circle must be int, but this is bool
+91: unknown constructor Nope
+68: f declares return type Color, but its body is Shape
+68: data type Shape is already declared
+68: constructor Circle is already declared
+68: unknown type Missing
+68: unknown type Missing
+68: unknown type Missing
+68: unknown type Missing
+ok

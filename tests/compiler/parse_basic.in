@@ -12,3 +12,15 @@
   (cons 65 (nil int)))
 
 (def lits ((a int)) (list int) "hi\n")
+
+(data Shape (Circle int) (Rect int int) (Dot))
+(data Tree (Leaf int) (Branch Tree Tree))
+
+(def area ((s Shape)) int
+  (match s ((Circle r) (mul 3 (mul r r))) ((Rect w h) (mul w h)) ((Dot) 0)))
+
+(def sum_tree ((t Tree)) int
+  (match t ((Leaf n) n) ((Branch l r) (add (sum_tree l) (sum_tree r)))))
+
+(def build ((n int)) Tree (Branch (Leaf n) (Leaf 0)))
+(def shapes ((i int)) (list Shape) (cons (Dot) (nil Shape)))

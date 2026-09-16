@@ -51,10 +51,19 @@ stage2 + compiler.l0                  ->  stage3.ll
 stage2.ll must equal stage3.ll, byte for byte.
 ```
 
-`stage1.ll` and `stage2.ll` **are expected to differ**, because stage 0 and
-`compiler.l0` are different programs that emit different but equivalent IR. Only
-the stage2/stage3 comparison means anything. Do not try to make stage1 and
-stage2 match.
+When stage 1 comes from the **stage-0 interpreter**, all three stages are
+byte-identical, and `tools/bootstrap.sh` checks that. The interpreter runs the
+very same `compiler/*.l0` that stage 1 is compiled from, so both compute the
+same pure function of the same input, and L0 is deterministic. A difference
+between `stage1.ll` and `stage2.ll` therefore means the compiler miscompiled
+itself, which is a sharper signal than the fixpoint alone and points at the
+construct being emitted where they diverge.
+
+That equality would **not** hold if stage 1 came from a different compiler
+emitting equivalent but differently-shaped IR. In general only
+`stage2.ll == stage3.ll` is required; `stage1.ll == stage2.ll` is an extra
+check this particular bootstrap can afford, and the script only applies it
+when the interpreter was used.
 
 Once the fixpoint holds, `stage2.ll` is checked in as `bootstrap/stage2.ll` and
 `stage0/` is deleted. From then on the seed builds the compiler, and L0 has one

@@ -14,9 +14,15 @@
 #
 #     stage2.ll must equal stage3.ll
 #
-# stage1.ll and stage2.ll are EXPECTED to differ, because "start" and
-# compiler.l0 are different programs emitting different but equivalent IR.
-# Only the stage2/stage3 comparison means anything.
+# When "start" is the stage-0 INTERPRETER, all three stages must be identical.
+# The interpreter runs the very same compiler/*.l0 that stage1 is compiled
+# from, so both compute the same pure function of the same input, and L0 is
+# deterministic. stage1 != stage2 then means the compiler miscompiled itself,
+# which is a sharper signal than the fixpoint alone.
+#
+# That equality would NOT hold if "start" were a different compiler emitting
+# equivalent but differently-shaped IR. Only stage2 == stage3 is required in
+# general; stage1 == stage2 is an extra check this bootstrap can afford.
 #
 # "start" is whichever bootstrap entry point exists:
 #
@@ -79,15 +85,45 @@ echo "compiler source: $(wc -c < "$SRC" | tr -d ' ') bytes from $(echo $SOURCES 
 
 # ---------------------------------------------------- stage 1: the entry point
 
+# The compiler tags its output "O" or "E" on the first line, so every stage
+# goes through run_stage rather than having its stdout captured directly.
+# Capturing raw output would write the tag line into the .ll file.
+run_stage() {
+    compiler=$1
+    out=$2
+    if "$compiler" < "$SRC" > "$out.tagged"; then
+        case "$(head -n 1 "$out.tagged")" in
+            O) tail -n +2 "$out.tagged" > "$out" ;;
+            E)
+                echo "error: the compiler rejected compiler/*.l0:" >&2
+                tail -n +2 "$out.tagged" | head -20 >&2
+                exit 1
+                ;;
+            *)
+                echo "error: untagged output from $compiler" >&2
+                exit 1
+                ;;
+        esac
+    else
+        echo "error: $compiler failed" >&2
+        exit 1
+    fi
+}
+
 if [ -f bootstrap/stage2.ll ]; then
     echo "start:  bootstrap/stage2.ll"
     tools/l0ll bootstrap/stage2.ll "$BUILD/l0c-seed"
-    "$BUILD/l0c-seed" < "$SRC" > "$BUILD/stage1.ll"
+    run_stage "$BUILD/l0c-seed" "$BUILD/stage1.ll"
     USED_SEED=1
 elif [ -x "$BUILD/l0i" ] && [ -f stage0/l0i.c ]; then
     echo "start:  stage0 interpreter (no seed yet)"
     # shellcheck disable=SC2086
-    "$BUILD/l0i" run $SOURCES < "$SRC" > "$BUILD/stage1.ll"
+    set -- "$BUILD/l0i" run $SOURCES
+    printf '#!/bin/sh\nexec' > "$BUILD/stage0-driver"
+    for a in "$@"; do printf ' %s' "$a" >> "$BUILD/stage0-driver"; done
+    printf ' "$@"\n' >> "$BUILD/stage0-driver"
+    chmod +x "$BUILD/stage0-driver"
+    run_stage "$BUILD/stage0-driver" "$BUILD/stage1.ll"
     USED_SEED=0
 else
     echo "error: no bootstrap entry point." >&2
@@ -98,10 +134,10 @@ fi
 # --------------------------------------------- stages 2 and 3: the fixpoint
 
 tools/l0ll "$BUILD/stage1.ll" "$BUILD/stage1"
-"$BUILD/stage1" < "$SRC" > "$BUILD/stage2.ll"
+run_stage "$BUILD/stage1" "$BUILD/stage2.ll"
 
 tools/l0ll "$BUILD/stage2.ll" "$BUILD/stage2"
-"$BUILD/stage2" < "$SRC" > "$BUILD/stage3.ll"
+run_stage "$BUILD/stage2" "$BUILD/stage3.ll"
 
 for s in 1 2 3; do
     echo "stage$s.ll: $(wc -c < "$BUILD/stage$s.ll" | tr -d ' ') bytes"
@@ -123,6 +159,21 @@ fi
 echo
 echo "FIXPOINT: stage2.ll == stage3.ll ($(wc -c < "$BUILD/stage2.ll" | tr -d ' ') bytes)"
 
+# Only meaningful when stage 1 came from the interpreter; see the header.
+if [ "$USED_SEED" = 0 ]; then
+    if cmp -s "$BUILD/stage1.ll" "$BUILD/stage2.ll"; then
+        echo "AGREEMENT: the compiled compiler matches the interpreted one"
+    else
+        echo
+        echo "FAIL: stage1.ll and stage2.ll differ."
+        echo "      The interpreter and the compiled compiler run the same"
+        echo "      source, so they must agree. The compiler miscompiled"
+        echo "      itself. First difference:"
+        diff "$BUILD/stage1.ll" "$BUILD/stage2.ll" | head -20 | sed 's/^/    /'
+        exit 1
+    fi
+fi
+
 # ------------------------------------------------------------ seed handling
 
 if [ "$USED_SEED" = 1 ]; then
@@ -137,7 +188,7 @@ if [ "$USED_SEED" = 1 ]; then
 fi
 
 if [ "$REFRESH" = 1 ]; then
-    mkdir -p seed
+    mkdir -p bootstrap
     cp "$BUILD/stage2.ll" bootstrap/stage2.ll
     "$CC" --version | head -1 > bootstrap/LLVM-VERSION
     echo "REFRESHED: bootstrap/stage2.ll and bootstrap/LLVM-VERSION written; commit both."

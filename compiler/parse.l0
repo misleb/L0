@@ -13,7 +13,8 @@
 (data Ty
   (TyInt)
   (TyBool)
-  (TyList Ty))
+  (TyList Ty)
+  (TyData (list int)))                  ; declared type name
 
 (data Expr
   (EInt int int)                        ; offset, value
@@ -23,13 +24,25 @@
   (EIf int Expr Expr Expr)              ; offset, condition, then, else
   (ELet int (list int) Expr Expr)       ; offset, name, value, body
   (ENil int Ty)                         ; offset, element type
+  (ECtor int (list int) (list Expr))    ; offset, constructor, arguments
+  (EMatch int Expr (list Arm))          ; offset, subject, arms
   (ECall int (list int) (list Expr)))   ; offset, callee name, arguments
+
+; One match arm: the constructor it names, one binding name per field, and
+; the expression to evaluate. Patterns are one level deep, so a binding is
+; always a plain name.
+(data Arm
+  (A int (list int) (list (list int)) Expr))
 
 (data Param
   (P (list int) Ty))                    ; name, type
 
+(data Ctor
+  (C int (list int) (list Ty)))         ; offset, name, field types
+
 (data Decl
-  (DDef int (list int) (list Param) Ty Expr))
+  (DDef int (list int) (list Param) Ty Expr)
+  (DData int (list int) (list Ctor)))   ; offset, type name, constructors
 
 ; ----------------------------------------------------------------- on types
 
@@ -37,9 +50,11 @@
   (match t
     ((TyInt) 0)
     ((TyBool) 1)
-    ((TyList e) 2)))
+    ((TyList e) 2)
+    ((TyData n) 3)))
 
 (def ty_is_list ((t Ty)) bool (eq (ty_kind t) 2))
+(def ty_is_data ((t Ty)) bool (eq (ty_kind t) 3))
 
 ; The element type of a list. The result is meaningless for non-lists, which
 ; callers guard with ty_is_list.
@@ -47,21 +62,32 @@
   (match t
     ((TyList e) e)
     ((TyInt) (TyInt))
-    ((TyBool) (TyBool))))
+    ((TyBool) (TyBool))
+    ((TyData n) (TyInt))))
+
+(def ty_name ((t Ty)) (list int)
+  (match t
+    ((TyData n) n)
+    ((TyInt) "")
+    ((TyBool) "")
+    ((TyList e) "")))
 
 (def ty_eq ((a Ty) (b Ty)) bool
   (if (not (eq (ty_kind a) (ty_kind b)))
       false
       (if (ty_is_list a)
           (ty_eq (ty_elem a) (ty_elem b))
-          true)))
+          (if (ty_is_data a)
+              (list_eq (ty_name a) (ty_name b))
+              true))))
 
 ; Renders a type as spec-legal source text, for diagnostics.
 (def ty_str ((t Ty)) (list int)
   (match t
     ((TyInt) "int")
     ((TyBool) "bool")
-    ((TyList e) (append "(list " (append (ty_str e) ")")))))
+    ((TyList e) (append "(list " (append (ty_str e) ")")))
+    ((TyData n) n)))
 
 (data PTy
   (PTOk Ty (list Token))
@@ -78,6 +104,18 @@
 (data PParams
   (PPsOk (list Param) (list Token))
   (PPsErr int (list int)))
+
+(data PArms
+  (PAsOk (list Arm) (list Token))
+  (PAsErr int (list int)))
+
+(data PCtors
+  (PCsOk (list Ctor) (list Token))
+  (PCsErr int (list int)))
+
+(data PNames
+  (PNsOk (list (list int)) (list Token))
+  (PNsErr int (list int)))
 
 (data PDecl
   (PDOk Decl (list Token))
@@ -116,6 +154,21 @@
       acc
       (rev_decls_onto (tail xs) (cons (head xs) acc))))
 
+(def rev_arms_onto ((xs (list Arm)) (acc (list Arm))) (list Arm)
+  (if (is_empty xs)
+      acc
+      (rev_arms_onto (tail xs) (cons (head xs) acc))))
+
+(def rev_ctors_onto ((xs (list Ctor)) (acc (list Ctor))) (list Ctor)
+  (if (is_empty xs)
+      acc
+      (rev_ctors_onto (tail xs) (cons (head xs) acc))))
+
+(def rev_tys_list_onto ((xs (list Ty)) (acc (list Ty))) (list Ty)
+  (if (is_empty xs)
+      acc
+      (rev_tys_list_onto (tail xs) (cons (head xs) acc))))
+
 ; ------------------------------------------------------------------- types
 
 (def parse_type ((ts (list Token))) PTy
@@ -131,6 +184,8 @@
                     (PTErr (tok_offset t)
                       "expected a type: int, bool, or (list T)")))))))
 
+; An uppercase name is a declared data type. Whether it was actually
+; declared is the checker's business, not the parser's.
 (def parse_type_name ((t Token) (rest (list Token))) PTy
   (let n (tok_bytes t)
     (if (list_eq n "int")
@@ -140,7 +195,9 @@
             (if (list_eq n "list")
                 (PTErr (tok_offset t)
                   "list needs an element type, as in (list int)")
-                (PTErr (tok_offset t) "unknown type"))))))
+                (if (name_is_upper n)
+                    (PTOk (TyData n) rest)
+                    (PTErr (tok_offset t) "unknown type")))))))
 
 (def parse_list_type ((ts (list Token)) (open int)) PTy
   (if (is_empty ts)
@@ -208,15 +265,96 @@
   (if (list_eq n "if") (parse_if ts open)
   (if (list_eq n "let") (parse_let ts open)
   (if (list_eq n "nil") (parse_nil ts open)
-  (if (list_eq n "match")
-      (PEErr o "match is not supported by this compiler yet")
+  (if (list_eq n "match") (parse_match ts open)
   (if (or (list_eq n "def") (list_eq n "data"))
       (PEErr o "this can only appear at the top level")
   (if (or (list_eq n "true") (list_eq n "false"))
       (PEErr o "this is not a function")
   (if (name_is_upper n)
-      (PEErr o "constructors are not supported by this compiler yet")
+      (parse_ctor_call n ts open)
       (parse_call n ts open o)))))))))
+
+; (Ctor arg...) -- arguments are ordinary expressions.
+(def parse_ctor_call ((n (list int)) (ts (list Token)) (open int)) PExpr
+  (match (parse_args ts (nil Expr))
+    ((PAErr eo m) (PEErr eo m))
+    ((PAOk args rest) (PEOk (ECtor open n args) rest))))
+
+; (match subject arm...) where each arm is ((Ctor name...) result).
+(def parse_match ((ts (list Token)) (open int)) PExpr
+  (match (need_expr ts open "match needs a subject and at least one arm")
+    ((PEErr o m) (PEErr o m))
+    ((PEOk subject rest)
+      (match (parse_arms rest (nil Arm) open)
+        ((PAsErr o m) (PEErr o m))
+        ((PAsOk arms rest2)
+          (if (is_empty arms)
+              (PEErr open "match needs a subject and at least one arm")
+              (PEOk (EMatch open subject arms) rest2)))))))
+
+(def parse_arms ((ts (list Token)) (acc (list Arm)) (open int)) PArms
+  (if (is_empty ts)
+      (PAsErr open "unclosed ( in a match")
+      (if (tok_is_rparen (head ts))
+          (PAsOk (rev_arms_onto acc (nil Arm)) (tail ts))
+          (match (parse_arm ts)
+            ((PAsErr o m) (PAsErr o m))
+            ((PAsOk got rest)
+              (parse_arms rest (cons (head got) acc) open))))))
+
+; Returns a single-element list so it can share the PArms result type.
+(def parse_arm ((ts (list Token))) PArms
+  (let t (head ts)
+    (if (not (tok_is_lparen t))
+        (PAsErr (tok_offset t)
+          "each match arm is ((Constructor names...) result)")
+        (parse_arm_pattern (tail ts) (tok_offset t)))))
+
+(def parse_arm_pattern ((ts (list Token)) (open int)) PArms
+  (if (is_empty ts)
+      (PAsErr open "unclosed ( in a match arm")
+      (if (not (tok_is_lparen (head ts)))
+          (PAsErr (tok_offset (head ts))
+            "a match pattern is (Constructor names...)")
+          (parse_arm_ctor (tail ts) open))))
+
+(def parse_arm_ctor ((ts (list Token)) (open int)) PArms
+  (if (is_empty ts)
+      (PAsErr open "unclosed ( in a match pattern")
+      (let t (head ts)
+        (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
+            (PAsErr (tok_offset t) "a match pattern starts with a constructor name")
+            (match (parse_binders (tail ts) (nil (list int)) open)
+              ((PNsErr o m) (PAsErr o m))
+              ((PNsOk names rest)
+                (parse_arm_body (tok_bytes t) names rest open)))))))
+
+(def parse_binders ((ts (list Token)) (acc (list (list int))) (open int))
+    PNames
+  (if (is_empty ts)
+      (PNsErr open "unclosed ( in a match pattern")
+      (let t (head ts)
+        (if (tok_is_rparen t)
+            (PNsOk (rev_strs_onto acc (nil (list int))) (tail ts))
+            (if (not (tok_is_name t))
+                (PNsErr (tok_offset t) "expected a field binding name")
+                (if (or (is_reserved (tok_bytes t))
+                        (not (name_is_lower (tok_bytes t))))
+                    (PNsErr (tok_offset t)
+                      "a field binding name must be lowercase and not reserved")
+                    (parse_binders (tail ts) (cons (tok_bytes t) acc) open)))))))
+
+(def parse_arm_body ((cname (list int)) (names (list (list int)))
+                     (ts (list Token)) (open int)) PArms
+  (match (need_expr ts open "each match arm is ((Constructor names...) result)")
+    ((PEErr o m) (PAsErr o m))
+    ((PEOk body rest)
+      (if (is_empty rest)
+          (PAsErr open "unclosed ( in a match arm")
+          (if (tok_is_rparen (head rest))
+              (PAsOk (cons (A open cname names body) (nil Arm)) (tail rest))
+              (PAsErr (tok_offset (head rest))
+                "each match arm is ((Constructor names...) result)"))))))
 
 ; Parses a required subexpression of a fixed-arity form. Hitting the closing
 ; ) here means the form is short, which deserves the arity message rather
@@ -349,11 +487,59 @@
         (if (not (tok_is_name t))
             (PDErr (tok_offset t) "expected def at the top level")
             (if (list_eq (tok_bytes t) "data")
-                (PDErr (tok_offset t)
-                  "data declarations are not supported by this compiler yet")
+                (parse_data_name (tail ts) open)
                 (if (not (list_eq (tok_bytes t) "def"))
-                    (PDErr (tok_offset t) "expected a top-level (def ...)")
+                    (PDErr (tok_offset t)
+                      "expected a top-level (def ...) or (data ...)")
                     (parse_def_name (tail ts) open)))))))
+
+; ---------------------------------------------------- data declarations
+
+(def parse_data_name ((ts (list Token)) (open int)) PDecl
+  (if (is_empty ts)
+      (PDErr open "unclosed (")
+      (let t (head ts)
+        (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
+            (PDErr (tok_offset t) "a data declaration needs an uppercase type name")
+            (match (parse_ctors (tail ts) (nil Ctor) open)
+              ((PCsErr o m) (PDErr o m))
+              ((PCsOk cs rest)
+                (if (is_empty cs)
+                    (PDErr open "a data type needs at least one constructor")
+                    (PDOk (DData open (tok_bytes t) cs) rest))))))))
+
+(def parse_ctors ((ts (list Token)) (acc (list Ctor)) (open int)) PCtors
+  (if (is_empty ts)
+      (PCsErr open "unclosed ( in a data declaration")
+      (if (tok_is_rparen (head ts))
+          (PCsOk (rev_ctors_onto acc (nil Ctor)) (tail ts))
+          (if (not (tok_is_lparen (head ts)))
+              (PCsErr (tok_offset (head ts))
+                "a constructor is (Name field-types...)")
+              (match (parse_ctor (tail ts) (tok_offset (head ts)))
+                ((PCsErr o m) (PCsErr o m))
+                ((PCsOk got rest)
+                  (parse_ctors rest (cons (head got) acc) open)))))))
+
+; Returns a single-element list so it can share the PCtors result type.
+(def parse_ctor ((ts (list Token)) (open int)) PCtors
+  (if (is_empty ts)
+      (PCsErr open "unclosed ( in a constructor")
+      (let t (head ts)
+        (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
+            (PCsErr (tok_offset t) "a constructor is (Name field-types...)")
+            (parse_ctor_fields (tok_bytes t) (tail ts) (nil Ty) open)))))
+
+(def parse_ctor_fields ((n (list int)) (ts (list Token)) (acc (list Ty))
+                        (open int)) PCtors
+  (if (is_empty ts)
+      (PCsErr open "unclosed ( in a constructor")
+      (if (tok_is_rparen (head ts))
+          (PCsOk (cons (C open n (rev_tys_list_onto acc (nil Ty))) (nil Ctor))
+                 (tail ts))
+          (match (parse_type ts)
+            ((PTErr o m) (PCsErr o m))
+            ((PTOk ty rest) (parse_ctor_fields n rest (cons ty acc) open))))))
 
 (def parse_def_name ((ts (list Token)) (open int)) PDecl
   (if (is_empty ts)

@@ -7,6 +7,29 @@ New entries go at the top.
 
 ---
 
+## Self-hosting reached
+
+`compiler/*.l0` compiles itself to a byte-identical fixpoint, and
+`bootstrap/stage2.ll` is checked in as the bootstrap seed. Verified by
+removing `stage0/` entirely and rebuilding the compiler from the seed alone.
+
+No language change was needed to get here. L0 v1 as specified was sufficient
+to express its own compiler, which was the entire point of the design.
+
+Two things are worth recording because they were predicted and held:
+
+**The monomorphism pressure never became a blocker.** The compiler carries
+nine near-identical "value or error" result types that a parametric data type
+would collapse into one. That was annoying and never worse than annoying, so
+parametric data types remain unjustified. The blocker that would justify them
+has still not appeared.
+
+**Nothing needed I/O.** The compiler is a pure `(list int) -> (list int)`
+function, and everything that looked like it wanted a primitive turned out to
+be a protocol on the single channel instead.
+
+---
+
 ## Open questions
 
 Not yet decided. Listed here so they are not mistaken for oversights.

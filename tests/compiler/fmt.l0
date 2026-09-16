@@ -52,11 +52,9 @@
 ; Rendered as S-expressions so a golden file reads like the source it came
 ; from, and a structural mistake shows up as a visibly wrong shape.
 
-(def fmt_ty ((t Ty)) (list int)
-  (match t
-    ((TyInt) "int")
-    ((TyBool) "bool")
-    ((TyList e) (append "(list " (append (fmt_ty e) ")")))))
+; ty_str lives in parse.l0 next to the Ty definition, since the checker
+; needs it for diagnostics too.
+(def fmt_ty ((t Ty)) (list int) (ty_str t))
 
 (def fmt_expr ((e Expr)) (list int)
   (match e
@@ -73,8 +71,40 @@
         (append " " (append (fmt_expr v)
           (append " " (append (fmt_expr body) ")")))))))
     ((ENil o elem) (append "(nil " (append (fmt_ty elem) ")")))
+    ((ECtor o n args)
+      (append "(" (append n (append (fmt_args args) ")"))))
+    ((EMatch o subject arms)
+      (append "(match " (append (fmt_expr subject)
+        (append (fmt_arms arms) ")"))))
     ((ECall o n args)
       (append "(" (append n (append (fmt_args args) ")"))))))
+
+(def fmt_arms ((arms (list Arm))) (list int)
+  (if (is_empty arms)
+      ""
+      (match (head arms)
+        ((A o cname names body)
+          (append " ((" (append cname (append (fmt_names names)
+            (append ") " (append (fmt_expr body)
+              (append ")" (fmt_arms (tail arms))))))))))))
+
+(def fmt_names ((ns (list (list int)))) (list int)
+  (if (is_empty ns)
+      ""
+      (append " " (append (head ns) (fmt_names (tail ns))))))
+
+(def fmt_field_tys ((ts (list Ty))) (list int)
+  (if (is_empty ts)
+      ""
+      (append " " (append (fmt_ty (head ts)) (fmt_field_tys (tail ts))))))
+
+(def fmt_ctors ((cs (list Ctor))) (list int)
+  (if (is_empty cs)
+      ""
+      (match (head cs)
+        ((C o n fts)
+          (append " (" (append n (append (fmt_field_tys fts)
+            (append ")" (fmt_ctors (tail cs))))))))))
 
 (def fmt_args ((args (list Expr))) (list int)
   (if (is_empty args)
@@ -93,6 +123,8 @@
 
 (def fmt_decl ((d Decl)) (list int)
   (match d
+    ((DData o n cs)
+      (append "(data " (append n (append (fmt_ctors cs) ")"))))
     ((DDef o n ps ret body)
       (append "(def " (append n
         (append " (" (append (fmt_params ps)
@@ -126,6 +158,26 @@
   (if (is_empty ds)
       "ok\n"
       (rev (fmt_diags_onto ds (nil int)))))
+
+; Splits input into lines, dropping empty ones. Lets a test drive many
+; snippets from a .in file instead of nesting one let per case.
+(def split_lines_onto ((s (list int)) (cur (list int))
+                       (acc (list (list int)))) (list (list int))
+  (if (is_empty s)
+      (if (is_empty cur) acc (cons (rev cur) acc))
+      (if (eq (head s) 10)
+          (split_lines_onto (tail s) (nil int)
+            (if (is_empty cur) acc (cons (rev cur) acc)))
+          (split_lines_onto (tail s) (cons (head s) cur) acc))))
+
+(def split_lines ((s (list int))) (list (list int))
+  (rev_strs_onto (split_lines_onto s (nil int) (nil (list int)))
+                 (nil (list int))))
+
+(def check_lines ((ls (list (list int))) (acc (list int))) (list int)
+  (if (is_empty ls)
+      (rev acc)
+      (check_lines (tail ls) (push (check_source (head ls)) acc))))
 
 ; Runs the front end over one source string and renders whatever comes back.
 (def check_source ((src (list int))) (list int)

@@ -6,7 +6,9 @@
 ; Two decisions from spec section 10 do most of the work:
 ;
 ;   Every value is an i64, so no type information survives into codegen. An
-;   operand is just a piece of text: "42", "%t7", or "%a0".
+;   operand is just a piece of text: "42", "%t7", or "%a0". Even match needs
+;   no types: an arm names its constructor, and the constructor table gives
+;   the tag.
 ;
 ;   Temporaries and labels are NAMED. LLVM requires unnamed values (%0, %1) to
 ;   be numbered in strict sequence, counting function parameters and implicit
@@ -14,10 +16,10 @@
 ;   functions. Named values have no such rule.
 ;
 ; let needs no memory at all: it binds a name to an operand that already
-; exists. Only if needs storage, and it uses an alloca and a load rather than
-; a phi node, so no basic-block bookkeeping is needed. Emission is structured,
-; so a value is only ever used in the block that defines it or in a block that
-; block dominates.
+; exists. Only if and match need storage, and both use an alloca and a load
+; rather than a phi node, so no basic-block bookkeeping is needed. Emission
+; is structured, so a value is only ever used in the block that defines it or
+; in a block that block dominates.
 
 (data Emit
   (Em int (list int)))                  ; next name number, reversed output
@@ -30,6 +32,21 @@
 
 (data EBind
   (EB (list int) (list int)))           ; L0 name, operand text
+
+; Local bindings plus the global tables. The emitter builds the constructor
+; table from the declarations itself, so it still needs nothing the checker
+; produced.
+(data Env
+  (Ev (list EBind) Ctx))
+
+(data EnvEmit
+  (EnvSt Env Emit))
+
+(def env_binds ((e Env)) (list EBind) (match e ((Ev b c) b)))
+(def env_ctx ((e Env)) Ctx (match e ((Ev b c) c)))
+
+(def env_bind ((n (list int)) (op (list int)) (e Env)) Env
+  (match e ((Ev b c) (Ev (cons (EB n op) b) c))))
 
 ; ------------------------------------------------------------------ output
 
@@ -46,12 +63,12 @@
 (def bump ((st Emit)) Emit
   (match st ((Em n acc) (Em (add n 1) acc))))
 
-(def lookup_operand ((n (list int)) (env (list EBind))) (list int)
-  (if (is_empty env)
+(def lookup_operand ((n (list int)) (binds (list EBind))) (list int)
+  (if (is_empty binds)
       "0"
-      (match (head env)
+      (match (head binds)
         ((EB bn op)
-          (if (list_eq n bn) op (lookup_operand n (tail env)))))))
+          (if (list_eq n bn) op (lookup_operand n (tail binds)))))))
 
 ; "i64 a, i64 b"
 (def fmt_ops ((ops (list (list int)))) (list int)
@@ -62,7 +79,6 @@
           (append "i64 " (append (head ops)
             (append ", " (fmt_ops (tail ops))))))))
 
-; %tN = <rhs>
 (def emit_assign ((rhs (list int)) (st Emit)) EmitVal
   (let name (append "%t" (fresh_id st))
     (Val name
@@ -76,7 +92,6 @@
     EmitVal
   (emit_assign (append op (append " i64 " (append a (append ", " b)))) st))
 
-; icmp yields i1, which is widened to the uniform i64 representation.
 (def emit_cmp ((pred (list int)) (a (list int)) (b (list int)) (st Emit))
     EmitVal
   (match (emit_assign (append "icmp " (append pred
@@ -91,23 +106,25 @@
 
 ; ------------------------------------------------------------- expressions
 
-(def emit_expr ((e Expr) (env (list EBind)) (st Emit)) EmitVal
+(def emit_expr ((e Expr) (env Env) (st Emit)) EmitVal
   (match e
     ((EInt o v) (Val (digits v) st))
     ((EBool o v) (Val (if v "1" "0") st))
     ((ENil o t) (Val "0" st))
     ((EStr o s) (emit_string (rev s) "0" st))
-    ((EVar o n) (Val (lookup_operand n env) st))
+    ((EVar o n) (Val (lookup_operand n (env_binds env)) st))
     ((EIf o c a b) (emit_if c a b env st))
     ((ELet o n v body) (emit_let n v body env st))
+    ((ECtor o n args) (emit_ctor n args env st))
+    ((EMatch o subject arms) (emit_match subject arms env st))
     ((ECall o n args) (emit_call n args env st))))
 
 ; A let binds a name to an operand that already exists, so it costs nothing
 ; at runtime and emits no instructions.
-(def emit_let ((n (list int)) (v Expr) (body Expr) (env (list EBind))
-               (st Emit)) EmitVal
+(def emit_let ((n (list int)) (v Expr) (body Expr) (env Env) (st Emit))
+    EmitVal
   (match (emit_expr v env st)
-    ((Val vv st1) (emit_expr body (cons (EB n vv) env) st1))))
+    ((Val vv st1) (emit_expr body (env_bind n vv env) st1))))
 
 ; Bytes arrive reversed so the chain can be built from the end forwards.
 (def emit_string ((rs (list int)) (acc (list int)) (st Emit)) EmitVal
@@ -116,18 +133,17 @@
       (match (emit_rt_call "l0_cons" (two_ops (digits (head rs)) acc) st)
         ((Val r st1) (emit_string (tail rs) r st1)))))
 
-; Emits one arm of an if: its label, its body, a store into the result slot,
-; and a jump to the join block.
+(def emit_store ((v (list int)) (slot (list int)) (st Emit)) Emit
+  (emit_line (append "  store i64 " (append v (append ", ptr " slot))) st))
+
 (def emit_arm ((lbl (list int)) (e Expr) (slot (list int))
-               (lend (list int)) (env (list EBind)) (st Emit)) Emit
+               (lend (list int)) (env Env) (st Emit)) Emit
   (let st1 (emit_line (append lbl ":") st)
     (match (emit_expr e env st1)
       ((Val v st2)
-        (emit_line (append "  br label %" lend)
-          (emit_line (append "  store i64 " (append v (append ", ptr " slot)))
-                     st2))))))
+        (emit_line (append "  br label %" lend) (emit_store v slot st2))))))
 
-(def emit_if ((c Expr) (a Expr) (b Expr) (env (list EBind)) (st Emit)) EmitVal
+(def emit_if ((c Expr) (a Expr) (b Expr) (env Env) (st Emit)) EmitVal
   (let id (fresh_id st)
     (let slot (append "%r" id)
       (let st1 (emit_line (append "  " (append slot " = alloca i64"))
@@ -136,7 +152,7 @@
           ((Val cv st2) (emit_if_arms id slot cv a b env st2)))))))
 
 (def emit_if_arms ((id (list int)) (slot (list int)) (cv (list int))
-                   (a Expr) (b Expr) (env (list EBind)) (st Emit)) EmitVal
+                   (a Expr) (b Expr) (env Env) (st Emit)) EmitVal
   (let lthen (append "Lt" id)
     (let lelse (append "Le" id)
       (let lend (append "Lx" id)
@@ -150,17 +166,130 @@
                   (let st5 (emit_line (append lend ":") st4)
                     (emit_assign (append "load i64, ptr " slot) st5)))))))))))
 
-(def emit_args ((args (list Expr)) (env (list EBind)) (st Emit)
+(def emit_args ((args (list Expr)) (env Env) (st Emit)
                 (acc (list (list int)))) EmitOps
   (if (is_empty args)
       (Ops (rev_strs_onto acc (nil (list int))) st)
       (match (emit_expr (head args) env st)
         ((Val v st1) (emit_args (tail args) env st1 (cons v acc))))))
 
-(def emit_call ((n (list int)) (args (list Expr)) (env (list EBind))
-                (st Emit)) EmitVal
+(def emit_call ((n (list int)) (args (list Expr)) (env Env) (st Emit))
+    EmitVal
   (match (emit_args args env st (nil (list int)))
     ((Ops ops st1) (emit_op n ops st1))))
+
+; ------------------------------------------------------------ constructors
+
+; A block is sized for the widest constructor of its type, per spec section
+; 10.1, so every value of a type has the same layout.
+(def ctor_block_width ((ci CtorInfo) (ctx Ctx)) int
+  (match (find_data (ctor_type_name ci) (ctx_datas ctx))
+    ((DataFound dd) (data_max_fields dd))
+    ((DataMissing) 0)))
+
+(def emit_ctor ((n (list int)) (args (list Expr)) (env Env) (st Emit))
+    EmitVal
+  (match (find_ctor n (ctx_ctors (env_ctx env)))
+    ((CtorMissing) (Val "0" st))
+    ((CtorFound ci)
+      (match (emit_args args env st (nil (list int)))
+        ((Ops ops st1) (emit_ctor_block ci ops (env_ctx env) st1))))))
+
+(def emit_ctor_block ((ci CtorInfo) (ops (list (list int))) (ctx Ctx)
+                      (st Emit)) EmitVal
+  (match (emit_rt_call "l0_data_new"
+           (two_ops (digits (ctor_tag ci))
+                    (digits (ctor_block_width ci ctx))) st)
+    ((Val blk st1) (Val blk (emit_field_stores blk ops 0 st1)))))
+
+(def emit_field_stores ((blk (list int)) (ops (list (list int))) (i int)
+                        (st Emit)) Emit
+  (if (is_empty ops)
+      st
+      (emit_field_stores blk (tail ops) (add i 1)
+        (emit_line (append "  call void @l0_data_set(i64 " (append blk
+          (append ", i64 " (append (digits i)
+            (append ", i64 " (append (head ops) ")")))))) st))))
+
+; ------------------------------------------------------------------- match
+
+; Lowered as a switch on the tag into one block per arm, joined through an
+; alloca. The default block is unreachable because the checker proved the
+; match exhaustive.
+(def emit_match ((subject Expr) (arms (list Arm)) (env Env) (st Emit))
+    EmitVal
+  (let id (fresh_id st)
+    (let slot (append "%m" id)
+      (let st1 (emit_line (append "  " (append slot " = alloca i64"))
+                          (bump st))
+        (match (emit_expr subject env st1)
+          ((Val sv st2) (emit_match_dispatch id slot sv arms env st2)))))))
+
+(def arm_label ((id (list int)) (k int)) (list int)
+  (append "A" (append id (append "_" (digits k)))))
+
+(def arm_tag ((a Arm) (env Env)) int
+  (match (find_ctor (arm_ctor_name a) (ctx_ctors (env_ctx env)))
+    ((CtorFound ci) (ctor_tag ci))
+    ((CtorMissing) 0)))
+
+(def switch_entries ((arms (list Arm)) (env Env) (id (list int)) (k int))
+    (list int)
+  (if (is_empty arms)
+      ""
+      (append " i64 " (append (digits (arm_tag (head arms) env))
+        (append ", label %" (append (arm_label id k)
+          (switch_entries (tail arms) env id (add k 1))))))))
+
+(def emit_match_dispatch ((id (list int)) (slot (list int)) (sv (list int))
+                          (arms (list Arm)) (env Env) (st Emit)) EmitVal
+  (match (emit_rt_call "l0_data_tag" (one_op sv) st)
+    ((Val tg st1)
+      (let lend (append "Lm" id)
+        (let lnm (append "Ln" id)
+          (let st2 (emit_line (append "  switch i64 " (append tg
+                      (append ", label %" (append lnm
+                        (append " [" (append (switch_entries arms env id 0)
+                          " ]")))))) st1)
+            (emit_match_tail id slot sv arms env lend lnm st2)))))))
+
+(def emit_match_tail ((id (list int)) (slot (list int)) (sv (list int))
+                      (arms (list Arm)) (env Env) (lend (list int))
+                      (lnm (list int)) (st Emit)) EmitVal
+  (let st1 (emit_match_arms arms env id 0 slot sv lend st)
+    (let st2 (emit_line (append lnm ":") st1)
+      (let st3 (emit_line "  unreachable" st2)
+        (let st4 (emit_line (append lend ":") st3)
+          (emit_assign (append "load i64, ptr " slot) st4))))))
+
+(def emit_match_arms ((arms (list Arm)) (env Env) (id (list int)) (k int)
+                      (slot (list int)) (sv (list int)) (lend (list int))
+                      (st Emit)) Emit
+  (if (is_empty arms)
+      st
+      (emit_match_arms (tail arms) env id (add k 1) slot sv lend
+        (emit_match_arm (head arms) env (arm_label id k) slot sv lend st))))
+
+(def emit_match_arm ((a Arm) (env Env) (lbl (list int)) (slot (list int))
+                     (sv (list int)) (lend (list int)) (st Emit)) Emit
+  (match a
+    ((A o cn names body)
+      (let st1 (emit_line (append lbl ":") st)
+        (match (emit_field_loads sv names 0 env st1)
+          ((EnvSt env2 st2)
+            (match (emit_expr body env2 st2)
+              ((Val v st3)
+                (emit_line (append "  br label %" lend)
+                  (emit_store v slot st3))))))))))
+
+(def emit_field_loads ((sv (list int)) (names (list (list int))) (i int)
+                       (env Env) (st Emit)) EnvEmit
+  (if (is_empty names)
+      (EnvSt env st)
+      (match (emit_rt_call "l0_data_get" (two_ops sv (digits i)) st)
+        ((Val f st1)
+          (emit_field_loads sv (tail names) (add i 1)
+            (env_bind (head names) f env) st1)))))
 
 ; ---------------------------------------------------------------- builtins
 
@@ -203,21 +332,22 @@
             ""
             (append ", " (fmt_ir_params (tail ps) (add i 1))))))))
 
-(def param_env ((ps (list Param)) (i int) (env (list EBind))) (list EBind)
+(def param_binds ((ps (list Param)) (i int) (acc (list EBind))) (list EBind)
   (if (is_empty ps)
-      env
+      acc
       (match (head ps)
         ((P n t)
-          (param_env (tail ps) (add i 1)
-            (cons (EB n (append "%a" (digits i))) env))))))
+          (param_binds (tail ps) (add i 1)
+            (cons (EB n (append "%a" (digits i))) acc))))))
 
-(def emit_fn ((d Decl) (st Emit)) Emit
+(def emit_fn ((d Decl) (ctx Ctx) (st Emit)) Emit
   (match d
+    ((DData o n cs) st)
     ((DDef o n ps ret body)
       (let st1 (emit_line (append "define i64 @l0_f_" (append n
                   (append "(" (append (fmt_ir_params ps 0) ") {")))) st)
         (let st2 (emit_line "entry:" st1)
-          (match (emit_expr body (param_env ps 0 (nil EBind)) st2)
+          (match (emit_expr body (Ev (param_binds ps 0 (nil EBind)) ctx) st2)
             ((Val v st3)
               (emit_line ""
                 (emit_line "}"
@@ -228,10 +358,10 @@
 (def reset_counter ((st Emit)) Emit
   (match st ((Em n acc) (Em 0 acc))))
 
-(def emit_fns ((ds (list Decl)) (st Emit)) Emit
+(def emit_fns ((ds (list Decl)) (ctx Ctx) (st Emit)) Emit
   (if (is_empty ds)
       st
-      (emit_fns (tail ds) (emit_fn (head ds) (reset_counter st)))))
+      (emit_fns (tail ds) ctx (emit_fn (head ds) ctx (reset_counter st)))))
 
 ; ----------------------------------------------------------------- module
 
@@ -242,12 +372,17 @@
         (append "declare i64 @l0_tail(i64)\n"
           (append "declare i64 @l0_is_empty(i64)\n"
             (append "declare i64 @l0_div(i64, i64)\n"
-              "declare i64 @l0_mod(i64, i64)\n\n")))))))
+              (append "declare i64 @l0_mod(i64, i64)\n"
+                (append "declare i64 @l0_data_new(i64, i64)\n"
+                  (append "declare void @l0_data_set(i64, i64, i64)\n"
+                    (append "declare i64 @l0_data_tag(i64)\n"
+                      "declare i64 @l0_data_get(i64, i64)\n\n")))))))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)
       2
       (match (head ds)
+        ((DData o n cs) (ret_kind (tail ds)))
         ((DDef o n ps ret body)
           (if (list_eq n "main")
               (if (ty_eq ret (TyInt)) 0 (if (ty_eq ret (TyBool)) 1 2))
@@ -257,4 +392,4 @@
   (let st0 (Em 0 (push (ir_header 0) (nil int)))
     (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
                           (append (digits (ret_kind ds)) "\n")) st0)
-      (emit_text (emit_fns ds st1)))))
+      (emit_text (emit_fns ds (build_ctx ds) st1)))))
