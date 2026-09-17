@@ -41,6 +41,11 @@ under ten lines. The prelude is small on purpose.
 request a *prelude* addition, which is far cheaper than changing the
 language and is a different kind of ask.
 
+**Is a prelude function nearly right?** Define your own with the same name.
+It shadows the prelude's throughout your program, and the prelude keeps using
+its own, so this is neither a collision nor a reason to invent a new name.
+→ **Not a request of any kind.**
+
 ## Then apply the cost test
 
 Write the workaround first. A request must quote code that exists, not code

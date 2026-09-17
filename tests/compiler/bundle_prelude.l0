@@ -1,0 +1,11 @@
+; The whole compiler, end to end, on a bundle with a #prelude line.
+;
+; Unlike the other stage tests this one supplies no main of its own and takes
+; the compiler's, because what is under test is the input header of spec
+; section 9.1, and parse_bundle is only reachable through it.
+;
+; The input defines h twice, once on each side of the boundary. The golden
+; output is the whole module, so it pins down three things at once: that the
+; header was understood, that two functions of the same name can coexist, and
+; that they get the l0_p_ and l0_f_ symbols of spec section 10.2, with main
+; calling the program's.

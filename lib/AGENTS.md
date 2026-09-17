@@ -32,6 +32,11 @@ Several files are compiled together, since L0 has no module system. The
 standard library is linked automatically; `l0/prelude.l0` is a readable copy
 and must not be passed on the command line.
 
+**A function you define shadows a prelude function of the same name**, and the
+prelude keeps calling its own, so a name the standard library already took is
+never something you have to work around. Type and constructor names are not
+shadowable and still have to be unique.
+
 ## When L0 cannot express something
 
 **The L0 toolchain is read-only.** Never edit the installed prelude or

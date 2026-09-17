@@ -33,20 +33,21 @@
 (data EBind
   (EB (list int) (list int)))           ; L0 name, operand text
 
-; Local bindings plus the global tables. The emitter builds the constructor
-; table from the declarations itself, so it still needs nothing the checker
-; produced.
+; Local bindings, the global tables, and the function names that resolve to
+; the prelude from here. The emitter builds the constructor table from the
+; declarations itself, so it still needs nothing the checker produced.
 (data Env
-  (Ev (list EBind) Ctx))
+  (Ev (list EBind) Ctx (list (list int))))
 
 (data EnvEmit
   (EnvSt Env Emit))
 
-(def env_binds ((e Env)) (list EBind) (match e ((Ev b c) b)))
-(def env_ctx ((e Env)) Ctx (match e ((Ev b c) c)))
+(def env_binds ((e Env)) (list EBind) (match e ((Ev b c p) b)))
+(def env_ctx ((e Env)) Ctx (match e ((Ev b c p) c)))
+(def env_prelude ((e Env)) (list (list int)) (match e ((Ev b c p) p)))
 
 (def env_bind ((n (list int)) (op (list int)) (e Env)) Env
-  (match e ((Ev b c) (Ev (cons (EB n op) b) c))))
+  (match e ((Ev b c p) (Ev (cons (EB n op) b) c p))))
 
 ; ------------------------------------------------------------------ output
 
@@ -173,10 +174,18 @@
       (match (emit_expr (head args) env st)
         ((Val v st1) (emit_args (tail args) env st1 (cons v acc))))))
 
+; A call resolves to the prelude's function when the name is one this scope
+; reaches there, and to the program's otherwise. The two carry different
+; symbols, which is what lets both exist at once. Spec 7.1 and 10.2.
+(def call_sym ((n (list int)) (env Env)) (list int)
+  (if (any_eq n (env_prelude env))
+      (append "l0_p_" n)
+      (append "l0_f_" n)))
+
 (def emit_call ((n (list int)) (args (list Expr)) (env Env) (st Emit))
     EmitVal
   (match (emit_args args env st (nil (list int)))
-    ((Ops ops st1) (emit_op n ops st1))))
+    ((Ops ops st1) (emit_op n (call_sym n env) ops st1))))
 
 ; ------------------------------------------------------------ constructors
 
@@ -304,7 +313,10 @@
 (def nth_str ((xs (list (list int))) (i int)) (list int)
   (if (le i 0) (head xs) (nth_str (tail xs) (sub i 1))))
 
-(def emit_op ((n (list int)) (ops (list (list int))) (st Emit)) EmitVal
+; sym is the symbol a call to a user function would use, resolved by the
+; caller while the environment was still in hand. Builtins ignore it.
+(def emit_op ((n (list int)) (sym (list int)) (ops (list (list int)))
+              (st Emit)) EmitVal
   (if (any_eq n (arith_ops 0))
       (emit_binop n (head ops) (head (tail ops)) st)
       (if (ge (index_of n (cmp_names 0)) 0)
@@ -313,14 +325,15 @@
           (if (ge (index_of n (rt_names 0)) 0)
               (emit_rt_call (nth_str (rt_syms 0) (index_of n (rt_names 0)))
                             ops st)
-              (emit_op_rest n ops st)))))
+              (emit_op_rest n sym ops st)))))
 
-(def emit_op_rest ((n (list int)) (ops (list (list int))) (st Emit)) EmitVal
+(def emit_op_rest ((n (list int)) (sym (list int)) (ops (list (list int)))
+                   (st Emit)) EmitVal
   (if (list_eq n "neg")
       (emit_binop "sub" "0" (head ops) st)
       (if (list_eq n "not")
           (emit_binop "xor" (head ops) "1" st)
-          (emit_rt_call (append "l0_f_" n) ops st))))
+          (emit_rt_call sym ops st))))
 
 ; -------------------------------------------------------------- functions
 
@@ -340,14 +353,40 @@
           (param_binds (tail ps) (add i 1)
             (cons (EB n (append "%a" (digits i))) acc))))))
 
-(def emit_fn ((d Decl) (ctx Ctx) (st Emit)) Emit
+; What emitting one group's declarations needs: the tables its calls resolve
+; against, the names among them that land in the prelude, and which group it
+; is.
+(data Scope
+  (Sc Ctx (list (list int)) bool))
+
+(def sc_ctx ((s Scope)) Ctx (match s ((Sc c p i) c)))
+(def sc_prelude_names ((s Scope)) (list (list int)) (match s ((Sc c p i) p)))
+(def sc_is_prelude ((s Scope)) bool (match s ((Sc c p i) i)))
+
+; A program is a closed module, and the runtime reaches into it by name for
+; exactly one function, so everything else gets internal linkage and LLVM can
+; delete what the program never calls. Prelude functions take the l0_p_ prefix
+; and are never the entry point, however they are named. Spec 10.2.
+(def fn_header ((n (list int)) (inpre bool)) (list int)
+  (if inpre
+      "define internal i64 @l0_p_"
+      (if (list_eq n "main")
+          "define i64 @l0_f_"
+          "define internal i64 @l0_f_")))
+
+(def emit_fn ((d Decl) (sc Scope) (st Emit)) Emit
   (match d
     ((DData o n cs) st)
     ((DDef o n ps ret body)
-      (let st1 (emit_line (append "define i64 @l0_f_" (append n
-                  (append "(" (append (fmt_ir_params ps 0) ") {")))) st)
+      (let st1 (emit_line
+                 (append (fn_header n (sc_is_prelude sc))
+                   (append n
+                     (append "(" (append (fmt_ir_params ps 0) ") {")))) st)
         (let st2 (emit_line "entry:" st1)
-          (match (emit_expr body (Ev (param_binds ps 0 (nil EBind)) ctx) st2)
+          (match (emit_expr body
+                   (Ev (param_binds ps 0 (nil EBind)) (sc_ctx sc)
+                       (sc_prelude_names sc))
+                   st2)
             ((Val v st3)
               (emit_line ""
                 (emit_line "}"
@@ -358,10 +397,43 @@
 (def reset_counter ((st Emit)) Emit
   (match st ((Em n acc) (Em 0 acc))))
 
-(def emit_fns ((ds (list Decl)) (ctx Ctx) (st Emit)) Emit
+(def emit_fns ((ds (list Decl)) (scpre Scope) (scprog Scope) (pre int)
+               (st Emit)) Emit
   (if (is_empty ds)
       st
-      (emit_fns (tail ds) ctx (emit_fn (head ds) ctx (reset_counter st)))))
+      (emit_fns (tail ds) scpre scprog pre
+        (emit_fn (head ds)
+                 (if (in_prelude (head ds) pre) scpre scprog)
+                 (reset_counter st)))))
+
+; Function names declared by one group.
+(def fn_names ((ds (list Decl)) (acc (list (list int)))) (list (list int))
+  (if (is_empty ds)
+      acc
+      (fn_names (tail ds)
+        (if (is_def (head ds)) (cons (decl_name (head ds)) acc) acc))))
+
+; The prelude names a program declaration still reaches: the ones the program
+; did not define itself, since its own definition shadows the prelude's.
+(def unshadowed ((pnames (list (list int))) (unames (list (list int)))
+                 (acc (list (list int)))) (list (list int))
+  (if (is_empty pnames)
+      acc
+      (unshadowed (tail pnames) unames
+        (if (any_eq (head pnames) unames) acc (cons (head pnames) acc)))))
+
+(def prelude_scope ((ds (list Decl)) (pre int)) Scope
+  (Sc (prelude_view ds pre)
+      (fn_names (prelude_decls ds pre (nil Decl)) (nil (list int)))
+      true))
+
+(def program_scope ((ds (list Decl)) (pre int)) Scope
+  (Sc (program_view ds pre)
+      (unshadowed
+        (fn_names (prelude_decls ds pre (nil Decl)) (nil (list int)))
+        (fn_names (program_decls ds pre (nil Decl)) (nil (list int)))
+        (nil (list int)))
+      false))
 
 ; ----------------------------------------------------------------- module
 
@@ -388,8 +460,13 @@
               (if (ty_eq ret (TyInt)) 0 (if (ty_eq ret (TyBool)) 1 2))
               (ret_kind (tail ds)))))))
 
-(def emit_module ((ds (list Decl))) (list int)
+; The return kind is read off the program's main, not the prelude's: a main in
+; the prelude is library code that happens to be called main, not an entry
+; point. Spec section 9.
+(def emit_module ((ds (list Decl)) (pre int)) (list int)
   (let st0 (Em 0 (push (ir_header 0) (nil int)))
     (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
-                          (append (digits (ret_kind ds)) "\n")) st0)
-      (emit_text (emit_fns ds (build_ctx ds) st1)))))
+                (append (digits (ret_kind (program_decls ds pre (nil Decl))))
+                        "\n")) st0)
+      (emit_text
+        (emit_fns ds (prelude_scope ds pre) (program_scope ds pre) pre st1)))))

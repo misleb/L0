@@ -589,37 +589,58 @@
     ((DData o n cs) false)))
 
 ; Duplicate function names, duplicate type names, and duplicate constructor
-; names. Constructors share one global namespace because a match arm names a
-; constructor without naming its type, so the constructor alone determines it.
-(def check_dups ((ds (list Decl)) (fseen (list (list int)))
-                 (tseen (list (list int))) (cseen (list (list int)))
-                 (acc (list Diag))) (list Diag)
+; names, in one pass so that diagnostics come out in source order.
+;
+; Function names get one seen-set per group, because a program function
+; sharing a name with a prelude function is shadowing rather than a collision.
+; Type and constructor names get a single set spanning both groups, since
+; those names are not grouped. Constructors share one namespace because a
+; match arm names a constructor without naming its type, so the constructor
+; alone determines it. Spec 7.1.
+(def check_dups ((ds (list Decl)) (pre int) (fpre (list (list int)))
+                 (fprog (list (list int))) (tseen (list (list int)))
+                 (cseen (list (list int))) (acc (list Diag))) (list Diag)
   (if (is_empty ds)
       acc
       (let d (head ds)
         (if (is_def d)
-            (if (any_eq (decl_name d) fseen)
-                (check_dups (tail ds) fseen tseen cseen
-                  (cons (D (decl_offset d) (append "function "
-                    (append (decl_name d) " is already defined"))) acc))
-                (check_dups (tail ds) (cons (decl_name d) fseen) tseen cseen
-                            acc))
-            (check_data_dups d (tail ds) fseen tseen cseen acc)))))
+            (check_fn_dup d (tail ds) pre fpre fprog tseen cseen acc)
+            (check_data_dups d (tail ds) pre fpre fprog tseen cseen acc)))))
 
-(def check_data_dups ((d Decl) (rest (list Decl)) (fseen (list (list int)))
+(def check_fn_dup ((d Decl) (rest (list Decl)) (pre int)
+                   (fpre (list (list int))) (fprog (list (list int)))
+                   (tseen (list (list int))) (cseen (list (list int)))
+                   (acc (list Diag))) (list Diag)
+  (if (in_prelude d pre)
+      (if (any_eq (decl_name d) fpre)
+          (check_dups rest pre fpre fprog tseen cseen (dup_fn_diag d acc))
+          (check_dups rest pre (cons (decl_name d) fpre) fprog tseen cseen
+                      acc))
+      (if (any_eq (decl_name d) fprog)
+          (check_dups rest pre fpre fprog tseen cseen (dup_fn_diag d acc))
+          (check_dups rest pre fpre (cons (decl_name d) fprog) tseen cseen
+                      acc))))
+
+(def dup_fn_diag ((d Decl) (acc (list Diag))) (list Diag)
+  (cons (D (decl_offset d)
+          (append "function " (append (decl_name d) " is already defined")))
+        acc))
+
+(def check_data_dups ((d Decl) (rest (list Decl)) (pre int)
+                      (fpre (list (list int))) (fprog (list (list int)))
                       (tseen (list (list int))) (cseen (list (list int)))
                       (acc (list Diag))) (list Diag)
   (if (any_eq (decl_name d) tseen)
-      (check_dups rest fseen tseen cseen
+      (check_dups rest pre fpre fprog tseen cseen
         (cons (D (decl_offset d) (append "data type "
           (append (decl_name d) " is already declared"))) acc))
       (let dupc (dup_ctor_name (decl_ctors d) cseen)
         (if (not (is_empty dupc))
-            (check_dups rest fseen (cons (decl_name d) tseen)
+            (check_dups rest pre fpre fprog (cons (decl_name d) tseen)
               (add_ctor_names (decl_ctors d) cseen)
               (cons (D (decl_offset d) (append "constructor "
                 (append dupc " is already declared"))) acc))
-            (check_dups rest fseen (cons (decl_name d) tseen)
+            (check_dups rest pre fpre fprog (cons (decl_name d) tseen)
               (add_ctor_names (decl_ctors d) cseen) acc)))))
 
 (def decl_ctors ((d Decl)) (list Ctor)
@@ -640,11 +661,23 @@
       seen
       (add_ctor_names (tail cs) (cons (ctor_decl_name (head cs)) seen))))
 
-(def check_decls ((ds (list Decl)) (ctx Ctx) (acc (list Diag))) (list Diag)
+; Each declaration is checked against the view its own group has, so which
+; names a call can see depends on which side of the prelude boundary the
+; declaration holding it fell.
+(def check_decls ((ds (list Decl)) (cpre Ctx) (cprog Ctx) (pre int)
+                  (acc (list Diag))) (list Diag)
   (if (is_empty ds)
       acc
-      (check_decls (tail ds) ctx
-        (prepend_diags (check_decl (head ds) ctx) acc))))
+      (check_decls (tail ds) cpre cprog pre
+        (prepend_diags
+          (check_decl (head ds) (view_for (head ds) cpre cprog pre))
+          acc))))
+
+(def view_for ((d Decl) (cpre Ctx) (cprog Ctx) (pre int)) Ctx
+  (if (in_prelude d pre) cpre cprog))
+
+(def in_prelude ((d Decl) (pre int)) bool
+  (lt (decl_offset d) pre))
 
 (def prepend_diags ((xs (list Diag)) (acc (list Diag))) (list Diag)
   (if (is_empty xs)
@@ -680,13 +713,59 @@
       (collect_ctor_infos ds (nil CtorInfo))
       (collect_datas ds (nil DataDef))))
 
+; ------------------------------------------------------- the two groups
+;
+; Declarations before the prelude boundary are the prelude, the rest are the
+; program, and the difference is only in which function names each can see.
+; Type and constructor tables are built from every declaration in both views,
+; since those names are not grouped. Spec 7.1.
+
+(def prelude_decls ((ds (list Decl)) (pre int) (acc (list Decl))) (list Decl)
+  (if (is_empty ds)
+      (rev_decls_onto acc (nil Decl))
+      (prelude_decls (tail ds) pre
+        (if (in_prelude (head ds) pre) (cons (head ds) acc) acc))))
+
+(def program_decls ((ds (list Decl)) (pre int) (acc (list Decl))) (list Decl)
+  (if (is_empty ds)
+      (rev_decls_onto acc (nil Decl))
+      (program_decls (tail ds) pre
+        (if (in_prelude (head ds) pre) acc (cons (head ds) acc)))))
+
+(def append_sigs ((xs (list Sig)) (ys (list Sig))) (list Sig)
+  (if (is_empty xs)
+      ys
+      (cons (head xs) (append_sigs (tail xs) ys))))
+
+; A prelude declaration sees prelude functions only.
+(def prelude_view ((ds (list Decl)) (pre int)) Ctx
+  (Cx (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig))
+      (collect_ctor_infos ds (nil CtorInfo))
+      (collect_datas ds (nil DataDef))))
+
+; A program declaration sees both, program first. find_sig takes the first
+; match, so putting the program's signatures ahead of the prelude's is the
+; whole of shadowing.
+(def program_view ((ds (list Decl)) (pre int)) Ctx
+  (Cx (append_sigs
+        (collect_sigs (program_decls ds pre (nil Decl)) (nil Sig))
+        (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig)))
+      (collect_ctor_infos ds (nil CtorInfo))
+      (collect_datas ds (nil DataDef))))
+
 ; want_main is false when checking a fragment rather than a whole program,
 ; such as a library file or a work in progress. Type correctness is still
 ; checked in full; only the requirement to define main is relaxed.
-(def check_program ((ds (list Decl)) (want_main bool)) (list Diag)
-  (let ctx (build_ctx ds)
+;
+; pre is the byte offset where the prelude ends, and is 0 when there is no
+; prelude, which makes every declaration a program declaration and every rule
+; below collapse to the flat namespace L0 had before groups existed.
+(def check_program ((ds (list Decl)) (want_main bool) (pre int)) (list Diag)
+  (let uds (program_decls ds pre (nil Decl))
     (rev_diags_onto
-      (check_decls ds ctx
-        (check_dups ds (nil (list int)) (nil (list int)) (nil (list int))
-                    (nil Diag)))
-      (if want_main (check_main (ctx_sigs ctx)) (nil Diag)))))
+      (check_decls ds (prelude_view ds pre) (program_view ds pre) pre
+        (check_dups ds pre (nil (list int)) (nil (list int))
+                    (nil (list int)) (nil (list int)) (nil Diag)))
+      (if want_main
+          (check_main (collect_sigs uds (nil Sig)))
+          (nil Diag)))))

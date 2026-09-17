@@ -176,6 +176,31 @@ way to render an integer as text among its builtins. Without a prelude, every
 program reimplements decimal formatting, and gets the most-negative-integer
 case wrong.
 
+Linking it into everything costs nothing, in either of the two senses that
+would otherwise limit how far it can grow.
+
+It costs no space. `main` is the only function emitted with external linkage,
+so LLVM deletes every prelude function a program does not call: a hello-world's
+object file is 1168 bytes rather than the 10704 it took when all 30 of them
+survived.
+
+It costs no names either. The prelude is a separate group of names from the
+program, so defining your own `length` is legal — yours is used throughout your
+program, while the prelude goes on calling its own:
+
+```
+(def is_digit ((c int)) bool false)        ; shadows the prelude's
+
+(def main ((input (list int))) int
+  (if (is_digit 55) -1 (int_prefix "77" 0)))   ; prints 77, not -1
+```
+
+That matters because it is what makes adding to the prelude safe. Before it,
+every new prelude function was a potential breaking change for programs that
+had already used the name. Spec section 7.1 has the rule and
+`spec/changelog.md` has the reasoning, including why this is two groups of
+names rather than a module system.
+
 ## What L0 is not
 
 L0 met its goal and is not a general-purpose language. A program is a pure

@@ -197,8 +197,14 @@
   (check_source_as src false))
 
 (def check_source_as ((src (list int)) (want_main bool)) (list int)
+  (check_source_pre src want_main 0))
+
+; Checks a source string that is already a two-group program: pre is the byte
+; offset where the prelude ends, as spec 9.1 defines it.
+(def check_source_pre ((src (list int)) (want_main bool) (pre int))
+    (list int)
   (match (parse_program (lex src))
     ((PP ds errs)
       (if (is_empty errs)
-          (fmt_diags (check_program ds want_main))
+          (fmt_diags (check_program ds want_main pre))
           (rev (fmt_parse_errs errs (nil int)))))))

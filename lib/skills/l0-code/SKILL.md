@@ -36,7 +36,8 @@ l0 check util.l0 main.l0
 
 The standard library is linked automatically. `l0/prelude.l0` is a readable
 copy of it; do not pass it on the command line or you will get duplicate
-definition errors.
+definition errors. Defining a function with the same name as one of its
+functions is fine, and is not what that error is about.
 
 ## Syntax you will get wrong if you guess
 
@@ -90,6 +91,13 @@ standard library; comparing data values needs a function you write.
 or a `def`, so a parameter named `f` cannot be called and does not shadow a
 function named `f`.
 
+**Your definition wins over the standard library's.** Defining `length` when
+the prelude already has one is legal rather than a collision: yours is used
+everywhere in your program, and the prelude goes on calling its own, so
+redefining something the prelude uses internally cannot break it. Type and
+constructor names are not shadowable and still have to be unique. Spec
+section 7.1.
+
 ## The one performance rule
 
 **Build output as a reversed accumulator and reverse once at the end.**
@@ -141,6 +149,10 @@ will reach for constantly:
 
 There is no `map`, `filter`, or `fold`, because L0 has no function values.
 Write the recursion directly.
+
+If one of these does not do what you need, define your own with the same name
+rather than inventing `my_length`. Yours shadows the prelude's throughout your
+program and cannot disturb the prelude's own use of it.
 
 ## The shape of a program
 

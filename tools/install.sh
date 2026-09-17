@@ -63,6 +63,11 @@ CFLAGS="-std=c11 -O2 -Wall -Wextra -Wpedantic -Werror"
 echo "cc   runtime"
 "$CC" $CFLAGS -I"$ROOT/runtime" -c "$ROOT/runtime/l0core.c" -o "$BUILD/l0core.o"
 "$CC" $CFLAGS -I"$ROOT/runtime" -c "$ROOT/runtime/l0rt.c" -o "$BUILD/l0rt.o"
+# ar adds to an existing archive rather than replacing it, so an archive left
+# by an earlier install would keep its old members. One built on another
+# platform is worse than stale: macOS ar cannot read a GNU symbol table and
+# leaves an archive with no objects in it at all.
+rm -f "$LIBDIR/libl0rt.a"
 ar rcs "$LIBDIR/libl0rt.a" "$BUILD/l0core.o" "$BUILD/l0rt.o"
 
 echo "link compiler from bootstrap/stage2.ll"

@@ -1,0 +1,8 @@
+#l0bundle
+#prelude 32
+0 prelude.l0
+32 main.l0
+#source
+(def h ((x int)) int (add x 1))
+(def h ((x int)) int (mul x 10))
+(def main ((input (list int))) int (h 4))

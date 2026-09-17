@@ -7,6 +7,114 @@ New entries go at the top.
 
 ---
 
+## The prelude is a second group of names
+
+A program may now define a function the prelude already defines. The program's
+definition wins throughout the program; the prelude goes on calling its own.
+Spec section 7.1 states the rule, 9.1 states how a compiler is told where the
+boundary is, and 10.2 gives the prelude its own symbol prefix.
+
+**The blocker.** Before this, the prelude occupied the same flat namespace as
+the program, so a project that had written its own `length` could not compile
+at all:
+
+```
+clash.l0:1:1: error: function length is already defined
+```
+
+That makes every addition to `lib/prelude.l0` a breaking change for programs
+that already exist, and the hazard grows with the prelude: the more it holds,
+the likelier any given project has already used one of the names. This is the
+"cost grows with the program" case in the `l0-limits` skill, and it is the one
+cost of prelude growth that the emitted-linkage change immediately before this
+did not touch. Compiled size was the other, and is now nothing.
+
+The workaround was `l0 build --no-prelude`, which trades one name for the
+whole library, and which the shipped `AGENTS.md` did not even mention.
+
+**Why two groups and not a module system.** A general module system was
+considered and rejected. Imports would mean path resolution inside a compiler
+that is by definition a pure function from bytes to bytes, so the work lands in
+the driver either way; what it would buy is separate compilation, which this
+project does not want, because whole-program checking is exactly what lets the
+checker do without inference. Measured by the `l0-limits` test, needing to name
+every file on one command line is a cost that is constant per use site. Name
+isolation was the only part that was not.
+
+So the addition is deliberately not general: there are exactly two groups, not
+n, nothing in a source file can say what it needs or exports, and the grouping
+comes from the input protocol rather than from L0 syntax.
+
+**Why the program's definition does not simply replace the prelude's.** The
+cheaper rule — one namespace, last definition wins — was rejected because it
+is monkey-patching. A program defining its own `list_eq` would silently change
+what the prelude's `any_eq` and `index_of` do, and nothing would report it.
+Two scopes cost a symbol prefix and catch that at the point of definition
+instead, which is the trade this project has taken every other time it came
+up.
+
+**The compiler itself is still compiled as one group.** `tools/l0` marks the
+prelude for a user's program; `tools/l0c`, which builds this repository and
+runs its tests, does not, because when the compiler is built `lib/prelude.l0`
+genuinely is part of the program rather than a library beneath it. So
+`bootstrap/stage2.ll` carries `@l0_f_length` and not `@l0_p_length`, and the
+grouping is exercised by `tests/compiler/prelude_scope` and
+`tests/compiler/bundle_prelude` rather than by the bootstrap. This also kept
+the two steps apart: the compiler learned to read `#prelude` and the seed was
+refreshed before any driver started writing it, so no fresh clone ever sees a
+header its only compiler cannot parse.
+
+**Why types and constructors are not grouped.** A `match` arm names a
+constructor without naming its type, so constructor resolution has to be
+global for one-level patterns to resolve at all, and `ty_eq` compares types by
+name, so two same-named types could not be told apart. Grouping function names
+needs neither. The restriction is recorded in 7.1 so that a later attempt to
+group them starts from the reason rather than from the omission.
+
+---
+
+## Emitted linkage — resolved
+
+Every function except `main` is now emitted as `define internal`, so the
+prelude no longer costs anything in a program that does not use it.
+
+No language change. The spec does not describe linkage, and it still does not:
+this is a fact about the emitter, recorded because the reasoning behind it is
+what makes the next question answerable.
+
+The old emitter gave every function external linkage. Nothing can remove an
+externally visible symbol, so a hello-world compiled with the prelude carried
+all 30 prelude functions into its object file at 10704 bytes, of which it
+called none. With internal linkage on everything but `main`, LLVM's `-O2`
+deletes the unreachable ones and the same object is 1168 bytes.
+
+`main` stays external because [../runtime/l0rt.c](../runtime/l0rt.c) calls
+`l0_f_main` by name, and `@l0_main_ret_kind` stays a plain global for the same
+reason. Those two symbols are the entire interface a compiled program exposes;
+a program is otherwise a closed module, which is what makes internal linkage
+correct rather than merely convenient.
+
+This was prompted by the observation that `lib/prelude.l0` will keep growing
+and that every program pays for all of it. Half of that was true and is now
+false. What remains true is that the prelude occupies the same flat namespace
+as the program, so a project that defines its own `length` cannot compile:
+
+```
+clash.l0:1:1: error: function length is already defined
+```
+
+That is the cost that actually grows with the prelude, and it is a language
+question rather than an emitter one. Recorded here as open, deliberately
+separate from this change. Compile time is not part of the picture: the whole
+prelude adds about 2 ms to a hello-world.
+
+The seed was refreshed in the same change, since the emitter's output shape
+changed. The fixpoint held first: a seed built before this change compiles the
+new compiler to `stage1.ll` with the old linkage, and that compiler then
+reaches `stage2.ll == stage3.ll` with the new.
+
+---
+
 ## Self-hosting reached
 
 `compiler/*.l0` compiles itself to a byte-identical fixpoint, and

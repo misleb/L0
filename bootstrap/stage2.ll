@@ -12,7 +12,7 @@ declare i64 @l0_data_get(i64, i64)
 
 @l0_main_ret_kind = global i64 2
 
-define i64 @l0_f_rev_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -33,13 +33,13 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_rev(i64 %a0) {
+define internal i64 @l0_f_rev(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_rev_onto(i64 %a0, i64 0)
   ret i64 %t0
 }
 
-define i64 @l0_f_push(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_push(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -60,7 +60,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_append(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_append(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -81,7 +81,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_length(i64 %a0) {
+define internal i64 @l0_f_length(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -101,7 +101,7 @@ Lx0:
   ret i64 %t6
 }
 
-define i64 @l0_f_list_eq(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_list_eq(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -149,12 +149,12 @@ Lx0:
   ret i64 %t18
 }
 
-define i64 @l0_f_int_min(i64 %a0) {
+define internal i64 @l0_f_int_min(i64 %a0) {
 entry:
   ret i64 -9223372036854775808
 }
 
-define i64 @l0_f_digits_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_digits_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = icmp slt i64 %a0, 10
@@ -179,7 +179,7 @@ Lx0:
   ret i64 %t11
 }
 
-define i64 @l0_f_digits(i64 %a0) {
+define internal i64 @l0_f_digits(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_int_min(i64 0)
@@ -235,7 +235,7 @@ Lx0:
   ret i64 %t34
 }
 
-define i64 @l0_f_drop_n(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_drop_n(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = icmp sle i64 %a1, 0
@@ -268,7 +268,7 @@ Lx0:
   ret i64 %t11
 }
 
-define i64 @l0_f_starts_with(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_starts_with(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -315,7 +315,7 @@ Lx0:
   ret i64 %t17
 }
 
-define i64 @l0_f_take_line_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_take_line_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -352,13 +352,13 @@ Lx0:
   ret i64 %t15
 }
 
-define i64 @l0_f_take_line(i64 %a0) {
+define internal i64 @l0_f_take_line(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_take_line_onto(i64 %a0, i64 0)
   ret i64 %t0
 }
 
-define i64 @l0_f_drop_line(i64 %a0) {
+define internal i64 @l0_f_drop_line(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -392,7 +392,7 @@ Lx0:
   ret i64 %t12
 }
 
-define i64 @l0_f_skip_digits(i64 %a0) {
+define internal i64 @l0_f_skip_digits(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -424,7 +424,7 @@ Lx0:
   ret i64 %t10
 }
 
-define i64 @l0_f_skip_spaces(i64 %a0) {
+define internal i64 @l0_f_skip_spaces(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -457,7 +457,7 @@ Lx0:
   ret i64 %t11
 }
 
-define i64 @l0_f_int_prefix(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_int_prefix(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -493,7 +493,7 @@ Lx0:
   ret i64 %t14
 }
 
-define i64 @l0_f_rev_strs_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_strs_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -514,7 +514,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_split_spaces_onto(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_split_spaces_onto(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -579,14 +579,14 @@ Lx0:
   ret i64 %t27
 }
 
-define i64 @l0_f_split_spaces(i64 %a0) {
+define internal i64 @l0_f_split_spaces(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_split_spaces_onto(i64 %a0, i64 0, i64 0)
   %t1 = call i64 @l0_f_rev_strs_onto(i64 %t0, i64 0)
   ret i64 %t1
 }
 
-define i64 @l0_f_any_eq(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_any_eq(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -618,7 +618,7 @@ Lx0:
   ret i64 %t10
 }
 
-define i64 @l0_f_index_of_from(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_index_of_from(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -651,13 +651,13 @@ Lx0:
   ret i64 %t11
 }
 
-define i64 @l0_f_index_of(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_index_of(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_f_index_of_from(i64 %a0, i64 %a1, i64 0)
   ret i64 %t0
 }
 
-define i64 @l0_f_is_space(i64 %a0) {
+define internal i64 @l0_f_is_space(i64 %a0) {
 entry:
   %t0 = icmp eq i64 %a0, 32
   %t1 = zext i1 %t0 to i64
@@ -673,7 +673,7 @@ entry:
   ret i64 %t10
 }
 
-define i64 @l0_f_is_digit(i64 %a0) {
+define internal i64 @l0_f_is_digit(i64 %a0) {
 entry:
   %t0 = icmp sge i64 %a0, 48
   %t1 = zext i1 %t0 to i64
@@ -683,7 +683,7 @@ entry:
   ret i64 %t4
 }
 
-define i64 @l0_f_is_lower(i64 %a0) {
+define internal i64 @l0_f_is_lower(i64 %a0) {
 entry:
   %t0 = icmp sge i64 %a0, 97
   %t1 = zext i1 %t0 to i64
@@ -696,7 +696,7 @@ entry:
   ret i64 %t7
 }
 
-define i64 @l0_f_is_upper(i64 %a0) {
+define internal i64 @l0_f_is_upper(i64 %a0) {
 entry:
   %t0 = icmp sge i64 %a0, 65
   %t1 = zext i1 %t0 to i64
@@ -706,7 +706,7 @@ entry:
   ret i64 %t4
 }
 
-define i64 @l0_f_is_name_start(i64 %a0) {
+define internal i64 @l0_f_is_name_start(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_is_lower(i64 %a0)
   %t1 = call i64 @l0_f_is_upper(i64 %a0)
@@ -714,7 +714,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_is_name_rest(i64 %a0) {
+define internal i64 @l0_f_is_name_rest(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_is_name_start(i64 %a0)
   %t1 = call i64 @l0_f_is_digit(i64 %a0)
@@ -722,7 +722,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_hex_val(i64 %a0) {
+define internal i64 @l0_f_hex_val(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_is_digit(i64 %a0)
@@ -776,7 +776,7 @@ Lx0:
   ret i64 %t24
 }
 
-define i64 @l0_f_rev_diags_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_diags_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -797,7 +797,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_rev_tys_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_tys_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -818,7 +818,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_ctx_sigs(i64 %a0) {
+define internal i64 @l0_f_ctx_sigs(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -836,7 +836,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_ctx_ctors(i64 %a0) {
+define internal i64 @l0_f_ctx_ctors(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -854,7 +854,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_ctx_datas(i64 %a0) {
+define internal i64 @l0_f_ctx_datas(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -872,7 +872,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_find_bind(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_find_bind(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -919,7 +919,7 @@ Lx0:
   ret i64 %t17
 }
 
-define i64 @l0_f_find_sig(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_find_sig(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -968,7 +968,7 @@ Lx0:
   ret i64 %t19
 }
 
-define i64 @l0_f_find_ctor(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_find_ctor(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -1018,7 +1018,7 @@ Lx0:
   ret i64 %t20
 }
 
-define i64 @l0_f_find_data(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_find_data(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -1067,7 +1067,7 @@ Lx0:
   ret i64 %t19
 }
 
-define i64 @l0_f_ctor_tag(i64 %a0) {
+define internal i64 @l0_f_ctor_tag(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -1086,7 +1086,7 @@ Lm0:
   ret i64 %t6
 }
 
-define i64 @l0_f_ctor_fields(i64 %a0) {
+define internal i64 @l0_f_ctor_fields(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -1105,7 +1105,7 @@ Lm0:
   ret i64 %t6
 }
 
-define i64 @l0_f_ctor_type_name(i64 %a0) {
+define internal i64 @l0_f_ctor_type_name(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -1124,7 +1124,7 @@ Lm0:
   ret i64 %t6
 }
 
-define i64 @l0_f_data_ctors(i64 %a0) {
+define internal i64 @l0_f_data_ctors(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -1142,7 +1142,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_data_max_fields(i64 %a0) {
+define internal i64 @l0_f_data_max_fields(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -1160,7 +1160,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_bi_int_int_int(i64 %a0) {
+define internal i64 @l0_f_bi_int_int_int(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 100, i64 0)
   %t1 = call i64 @l0_cons(i64 111, i64 %t0)
@@ -1185,7 +1185,7 @@ entry:
   ret i64 %t19
 }
 
-define i64 @l0_f_bi_int_int_bool(i64 %a0) {
+define internal i64 @l0_f_bi_int_int_bool(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 113, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
@@ -1205,7 +1205,7 @@ entry:
   ret i64 %t14
 }
 
-define i64 @l0_f_bi_bool_bool(i64 %a0) {
+define internal i64 @l0_f_bi_bool_bool(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 114, i64 0)
   %t1 = call i64 @l0_cons(i64 111, i64 %t0)
@@ -1217,7 +1217,7 @@ entry:
   ret i64 %t6
 }
 
-define i64 @l0_f_bi_list_ops(i64 %a0) {
+define internal i64 @l0_f_bi_list_ops(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 121, i64 0)
   %t1 = call i64 @l0_cons(i64 116, i64 %t0)
@@ -1246,7 +1246,7 @@ entry:
   ret i64 %t23
 }
 
-define i64 @l0_f_is_builtin(i64 %a0) {
+define internal i64 @l0_f_is_builtin(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_bi_int_int_int(i64 0)
   %t1 = call i64 @l0_f_any_eq(i64 %a0, i64 %t0)
@@ -1272,7 +1272,7 @@ entry:
   ret i64 %t20
 }
 
-define i64 @l0_f_builtin_arity(i64 %a0) {
+define internal i64 @l0_f_builtin_arity(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 103, i64 0)
@@ -1319,7 +1319,7 @@ Lx0:
   ret i64 %t33
 }
 
-define i64 @l0_f_plural(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_plural(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = icmp eq i64 %a0, 1
@@ -1339,7 +1339,7 @@ Lx0:
   ret i64 %t6
 }
 
-define i64 @l0_f_wrong_arity_msg(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_wrong_arity_msg(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 115, i64 %t0)
@@ -1379,7 +1379,7 @@ entry:
   ret i64 %t34
 }
 
-define i64 @l0_f_type_msg(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_type_msg(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
@@ -1412,7 +1412,7 @@ entry:
   ret i64 %t27
 }
 
-define i64 @l0_f_length_tys(i64 %a0) {
+define internal i64 @l0_f_length_tys(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -1432,7 +1432,7 @@ Lx0:
   ret i64 %t6
 }
 
-define i64 @l0_f_length_strs(i64 %a0) {
+define internal i64 @l0_f_length_strs(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -1452,7 +1452,7 @@ Lx0:
   ret i64 %t6
 }
 
-define i64 @l0_f_check_builtin(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_check_builtin(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_length_tys(i64 %a1)
@@ -1564,7 +1564,7 @@ Lx0:
   ret i64 %t56
 }
 
-define i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -1620,7 +1620,7 @@ Lx0:
   ret i64 %t31
 }
 
-define i64 @l0_f_check_list_builtin(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_check_list_builtin(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 115, i64 0)
@@ -1706,7 +1706,7 @@ Lx0:
   ret i64 %t43
 }
 
-define i64 @l0_f_check_cons(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_check_cons(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_head(i64 %a0)
   %t1 = call i64 @l0_tail(i64 %a0)
@@ -1815,7 +1815,7 @@ Lx3:
   ret i64 %t82
 }
 
-define i64 @l0_f_check_expr(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_check_expr(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -1902,7 +1902,7 @@ Lm0:
   ret i64 %t43
 }
 
-define i64 @l0_f_unknown_ty(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_unknown_ty(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_ty_is_list(i64 %a0)
@@ -1951,7 +1951,7 @@ Lx0:
   ret i64 %t17
 }
 
-define i64 @l0_f_check_nil(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_check_nil(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %t0 = call i64 @l0_f_ctx_datas(i64 %a2)
   %t1 = call i64 @l0_f_unknown_ty(i64 %a1, i64 %t0)
@@ -1991,7 +1991,7 @@ Lx2:
   ret i64 %t22
 }
 
-define i64 @l0_f_check_var(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_check_var(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_find_bind(i64 %a1, i64 %a2)
@@ -2098,7 +2098,7 @@ Lm0:
   ret i64 %t78
 }
 
-define i64 @l0_f_sig_exists(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_sig_exists(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_find_sig(i64 %a0, i64 %a1)
@@ -2118,7 +2118,7 @@ Lm0:
   ret i64 %t4
 }
 
-define i64 @l0_f_if_branch_msg(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_if_branch_msg(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 115, i64 %t0)
@@ -2200,7 +2200,7 @@ entry:
   ret i64 %t76
 }
 
-define i64 @l0_f_check_if(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_check_if(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_expr(i64 %a1, i64 %a4, i64 %a5)
@@ -2270,7 +2270,7 @@ Lm0:
   ret i64 %t42
 }
 
-define i64 @l0_f_check_if_branches(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_check_if_branches(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_expr(i64 %a1, i64 %a3, i64 %a4)
@@ -2333,7 +2333,7 @@ Lm0:
   ret i64 %t22
 }
 
-define i64 @l0_f_check_let(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_check_let(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_expr(i64 %a2, i64 %a4, i64 %a5)
@@ -2363,7 +2363,7 @@ Lm0:
   ret i64 %t10
 }
 
-define i64 @l0_f_check_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_check_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -2407,7 +2407,7 @@ Lx0:
   ret i64 %t17
 }
 
-define i64 @l0_f_check_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_check_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_args(i64 %a2, i64 %a3, i64 %a4, i64 0)
@@ -2463,7 +2463,7 @@ Lm0:
   ret i64 %t20
 }
 
-define i64 @l0_f_check_call_missing(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_check_call_missing(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_find_bind(i64 %a1, i64 %a2)
@@ -2553,7 +2553,7 @@ Lm0:
   ret i64 %t70
 }
 
-define i64 @l0_f_check_user_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_check_user_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a3)
@@ -2615,7 +2615,7 @@ Lm0:
   ret i64 %t26
 }
 
-define i64 @l0_f_match_params(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_match_params(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -2677,7 +2677,7 @@ Lx0:
   ret i64 %t37
 }
 
-define i64 @l0_f_check_ctor_expr(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_check_ctor_expr(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_ctx_ctors(i64 %a4)
@@ -2743,7 +2743,7 @@ Lm0:
   ret i64 %t36
 }
 
-define i64 @l0_f_check_ctor_fields(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_check_ctor_fields(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %t0 = call i64 @l0_f_ctor_fields(i64 %a3)
   %r1 = alloca i64
@@ -2828,7 +2828,7 @@ Lx1:
   ret i64 %t55
 }
 
-define i64 @l0_f_check_match(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_check_match(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_expr(i64 %a1, i64 %a3, i64 %a4)
@@ -2939,7 +2939,7 @@ Lm0:
   ret i64 %t71
 }
 
-define i64 @l0_f_check_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_check_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_each_arm(i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 0)
@@ -3020,7 +3020,7 @@ Lm0:
   ret i64 %t52
 }
 
-define i64 @l0_f_data_name(i64 %a0) {
+define internal i64 @l0_f_data_name(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -3038,7 +3038,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_ctor_decl_name(i64 %a0) {
+define internal i64 @l0_f_ctor_decl_name(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -3056,7 +3056,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_arm_ctor_name(i64 %a0) {
+define internal i64 @l0_f_arm_ctor_name(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -3075,7 +3075,7 @@ Lm0:
   ret i64 %t6
 }
 
-define i64 @l0_f_seen_ctors(i64 %a0) {
+define internal i64 @l0_f_seen_ctors(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3097,7 +3097,7 @@ Lx0:
   ret i64 %t8
 }
 
-define i64 @l0_f_missing_ctor(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_missing_ctor(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3132,7 +3132,7 @@ Lx0:
   ret i64 %t13
 }
 
-define i64 @l0_f_check_each_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_check_each_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3174,7 +3174,7 @@ Lx0:
   ret i64 %t15
 }
 
-define i64 @l0_f_check_rest_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_check_rest_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_tail(i64 %a1)
@@ -3310,7 +3310,7 @@ Lx0:
   ret i64 %t98
 }
 
-define i64 @l0_f_arm_offset(i64 %a0) {
+define internal i64 @l0_f_arm_offset(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -3329,7 +3329,7 @@ Lm0:
   ret i64 %t6
 }
 
-define i64 @l0_f_check_one_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_check_one_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -3438,7 +3438,7 @@ Lm0:
   ret i64 %t74
 }
 
-define i64 @l0_f_check_arm_binds(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+define internal i64 @l0_f_check_arm_binds(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_ctor_type_name(i64 %a4)
@@ -3620,7 +3620,7 @@ Lx0:
   ret i64 %t146
 }
 
-define i64 @l0_f_bind_fields(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_bind_fields(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3646,7 +3646,7 @@ Lx0:
   ret i64 %t10
 }
 
-define i64 @l0_f_dup_name(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_dup_name(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3681,7 +3681,7 @@ Lx0:
   ret i64 %t13
 }
 
-define i64 @l0_f_collect_sigs(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_collect_sigs(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3730,7 +3730,7 @@ Lx0:
   ret i64 %t22
 }
 
-define i64 @l0_f_max_fields(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_max_fields(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3777,7 +3777,7 @@ Lx0:
   ret i64 %t18
 }
 
-define i64 @l0_f_collect_datas(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_collect_datas(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3826,7 +3826,7 @@ Lx0:
   ret i64 %t22
 }
 
-define i64 @l0_f_collect_ctor_infos(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_collect_ctor_infos(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3870,7 +3870,7 @@ Lx0:
   ret i64 %t20
 }
 
-define i64 @l0_f_ctor_infos_of(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_ctor_infos_of(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -3910,7 +3910,7 @@ Lx0:
   ret i64 %t15
 }
 
-define i64 @l0_f_param_tys(i64 %a0) {
+define internal i64 @l0_f_param_tys(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3943,7 +3943,7 @@ Lx0:
   ret i64 %t12
 }
 
-define i64 @l0_f_params_to_env(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_params_to_env(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -3979,7 +3979,7 @@ Lx0:
   ret i64 %t13
 }
 
-define i64 @l0_f_dup_param(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_dup_param(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -4024,7 +4024,7 @@ Lx0:
   ret i64 %t16
 }
 
-define i64 @l0_f_one_diag(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_one_diag(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_data_new(i64 0, i64 2)
   call void @l0_data_set(i64 %t0, i64 0, i64 %a0)
@@ -4033,7 +4033,7 @@ entry:
   ret i64 %t1
 }
 
-define i64 @l0_f_ret_mismatch_msg(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_ret_mismatch_msg(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
@@ -4084,7 +4084,7 @@ entry:
   ret i64 %t45
 }
 
-define i64 @l0_f_bad_sig_ty(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_bad_sig_ty(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -4130,7 +4130,7 @@ Lx0:
   ret i64 %t17
 }
 
-define i64 @l0_f_check_decl(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_check_decl(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -4158,7 +4158,7 @@ Lm0:
   ret i64 %t12
 }
 
-define i64 @l0_f_check_def_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_check_def_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   %t0 = call i64 @l0_f_dup_param(i64 %a2, i64 0)
   %r1 = alloca i64
@@ -4239,7 +4239,7 @@ Lx1:
   ret i64 %t59
 }
 
-define i64 @l0_f_check_body(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_check_body(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_params_to_env(i64 %a2, i64 0)
@@ -4277,7 +4277,7 @@ Lm0:
   ret i64 %t14
 }
 
-define i64 @l0_f_check_data_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_check_data_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %t0 = call i64 @l0_f_ctx_datas(i64 %a3)
   %t1 = call i64 @l0_f_bad_field_ty(i64 %a2, i64 %t0)
@@ -4311,7 +4311,7 @@ Lx2:
   ret i64 %t20
 }
 
-define i64 @l0_f_bad_field_ty(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bad_field_ty(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -4357,7 +4357,7 @@ Lx0:
   ret i64 %t17
 }
 
-define i64 @l0_f_bad_ty_in(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bad_ty_in(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -4390,7 +4390,7 @@ Lx0:
   ret i64 %t11
 }
 
-define i64 @l0_f_decl_name(i64 %a0) {
+define internal i64 @l0_f_decl_name(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -4416,7 +4416,7 @@ Lm0:
   ret i64 %t10
 }
 
-define i64 @l0_f_decl_offset(i64 %a0) {
+define internal i64 @l0_f_decl_offset(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -4442,7 +4442,7 @@ Lm0:
   ret i64 %t10
 }
 
-define i64 @l0_f_is_def(i64 %a0) {
+define internal i64 @l0_f_is_def(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -4468,14 +4468,14 @@ Lm0:
   ret i64 %t10
 }
 
-define i64 @l0_f_check_dups(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_check_dups(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  store i64 %a4, ptr %r0
+  store i64 %a6, ptr %r0
   br label %Lx0
 Le0:
   %t3 = call i64 @l0_head(i64 %a0)
@@ -4484,82 +4484,123 @@ Le0:
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt4, label %Le4
 Lt4:
-  %r7 = alloca i64
-  %t8 = call i64 @l0_f_decl_name(i64 %t3)
-  %t9 = call i64 @l0_f_any_eq(i64 %t8, i64 %a1)
-  %t10 = icmp ne i64 %t9, 0
-  br i1 %t10, label %Lt7, label %Le7
-Lt7:
-  %t11 = call i64 @l0_tail(i64 %a0)
-  %t12 = call i64 @l0_f_decl_offset(i64 %t3)
-  %t13 = call i64 @l0_cons(i64 32, i64 0)
-  %t14 = call i64 @l0_cons(i64 110, i64 %t13)
-  %t15 = call i64 @l0_cons(i64 111, i64 %t14)
-  %t16 = call i64 @l0_cons(i64 105, i64 %t15)
-  %t17 = call i64 @l0_cons(i64 116, i64 %t16)
-  %t18 = call i64 @l0_cons(i64 99, i64 %t17)
-  %t19 = call i64 @l0_cons(i64 110, i64 %t18)
-  %t20 = call i64 @l0_cons(i64 117, i64 %t19)
-  %t21 = call i64 @l0_cons(i64 102, i64 %t20)
-  %t22 = call i64 @l0_f_decl_name(i64 %t3)
-  %t23 = call i64 @l0_cons(i64 100, i64 0)
-  %t24 = call i64 @l0_cons(i64 101, i64 %t23)
-  %t25 = call i64 @l0_cons(i64 110, i64 %t24)
-  %t26 = call i64 @l0_cons(i64 105, i64 %t25)
-  %t27 = call i64 @l0_cons(i64 102, i64 %t26)
-  %t28 = call i64 @l0_cons(i64 101, i64 %t27)
-  %t29 = call i64 @l0_cons(i64 100, i64 %t28)
-  %t30 = call i64 @l0_cons(i64 32, i64 %t29)
-  %t31 = call i64 @l0_cons(i64 121, i64 %t30)
-  %t32 = call i64 @l0_cons(i64 100, i64 %t31)
-  %t33 = call i64 @l0_cons(i64 97, i64 %t32)
-  %t34 = call i64 @l0_cons(i64 101, i64 %t33)
-  %t35 = call i64 @l0_cons(i64 114, i64 %t34)
-  %t36 = call i64 @l0_cons(i64 108, i64 %t35)
-  %t37 = call i64 @l0_cons(i64 97, i64 %t36)
-  %t38 = call i64 @l0_cons(i64 32, i64 %t37)
-  %t39 = call i64 @l0_cons(i64 115, i64 %t38)
-  %t40 = call i64 @l0_cons(i64 105, i64 %t39)
-  %t41 = call i64 @l0_cons(i64 32, i64 %t40)
-  %t42 = call i64 @l0_f_append(i64 %t22, i64 %t41)
-  %t43 = call i64 @l0_f_append(i64 %t21, i64 %t42)
-  %t44 = call i64 @l0_data_new(i64 0, i64 2)
-  call void @l0_data_set(i64 %t44, i64 0, i64 %t12)
-  call void @l0_data_set(i64 %t44, i64 1, i64 %t43)
-  %t45 = call i64 @l0_cons(i64 %t44, i64 %a4)
-  %t46 = call i64 @l0_f_check_dups(i64 %t11, i64 %a1, i64 %a2, i64 %a3, i64 %t45)
-  store i64 %t46, ptr %r7
-  br label %Lx7
-Le7:
-  %t47 = call i64 @l0_tail(i64 %a0)
-  %t48 = call i64 @l0_f_decl_name(i64 %t3)
-  %t49 = call i64 @l0_cons(i64 %t48, i64 %a1)
-  %t50 = call i64 @l0_f_check_dups(i64 %t47, i64 %t49, i64 %a2, i64 %a3, i64 %a4)
-  store i64 %t50, ptr %r7
-  br label %Lx7
-Lx7:
-  %t51 = load i64, ptr %r7
-  store i64 %t51, ptr %r4
+  %t7 = call i64 @l0_tail(i64 %a0)
+  %t8 = call i64 @l0_f_check_fn_dup(i64 %t3, i64 %t7, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6)
+  store i64 %t8, ptr %r4
   br label %Lx4
 Le4:
-  %t52 = call i64 @l0_tail(i64 %a0)
-  %t53 = call i64 @l0_f_check_data_dups(i64 %t3, i64 %t52, i64 %a1, i64 %a2, i64 %a3, i64 %a4)
-  store i64 %t53, ptr %r4
+  %t9 = call i64 @l0_tail(i64 %a0)
+  %t10 = call i64 @l0_f_check_data_dups(i64 %t3, i64 %t9, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6)
+  store i64 %t10, ptr %r4
   br label %Lx4
 Lx4:
-  %t54 = load i64, ptr %r4
-  store i64 %t54, ptr %r0
+  %t11 = load i64, ptr %r4
+  store i64 %t11, ptr %r0
   br label %Lx0
 Lx0:
-  %t55 = load i64, ptr %r0
-  ret i64 %t55
+  %t12 = load i64, ptr %r0
+  ret i64 %t12
 }
 
-define i64 @l0_f_check_data_dups(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_check_fn_dup(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_f_in_prelude(i64 %a0, i64 %a2)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  %r3 = alloca i64
+  %t4 = call i64 @l0_f_decl_name(i64 %a0)
+  %t5 = call i64 @l0_f_any_eq(i64 %t4, i64 %a3)
+  %t6 = icmp ne i64 %t5, 0
+  br i1 %t6, label %Lt3, label %Le3
+Lt3:
+  %t7 = call i64 @l0_f_dup_fn_diag(i64 %a0, i64 %a7)
+  %t8 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %t7)
+  store i64 %t8, ptr %r3
+  br label %Lx3
+Le3:
+  %t9 = call i64 @l0_f_decl_name(i64 %a0)
+  %t10 = call i64 @l0_cons(i64 %t9, i64 %a3)
+  %t11 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %t10, i64 %a4, i64 %a5, i64 %a6, i64 %a7)
+  store i64 %t11, ptr %r3
+  br label %Lx3
+Lx3:
+  %t12 = load i64, ptr %r3
+  store i64 %t12, ptr %r0
+  br label %Lx0
+Le0:
+  %r13 = alloca i64
+  %t14 = call i64 @l0_f_decl_name(i64 %a0)
+  %t15 = call i64 @l0_f_any_eq(i64 %t14, i64 %a4)
+  %t16 = icmp ne i64 %t15, 0
+  br i1 %t16, label %Lt13, label %Le13
+Lt13:
+  %t17 = call i64 @l0_f_dup_fn_diag(i64 %a0, i64 %a7)
+  %t18 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %t17)
+  store i64 %t18, ptr %r13
+  br label %Lx13
+Le13:
+  %t19 = call i64 @l0_f_decl_name(i64 %a0)
+  %t20 = call i64 @l0_cons(i64 %t19, i64 %a4)
+  %t21 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %a3, i64 %t20, i64 %a5, i64 %a6, i64 %a7)
+  store i64 %t21, ptr %r13
+  br label %Lx13
+Lx13:
+  %t22 = load i64, ptr %r13
+  store i64 %t22, ptr %r0
+  br label %Lx0
+Lx0:
+  %t23 = load i64, ptr %r0
+  ret i64 %t23
+}
+
+define internal i64 @l0_f_dup_fn_diag(i64 %a0, i64 %a1) {
+entry:
+  %t0 = call i64 @l0_f_decl_offset(i64 %a0)
+  %t1 = call i64 @l0_cons(i64 32, i64 0)
+  %t2 = call i64 @l0_cons(i64 110, i64 %t1)
+  %t3 = call i64 @l0_cons(i64 111, i64 %t2)
+  %t4 = call i64 @l0_cons(i64 105, i64 %t3)
+  %t5 = call i64 @l0_cons(i64 116, i64 %t4)
+  %t6 = call i64 @l0_cons(i64 99, i64 %t5)
+  %t7 = call i64 @l0_cons(i64 110, i64 %t6)
+  %t8 = call i64 @l0_cons(i64 117, i64 %t7)
+  %t9 = call i64 @l0_cons(i64 102, i64 %t8)
+  %t10 = call i64 @l0_f_decl_name(i64 %a0)
+  %t11 = call i64 @l0_cons(i64 100, i64 0)
+  %t12 = call i64 @l0_cons(i64 101, i64 %t11)
+  %t13 = call i64 @l0_cons(i64 110, i64 %t12)
+  %t14 = call i64 @l0_cons(i64 105, i64 %t13)
+  %t15 = call i64 @l0_cons(i64 102, i64 %t14)
+  %t16 = call i64 @l0_cons(i64 101, i64 %t15)
+  %t17 = call i64 @l0_cons(i64 100, i64 %t16)
+  %t18 = call i64 @l0_cons(i64 32, i64 %t17)
+  %t19 = call i64 @l0_cons(i64 121, i64 %t18)
+  %t20 = call i64 @l0_cons(i64 100, i64 %t19)
+  %t21 = call i64 @l0_cons(i64 97, i64 %t20)
+  %t22 = call i64 @l0_cons(i64 101, i64 %t21)
+  %t23 = call i64 @l0_cons(i64 114, i64 %t22)
+  %t24 = call i64 @l0_cons(i64 108, i64 %t23)
+  %t25 = call i64 @l0_cons(i64 97, i64 %t24)
+  %t26 = call i64 @l0_cons(i64 32, i64 %t25)
+  %t27 = call i64 @l0_cons(i64 115, i64 %t26)
+  %t28 = call i64 @l0_cons(i64 105, i64 %t27)
+  %t29 = call i64 @l0_cons(i64 32, i64 %t28)
+  %t30 = call i64 @l0_f_append(i64 %t10, i64 %t29)
+  %t31 = call i64 @l0_f_append(i64 %t9, i64 %t30)
+  %t32 = call i64 @l0_data_new(i64 0, i64 2)
+  call void @l0_data_set(i64 %t32, i64 0, i64 %t0)
+  call void @l0_data_set(i64 %t32, i64 1, i64 %t31)
+  %t33 = call i64 @l0_cons(i64 %t32, i64 %a1)
+  ret i64 %t33
+}
+
+define internal i64 @l0_f_check_data_dups(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_decl_name(i64 %a0)
-  %t2 = call i64 @l0_f_any_eq(i64 %t1, i64 %a3)
+  %t2 = call i64 @l0_f_any_eq(i64 %t1, i64 %a5)
   %t3 = icmp ne i64 %t2, 0
   br i1 %t3, label %Lt0, label %Le0
 Lt0:
@@ -4600,13 +4641,13 @@ Lt0:
   %t38 = call i64 @l0_data_new(i64 0, i64 2)
   call void @l0_data_set(i64 %t38, i64 0, i64 %t4)
   call void @l0_data_set(i64 %t38, i64 1, i64 %t37)
-  %t39 = call i64 @l0_cons(i64 %t38, i64 %a5)
-  %t40 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t39)
+  %t39 = call i64 @l0_cons(i64 %t38, i64 %a7)
+  %t40 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %t39)
   store i64 %t40, ptr %r0
   br label %Lx0
 Le0:
   %t41 = call i64 @l0_f_decl_ctors(i64 %a0)
-  %t42 = call i64 @l0_f_dup_ctor_name(i64 %t41, i64 %a4)
+  %t42 = call i64 @l0_f_dup_ctor_name(i64 %t41, i64 %a6)
   %r43 = alloca i64
   %t44 = call i64 @l0_is_empty(i64 %t42)
   %t45 = xor i64 %t44, 1
@@ -4614,9 +4655,9 @@ Le0:
   br i1 %t46, label %Lt43, label %Le43
 Lt43:
   %t47 = call i64 @l0_f_decl_name(i64 %a0)
-  %t48 = call i64 @l0_cons(i64 %t47, i64 %a3)
+  %t48 = call i64 @l0_cons(i64 %t47, i64 %a5)
   %t49 = call i64 @l0_f_decl_ctors(i64 %a0)
-  %t50 = call i64 @l0_f_add_ctor_names(i64 %t49, i64 %a4)
+  %t50 = call i64 @l0_f_add_ctor_names(i64 %t49, i64 %a6)
   %t51 = call i64 @l0_f_decl_offset(i64 %a0)
   %t52 = call i64 @l0_cons(i64 32, i64 0)
   %t53 = call i64 @l0_cons(i64 114, i64 %t52)
@@ -4655,16 +4696,16 @@ Lt43:
   %t86 = call i64 @l0_data_new(i64 0, i64 2)
   call void @l0_data_set(i64 %t86, i64 0, i64 %t51)
   call void @l0_data_set(i64 %t86, i64 1, i64 %t85)
-  %t87 = call i64 @l0_cons(i64 %t86, i64 %a5)
-  %t88 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %t48, i64 %t50, i64 %t87)
+  %t87 = call i64 @l0_cons(i64 %t86, i64 %a7)
+  %t88 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t48, i64 %t50, i64 %t87)
   store i64 %t88, ptr %r43
   br label %Lx43
 Le43:
   %t89 = call i64 @l0_f_decl_name(i64 %a0)
-  %t90 = call i64 @l0_cons(i64 %t89, i64 %a3)
+  %t90 = call i64 @l0_cons(i64 %t89, i64 %a5)
   %t91 = call i64 @l0_f_decl_ctors(i64 %a0)
-  %t92 = call i64 @l0_f_add_ctor_names(i64 %t91, i64 %a4)
-  %t93 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %t90, i64 %t92, i64 %a5)
+  %t92 = call i64 @l0_f_add_ctor_names(i64 %t91, i64 %a6)
+  %t93 = call i64 @l0_f_check_dups(i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t90, i64 %t92, i64 %a7)
   store i64 %t93, ptr %r43
   br label %Lx43
 Lx43:
@@ -4676,7 +4717,7 @@ Lx0:
   ret i64 %t95
 }
 
-define i64 @l0_f_decl_ctors(i64 %a0) {
+define internal i64 @l0_f_decl_ctors(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -4702,7 +4743,7 @@ Lm0:
   ret i64 %t10
 }
 
-define i64 @l0_f_dup_ctor_name(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_dup_ctor_name(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -4740,7 +4781,7 @@ Lx0:
   ret i64 %t16
 }
 
-define i64 @l0_f_add_ctor_names(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_add_ctor_names(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -4762,29 +4803,56 @@ Lx0:
   ret i64 %t8
 }
 
-define i64 @l0_f_check_decls(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_check_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  store i64 %a2, ptr %r0
+  store i64 %a4, ptr %r0
   br label %Lx0
 Le0:
   %t3 = call i64 @l0_tail(i64 %a0)
   %t4 = call i64 @l0_head(i64 %a0)
-  %t5 = call i64 @l0_f_check_decl(i64 %t4, i64 %a1)
-  %t6 = call i64 @l0_f_prepend_diags(i64 %t5, i64 %a2)
-  %t7 = call i64 @l0_f_check_decls(i64 %t3, i64 %a1, i64 %t6)
-  store i64 %t7, ptr %r0
+  %t5 = call i64 @l0_head(i64 %a0)
+  %t6 = call i64 @l0_f_view_for(i64 %t5, i64 %a1, i64 %a2, i64 %a3)
+  %t7 = call i64 @l0_f_check_decl(i64 %t4, i64 %t6)
+  %t8 = call i64 @l0_f_prepend_diags(i64 %t7, i64 %a4)
+  %t9 = call i64 @l0_f_check_decls(i64 %t3, i64 %a1, i64 %a2, i64 %a3, i64 %t8)
+  store i64 %t9, ptr %r0
   br label %Lx0
 Lx0:
-  %t8 = load i64, ptr %r0
-  ret i64 %t8
+  %t10 = load i64, ptr %r0
+  ret i64 %t10
 }
 
-define i64 @l0_f_prepend_diags(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_view_for(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_f_in_prelude(i64 %a0, i64 %a3)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a1, ptr %r0
+  br label %Lx0
+Le0:
+  store i64 %a2, ptr %r0
+  br label %Lx0
+Lx0:
+  %t3 = load i64, ptr %r0
+  ret i64 %t3
+}
+
+define internal i64 @l0_f_in_prelude(i64 %a0, i64 %a1) {
+entry:
+  %t0 = call i64 @l0_f_decl_offset(i64 %a0)
+  %t1 = icmp slt i64 %t0, %a1
+  %t2 = zext i1 %t1 to i64
+  ret i64 %t2
+}
+
+define internal i64 @l0_f_prepend_diags(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -4805,7 +4873,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_check_main(i64 %a0) {
+define internal i64 @l0_f_check_main(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 110, i64 0)
@@ -5058,7 +5126,7 @@ Lm0:
   ret i64 %t205
 }
 
-define i64 @l0_f_main_ret_ok(i64 %a0) {
+define internal i64 @l0_f_main_ret_ok(i64 %a0) {
 entry:
   %t0 = call i64 @l0_data_new(i64 0, i64 1)
   %t1 = call i64 @l0_f_ty_eq(i64 %a0, i64 %t0)
@@ -5073,7 +5141,7 @@ entry:
   ret i64 %t8
 }
 
-define i64 @l0_f_build_ctx(i64 %a0) {
+define internal i64 @l0_f_build_ctx(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_collect_sigs(i64 %a0, i64 0)
   %t1 = call i64 @l0_f_collect_ctor_infos(i64 %a0, i64 0)
@@ -5085,29 +5153,151 @@ entry:
   ret i64 %t3
 }
 
-define i64 @l0_f_check_program(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 %a2) {
 entry:
-  %t0 = call i64 @l0_f_build_ctx(i64 %a0)
-  %t1 = call i64 @l0_f_check_dups(i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t2 = call i64 @l0_f_check_decls(i64 %a0, i64 %t0, i64 %t1)
-  %r3 = alloca i64
-  %t4 = icmp ne i64 %a1, 0
-  br i1 %t4, label %Lt3, label %Le3
-Lt3:
-  %t5 = call i64 @l0_f_ctx_sigs(i64 %t0)
-  %t6 = call i64 @l0_f_check_main(i64 %t5)
-  store i64 %t6, ptr %r3
-  br label %Lx3
-Le3:
-  store i64 0, ptr %r3
-  br label %Lx3
-Lx3:
-  %t7 = load i64, ptr %r3
-  %t8 = call i64 @l0_f_rev_diags_onto(i64 %t2, i64 %t7)
-  ret i64 %t8
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  %t3 = call i64 @l0_f_rev_decls_onto(i64 %a2, i64 0)
+  store i64 %t3, ptr %r0
+  br label %Lx0
+Le0:
+  %t4 = call i64 @l0_tail(i64 %a0)
+  %r5 = alloca i64
+  %t6 = call i64 @l0_head(i64 %a0)
+  %t7 = call i64 @l0_f_in_prelude(i64 %t6, i64 %a1)
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt5, label %Le5
+Lt5:
+  %t9 = call i64 @l0_head(i64 %a0)
+  %t10 = call i64 @l0_cons(i64 %t9, i64 %a2)
+  store i64 %t10, ptr %r5
+  br label %Lx5
+Le5:
+  store i64 %a2, ptr %r5
+  br label %Lx5
+Lx5:
+  %t11 = load i64, ptr %r5
+  %t12 = call i64 @l0_f_prelude_decls(i64 %t4, i64 %a1, i64 %t11)
+  store i64 %t12, ptr %r0
+  br label %Lx0
+Lx0:
+  %t13 = load i64, ptr %r0
+  ret i64 %t13
 }
 
-define i64 @l0_f_env_binds(i64 %a0) {
+define internal i64 @l0_f_program_decls(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  %t3 = call i64 @l0_f_rev_decls_onto(i64 %a2, i64 0)
+  store i64 %t3, ptr %r0
+  br label %Lx0
+Le0:
+  %t4 = call i64 @l0_tail(i64 %a0)
+  %r5 = alloca i64
+  %t6 = call i64 @l0_head(i64 %a0)
+  %t7 = call i64 @l0_f_in_prelude(i64 %t6, i64 %a1)
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt5, label %Le5
+Lt5:
+  store i64 %a2, ptr %r5
+  br label %Lx5
+Le5:
+  %t9 = call i64 @l0_head(i64 %a0)
+  %t10 = call i64 @l0_cons(i64 %t9, i64 %a2)
+  store i64 %t10, ptr %r5
+  br label %Lx5
+Lx5:
+  %t11 = load i64, ptr %r5
+  %t12 = call i64 @l0_f_program_decls(i64 %t4, i64 %a1, i64 %t11)
+  store i64 %t12, ptr %r0
+  br label %Lx0
+Lx0:
+  %t13 = load i64, ptr %r0
+  ret i64 %t13
+}
+
+define internal i64 @l0_f_append_sigs(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a1, ptr %r0
+  br label %Lx0
+Le0:
+  %t3 = call i64 @l0_head(i64 %a0)
+  %t4 = call i64 @l0_tail(i64 %a0)
+  %t5 = call i64 @l0_f_append_sigs(i64 %t4, i64 %a1)
+  %t6 = call i64 @l0_cons(i64 %t3, i64 %t5)
+  store i64 %t6, ptr %r0
+  br label %Lx0
+Lx0:
+  %t7 = load i64, ptr %r0
+  ret i64 %t7
+}
+
+define internal i64 @l0_f_prelude_view(i64 %a0, i64 %a1) {
+entry:
+  %t0 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0)
+  %t1 = call i64 @l0_f_collect_sigs(i64 %t0, i64 0)
+  %t2 = call i64 @l0_f_collect_ctor_infos(i64 %a0, i64 0)
+  %t3 = call i64 @l0_f_collect_datas(i64 %a0, i64 0)
+  %t4 = call i64 @l0_data_new(i64 0, i64 3)
+  call void @l0_data_set(i64 %t4, i64 0, i64 %t1)
+  call void @l0_data_set(i64 %t4, i64 1, i64 %t2)
+  call void @l0_data_set(i64 %t4, i64 2, i64 %t3)
+  ret i64 %t4
+}
+
+define internal i64 @l0_f_program_view(i64 %a0, i64 %a1) {
+entry:
+  %t0 = call i64 @l0_f_program_decls(i64 %a0, i64 %a1, i64 0)
+  %t1 = call i64 @l0_f_collect_sigs(i64 %t0, i64 0)
+  %t2 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0)
+  %t3 = call i64 @l0_f_collect_sigs(i64 %t2, i64 0)
+  %t4 = call i64 @l0_f_append_sigs(i64 %t1, i64 %t3)
+  %t5 = call i64 @l0_f_collect_ctor_infos(i64 %a0, i64 0)
+  %t6 = call i64 @l0_f_collect_datas(i64 %a0, i64 0)
+  %t7 = call i64 @l0_data_new(i64 0, i64 3)
+  call void @l0_data_set(i64 %t7, i64 0, i64 %t4)
+  call void @l0_data_set(i64 %t7, i64 1, i64 %t5)
+  call void @l0_data_set(i64 %t7, i64 2, i64 %t6)
+  ret i64 %t7
+}
+
+define internal i64 @l0_f_check_program(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  %t0 = call i64 @l0_f_program_decls(i64 %a0, i64 %a2, i64 0)
+  %t1 = call i64 @l0_f_prelude_view(i64 %a0, i64 %a2)
+  %t2 = call i64 @l0_f_program_view(i64 %a0, i64 %a2)
+  %t3 = call i64 @l0_f_check_dups(i64 %a0, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t4 = call i64 @l0_f_check_decls(i64 %a0, i64 %t1, i64 %t2, i64 %a2, i64 %t3)
+  %r5 = alloca i64
+  %t6 = icmp ne i64 %a1, 0
+  br i1 %t6, label %Lt5, label %Le5
+Lt5:
+  %t7 = call i64 @l0_f_collect_sigs(i64 %t0, i64 0)
+  %t8 = call i64 @l0_f_check_main(i64 %t7)
+  store i64 %t8, ptr %r5
+  br label %Lx5
+Le5:
+  store i64 0, ptr %r5
+  br label %Lx5
+Lx5:
+  %t9 = load i64, ptr %r5
+  %t10 = call i64 @l0_f_rev_diags_onto(i64 %t4, i64 %t9)
+  ret i64 %t10
+}
+
+define internal i64 @l0_f_env_binds(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -5115,16 +5305,17 @@ entry:
 A0_0:
   %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
   store i64 %t2, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t4 = load i64, ptr %m0
-  ret i64 %t4
+  %t5 = load i64, ptr %m0
+  ret i64 %t5
 }
 
-define i64 @l0_f_env_ctx(i64 %a0) {
+define internal i64 @l0_f_env_ctx(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -5132,16 +5323,35 @@ entry:
 A0_0:
   %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
   store i64 %t3, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t4 = load i64, ptr %m0
-  ret i64 %t4
+  %t5 = load i64, ptr %m0
+  ret i64 %t5
 }
 
-define i64 @l0_f_env_bind(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_env_prelude(i64 %a0) {
+entry:
+  %m0 = alloca i64
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
+A0_0:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  store i64 %t4, ptr %m0
+  br label %Lm0
+Ln0:
+  unreachable
+Lm0:
+  %t5 = load i64, ptr %m0
+  ret i64 %t5
+}
+
+define internal i64 @l0_f_env_bind(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a2)
@@ -5149,23 +5359,25 @@ entry:
 A0_0:
   %t2 = call i64 @l0_data_get(i64 %a2, i64 0)
   %t3 = call i64 @l0_data_get(i64 %a2, i64 1)
-  %t4 = call i64 @l0_data_new(i64 0, i64 2)
-  call void @l0_data_set(i64 %t4, i64 0, i64 %a0)
-  call void @l0_data_set(i64 %t4, i64 1, i64 %a1)
-  %t5 = call i64 @l0_cons(i64 %t4, i64 %t2)
-  %t6 = call i64 @l0_data_new(i64 0, i64 2)
-  call void @l0_data_set(i64 %t6, i64 0, i64 %t5)
-  call void @l0_data_set(i64 %t6, i64 1, i64 %t3)
-  store i64 %t6, ptr %m0
+  %t4 = call i64 @l0_data_get(i64 %a2, i64 2)
+  %t5 = call i64 @l0_data_new(i64 0, i64 2)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %a1)
+  %t6 = call i64 @l0_cons(i64 %t5, i64 %t2)
+  %t7 = call i64 @l0_data_new(i64 0, i64 3)
+  call void @l0_data_set(i64 %t7, i64 0, i64 %t6)
+  call void @l0_data_set(i64 %t7, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t7, i64 2, i64 %t4)
+  store i64 %t7, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t7 = load i64, ptr %m0
-  ret i64 %t7
+  %t8 = load i64, ptr %m0
+  ret i64 %t8
 }
 
-define i64 @l0_f_emit_line(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_emit_line(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a1)
@@ -5188,7 +5400,7 @@ Lm0:
   ret i64 %t8
 }
 
-define i64 @l0_f_emit_text(i64 %a0) {
+define internal i64 @l0_f_emit_text(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -5206,7 +5418,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_fresh_id(i64 %a0) {
+define internal i64 @l0_f_fresh_id(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -5224,7 +5436,7 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_bump(i64 %a0) {
+define internal i64 @l0_f_bump(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -5245,7 +5457,7 @@ Lm0:
   ret i64 %t6
 }
 
-define i64 @l0_f_lookup_operand(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_lookup_operand(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -5290,7 +5502,7 @@ Lx0:
   ret i64 %t16
 }
 
-define i64 @l0_f_fmt_ops(i64 %a0) {
+define internal i64 @l0_f_fmt_ops(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -5338,7 +5550,7 @@ Lx0:
   ret i64 %t26
 }
 
-define i64 @l0_f_emit_assign(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_emit_assign(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_cons(i64 116, i64 0)
   %t1 = call i64 @l0_cons(i64 37, i64 %t0)
@@ -5360,7 +5572,7 @@ entry:
   ret i64 %t14
 }
 
-define i64 @l0_f_emit_rt_call(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_emit_rt_call(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %t0 = call i64 @l0_cons(i64 64, i64 0)
   %t1 = call i64 @l0_cons(i64 32, i64 %t0)
@@ -5383,7 +5595,7 @@ entry:
   ret i64 %t17
 }
 
-define i64 @l0_f_emit_binop(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_emit_binop(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 52, i64 %t0)
@@ -5400,7 +5612,7 @@ entry:
   ret i64 %t11
 }
 
-define i64 @l0_f_emit_cmp(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_emit_cmp(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 32, i64 0)
@@ -5453,20 +5665,20 @@ Lm0:
   ret i64 %t40
 }
 
-define i64 @l0_f_two_ops(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_two_ops(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_cons(i64 %a1, i64 0)
   %t1 = call i64 @l0_cons(i64 %a0, i64 %t0)
   ret i64 %t1
 }
 
-define i64 @l0_f_one_op(i64 %a0) {
+define internal i64 @l0_f_one_op(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 %a0, i64 0)
   ret i64 %t0
 }
 
-define i64 @l0_f_emit_expr(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_emit_expr(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -5572,7 +5784,7 @@ Lm0:
   ret i64 %t50
 }
 
-define i64 @l0_f_emit_let(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_emit_let(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_emit_expr(i64 %a1, i64 %a3, i64 %a4)
@@ -5592,7 +5804,7 @@ Lm0:
   ret i64 %t7
 }
 
-define i64 @l0_f_emit_string(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_emit_string(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -5637,7 +5849,7 @@ Lx0:
   ret i64 %t22
 }
 
-define i64 @l0_f_emit_store(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_emit_store(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 52, i64 %t0)
@@ -5664,7 +5876,7 @@ entry:
   ret i64 %t21
 }
 
-define i64 @l0_f_emit_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_emit_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   %t0 = call i64 @l0_cons(i64 58, i64 0)
   %t1 = call i64 @l0_f_append(i64 %a0, i64 %t0)
@@ -5700,7 +5912,7 @@ Lm3:
   ret i64 %t23
 }
 
-define i64 @l0_f_emit_if(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_emit_if(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %t0 = call i64 @l0_f_fresh_id(i64 %a4)
   %t1 = call i64 @l0_cons(i64 114, i64 0)
@@ -5742,7 +5954,7 @@ Lm23:
   ret i64 %t29
 }
 
-define i64 @l0_f_emit_if_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+define internal i64 @l0_f_emit_if_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
   %t0 = call i64 @l0_cons(i64 116, i64 0)
   %t1 = call i64 @l0_cons(i64 76, i64 %t0)
@@ -5839,7 +6051,7 @@ Lm9:
   ret i64 %t84
 }
 
-define i64 @l0_f_emit_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_emit_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -5877,7 +6089,37 @@ Lx0:
   ret i64 %t15
 }
 
-define i64 @l0_f_emit_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_call_sym(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_f_env_prelude(i64 %a1)
+  %t2 = call i64 @l0_f_any_eq(i64 %a0, i64 %t1)
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  %t4 = call i64 @l0_cons(i64 95, i64 0)
+  %t5 = call i64 @l0_cons(i64 112, i64 %t4)
+  %t6 = call i64 @l0_cons(i64 95, i64 %t5)
+  %t7 = call i64 @l0_cons(i64 48, i64 %t6)
+  %t8 = call i64 @l0_cons(i64 108, i64 %t7)
+  %t9 = call i64 @l0_f_append(i64 %t8, i64 %a0)
+  store i64 %t9, ptr %r0
+  br label %Lx0
+Le0:
+  %t10 = call i64 @l0_cons(i64 95, i64 0)
+  %t11 = call i64 @l0_cons(i64 102, i64 %t10)
+  %t12 = call i64 @l0_cons(i64 95, i64 %t11)
+  %t13 = call i64 @l0_cons(i64 48, i64 %t12)
+  %t14 = call i64 @l0_cons(i64 108, i64 %t13)
+  %t15 = call i64 @l0_f_append(i64 %t14, i64 %a0)
+  store i64 %t15, ptr %r0
+  br label %Lx0
+Lx0:
+  %t16 = load i64, ptr %r0
+  ret i64 %t16
+}
+
+define internal i64 @l0_f_emit_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_emit_args(i64 %a1, i64 %a2, i64 %a3, i64 0)
@@ -5886,17 +6128,18 @@ entry:
 A0_0:
   %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
   %t4 = call i64 @l0_data_get(i64 %t1, i64 1)
-  %t5 = call i64 @l0_f_emit_op(i64 %a0, i64 %t3, i64 %t4)
-  store i64 %t5, ptr %m0
+  %t5 = call i64 @l0_f_call_sym(i64 %a0, i64 %a2)
+  %t6 = call i64 @l0_f_emit_op(i64 %a0, i64 %t5, i64 %t3, i64 %t4)
+  store i64 %t6, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t6 = load i64, ptr %m0
-  ret i64 %t6
+  %t7 = load i64, ptr %m0
+  ret i64 %t7
 }
 
-define i64 @l0_f_ctor_block_width(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_ctor_block_width(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_ctor_type_name(i64 %a0)
@@ -5919,7 +6162,7 @@ Lm0:
   ret i64 %t7
 }
 
-define i64 @l0_f_emit_ctor(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_emit_ctor(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_env_ctx(i64 %a2)
@@ -5960,7 +6203,7 @@ Lm0:
   ret i64 %t16
 }
 
-define i64 @l0_f_emit_ctor_block(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_emit_ctor_block(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 119, i64 0)
@@ -5998,7 +6241,7 @@ Lm0:
   ret i64 %t23
 }
 
-define i64 @l0_f_emit_field_stores(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_emit_field_stores(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -6069,7 +6312,7 @@ Lx0:
   ret i64 %t57
 }
 
-define i64 @l0_f_emit_match(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_emit_match(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %t0 = call i64 @l0_f_fresh_id(i64 %a3)
   %t1 = call i64 @l0_cons(i64 109, i64 0)
@@ -6111,7 +6354,7 @@ Lm23:
   ret i64 %t29
 }
 
-define i64 @l0_f_arm_label(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_arm_label(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_cons(i64 65, i64 0)
   %t1 = call i64 @l0_cons(i64 95, i64 0)
@@ -6122,7 +6365,7 @@ entry:
   ret i64 %t5
 }
 
-define i64 @l0_f_arm_tag(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_arm_tag(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_arm_ctor_name(i64 %a0)
@@ -6146,7 +6389,7 @@ Lm0:
   ret i64 %t8
 }
 
-define i64 @l0_f_switch_entries(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_switch_entries(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -6188,7 +6431,7 @@ Lx0:
   ret i64 %t28
 }
 
-define i64 @l0_f_emit_match_dispatch(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_emit_match_dispatch(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 103, i64 0)
@@ -6259,7 +6502,7 @@ Lm0:
   ret i64 %t58
 }
 
-define i64 @l0_f_emit_match_tail(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+define internal i64 @l0_f_emit_match_tail(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
   %t0 = call i64 @l0_f_emit_match_arms(i64 %a3, i64 %a4, i64 %a0, i64 0, i64 %a1, i64 %a2, i64 %a5, i64 %a7)
   %t1 = call i64 @l0_cons(i64 58, i64 0)
@@ -6301,7 +6544,7 @@ entry:
   ret i64 %t36
 }
 
-define i64 @l0_f_emit_match_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+define internal i64 @l0_f_emit_match_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -6324,7 +6567,7 @@ Lx0:
   ret i64 %t9
 }
 
-define i64 @l0_f_emit_match_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+define internal i64 @l0_f_emit_match_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -6387,7 +6630,7 @@ Lm0:
   ret i64 %t36
 }
 
-define i64 @l0_f_emit_field_loads(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_emit_field_loads(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -6438,7 +6681,7 @@ Lx0:
   ret i64 %t28
 }
 
-define i64 @l0_f_arith_ops(i64 %a0) {
+define internal i64 @l0_f_arith_ops(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 114, i64 0)
   %t1 = call i64 @l0_cons(i64 111, i64 %t0)
@@ -6462,7 +6705,7 @@ entry:
   ret i64 %t18
 }
 
-define i64 @l0_f_cmp_names(i64 %a0) {
+define internal i64 @l0_f_cmp_names(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 113, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
@@ -6482,7 +6725,7 @@ entry:
   ret i64 %t14
 }
 
-define i64 @l0_f_cmp_preds(i64 %a0) {
+define internal i64 @l0_f_cmp_preds(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 113, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
@@ -6506,7 +6749,7 @@ entry:
   ret i64 %t18
 }
 
-define i64 @l0_f_rt_names(i64 %a0) {
+define internal i64 @l0_f_rt_names(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 121, i64 0)
   %t1 = call i64 @l0_cons(i64 116, i64 %t0)
@@ -6543,7 +6786,7 @@ entry:
   ret i64 %t31
 }
 
-define i64 @l0_f_rt_syms(i64 %a0) {
+define internal i64 @l0_f_rt_syms(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 121, i64 0)
   %t1 = call i64 @l0_cons(i64 116, i64 %t0)
@@ -6598,7 +6841,7 @@ entry:
   ret i64 %t49
 }
 
-define i64 @l0_f_nth_str(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_nth_str(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = icmp sle i64 %a1, 0
@@ -6620,7 +6863,7 @@ Lx0:
   ret i64 %t8
 }
 
-define i64 @l0_f_emit_op(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_emit_op(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_arith_ops(i64 0)
@@ -6628,10 +6871,10 @@ entry:
   %t3 = icmp ne i64 %t2, 0
   br i1 %t3, label %Lt0, label %Le0
 Lt0:
-  %t4 = call i64 @l0_head(i64 %a1)
-  %t5 = call i64 @l0_tail(i64 %a1)
+  %t4 = call i64 @l0_head(i64 %a2)
+  %t5 = call i64 @l0_tail(i64 %a2)
   %t6 = call i64 @l0_head(i64 %t5)
-  %t7 = call i64 @l0_f_emit_binop(i64 %a0, i64 %t4, i64 %t6, i64 %a2)
+  %t7 = call i64 @l0_f_emit_binop(i64 %a0, i64 %t4, i64 %t6, i64 %a3)
   store i64 %t7, ptr %r0
   br label %Lx0
 Le0:
@@ -6647,10 +6890,10 @@ Lt8:
   %t15 = call i64 @l0_f_cmp_names(i64 0)
   %t16 = call i64 @l0_f_index_of(i64 %a0, i64 %t15)
   %t17 = call i64 @l0_f_nth_str(i64 %t14, i64 %t16)
-  %t18 = call i64 @l0_head(i64 %a1)
-  %t19 = call i64 @l0_tail(i64 %a1)
+  %t18 = call i64 @l0_head(i64 %a2)
+  %t19 = call i64 @l0_tail(i64 %a2)
   %t20 = call i64 @l0_head(i64 %t19)
-  %t21 = call i64 @l0_f_emit_cmp(i64 %t17, i64 %t18, i64 %t20, i64 %a2)
+  %t21 = call i64 @l0_f_emit_cmp(i64 %t17, i64 %t18, i64 %t20, i64 %a3)
   store i64 %t21, ptr %r8
   br label %Lx8
 Le8:
@@ -6666,11 +6909,11 @@ Lt22:
   %t29 = call i64 @l0_f_rt_names(i64 0)
   %t30 = call i64 @l0_f_index_of(i64 %a0, i64 %t29)
   %t31 = call i64 @l0_f_nth_str(i64 %t28, i64 %t30)
-  %t32 = call i64 @l0_f_emit_rt_call(i64 %t31, i64 %a1, i64 %a2)
+  %t32 = call i64 @l0_f_emit_rt_call(i64 %t31, i64 %a2, i64 %a3)
   store i64 %t32, ptr %r22
   br label %Lx22
 Le22:
-  %t33 = call i64 @l0_f_emit_op_rest(i64 %a0, i64 %a1, i64 %a2)
+  %t33 = call i64 @l0_f_emit_op_rest(i64 %a0, i64 %a1, i64 %a2, i64 %a3)
   store i64 %t33, ptr %r22
   br label %Lx22
 Lx22:
@@ -6686,7 +6929,7 @@ Lx0:
   ret i64 %t36
 }
 
-define i64 @l0_f_emit_op_rest(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_emit_op_rest(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 103, i64 0)
@@ -6700,8 +6943,8 @@ Lt0:
   %t7 = call i64 @l0_cons(i64 117, i64 %t6)
   %t8 = call i64 @l0_cons(i64 115, i64 %t7)
   %t9 = call i64 @l0_cons(i64 48, i64 0)
-  %t10 = call i64 @l0_head(i64 %a1)
-  %t11 = call i64 @l0_f_emit_binop(i64 %t8, i64 %t9, i64 %t10, i64 %a2)
+  %t10 = call i64 @l0_head(i64 %a2)
+  %t11 = call i64 @l0_f_emit_binop(i64 %t8, i64 %t9, i64 %t10, i64 %a3)
   store i64 %t11, ptr %r0
   br label %Lx0
 Le0:
@@ -6716,31 +6959,25 @@ Lt12:
   %t18 = call i64 @l0_cons(i64 114, i64 0)
   %t19 = call i64 @l0_cons(i64 111, i64 %t18)
   %t20 = call i64 @l0_cons(i64 120, i64 %t19)
-  %t21 = call i64 @l0_head(i64 %a1)
+  %t21 = call i64 @l0_head(i64 %a2)
   %t22 = call i64 @l0_cons(i64 49, i64 0)
-  %t23 = call i64 @l0_f_emit_binop(i64 %t20, i64 %t21, i64 %t22, i64 %a2)
+  %t23 = call i64 @l0_f_emit_binop(i64 %t20, i64 %t21, i64 %t22, i64 %a3)
   store i64 %t23, ptr %r12
   br label %Lx12
 Le12:
-  %t24 = call i64 @l0_cons(i64 95, i64 0)
-  %t25 = call i64 @l0_cons(i64 102, i64 %t24)
-  %t26 = call i64 @l0_cons(i64 95, i64 %t25)
-  %t27 = call i64 @l0_cons(i64 48, i64 %t26)
-  %t28 = call i64 @l0_cons(i64 108, i64 %t27)
-  %t29 = call i64 @l0_f_append(i64 %t28, i64 %a0)
-  %t30 = call i64 @l0_f_emit_rt_call(i64 %t29, i64 %a1, i64 %a2)
-  store i64 %t30, ptr %r12
+  %t24 = call i64 @l0_f_emit_rt_call(i64 %a1, i64 %a2, i64 %a3)
+  store i64 %t24, ptr %r12
   br label %Lx12
 Lx12:
-  %t31 = load i64, ptr %r12
-  store i64 %t31, ptr %r0
+  %t25 = load i64, ptr %r12
+  store i64 %t25, ptr %r0
   br label %Lx0
 Lx0:
-  %t32 = load i64, ptr %r0
-  ret i64 %t32
+  %t26 = load i64, ptr %r0
+  ret i64 %t26
 }
 
-define i64 @l0_f_fmt_ir_params(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_fmt_ir_params(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -6785,7 +7022,7 @@ Lx0:
   ret i64 %t23
 }
 
-define i64 @l0_f_param_binds(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_param_binds(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -6826,7 +7063,162 @@ Lx0:
   ret i64 %t18
 }
 
-define i64 @l0_f_emit_fn(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_sc_ctx(i64 %a0) {
+entry:
+  %m0 = alloca i64
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
+A0_0:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  store i64 %t2, ptr %m0
+  br label %Lm0
+Ln0:
+  unreachable
+Lm0:
+  %t5 = load i64, ptr %m0
+  ret i64 %t5
+}
+
+define internal i64 @l0_f_sc_prelude_names(i64 %a0) {
+entry:
+  %m0 = alloca i64
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
+A0_0:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  store i64 %t3, ptr %m0
+  br label %Lm0
+Ln0:
+  unreachable
+Lm0:
+  %t5 = load i64, ptr %m0
+  ret i64 %t5
+}
+
+define internal i64 @l0_f_sc_is_prelude(i64 %a0) {
+entry:
+  %m0 = alloca i64
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
+A0_0:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  store i64 %t4, ptr %m0
+  br label %Lm0
+Ln0:
+  unreachable
+Lm0:
+  %t5 = load i64, ptr %m0
+  ret i64 %t5
+}
+
+define internal i64 @l0_f_fn_header(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = icmp ne i64 %a1, 0
+  br i1 %t1, label %Lt0, label %Le0
+Lt0:
+  %t2 = call i64 @l0_cons(i64 95, i64 0)
+  %t3 = call i64 @l0_cons(i64 112, i64 %t2)
+  %t4 = call i64 @l0_cons(i64 95, i64 %t3)
+  %t5 = call i64 @l0_cons(i64 48, i64 %t4)
+  %t6 = call i64 @l0_cons(i64 108, i64 %t5)
+  %t7 = call i64 @l0_cons(i64 64, i64 %t6)
+  %t8 = call i64 @l0_cons(i64 32, i64 %t7)
+  %t9 = call i64 @l0_cons(i64 52, i64 %t8)
+  %t10 = call i64 @l0_cons(i64 54, i64 %t9)
+  %t11 = call i64 @l0_cons(i64 105, i64 %t10)
+  %t12 = call i64 @l0_cons(i64 32, i64 %t11)
+  %t13 = call i64 @l0_cons(i64 108, i64 %t12)
+  %t14 = call i64 @l0_cons(i64 97, i64 %t13)
+  %t15 = call i64 @l0_cons(i64 110, i64 %t14)
+  %t16 = call i64 @l0_cons(i64 114, i64 %t15)
+  %t17 = call i64 @l0_cons(i64 101, i64 %t16)
+  %t18 = call i64 @l0_cons(i64 116, i64 %t17)
+  %t19 = call i64 @l0_cons(i64 110, i64 %t18)
+  %t20 = call i64 @l0_cons(i64 105, i64 %t19)
+  %t21 = call i64 @l0_cons(i64 32, i64 %t20)
+  %t22 = call i64 @l0_cons(i64 101, i64 %t21)
+  %t23 = call i64 @l0_cons(i64 110, i64 %t22)
+  %t24 = call i64 @l0_cons(i64 105, i64 %t23)
+  %t25 = call i64 @l0_cons(i64 102, i64 %t24)
+  %t26 = call i64 @l0_cons(i64 101, i64 %t25)
+  %t27 = call i64 @l0_cons(i64 100, i64 %t26)
+  store i64 %t27, ptr %r0
+  br label %Lx0
+Le0:
+  %r28 = alloca i64
+  %t29 = call i64 @l0_cons(i64 110, i64 0)
+  %t30 = call i64 @l0_cons(i64 105, i64 %t29)
+  %t31 = call i64 @l0_cons(i64 97, i64 %t30)
+  %t32 = call i64 @l0_cons(i64 109, i64 %t31)
+  %t33 = call i64 @l0_f_list_eq(i64 %a0, i64 %t32)
+  %t34 = icmp ne i64 %t33, 0
+  br i1 %t34, label %Lt28, label %Le28
+Lt28:
+  %t35 = call i64 @l0_cons(i64 95, i64 0)
+  %t36 = call i64 @l0_cons(i64 102, i64 %t35)
+  %t37 = call i64 @l0_cons(i64 95, i64 %t36)
+  %t38 = call i64 @l0_cons(i64 48, i64 %t37)
+  %t39 = call i64 @l0_cons(i64 108, i64 %t38)
+  %t40 = call i64 @l0_cons(i64 64, i64 %t39)
+  %t41 = call i64 @l0_cons(i64 32, i64 %t40)
+  %t42 = call i64 @l0_cons(i64 52, i64 %t41)
+  %t43 = call i64 @l0_cons(i64 54, i64 %t42)
+  %t44 = call i64 @l0_cons(i64 105, i64 %t43)
+  %t45 = call i64 @l0_cons(i64 32, i64 %t44)
+  %t46 = call i64 @l0_cons(i64 101, i64 %t45)
+  %t47 = call i64 @l0_cons(i64 110, i64 %t46)
+  %t48 = call i64 @l0_cons(i64 105, i64 %t47)
+  %t49 = call i64 @l0_cons(i64 102, i64 %t48)
+  %t50 = call i64 @l0_cons(i64 101, i64 %t49)
+  %t51 = call i64 @l0_cons(i64 100, i64 %t50)
+  store i64 %t51, ptr %r28
+  br label %Lx28
+Le28:
+  %t52 = call i64 @l0_cons(i64 95, i64 0)
+  %t53 = call i64 @l0_cons(i64 102, i64 %t52)
+  %t54 = call i64 @l0_cons(i64 95, i64 %t53)
+  %t55 = call i64 @l0_cons(i64 48, i64 %t54)
+  %t56 = call i64 @l0_cons(i64 108, i64 %t55)
+  %t57 = call i64 @l0_cons(i64 64, i64 %t56)
+  %t58 = call i64 @l0_cons(i64 32, i64 %t57)
+  %t59 = call i64 @l0_cons(i64 52, i64 %t58)
+  %t60 = call i64 @l0_cons(i64 54, i64 %t59)
+  %t61 = call i64 @l0_cons(i64 105, i64 %t60)
+  %t62 = call i64 @l0_cons(i64 32, i64 %t61)
+  %t63 = call i64 @l0_cons(i64 108, i64 %t62)
+  %t64 = call i64 @l0_cons(i64 97, i64 %t63)
+  %t65 = call i64 @l0_cons(i64 110, i64 %t64)
+  %t66 = call i64 @l0_cons(i64 114, i64 %t65)
+  %t67 = call i64 @l0_cons(i64 101, i64 %t66)
+  %t68 = call i64 @l0_cons(i64 116, i64 %t67)
+  %t69 = call i64 @l0_cons(i64 110, i64 %t68)
+  %t70 = call i64 @l0_cons(i64 105, i64 %t69)
+  %t71 = call i64 @l0_cons(i64 32, i64 %t70)
+  %t72 = call i64 @l0_cons(i64 101, i64 %t71)
+  %t73 = call i64 @l0_cons(i64 110, i64 %t72)
+  %t74 = call i64 @l0_cons(i64 105, i64 %t73)
+  %t75 = call i64 @l0_cons(i64 102, i64 %t74)
+  %t76 = call i64 @l0_cons(i64 101, i64 %t75)
+  %t77 = call i64 @l0_cons(i64 100, i64 %t76)
+  store i64 %t77, ptr %r28
+  br label %Lx28
+Lx28:
+  %t78 = load i64, ptr %r28
+  store i64 %t78, ptr %r0
+  br label %Lx0
+Lx0:
+  %t79 = load i64, ptr %r0
+  ret i64 %t79
+}
+
+define internal i64 @l0_f_emit_fn(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -6843,82 +7235,70 @@ A0_1:
   %t7 = call i64 @l0_data_get(i64 %a0, i64 2)
   %t8 = call i64 @l0_data_get(i64 %a0, i64 3)
   %t9 = call i64 @l0_data_get(i64 %a0, i64 4)
-  %t10 = call i64 @l0_cons(i64 95, i64 0)
-  %t11 = call i64 @l0_cons(i64 102, i64 %t10)
-  %t12 = call i64 @l0_cons(i64 95, i64 %t11)
-  %t13 = call i64 @l0_cons(i64 48, i64 %t12)
-  %t14 = call i64 @l0_cons(i64 108, i64 %t13)
-  %t15 = call i64 @l0_cons(i64 64, i64 %t14)
-  %t16 = call i64 @l0_cons(i64 32, i64 %t15)
-  %t17 = call i64 @l0_cons(i64 52, i64 %t16)
-  %t18 = call i64 @l0_cons(i64 54, i64 %t17)
-  %t19 = call i64 @l0_cons(i64 105, i64 %t18)
-  %t20 = call i64 @l0_cons(i64 32, i64 %t19)
-  %t21 = call i64 @l0_cons(i64 101, i64 %t20)
-  %t22 = call i64 @l0_cons(i64 110, i64 %t21)
-  %t23 = call i64 @l0_cons(i64 105, i64 %t22)
-  %t24 = call i64 @l0_cons(i64 102, i64 %t23)
-  %t25 = call i64 @l0_cons(i64 101, i64 %t24)
-  %t26 = call i64 @l0_cons(i64 100, i64 %t25)
-  %t27 = call i64 @l0_cons(i64 40, i64 0)
-  %t28 = call i64 @l0_f_fmt_ir_params(i64 %t7, i64 0)
-  %t29 = call i64 @l0_cons(i64 123, i64 0)
-  %t30 = call i64 @l0_cons(i64 32, i64 %t29)
-  %t31 = call i64 @l0_cons(i64 41, i64 %t30)
-  %t32 = call i64 @l0_f_append(i64 %t28, i64 %t31)
-  %t33 = call i64 @l0_f_append(i64 %t27, i64 %t32)
-  %t34 = call i64 @l0_f_append(i64 %t6, i64 %t33)
-  %t35 = call i64 @l0_f_append(i64 %t26, i64 %t34)
-  %t36 = call i64 @l0_f_emit_line(i64 %t35, i64 %a2)
-  %t37 = call i64 @l0_cons(i64 58, i64 0)
-  %t38 = call i64 @l0_cons(i64 121, i64 %t37)
-  %t39 = call i64 @l0_cons(i64 114, i64 %t38)
-  %t40 = call i64 @l0_cons(i64 116, i64 %t39)
-  %t41 = call i64 @l0_cons(i64 110, i64 %t40)
-  %t42 = call i64 @l0_cons(i64 101, i64 %t41)
-  %t43 = call i64 @l0_f_emit_line(i64 %t42, i64 %t36)
-  %m44 = alloca i64
-  %t45 = call i64 @l0_f_param_binds(i64 %t7, i64 0, i64 0)
-  %t46 = call i64 @l0_data_new(i64 0, i64 2)
-  call void @l0_data_set(i64 %t46, i64 0, i64 %t45)
-  call void @l0_data_set(i64 %t46, i64 1, i64 %a1)
-  %t47 = call i64 @l0_f_emit_expr(i64 %t9, i64 %t46, i64 %t43)
-  %t48 = call i64 @l0_data_tag(i64 %t47)
-  switch i64 %t48, label %Ln44 [ i64 0, label %A44_0 ]
-A44_0:
-  %t49 = call i64 @l0_data_get(i64 %t47, i64 0)
-  %t50 = call i64 @l0_data_get(i64 %t47, i64 1)
-  %t51 = call i64 @l0_cons(i64 125, i64 0)
-  %t52 = call i64 @l0_cons(i64 32, i64 0)
-  %t53 = call i64 @l0_cons(i64 52, i64 %t52)
-  %t54 = call i64 @l0_cons(i64 54, i64 %t53)
-  %t55 = call i64 @l0_cons(i64 105, i64 %t54)
-  %t56 = call i64 @l0_cons(i64 32, i64 %t55)
-  %t57 = call i64 @l0_cons(i64 116, i64 %t56)
-  %t58 = call i64 @l0_cons(i64 101, i64 %t57)
-  %t59 = call i64 @l0_cons(i64 114, i64 %t58)
-  %t60 = call i64 @l0_cons(i64 32, i64 %t59)
-  %t61 = call i64 @l0_cons(i64 32, i64 %t60)
-  %t62 = call i64 @l0_f_append(i64 %t61, i64 %t49)
-  %t63 = call i64 @l0_f_emit_line(i64 %t62, i64 %t50)
-  %t64 = call i64 @l0_f_emit_line(i64 %t51, i64 %t63)
-  %t65 = call i64 @l0_f_emit_line(i64 0, i64 %t64)
-  store i64 %t65, ptr %m44
-  br label %Lm44
-Ln44:
+  %t10 = call i64 @l0_f_sc_is_prelude(i64 %a1)
+  %t11 = call i64 @l0_f_fn_header(i64 %t6, i64 %t10)
+  %t12 = call i64 @l0_cons(i64 40, i64 0)
+  %t13 = call i64 @l0_f_fmt_ir_params(i64 %t7, i64 0)
+  %t14 = call i64 @l0_cons(i64 123, i64 0)
+  %t15 = call i64 @l0_cons(i64 32, i64 %t14)
+  %t16 = call i64 @l0_cons(i64 41, i64 %t15)
+  %t17 = call i64 @l0_f_append(i64 %t13, i64 %t16)
+  %t18 = call i64 @l0_f_append(i64 %t12, i64 %t17)
+  %t19 = call i64 @l0_f_append(i64 %t6, i64 %t18)
+  %t20 = call i64 @l0_f_append(i64 %t11, i64 %t19)
+  %t21 = call i64 @l0_f_emit_line(i64 %t20, i64 %a2)
+  %t22 = call i64 @l0_cons(i64 58, i64 0)
+  %t23 = call i64 @l0_cons(i64 121, i64 %t22)
+  %t24 = call i64 @l0_cons(i64 114, i64 %t23)
+  %t25 = call i64 @l0_cons(i64 116, i64 %t24)
+  %t26 = call i64 @l0_cons(i64 110, i64 %t25)
+  %t27 = call i64 @l0_cons(i64 101, i64 %t26)
+  %t28 = call i64 @l0_f_emit_line(i64 %t27, i64 %t21)
+  %m29 = alloca i64
+  %t30 = call i64 @l0_f_param_binds(i64 %t7, i64 0, i64 0)
+  %t31 = call i64 @l0_f_sc_ctx(i64 %a1)
+  %t32 = call i64 @l0_f_sc_prelude_names(i64 %a1)
+  %t33 = call i64 @l0_data_new(i64 0, i64 3)
+  call void @l0_data_set(i64 %t33, i64 0, i64 %t30)
+  call void @l0_data_set(i64 %t33, i64 1, i64 %t31)
+  call void @l0_data_set(i64 %t33, i64 2, i64 %t32)
+  %t34 = call i64 @l0_f_emit_expr(i64 %t9, i64 %t33, i64 %t28)
+  %t35 = call i64 @l0_data_tag(i64 %t34)
+  switch i64 %t35, label %Ln29 [ i64 0, label %A29_0 ]
+A29_0:
+  %t36 = call i64 @l0_data_get(i64 %t34, i64 0)
+  %t37 = call i64 @l0_data_get(i64 %t34, i64 1)
+  %t38 = call i64 @l0_cons(i64 125, i64 0)
+  %t39 = call i64 @l0_cons(i64 32, i64 0)
+  %t40 = call i64 @l0_cons(i64 52, i64 %t39)
+  %t41 = call i64 @l0_cons(i64 54, i64 %t40)
+  %t42 = call i64 @l0_cons(i64 105, i64 %t41)
+  %t43 = call i64 @l0_cons(i64 32, i64 %t42)
+  %t44 = call i64 @l0_cons(i64 116, i64 %t43)
+  %t45 = call i64 @l0_cons(i64 101, i64 %t44)
+  %t46 = call i64 @l0_cons(i64 114, i64 %t45)
+  %t47 = call i64 @l0_cons(i64 32, i64 %t46)
+  %t48 = call i64 @l0_cons(i64 32, i64 %t47)
+  %t49 = call i64 @l0_f_append(i64 %t48, i64 %t36)
+  %t50 = call i64 @l0_f_emit_line(i64 %t49, i64 %t37)
+  %t51 = call i64 @l0_f_emit_line(i64 %t38, i64 %t50)
+  %t52 = call i64 @l0_f_emit_line(i64 0, i64 %t51)
+  store i64 %t52, ptr %m29
+  br label %Lm29
+Ln29:
   unreachable
-Lm44:
-  %t66 = load i64, ptr %m44
-  store i64 %t66, ptr %m0
+Lm29:
+  %t53 = load i64, ptr %m29
+  store i64 %t53, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t67 = load i64, ptr %m0
-  ret i64 %t67
+  %t54 = load i64, ptr %m0
+  ret i64 %t54
 }
 
-define i64 @l0_f_reset_counter(i64 %a0) {
+define internal i64 @l0_f_reset_counter(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -6938,7 +7318,77 @@ Lm0:
   ret i64 %t5
 }
 
-define i64 @l0_f_emit_fns(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_emit_fns(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a4, ptr %r0
+  br label %Lx0
+Le0:
+  %t3 = call i64 @l0_tail(i64 %a0)
+  %t4 = call i64 @l0_head(i64 %a0)
+  %r5 = alloca i64
+  %t6 = call i64 @l0_head(i64 %a0)
+  %t7 = call i64 @l0_f_in_prelude(i64 %t6, i64 %a3)
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt5, label %Le5
+Lt5:
+  store i64 %a1, ptr %r5
+  br label %Lx5
+Le5:
+  store i64 %a2, ptr %r5
+  br label %Lx5
+Lx5:
+  %t9 = load i64, ptr %r5
+  %t10 = call i64 @l0_f_reset_counter(i64 %a4)
+  %t11 = call i64 @l0_f_emit_fn(i64 %t4, i64 %t9, i64 %t10)
+  %t12 = call i64 @l0_f_emit_fns(i64 %t3, i64 %a1, i64 %a2, i64 %a3, i64 %t11)
+  store i64 %t12, ptr %r0
+  br label %Lx0
+Lx0:
+  %t13 = load i64, ptr %r0
+  ret i64 %t13
+}
+
+define internal i64 @l0_f_fn_names(i64 %a0, i64 %a1) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  store i64 %a1, ptr %r0
+  br label %Lx0
+Le0:
+  %t3 = call i64 @l0_tail(i64 %a0)
+  %r4 = alloca i64
+  %t5 = call i64 @l0_head(i64 %a0)
+  %t6 = call i64 @l0_f_is_def(i64 %t5)
+  %t7 = icmp ne i64 %t6, 0
+  br i1 %t7, label %Lt4, label %Le4
+Lt4:
+  %t8 = call i64 @l0_head(i64 %a0)
+  %t9 = call i64 @l0_f_decl_name(i64 %t8)
+  %t10 = call i64 @l0_cons(i64 %t9, i64 %a1)
+  store i64 %t10, ptr %r4
+  br label %Lx4
+Le4:
+  store i64 %a1, ptr %r4
+  br label %Lx4
+Lx4:
+  %t11 = load i64, ptr %r4
+  %t12 = call i64 @l0_f_fn_names(i64 %t3, i64 %t11)
+  store i64 %t12, ptr %r0
+  br label %Lx0
+Lx0:
+  %t13 = load i64, ptr %r0
+  ret i64 %t13
+}
+
+define internal i64 @l0_f_unshadowed(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -6949,18 +7399,57 @@ Lt0:
   br label %Lx0
 Le0:
   %t3 = call i64 @l0_tail(i64 %a0)
-  %t4 = call i64 @l0_head(i64 %a0)
-  %t5 = call i64 @l0_f_reset_counter(i64 %a2)
-  %t6 = call i64 @l0_f_emit_fn(i64 %t4, i64 %a1, i64 %t5)
-  %t7 = call i64 @l0_f_emit_fns(i64 %t3, i64 %a1, i64 %t6)
-  store i64 %t7, ptr %r0
+  %r4 = alloca i64
+  %t5 = call i64 @l0_head(i64 %a0)
+  %t6 = call i64 @l0_f_any_eq(i64 %t5, i64 %a1)
+  %t7 = icmp ne i64 %t6, 0
+  br i1 %t7, label %Lt4, label %Le4
+Lt4:
+  store i64 %a2, ptr %r4
+  br label %Lx4
+Le4:
+  %t8 = call i64 @l0_head(i64 %a0)
+  %t9 = call i64 @l0_cons(i64 %t8, i64 %a2)
+  store i64 %t9, ptr %r4
+  br label %Lx4
+Lx4:
+  %t10 = load i64, ptr %r4
+  %t11 = call i64 @l0_f_unshadowed(i64 %t3, i64 %a1, i64 %t10)
+  store i64 %t11, ptr %r0
   br label %Lx0
 Lx0:
-  %t8 = load i64, ptr %r0
-  ret i64 %t8
+  %t12 = load i64, ptr %r0
+  ret i64 %t12
 }
 
-define i64 @l0_f_ir_header(i64 %a0) {
+define internal i64 @l0_f_prelude_scope(i64 %a0, i64 %a1) {
+entry:
+  %t0 = call i64 @l0_f_prelude_view(i64 %a0, i64 %a1)
+  %t1 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0)
+  %t2 = call i64 @l0_f_fn_names(i64 %t1, i64 0)
+  %t3 = call i64 @l0_data_new(i64 0, i64 3)
+  call void @l0_data_set(i64 %t3, i64 0, i64 %t0)
+  call void @l0_data_set(i64 %t3, i64 1, i64 %t2)
+  call void @l0_data_set(i64 %t3, i64 2, i64 1)
+  ret i64 %t3
+}
+
+define internal i64 @l0_f_program_scope(i64 %a0, i64 %a1) {
+entry:
+  %t0 = call i64 @l0_f_program_view(i64 %a0, i64 %a1)
+  %t1 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0)
+  %t2 = call i64 @l0_f_fn_names(i64 %t1, i64 0)
+  %t3 = call i64 @l0_f_program_decls(i64 %a0, i64 %a1, i64 0)
+  %t4 = call i64 @l0_f_fn_names(i64 %t3, i64 0)
+  %t5 = call i64 @l0_f_unshadowed(i64 %t2, i64 %t4, i64 0)
+  %t6 = call i64 @l0_data_new(i64 0, i64 3)
+  call void @l0_data_set(i64 %t6, i64 0, i64 %t0)
+  call void @l0_data_set(i64 %t6, i64 1, i64 %t5)
+  call void @l0_data_set(i64 %t6, i64 2, i64 0)
+  ret i64 %t6
+}
+
+define internal i64 @l0_f_ir_header(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 10, i64 0)
   %t1 = call i64 @l0_cons(i64 114, i64 %t0)
@@ -7321,7 +7810,7 @@ entry:
   ret i64 %t355
 }
 
-define i64 @l0_f_ret_kind(i64 %a0) {
+define internal i64 @l0_f_ret_kind(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -7406,7 +7895,7 @@ Lx0:
   ret i64 %t37
 }
 
-define i64 @l0_f_emit_module(i64 %a0) {
+define internal i64 @l0_f_emit_module(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_f_ir_header(i64 0)
   %t1 = call i64 @l0_f_push(i64 %t0, i64 0)
@@ -7444,19 +7933,21 @@ entry:
   %t31 = call i64 @l0_cons(i64 48, i64 %t30)
   %t32 = call i64 @l0_cons(i64 108, i64 %t31)
   %t33 = call i64 @l0_cons(i64 64, i64 %t32)
-  %t34 = call i64 @l0_f_ret_kind(i64 %a0)
-  %t35 = call i64 @l0_f_digits(i64 %t34)
-  %t36 = call i64 @l0_cons(i64 10, i64 0)
-  %t37 = call i64 @l0_f_append(i64 %t35, i64 %t36)
-  %t38 = call i64 @l0_f_append(i64 %t33, i64 %t37)
-  %t39 = call i64 @l0_f_emit_line(i64 %t38, i64 %t2)
-  %t40 = call i64 @l0_f_build_ctx(i64 %a0)
-  %t41 = call i64 @l0_f_emit_fns(i64 %a0, i64 %t40, i64 %t39)
-  %t42 = call i64 @l0_f_emit_text(i64 %t41)
-  ret i64 %t42
+  %t34 = call i64 @l0_f_program_decls(i64 %a0, i64 %a1, i64 0)
+  %t35 = call i64 @l0_f_ret_kind(i64 %t34)
+  %t36 = call i64 @l0_f_digits(i64 %t35)
+  %t37 = call i64 @l0_cons(i64 10, i64 0)
+  %t38 = call i64 @l0_f_append(i64 %t36, i64 %t37)
+  %t39 = call i64 @l0_f_append(i64 %t33, i64 %t38)
+  %t40 = call i64 @l0_f_emit_line(i64 %t39, i64 %t2)
+  %t41 = call i64 @l0_f_prelude_scope(i64 %a0, i64 %a1)
+  %t42 = call i64 @l0_f_program_scope(i64 %a0, i64 %a1)
+  %t43 = call i64 @l0_f_emit_fns(i64 %a0, i64 %t41, i64 %t42, i64 %a1, i64 %t40)
+  %t44 = call i64 @l0_f_emit_text(i64 %t43)
+  ret i64 %t44
 }
 
-define i64 @l0_f_tok_offset(i64 %a0) {
+define internal i64 @l0_f_tok_offset(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -7496,7 +7987,7 @@ Lm0:
   ret i64 %t12
 }
 
-define i64 @l0_f_tok_kind(i64 %a0) {
+define internal i64 @l0_f_tok_kind(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -7536,7 +8027,7 @@ Lm0:
   ret i64 %t12
 }
 
-define i64 @l0_f_tok_is_lparen(i64 %a0) {
+define internal i64 @l0_f_tok_is_lparen(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 0
@@ -7544,7 +8035,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_tok_is_rparen(i64 %a0) {
+define internal i64 @l0_f_tok_is_rparen(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 1
@@ -7552,7 +8043,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_tok_is_int(i64 %a0) {
+define internal i64 @l0_f_tok_is_int(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 2
@@ -7560,7 +8051,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_tok_is_str(i64 %a0) {
+define internal i64 @l0_f_tok_is_str(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 3
@@ -7568,7 +8059,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_tok_is_name(i64 %a0) {
+define internal i64 @l0_f_tok_is_name(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 4
@@ -7576,7 +8067,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_tok_is_err(i64 %a0) {
+define internal i64 @l0_f_tok_is_err(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 5
@@ -7584,7 +8075,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_tok_int(i64 %a0) {
+define internal i64 @l0_f_tok_int(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -7624,7 +8115,7 @@ Lm0:
   ret i64 %t12
 }
 
-define i64 @l0_f_tok_bytes(i64 %a0) {
+define internal i64 @l0_f_tok_bytes(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -7664,7 +8155,7 @@ Lm0:
   ret i64 %t12
 }
 
-define i64 @l0_f_head_offset(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_head_offset(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -7683,7 +8174,7 @@ Lx0:
   ret i64 %t5
 }
 
-define i64 @l0_f_rev_tokens_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_tokens_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -7704,13 +8195,13 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_rev_tokens(i64 %a0) {
+define internal i64 @l0_f_rev_tokens(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_rev_tokens_onto(i64 %a0, i64 0)
   ret i64 %t0
 }
 
-define i64 @l0_f_skip_trivia(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_skip_trivia(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -7765,7 +8256,7 @@ Lx0:
   ret i64 %t21
 }
 
-define i64 @l0_f_skip_comment(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_skip_comment(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -7805,7 +8296,7 @@ Lx0:
   ret i64 %t16
 }
 
-define i64 @l0_f_scan_string(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_scan_string(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -7955,7 +8446,7 @@ Lx0:
   ret i64 %t97
 }
 
-define i64 @l0_f_escape_byte(i64 %a0) {
+define internal i64 @l0_f_escape_byte(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = icmp eq i64 %a0, 110
@@ -8025,7 +8516,7 @@ Lx0:
   ret i64 %t24
 }
 
-define i64 @l0_f_scan_escape(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_scan_escape(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -8172,7 +8663,7 @@ Lx0:
   ret i64 %t107
 }
 
-define i64 @l0_f_scan_hex(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_scan_hex(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -8335,7 +8826,7 @@ Lx0:
   ret i64 %t118
 }
 
-define i64 @l0_f_acc_overflows(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_acc_overflows(i64 %a0, i64 %a1) {
 entry:
   %t0 = icmp slt i64 %a0, -922337203685477580
   %t1 = zext i1 %t0 to i64
@@ -8348,7 +8839,7 @@ entry:
   ret i64 %t7
 }
 
-define i64 @l0_f_scan_digits(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_scan_digits(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -8460,7 +8951,7 @@ Lx0:
   ret i64 %t67
 }
 
-define i64 @l0_f_skip_name_rest(i64 %a0) {
+define internal i64 @l0_f_skip_name_rest(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -8492,7 +8983,7 @@ Lx0:
   ret i64 %t10
 }
 
-define i64 @l0_f_count_digits(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_count_digits(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -8525,7 +9016,7 @@ Lx0:
   ret i64 %t11
 }
 
-define i64 @l0_f_scan_number(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_scan_number(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_head(i64 %a0)
   %t1 = icmp eq i64 %t0, 45
@@ -8605,7 +9096,7 @@ Lx11:
   ret i64 %t45
 }
 
-define i64 @l0_f_finish_number(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_finish_number(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -8811,7 +9302,7 @@ Lm0:
   ret i64 %t122
 }
 
-define i64 @l0_f_scan_name_bytes(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_scan_name_bytes(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -8862,7 +9353,7 @@ Lx0:
   ret i64 %t19
 }
 
-define i64 @l0_f_scan_name(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_scan_name(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_scan_name_bytes(i64 %a0, i64 %a1, i64 0)
@@ -8943,7 +9434,7 @@ Lm0:
   ret i64 %t26
 }
 
-define i64 @l0_f_scan_token(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_scan_token(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_head(i64 %a0)
   %r1 = alloca i64
@@ -9065,7 +9556,7 @@ Lx1:
   ret i64 %t63
 }
 
-define i64 @l0_f_lex_onto(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_lex_onto(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_skip_trivia(i64 %a0, i64 %a1)
@@ -9111,14 +9602,14 @@ Lm0:
   ret i64 %t18
 }
 
-define i64 @l0_f_lex(i64 %a0) {
+define internal i64 @l0_f_lex(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_lex_onto(i64 %a0, i64 0, i64 0)
   %t1 = call i64 @l0_f_rev_tokens(i64 %t0)
   ret i64 %t1
 }
 
-define i64 @l0_f_first_lex_error(i64 %a0) {
+define internal i64 @l0_f_first_lex_error(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9181,7 +9672,7 @@ Lx0:
   ret i64 %t27
 }
 
-define i64 @l0_f_fe_start(i64 %a0) {
+define internal i64 @l0_f_fe_start(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -9198,7 +9689,7 @@ Lm0:
   ret i64 %t4
 }
 
-define i64 @l0_f_fe_path(i64 %a0) {
+define internal i64 @l0_f_fe_path(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -9215,7 +9706,7 @@ Lm0:
   ret i64 %t4
 }
 
-define i64 @l0_f_rev_entries_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_entries_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9236,7 +9727,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_parse_entry(i64 %a0) {
+define internal i64 @l0_f_parse_entry(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_int_prefix(i64 %a0, i64 0)
   %t1 = call i64 @l0_f_skip_digits(i64 %a0)
@@ -9247,7 +9738,7 @@ entry:
   ret i64 %t3
 }
 
-define i64 @l0_f_parse_entries(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_entries(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9255,10 +9746,11 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   %t3 = call i64 @l0_f_rev_entries_onto(i64 %a1, i64 0)
-  %t4 = call i64 @l0_data_new(i64 0, i64 3)
+  %t4 = call i64 @l0_data_new(i64 0, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %t3)
   call void @l0_data_set(i64 %t4, i64 1, i64 0)
   call void @l0_data_set(i64 %t4, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t4, i64 3, i64 %a3)
   store i64 %t4, ptr %r0
   br label %Lx0
 Le0:
@@ -9276,51 +9768,83 @@ Le0:
 Lt5:
   %t15 = call i64 @l0_f_rev_entries_onto(i64 %a1, i64 0)
   %t16 = call i64 @l0_f_drop_line(i64 %a0)
-  %t17 = call i64 @l0_data_new(i64 0, i64 3)
+  %t17 = call i64 @l0_data_new(i64 0, i64 4)
   call void @l0_data_set(i64 %t17, i64 0, i64 %t15)
   call void @l0_data_set(i64 %t17, i64 1, i64 %t16)
   call void @l0_data_set(i64 %t17, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t17, i64 3, i64 %a3)
   store i64 %t17, ptr %r5
   br label %Lx5
 Le5:
-  %r18 = alloca i64
-  %t19 = call i64 @l0_cons(i64 110, i64 0)
-  %t20 = call i64 @l0_cons(i64 105, i64 %t19)
-  %t21 = call i64 @l0_cons(i64 97, i64 %t20)
-  %t22 = call i64 @l0_cons(i64 109, i64 %t21)
-  %t23 = call i64 @l0_cons(i64 111, i64 %t22)
-  %t24 = call i64 @l0_cons(i64 110, i64 %t23)
-  %t25 = call i64 @l0_cons(i64 35, i64 %t24)
-  %t26 = call i64 @l0_f_starts_with(i64 %a0, i64 %t25)
-  %t27 = icmp ne i64 %t26, 0
-  br i1 %t27, label %Lt18, label %Le18
-Lt18:
-  %t28 = call i64 @l0_f_drop_line(i64 %a0)
-  %t29 = call i64 @l0_f_parse_entries(i64 %t28, i64 %a1, i64 0)
-  store i64 %t29, ptr %r18
-  br label %Lx18
-Le18:
-  %t30 = call i64 @l0_f_drop_line(i64 %a0)
-  %t31 = call i64 @l0_f_take_line(i64 %a0)
-  %t32 = call i64 @l0_f_parse_entry(i64 %t31)
-  %t33 = call i64 @l0_cons(i64 %t32, i64 %a1)
-  %t34 = call i64 @l0_f_parse_entries(i64 %t30, i64 %t33, i64 %a2)
-  store i64 %t34, ptr %r18
-  br label %Lx18
-Lx18:
-  %t35 = load i64, ptr %r18
-  store i64 %t35, ptr %r5
+  %t18 = call i64 @l0_f_parse_header_line(i64 %a0, i64 %a1, i64 %a2, i64 %a3)
+  store i64 %t18, ptr %r5
   br label %Lx5
 Lx5:
-  %t36 = load i64, ptr %r5
-  store i64 %t36, ptr %r0
+  %t19 = load i64, ptr %r5
+  store i64 %t19, ptr %r0
   br label %Lx0
 Lx0:
-  %t37 = load i64, ptr %r0
-  ret i64 %t37
+  %t20 = load i64, ptr %r0
+  ret i64 %t20
 }
 
-define i64 @l0_f_parse_bundle(i64 %a0) {
+define internal i64 @l0_f_parse_header_line(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  %r0 = alloca i64
+  %t1 = call i64 @l0_cons(i64 110, i64 0)
+  %t2 = call i64 @l0_cons(i64 105, i64 %t1)
+  %t3 = call i64 @l0_cons(i64 97, i64 %t2)
+  %t4 = call i64 @l0_cons(i64 109, i64 %t3)
+  %t5 = call i64 @l0_cons(i64 111, i64 %t4)
+  %t6 = call i64 @l0_cons(i64 110, i64 %t5)
+  %t7 = call i64 @l0_cons(i64 35, i64 %t6)
+  %t8 = call i64 @l0_f_starts_with(i64 %a0, i64 %t7)
+  %t9 = icmp ne i64 %t8, 0
+  br i1 %t9, label %Lt0, label %Le0
+Lt0:
+  %t10 = call i64 @l0_f_drop_line(i64 %a0)
+  %t11 = call i64 @l0_f_parse_entries(i64 %t10, i64 %a1, i64 0, i64 %a3)
+  store i64 %t11, ptr %r0
+  br label %Lx0
+Le0:
+  %r12 = alloca i64
+  %t13 = call i64 @l0_cons(i64 101, i64 0)
+  %t14 = call i64 @l0_cons(i64 100, i64 %t13)
+  %t15 = call i64 @l0_cons(i64 117, i64 %t14)
+  %t16 = call i64 @l0_cons(i64 108, i64 %t15)
+  %t17 = call i64 @l0_cons(i64 101, i64 %t16)
+  %t18 = call i64 @l0_cons(i64 114, i64 %t17)
+  %t19 = call i64 @l0_cons(i64 112, i64 %t18)
+  %t20 = call i64 @l0_cons(i64 35, i64 %t19)
+  %t21 = call i64 @l0_f_starts_with(i64 %a0, i64 %t20)
+  %t22 = icmp ne i64 %t21, 0
+  br i1 %t22, label %Lt12, label %Le12
+Lt12:
+  %t23 = call i64 @l0_f_drop_line(i64 %a0)
+  %t24 = call i64 @l0_f_drop_n(i64 %a0, i64 8)
+  %t25 = call i64 @l0_f_skip_spaces(i64 %t24)
+  %t26 = call i64 @l0_f_int_prefix(i64 %t25, i64 0)
+  %t27 = call i64 @l0_f_parse_entries(i64 %t23, i64 %a1, i64 %a2, i64 %t26)
+  store i64 %t27, ptr %r12
+  br label %Lx12
+Le12:
+  %t28 = call i64 @l0_f_drop_line(i64 %a0)
+  %t29 = call i64 @l0_f_take_line(i64 %a0)
+  %t30 = call i64 @l0_f_parse_entry(i64 %t29)
+  %t31 = call i64 @l0_cons(i64 %t30, i64 %a1)
+  %t32 = call i64 @l0_f_parse_entries(i64 %t28, i64 %t31, i64 %a2, i64 %a3)
+  store i64 %t32, ptr %r12
+  br label %Lx12
+Lx12:
+  %t33 = load i64, ptr %r12
+  store i64 %t33, ptr %r0
+  br label %Lx0
+Lx0:
+  %t34 = load i64, ptr %r0
+  ret i64 %t34
+}
+
+define internal i64 @l0_f_parse_bundle(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 101, i64 0)
@@ -9337,14 +9861,15 @@ entry:
   br i1 %t11, label %Lt0, label %Le0
 Lt0:
   %t12 = call i64 @l0_f_drop_line(i64 %a0)
-  %t13 = call i64 @l0_f_parse_entries(i64 %t12, i64 0, i64 1)
+  %t13 = call i64 @l0_f_parse_entries(i64 %t12, i64 0, i64 1, i64 0)
   store i64 %t13, ptr %r0
   br label %Lx0
 Le0:
-  %t14 = call i64 @l0_data_new(i64 0, i64 3)
+  %t14 = call i64 @l0_data_new(i64 0, i64 4)
   call void @l0_data_set(i64 %t14, i64 0, i64 0)
   call void @l0_data_set(i64 %t14, i64 1, i64 %a0)
   call void @l0_data_set(i64 %t14, i64 2, i64 1)
+  call void @l0_data_set(i64 %t14, i64 3, i64 0)
   store i64 %t14, ptr %r0
   br label %Lx0
 Lx0:
@@ -9352,7 +9877,7 @@ Lx0:
   ret i64 %t15
 }
 
-define i64 @l0_f_file_at(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_file_at(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9387,7 +9912,7 @@ Lx0:
   ret i64 %t13
 }
 
-define i64 @l0_f_line_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_line_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9435,7 +9960,7 @@ Lx0:
   ret i64 %t18
 }
 
-define i64 @l0_f_col_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_col_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9483,7 +10008,7 @@ Lx0:
   ret i64 %t18
 }
 
-define i64 @l0_f_render_diag(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_render_diag(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a2)
@@ -9530,7 +10055,7 @@ Lm0:
   ret i64 %t24
 }
 
-define i64 @l0_f_render_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+define internal i64 @l0_f_render_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   %t0 = call i64 @l0_f_drop_n(i64 %a0, i64 %a2)
   %t1 = sub i64 %a3, %a2
@@ -9559,7 +10084,7 @@ entry:
   ret i64 %t23
 }
 
-define i64 @l0_f_file_prefix(i64 %a0) {
+define internal i64 @l0_f_file_prefix(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9578,7 +10103,7 @@ Lx0:
   ret i64 %t5
 }
 
-define i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a2)
@@ -9600,7 +10125,7 @@ Lx0:
   ret i64 %t8
 }
 
-define i64 @l0_f_failure(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_failure(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %t0 = call i64 @l0_cons(i64 10, i64 0)
   %t1 = call i64 @l0_cons(i64 69, i64 %t0)
@@ -9610,7 +10135,7 @@ entry:
   ret i64 %t4
 }
 
-define i64 @l0_f_compile(i64 %a0) {
+define internal i64 @l0_f_compile(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_bundle(i64 %a0)
@@ -9620,49 +10145,50 @@ A0_0:
   %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
   %t4 = call i64 @l0_data_get(i64 %t1, i64 1)
   %t5 = call i64 @l0_data_get(i64 %t1, i64 2)
-  %m6 = alloca i64
-  %t7 = call i64 @l0_f_lex(i64 %t4)
-  %t8 = call i64 @l0_f_parse_program(i64 %t7)
-  %t9 = call i64 @l0_data_tag(i64 %t8)
-  switch i64 %t9, label %Ln6 [ i64 0, label %A6_0 ]
-A6_0:
-  %t10 = call i64 @l0_data_get(i64 %t8, i64 0)
-  %t11 = call i64 @l0_data_get(i64 %t8, i64 1)
-  %t12 = call i64 @l0_f_check_program(i64 %t10, i64 %t5)
-  %t13 = call i64 @l0_f_append_diags(i64 %t11, i64 %t12)
-  %r14 = alloca i64
-  %t15 = call i64 @l0_is_empty(i64 %t13)
-  %t16 = icmp ne i64 %t15, 0
-  br i1 %t16, label %Lt14, label %Le14
-Lt14:
-  %t17 = call i64 @l0_cons(i64 10, i64 0)
-  %t18 = call i64 @l0_cons(i64 79, i64 %t17)
-  %t19 = call i64 @l0_f_emit_module(i64 %t10)
-  %t20 = call i64 @l0_f_append(i64 %t18, i64 %t19)
-  store i64 %t20, ptr %r14
-  br label %Lx14
-Le14:
-  %t21 = call i64 @l0_f_failure(i64 %t4, i64 %t3, i64 %t13)
-  store i64 %t21, ptr %r14
-  br label %Lx14
-Lx14:
-  %t22 = load i64, ptr %r14
-  store i64 %t22, ptr %m6
-  br label %Lm6
-Ln6:
+  %t6 = call i64 @l0_data_get(i64 %t1, i64 3)
+  %m7 = alloca i64
+  %t8 = call i64 @l0_f_lex(i64 %t4)
+  %t9 = call i64 @l0_f_parse_program(i64 %t8)
+  %t10 = call i64 @l0_data_tag(i64 %t9)
+  switch i64 %t10, label %Ln7 [ i64 0, label %A7_0 ]
+A7_0:
+  %t11 = call i64 @l0_data_get(i64 %t9, i64 0)
+  %t12 = call i64 @l0_data_get(i64 %t9, i64 1)
+  %t13 = call i64 @l0_f_check_program(i64 %t11, i64 %t5, i64 %t6)
+  %t14 = call i64 @l0_f_append_diags(i64 %t12, i64 %t13)
+  %r15 = alloca i64
+  %t16 = call i64 @l0_is_empty(i64 %t14)
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt15, label %Le15
+Lt15:
+  %t18 = call i64 @l0_cons(i64 10, i64 0)
+  %t19 = call i64 @l0_cons(i64 79, i64 %t18)
+  %t20 = call i64 @l0_f_emit_module(i64 %t11, i64 %t6)
+  %t21 = call i64 @l0_f_append(i64 %t19, i64 %t20)
+  store i64 %t21, ptr %r15
+  br label %Lx15
+Le15:
+  %t22 = call i64 @l0_f_failure(i64 %t4, i64 %t3, i64 %t14)
+  store i64 %t22, ptr %r15
+  br label %Lx15
+Lx15:
+  %t23 = load i64, ptr %r15
+  store i64 %t23, ptr %m7
+  br label %Lm7
+Ln7:
   unreachable
-Lm6:
-  %t23 = load i64, ptr %m6
-  store i64 %t23, ptr %m0
+Lm7:
+  %t24 = load i64, ptr %m7
+  store i64 %t24, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t24 = load i64, ptr %m0
-  ret i64 %t24
+  %t25 = load i64, ptr %m0
+  ret i64 %t25
 }
 
-define i64 @l0_f_append_diags(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_append_diags(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9689,7 +10215,7 @@ entry:
   ret i64 %t0
 }
 
-define i64 @l0_f_ty_kind(i64 %a0) {
+define internal i64 @l0_f_ty_kind(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -9715,7 +10241,7 @@ Lm0:
   ret i64 %t4
 }
 
-define i64 @l0_f_ty_is_list(i64 %a0) {
+define internal i64 @l0_f_ty_is_list(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_ty_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 2
@@ -9723,7 +10249,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_ty_is_data(i64 %a0) {
+define internal i64 @l0_f_ty_is_data(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_ty_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 3
@@ -9731,7 +10257,7 @@ entry:
   ret i64 %t2
 }
 
-define i64 @l0_f_ty_elem(i64 %a0) {
+define internal i64 @l0_f_ty_elem(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -9760,7 +10286,7 @@ Lm0:
   ret i64 %t7
 }
 
-define i64 @l0_f_ty_name(i64 %a0) {
+define internal i64 @l0_f_ty_name(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -9786,7 +10312,7 @@ Lm0:
   ret i64 %t4
 }
 
-define i64 @l0_f_ty_eq(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_ty_eq(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_ty_kind(i64 %a0)
@@ -9837,7 +10363,7 @@ Lx0:
   ret i64 %t21
 }
 
-define i64 @l0_f_ty_str(i64 %a0) {
+define internal i64 @l0_f_ty_str(i64 %a0) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
@@ -9880,7 +10406,7 @@ Lm0:
   ret i64 %t21
 }
 
-define i64 @l0_f_reserved_words(i64 %a0) {
+define internal i64 @l0_f_reserved_words(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 116, i64 0)
   %t1 = call i64 @l0_cons(i64 115, i64 %t0)
@@ -9936,14 +10462,14 @@ entry:
   ret i64 %t50
 }
 
-define i64 @l0_f_is_reserved(i64 %a0) {
+define internal i64 @l0_f_is_reserved(i64 %a0) {
 entry:
   %t0 = call i64 @l0_f_reserved_words(i64 0)
   %t1 = call i64 @l0_f_any_eq(i64 %a0, i64 %t0)
   ret i64 %t1
 }
 
-define i64 @l0_f_name_is_lower(i64 %a0) {
+define internal i64 @l0_f_name_is_lower(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9962,7 +10488,7 @@ Lx0:
   ret i64 %t5
 }
 
-define i64 @l0_f_name_is_upper(i64 %a0) {
+define internal i64 @l0_f_name_is_upper(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -9981,7 +10507,7 @@ Lx0:
   ret i64 %t5
 }
 
-define i64 @l0_f_rev_exprs_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_exprs_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10002,7 +10528,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_rev_params_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_params_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10023,7 +10549,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_rev_decls_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_decls_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10044,7 +10570,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_rev_arms_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_arms_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10065,7 +10591,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_rev_ctors_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_ctors_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10086,7 +10612,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_rev_tys_list_onto(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_tys_list_onto(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10107,7 +10633,7 @@ Lx0:
   ret i64 %t7
 }
 
-define i64 @l0_f_parse_type(i64 %a0) {
+define internal i64 @l0_f_parse_type(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10232,7 +10758,7 @@ Lx0:
   ret i64 %t81
 }
 
-define i64 @l0_f_parse_type_name(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_type_name(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_f_tok_bytes(i64 %a0)
   %r1 = alloca i64
@@ -10374,7 +10900,7 @@ Lx1:
   ret i64 %t93
 }
 
-define i64 @l0_f_parse_list_type(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_list_type(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10493,7 +11019,7 @@ Lx0:
   ret i64 %t81
 }
 
-define i64 @l0_f_close_list_type(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_close_list_type(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -10598,7 +11124,7 @@ Lx0:
   ret i64 %t76
 }
 
-define i64 @l0_f_parse_expr(i64 %a0) {
+define internal i64 @l0_f_parse_expr(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -10778,7 +11304,7 @@ Lx0:
   ret i64 %t112
 }
 
-define i64 @l0_f_parse_atom_name(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_atom_name(i64 %a0, i64 %a1) {
 entry:
   %t0 = call i64 @l0_f_tok_bytes(i64 %a0)
   %t1 = call i64 @l0_f_tok_offset(i64 %a0)
@@ -10965,7 +11491,7 @@ Lx2:
   ret i64 %t133
 }
 
-define i64 @l0_f_parse_form(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_form(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -11082,7 +11608,7 @@ Lx0:
   ret i64 %t81
 }
 
-define i64 @l0_f_dispatch_form(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_dispatch_form(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 102, i64 0)
@@ -11275,7 +11801,7 @@ Lx0:
   ret i64 %t127
 }
 
-define i64 @l0_f_parse_ctor_call(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_ctor_call(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_args(i64 %a1, i64 0)
@@ -11308,7 +11834,7 @@ Lm0:
   ret i64 %t10
 }
 
-define i64 @l0_f_parse_match(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_match(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 109, i64 0)
@@ -11461,7 +11987,7 @@ Lm0:
   ret i64 %t108
 }
 
-define i64 @l0_f_parse_arms(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_arms(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -11544,7 +12070,7 @@ Lx0:
   ret i64 %t45
 }
 
-define i64 @l0_f_parse_arm(i64 %a0) {
+define internal i64 @l0_f_parse_arm(i64 %a0) {
 entry:
   %t0 = call i64 @l0_head(i64 %a0)
   %r1 = alloca i64
@@ -11619,7 +12145,7 @@ Lx1:
   ret i64 %t59
 }
 
-define i64 @l0_f_parse_arm_pattern(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_arm_pattern(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -11726,7 +12252,7 @@ Lx0:
   ret i64 %t81
 }
 
-define i64 @l0_f_parse_arm_ctor(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_arm_ctor(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -11866,7 +12392,7 @@ Lx0:
   ret i64 %t102
 }
 
-define i64 @l0_f_parse_binders(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_binders(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -12059,7 +12585,7 @@ Lx0:
   ret i64 %t147
 }
 
-define i64 @l0_f_parse_arm_body(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_parse_arm_body(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 41, i64 0)
@@ -12251,7 +12777,7 @@ Lm0:
   ret i64 %t148
 }
 
-define i64 @l0_f_need_expr(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_need_expr(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -12300,7 +12826,7 @@ Lx0:
   ret i64 %t23
 }
 
-define i64 @l0_f_if_arity(i64 %a0) {
+define internal i64 @l0_f_if_arity(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 41, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
@@ -12355,7 +12881,7 @@ entry:
   ret i64 %t49
 }
 
-define i64 @l0_f_let_arity(i64 %a0) {
+define internal i64 @l0_f_let_arity(i64 %a0) {
 entry:
   %t0 = call i64 @l0_cons(i64 41, i64 0)
   %t1 = call i64 @l0_cons(i64 121, i64 %t0)
@@ -12408,7 +12934,7 @@ entry:
   ret i64 %t47
 }
 
-define i64 @l0_f_parse_if(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_if(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_if_arity(i64 0)
@@ -12486,7 +13012,7 @@ Lm0:
   ret i64 %t32
 }
 
-define i64 @l0_f_parse_let(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_let(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -12663,7 +13189,7 @@ Lx0:
   ret i64 %t141
 }
 
-define i64 @l0_f_parse_let_value(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_let_value(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_let_arity(i64 0)
@@ -12719,7 +13245,7 @@ Lm0:
   ret i64 %t22
 }
 
-define i64 @l0_f_parse_nil(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_nil(i64 %a0, i64 %a1) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_type(i64 %a0)
@@ -12800,7 +13326,7 @@ Lm0:
   ret i64 %t61
 }
 
-define i64 @l0_f_parse_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_parse_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_f_name_is_lower(i64 %a0)
@@ -12882,7 +13408,7 @@ Lx0:
   ret i64 %t49
 }
 
-define i64 @l0_f_parse_args(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_args(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -12963,7 +13489,7 @@ Lx0:
   ret i64 %t43
 }
 
-define i64 @l0_f_close_form(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_close_form(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -13015,7 +13541,7 @@ Lx0:
   ret i64 %t24
 }
 
-define i64 @l0_f_parse_params(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_params(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -13135,7 +13661,7 @@ Lx0:
   ret i64 %t84
 }
 
-define i64 @l0_f_parse_param(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_param(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -13298,7 +13824,7 @@ Lx0:
   ret i64 %t127
 }
 
-define i64 @l0_f_parse_param_type(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_parse_param_type(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_type(i64 %a1)
@@ -13417,7 +13943,7 @@ Lm0:
   ret i64 %t79
 }
 
-define i64 @l0_f_parse_decl(i64 %a0) {
+define internal i64 @l0_f_parse_decl(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -13527,7 +14053,7 @@ Lx0:
   ret i64 %t74
 }
 
-define i64 @l0_f_parse_decl_head(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_decl_head(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -13690,7 +14216,7 @@ Lx0:
   ret i64 %t119
 }
 
-define i64 @l0_f_parse_data_name(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_data_name(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -13875,7 +14401,7 @@ Lx0:
   ret i64 %t132
 }
 
-define i64 @l0_f_parse_ctors(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_ctors(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -14029,7 +14555,7 @@ Lx0:
   ret i64 %t106
 }
 
-define i64 @l0_f_parse_ctor(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_ctor(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -14138,7 +14664,7 @@ Lx0:
   ret i64 %t83
 }
 
-define i64 @l0_f_parse_ctor_fields(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_parse_ctor_fields(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -14231,7 +14757,7 @@ Lx0:
   ret i64 %t52
 }
 
-define i64 @l0_f_parse_def_name(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_parse_def_name(i64 %a0, i64 %a1) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -14387,7 +14913,7 @@ Lx0:
   ret i64 %t120
 }
 
-define i64 @l0_f_parse_def_params(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_def_params(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
@@ -14510,7 +15036,7 @@ Lx0:
   ret i64 %t85
 }
 
-define i64 @l0_f_parse_def_ret(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_parse_def_ret(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_type(i64 %a2)
@@ -14558,7 +15084,7 @@ Lm0:
   ret i64 %t18
 }
 
-define i64 @l0_f_close_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+define internal i64 @l0_f_close_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a4)
@@ -14664,7 +15190,7 @@ Lx0:
   ret i64 %t73
 }
 
-define i64 @l0_f_starts_decl(i64 %a0) {
+define internal i64 @l0_f_starts_decl(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -14724,7 +15250,7 @@ Lx0:
   ret i64 %t30
 }
 
-define i64 @l0_f_resync(i64 %a0) {
+define internal i64 @l0_f_resync(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -14755,7 +15281,7 @@ Lx0:
   ret i64 %t9
 }
 
-define i64 @l0_f_parse_decls(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_parse_decls(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -14804,7 +15330,7 @@ Lx0:
   ret i64 %t21
 }
 
-define i64 @l0_f_parse_program(i64 %a0) {
+define internal i64 @l0_f_parse_program(i64 %a0) {
 entry:
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)

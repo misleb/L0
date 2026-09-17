@@ -17,7 +17,9 @@
 #
 # Several files are compiled together, because L0 has no module system.
 # The standard library is included automatically; pass --no-prelude to
-# suppress that, which is what the compiler's own bootstrap does.
+# suppress that, which is what the compiler's own bootstrap does. A function
+# you define shadows a prelude function of the same name, so the prelude can
+# gain functions without breaking a program that already used the name.
 #
 # Paths are relative to wherever you are, so this works from anywhere.
 
@@ -69,7 +71,7 @@ ensure_toolchain() {
 }
 
 usage() {
-    sed -n '2,22p' "$SELF/l0" | sed 's/^# \{0,1\}//'
+    sed -n '2,24p' "$SELF/l0" | sed 's/^# \{0,1\}//'
     exit 2
 }
 
@@ -120,6 +122,10 @@ write_bundle() {
         # complete program, so a library file or a work in progress is not
         # nagged about a missing entry point.
         [ "${NOMAIN:-0}" = 1 ] && echo "#nomain"
+        # Where the standard library ends. Everything after it is the program,
+        # and a program definition shadows a prelude one of the same name, so
+        # the prelude can gain functions without breaking existing code.
+        [ "${PRELUDE_END:-0}" != 0 ] && echo "#prelude $PRELUDE_END"
         offset=0
         for f in "$@"; do
             echo "$offset $f"
@@ -156,8 +162,10 @@ setup() {
     parse_args "$@"
     ensure_toolchain
     SOURCES=$FILES
+    PRELUDE_END=0
     if [ "$WANT_PRELUDE" = 1 ]; then
         SOURCES="$LIB/prelude.l0 $FILES"
+        PRELUDE_END=$(wc -c < "$LIB/prelude.l0" | tr -d ' ')
     fi
     TMP=$(mktemp -d "${TMPDIR:-/tmp}/l0.XXXXXX")
     trap 'rm -rf "$TMP"' EXIT

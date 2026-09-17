@@ -12,9 +12,11 @@
 ; INPUT. L0 has no module system, so a multi-file program is concatenated.
 ; Concatenation alone loses the file boundaries, which would make every
 ; diagnostic report a line number in the joined text rather than in the file
-; the reader is looking at. An optional bundle header restores them:
+; the reader is looking at. An optional bundle header restores them, and also
+; says where the prelude ends. Spec section 9.1 is the definition:
 ;
 ;   #l0bundle
+;   #prelude <byte offset>
 ;   <byte offset> <path>
 ;   <byte offset> <path>
 ;   #source
@@ -26,11 +28,13 @@
 (data FileEntry
   (FE int (list int)))                  ; start offset, path
 
-; The file table, the source text, and whether a main is required. A bundle
-; header line of #nomain relaxes that, for checking a library file or a work
-; in progress without being nagged about a missing entry point.
+; The file table, the source text, whether a main is required, and the byte
+; offset where the prelude ends. A bundle header line of #nomain relaxes the
+; main requirement, for checking a library file or a work in progress without
+; being nagged about a missing entry point. An offset of 0 means there is no
+; prelude, which is the case for every input that does not say otherwise.
 (data Bundle
-  (Bnd (list FileEntry) (list int) bool))
+  (Bnd (list FileEntry) (list int) bool int))
 
 (def fe_start ((f FileEntry)) int (match f ((FE s p) s)))
 (def fe_path ((f FileEntry)) (list int) (match f ((FE s p) p)))
@@ -44,22 +48,32 @@
 (def parse_entry ((ln (list int))) FileEntry
   (FE (int_prefix ln 0) (skip_spaces (skip_digits ln))))
 
-(def parse_entries ((s (list int)) (acc (list FileEntry)) (want_main bool))
-    Bundle
+(def parse_entries ((s (list int)) (acc (list FileEntry)) (want_main bool)
+                    (pre int)) Bundle
   (if (is_empty s)
-      (Bnd (rev_entries_onto acc (nil FileEntry)) (nil int) want_main)
+      (Bnd (rev_entries_onto acc (nil FileEntry)) (nil int) want_main pre)
       (if (starts_with s "#source")
-          (Bnd (rev_entries_onto acc (nil FileEntry)) (drop_line s) want_main)
-          (if (starts_with s "#nomain")
-              (parse_entries (drop_line s) acc false)
-              (parse_entries (drop_line s)
-                             (cons (parse_entry (take_line s)) acc)
-                             want_main)))))
+          (Bnd (rev_entries_onto acc (nil FileEntry)) (drop_line s)
+               want_main pre)
+          (parse_header_line s acc want_main pre))))
+
+; Directives and file entries may be interleaved in any order, so each line is
+; recognised on its own rather than by position.
+(def parse_header_line ((s (list int)) (acc (list FileEntry))
+                        (want_main bool) (pre int)) Bundle
+  (if (starts_with s "#nomain")
+      (parse_entries (drop_line s) acc false pre)
+      (if (starts_with s "#prelude")
+          (parse_entries (drop_line s) acc want_main
+                         (int_prefix (skip_spaces (drop_n s 8)) 0))
+          (parse_entries (drop_line s)
+                         (cons (parse_entry (take_line s)) acc)
+                         want_main pre))))
 
 (def parse_bundle ((input (list int))) Bundle
   (if (starts_with input "#l0bundle")
-      (parse_entries (drop_line input) (nil FileEntry) true)
-      (Bnd (nil FileEntry) input true)))
+      (parse_entries (drop_line input) (nil FileEntry) true 0)
+      (Bnd (nil FileEntry) input true 0)))
 
 ; The last entry starting at or before this offset, which is the file the
 ; offset falls in. Entries are in ascending order of start.
@@ -134,12 +148,12 @@
 ; never compiled.
 (def compile ((input (list int))) (list int)
   (match (parse_bundle input)
-    ((Bnd entries src want_main)
+    ((Bnd entries src want_main pre)
       (match (parse_program (lex src))
         ((PP ds perrs)
-          (let all (append_diags perrs (check_program ds want_main))
+          (let all (append_diags perrs (check_program ds want_main pre))
             (if (is_empty all)
-                (append "O\n" (emit_module ds))
+                (append "O\n" (emit_module ds pre))
                 (failure src entries all))))))))
 
 (def append_diags ((xs (list Diag)) (ys (list Diag))) (list Diag)

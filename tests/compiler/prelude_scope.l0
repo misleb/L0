@@ -1,0 +1,44 @@
+; Prelude scoping, per spec section 7.1.
+;
+; Each case is a prelude source followed by a program source, checked as one
+; unit with the boundary at the end of the prelude part. That offset is what a
+; #prelude header line names; here it is just the length of the first string,
+; so the cases stay readable.
+
+(def case ((pre_src (list int)) (prog_src (list int))) (list int)
+  (check_source_pre (append pre_src prog_src) true (length pre_src)))
+
+; Appends a trivial main, so a program snippet can be a declaration that is
+; not main without also tripping the missing-main check.
+(def prog ((decl (list int))) (list int)
+  (append decl " (def main ((input (list int))) int 0)"))
+
+(def main ((input (list int))) (list int)
+  ; The program's h wins in the program, and the prelude's u goes on calling
+  ; the prelude's h. If either leaked into the other group, the types would
+  ; not line up and this would report an error instead of ok.
+  (let a (push (case "(def h ((x int)) int (add x 1)) (def u ((x int)) int (h x)) "
+                     "(def h ((s (list int))) bool (is_empty s)) (def main ((input (list int))) bool (if (eq (u 1) 2) (h input) false))")
+               (nil int))
+
+  ; Shadowing takes effect rather than being ignored: the program's g takes a
+  ; list, so calling it with an int is an error even though the prelude's g
+  ; would have accepted one.
+  (let b (push (case "(def g ((x int)) int x) "
+                     (prog "(def g ((s (list int))) int 0) (def z ((x int)) int (g x))")) a)
+
+  ; Two definitions in the same group still collide, in either group.
+  (let c (push (case "" (prog "(def f ((a int)) int a) (def f ((a int)) int a)")) b)
+  (let d (push (case "(def f ((a int)) int a) (def f ((a int)) int a) " (prog "")) c)
+
+  ; The prelude cannot see the program, so a prelude call to a program
+  ; function is an unknown function rather than a link.
+  (let e (push (case "(def p ((x int)) int (q x)) " (prog "(def q ((x int)) int x)")) d)
+
+  ; A main in the prelude is library code that happens to be called main.
+  (let f (push (case "(def main ((input (list int))) int 0) " "") e)
+
+  ; Type and constructor names are not grouped, so these still collide.
+  (let g (push (case "(data T (A int)) " (prog "(data T (B int))")) f)
+  (let h (push (case "(data T (A int)) " (prog "(data U (A int))")) g)
+    (rev h))))))))))
