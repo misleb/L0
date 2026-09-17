@@ -7,7 +7,69 @@ New entries go at the top.
 
 ---
 
-## The prelude is a second group of names
+## Purity is a property, not a premise; self-compilation is not the only goal
+
+**No semantic change. L0 is exactly the language it was before this entry.**
+Nothing in the grammar, the type rules, the runtime, or the emitted IR moved,
+and no test changed. What changed is what the spec claims about its own
+permanence, which had started to govern decisions it was never meant to govern.
+
+**The blocker.** Two sentences in the spec's opening — "L0's single goal is to
+be able to compile itself" and "Everything in this document exists because it
+serves that goal" — were written before self-hosting was reached. They are a
+true account of how v1 came to be and a false account of what governs L0 now.
+The `l0-evolve` skill already says the opposite: "Self compilation supplied
+that pressure until it was reached; applications written in L0 supply it now."
+A spec and a skill that disagree about what justifies a change is not a
+cosmetic problem, because the spec wins, and the spec's version rejects on
+sight any request arising from an application rather than from the compiler.
+
+That is not hypothetical. `requests/hell0-0001-interactive-input.md` asks for
+interactive prompting, which self-compilation will never need: the compiler is
+a batch program. Under the old opening the request is refused without reading
+the evidence. Under the new one it is judged on whether the blocker is real.
+The ambiguity was deciding requests by itself, which is the one thing an
+ambiguity must not be allowed to do.
+
+**Smallness.** No rule anywhere required L0 to stay small, and none does now.
+What exists is a bar for change — it grows when real code cannot be written
+without the addition — which is a justification requirement, not a size cap.
+The opening now says smallness is a description rather than a vow, so that the
+bar is argued about on its own terms.
+
+**Purity.** Three rules leaned on purity, two of them silently, and the fix is
+to name the dependency at each site rather than to weaken any of them:
+
+- Section 8 derived the unobservability of evaluation order from purity. The
+  left-to-right rule itself never depended on purity and is unchanged; what
+  purity buys is an implementation's freedom to reorder pure arguments. That
+  is now stated as the thing a change would cost.
+- Section 10.3 said the bump arena is correct "because an L0 program is a
+  single pure evaluation that runs once and exits". Purity was doing no work
+  in that sentence. The arena is correct because the run is *bounded*, and an
+  impure L0 that still ran once and exited would not disturb it. Section 10.3
+  now says so, and names re-entry and unbounded running as the changes that
+  would put a collector back on the table. This is a real finding rather than
+  a rewording: it means a resumable entry point is an allocator question,
+  which nothing in the spec previously said.
+- Section 1 asserted purity flatly. It now adds that the impurity lives in the
+  host by v1's choice of boundary, and points at the two sections above.
+
+The claim that purity was merely the cheapest route to bootstrapping does not
+survive the record, and is not the reason for this entry. Purity was a
+deliberate placement — see "An entry point and a host contract" below: "this
+adds no I/O to L0 itself: `main` is still a pure function, and the impurity
+lives entirely in the host." It remains load-bearing. The point of naming what
+rests on it is that a future proposal can price the change instead of
+discovering the dependencies one broken derivation at a time.
+
+**What did not change, deliberately.** The language must still be able to
+compile itself. That is now stated as the one property no change may cost,
+which is a stronger and narrower claim than "everything serves that goal": it
+forbids a change that breaks self-hosting, and permits one that merely fails to
+advance it. Every restriction in "What makes a good feature" also still stands;
+this entry loosens the stated *purpose* of the language, not the bar any
+individual change has to clear.
 
 A program may now define a function the prelude already defines. The program's
 definition wins throughout the program; the prelude goes on calling its own.
@@ -44,6 +106,12 @@ isolation was the only part that was not.
 So the addition is deliberately not general: there are exactly two groups, not
 n, nothing in a source file can say what it needs or exports, and the grouping
 comes from the input protocol rather than from L0 syntax.
+
+*Qualified later, by "Purity is a property, not a premise": "by definition a
+pure function from bytes to bytes" describes v1, not a fixed truth. The
+argument above is left as it was made, since it is the reasoning that was
+actually used. If purity is ever revisited, this rejection is one of the
+things that has to be re-argued rather than inherited.*
 
 **Why the program's definition does not simply replace the prelude's.** The
 cheaper rule — one namespace, last definition wins — was rejected because it
@@ -265,6 +333,9 @@ deterministic and the checker simple; any of them can be revisited.
 **Argument evaluation order** is left to right. *Why it matters:* L0 is pure, so
 order is unobservable except for which runtime error fires first. Specifying it
 makes failure deterministic, which in turn makes error tests reproducible.
+*(Still the rule. See "Purity is a property, not a premise": the ordering does
+not depend on purity, so a change to purity would cost the unobservability and
+leave the left-to-right rule standing.)*
 
 **`mod` takes the sign of the dividend.** The seed said division truncates
 toward zero but did not say what `mod` does with negatives. Truncated division

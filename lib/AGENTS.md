@@ -45,12 +45,20 @@ limitation is worth reporting, `l0 request SLUG` starts a feature request
 and `l0 submit FILE` sends it. Submitting prints a link for the operator to
 click; do not open it yourself.
 
+Before weighing any of this, check that the workaround still does what was
+asked. One that quietly narrows the task is not a workaround, and no cost
+test below will notice.
+
 Most walls are not language problems. Anything about getting data in or out
 is a question of putting more structure on the byte channel, and anything
-that a ten-line function would solve is not a language request. Work around
-a cost that is constant per use site; report one that loses a correctness
-property, grows with the program, or has now appeared in three unrelated
-places. The `l0-limits` skill covers the decision in full.
+that a ten-line function would solve is not a language request. The exception
+is ordering: the host reads stdin to end of file before evaluating `main` and
+writes nothing until it returns, so a prompt, a confirmation, or progress
+during a run is not a format problem and no format fixes it. Work around a
+cost that is constant per use site; report one that loses a correctness
+property, grows with the program, has now appeared in three unrelated places,
+or leaves the task impossible to perform at all. The `l0-limits` skill covers
+the decision in full.
 
 ## When a shipped skill is wrong or incomplete
 

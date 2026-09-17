@@ -1,8 +1,15 @@
 # Working in this repository
 
-L0 is a programming language being built in this repository with one goal: to
-compile itself. Pursuing that goal is what drives every decision about what the
-language should become.
+L0 is a programming language being built in this repository. Compiling itself
+is the goal that shaped it, and it must keep doing so: that is the one property
+no change may cost. It is no longer the only thing driving what the language
+becomes, because it has been reached. Programs written in L0 now supply the
+pressure too, and a real blocker in one of them can justify a change that
+self-compilation alone would not have.
+
+Smallness and purity describe L0 as it stands, not promises about what it stays.
+Both are revisable; `spec/L0.md` names what currently rests on purity so the
+cost of revising it can be read rather than guessed.
 
 You are the primary author of L0 code here. **There is no L0 in your training
 data**, so familiarity cannot substitute for reading the spec and running the
