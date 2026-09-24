@@ -35,7 +35,7 @@
 # ------------------------
 # The seed is a frozen compiler, so it can only compile language features that
 # existed when it was frozen. Once stage0/ is gone, the seed MUST be refreshed
-# between the two steps of the two-step rule (see the l0-evolve skill):
+# between the two steps of the two-step rule (see the l0-bootstrap skill):
 #
 #   1. teach the compiler to COMPILE a new feature, bootstrap, refresh the seed
 #   2. only then start USING that feature in compiler/*.l0, and bootstrap again

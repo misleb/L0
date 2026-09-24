@@ -7,6 +7,215 @@ New entries go at the top.
 
 ---
 
+## A new goal, and the agent that uses L0 is the one that changes it
+
+**No semantic change. L0 is exactly the language it was before this entry.**
+Nothing in the grammar, the type rules, the runtime, or the emitted IR moved,
+and no test changed. What changed is what L0 is for, and how it changes.
+
+**The goal.** The README opened with a goal that has been met: "L0 does not
+aim to be fast, general, or pleasant for humans. It aims to be expressive
+enough to express its own compiler." "Purity is a property, not a premise"
+below stopped the spec from treating self-compilation as the only goal, but
+left the direction to whatever applications happened to request. The goal is
+now stated in its own right, in three parts:
+
+- **Compiled.** L0 compiles to native code through LLVM and is never
+  interpreted at run time. That is the only sense in which it aims to be fast.
+  Tail calls, inlining, and register allocation are left to LLVM, so L0 does
+  not implement optimizations itself, and speed alone does not justify a change.
+  Section 8 still leaves tail-call elimination unspecified; this is a statement
+  of where the work lives, not a new guarantee.
+- **General purpose.** L0 should express ordinary programs, not only its own
+  compiler. Memory management and I/O come first, and the direction is for
+  compiled programs to stop needing the C runtime in `runtime/`. That makes the
+  cost notes in section 10.3 and in "Output before input" below live questions
+  rather than hypothetical ones.
+
+  "Without the C runtime" means no C source in a compiled program, not no
+  libc. libc stays as the interface to the operating system, because on macOS
+  it is the only supported one: Apple does not keep the raw system call ABI
+  stable, which is why Go calls libSystem there rather than the kernel. A
+  program that makes raw system calls would be Linux-only, and nothing in the
+  goal is worth that.
+- **Written for agents, not humans.** This is the one part of the old "does not
+  aim" list that survives. L0 is read and written by an agent, so whether code
+  comes out correct, and whether the checker catches it when it does not,
+  outweighs brevity and familiarity.
+
+Self-compilation stays the one property no change may cost.
+
+**The process.** The request loop is retired: the `l0-limits` skill in
+scaffolded projects, `l0 request` and `l0 submit`, the `requests/` inbox, and
+triage here by the `l0-evolve` skill. It was too tedious to operate, and the
+agents in those projects were too quick to work around a limitation instead of
+reporting it.
+
+The loop's own rules made that the expected outcome. The toolchain was
+read-only, a workaround had to exist before a request could, and a cost that
+was constant per use site was to be worked around "however tedious". Two
+results of that are already on record. The compiler carries nine
+near-identical result types for want of generics, which never qualified. And
+the hell0 project shipped a greeting program that "does something adjacent to
+what was asked, and its test suite passes" (see the entry below). A workaround
+that ships absorbs exactly the pressure a language change needed.
+
+Now the agent that writes L0 in this repository also changes it, and when L0
+cannot express something the answer is to change L0. A change is still earned
+by code — L0 in this repository that it makes possible, or makes harder to get
+wrong — and the spec-first order, the two-step rule, and the frozen stage 0 are
+unchanged. Those rules moved from the deleted `l0-evolve` skill into
+`l0-bootstrap`, so that one skill covers every change that has to survive the
+bootstrap.
+
+`l0 init` still scaffolds a project with the spec, the examples, the prelude,
+and the `l0-code` skill. The `AGENTS.md` it copies now tells an agent to name a
+limitation plainly rather than ship a narrowed version of the task, since
+nothing any longer carries a report back here.
+
+**Earlier entries** cite `requests/`, `l0-limits`, and `l0-evolve`. They are
+left as written; the files are in git history. Where a decision rested on the
+loop's tests for change — constant per use site, three unrelated places, a
+host-protocol question rather than a language one — it is to be re-argued
+rather than inherited, as "Purity is a property, not a premise" already said of
+purity.
+
+**What did not change, deliberately.** The restrictions formerly under "What
+makes a good feature" still stand: one-level `match` with no wildcard, no type
+inference, `list` as the only parametric type, and no function values. Their
+reason is restated for the new goal rather than dropped. They keep the checker
+simple and every error local, which serves an agent writing L0 as much as it
+served the bootstrap. Breaking one is allowed, and should buy something
+substantial.
+
+---
+
+## Output before input is an accepted blocker
+
+**No semantic change. L0 is exactly the language it was before this entry.**
+Section 9 still has the host read standard input to end of file, then evaluate
+`(main input)`, then write the result, and nothing in the grammar, the type
+rules, the runtime, or the emitted IR has moved.
+
+What this entry records is that the blocker behind a future change to that
+ordering has been demonstrated, checked here, and accepted. It is written now
+because the demonstration lives in a project that may change, and because the
+same blocker arrived twice from the hell0 project, as requests `hell0-0001`
+and `hell0-0003`, and was argued from scratch both times. The requests
+themselves were retired with the request loop (see the entry above); what
+mattered in them is quoted here.
+
+**The blocker.** From `hell0-0003`, which states the task and the obstacle:
+
+> The task: ask the user for their name, then greet the name they gave. One
+> turn — write, then read what the writing caused.
+>
+> No L0 program can do this, and the obstacle is not syntax, so there is no
+> code that fails to compile. What fails is the order.
+
+The nearest expressible program returns the question and the answer together,
+and so "prints `What is your name? Hell0, Ada!` — a question printed after its
+own answer was consumed. The bytes are in the right order on screen and in the
+wrong order in time."
+
+**The measurement**, which is the part that would otherwise be unrecoverable.
+`test/ordering/measure.sh` in that project supplies the answer immediately and
+delays only end of file, so the two hypotheses predict outputs three seconds
+apart. Reproduced here:
+
+```
+answer is readable at t+0; end of file comes at t+3s
+
+  t+2.98s  got: Ada
+  t+2.98s  |end
+
+first output byte at t+2.98s.
+```
+
+> The answer was readable at t+0. No output byte appeared until t+2.98, when
+> EOF arrived. [...] The program cannot emit a prompt while the user is still
+> able to respond to it, on any input, because evaluation has not begun.
+
+The script exits 0 while the limitation holds and nonzero if output ever
+appears early, so it is also the check that would tell us this had been
+fixed. `nm` on `lib/libl0rt.a` agrees from the implementation side:
+`l0_read_stdin_list` and `l0_write_result` are the only symbols that touch the
+byte channel, so there is one read and one write and no way to interleave them.
+
+**What the workaround costs.** There is no workaround that performs the task:
+
+> **The program cannot be written.** Not awkward — impossible. The requirement
+> is that the program's output influence its own input. Section 9 orders all
+> reading before all evaluation, so the two cannot both hold, and no amount of
+> structure on the byte channel changes it: a format says what bytes mean, not
+> whose turn it is.
+>
+> The cost is not line count. It is that the shipped program does something
+> adjacent to what was asked, and its test suite passes, because the tests were
+> written from the same contract.
+
+What shipped is a program that greets a name on stdin and never asks for one —
+"honest and it is not the task. An observer watching it run is never asked
+anything." A bash wrapper that did the asking was tried first and rejected,
+for a reason worth keeping: the turn lived in the shell, so the L0 half could
+not decide whether to ask, or ask a second question whose wording depended on
+the first answer.
+
+> This generalises past greeting: a confirmation prompt, a menu, a retry on
+> invalid input, and progress during a long run are all the same limitation.
+
+**Why this is not the ordinary host-protocol case.** It was the one carve-out
+in the `l0-limits` skill, and that carve-out existed because of this same
+project's earlier skill note: structure says what bytes mean, it cannot say
+whose turn it is. The precedent for reaching for a format instead of a feature
+is strong — see "Input bundle" and "Compiler output protocol" below, three
+problems in a row that looked like they needed a primitive and needed none —
+but all of that evidence comes from the compiler, which is a batch program that
+never wanted a turn. It is evidence about content and silent about ordering.
+
+**What is accepted, and what is not.** The blocker, and the general shape of
+the fix: `main` stays a pure function from bytes to bytes and is re-run on a
+longer prefix of the transcript each turn, recomputing rather than resuming, so
+nothing captures a continuation and determinism and replay are preserved.
+
+Not accepted, twice now, is putting the turn directive in the type system — a
+predeclared `Turn`, or the `Step`/`Done`/`More` of `hell0-0003`. Section 7.1
+does not group type and constructor names, and "Why types and constructors are
+not grouped" below records that as structural rather than an oversight, so a
+predeclared constructor breaks every program that already used the name, with
+no shadowing escape. The directive belongs on the byte channel, where the
+compiler already puts `O` and `E`, which costs no name, no second entry point,
+and no checker case.
+
+**What it will cost when it is made**, so that the price is on record:
+
+- **Sections 1 and 9.** The purity boundary moves. Individual `main` calls stay
+  pure and the language still has no I/O primitive, so section 8 is untouched
+  and evaluation order stays unobservable. This is why a host loop is much
+  cheaper than an effect in expression position.
+- **Section 10.3, which asks to be costed directly.** `hell0-0003` is the first
+  request to do so, and its answer is accepted: re-entry is bounded by the turns
+  the program asks for, the process still runs once and exits, so the bump arena
+  stays correct, and a program demanding unboundedly many turns exhausts the
+  heap — already a runtime error under section 8, already reachable through
+  unbounded recursion. What is given up is the guarantee that total allocation
+  is bounded by a single evaluation. A fresh process per turn avoids even that,
+  which is why the out-of-process loop is the cheaper first step.
+
+Streaming `main`'s result as it is produced was considered and is a different
+change. It would fix progress reporting and not prompting, since stdin is still
+consumed before `main` is called, and doing it properly needs non-strict
+evaluation, which section 8's strictness rules out as load-bearing.
+
+*Qualified later, by "A new goal": I/O is now a goal in its own right rather
+than something an application has to prove it needs. The blocker and the
+measurement above stand. The preference for keeping `main` pure and moving
+the turn into a host loop was argued under the old goal, when the aim was to
+change as little as possible, and is one candidate to re-argue rather than the
+settled shape.*
+
+---
+
 ## Purity is a property, not a premise; self-compilation is not the only goal
 
 **No semantic change. L0 is exactly the language it was before this entry.**

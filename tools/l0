@@ -7,9 +7,6 @@
 #   l0 run   FILE.l0 [MORE.l0 ...]            build to a temporary file, run
 #   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
 #   l0 init  [DIR]                            scaffold a project for an agent
-#   l0 request SLUG                           start a feature request
-#   l0 request --skill SLUG                   start a skill note
-#   l0 submit FILE [--open]                   send a finished request or skill note to L0
 #   l0 version
 #
 # Options:
@@ -71,7 +68,7 @@ ensure_toolchain() {
 }
 
 usage() {
-    sed -n '2,24p' "$SELF/l0" | sed 's/^# \{0,1\}//'
+    sed -n '2,21p' "$SELF/l0" | sed 's/^# \{0,1\}//'
     exit 2
 }
 
@@ -213,7 +210,7 @@ case "$cmd" in
 
     init)
         dir=${1:-.}
-        mkdir -p "$dir/.cursor/skills" "$dir/l0/requests"
+        mkdir -p "$dir/.cursor/skills" "$dir/l0"
         cp -R "$LIB/skills/." "$dir/.cursor/skills/"
         cp "$LIB/AGENTS.md" "$dir/AGENTS.md"
         cp "$LIB/L0.md" "$dir/l0/L0.md"
@@ -224,171 +221,16 @@ Scaffolded an L0 project in $dir:
 
   AGENTS.md                           always-on invariants
   .cursor/skills/l0-code/SKILL.md     how to read, write, and edit L0
-  .cursor/skills/l0-limits/SKILL.md   what to do when L0 cannot express
-                                      something, and when that is worth
-                                      reporting rather than working around
   l0/L0.md                            the language specification
   l0/examples.l0                      worked examples, all of them compiling
   l0/prelude.l0                       the standard library, for reference
-  l0/requests/                        feature requests and skill notes,
-                                      for the L0 maintainer
 
 The prelude is linked automatically; the copy in l0/ is there to be read.
 
   l0 check prog.l0          type check
   l0 run   prog.l0          build and run, reading stdin
   l0 build prog.l0          produce an executable
-  l0 request SLUG           start a feature request
-  l0 request --skill SLUG   start a skill note
 EOF
-        ;;
-
-    submit)
-        file=${1:-}
-        if [ -z "$file" ] || [ ! -f "$file" ]; then
-            echo "l0: usage: l0 submit l0/requests/NNNN-slug.md" >&2
-            exit 2
-        fi
-
-        # Enforce mechanically that code blocks are filled. For a language
-        # request that is the workaround; for a skill note it is the old
-        # text, the new text, and the project evidence.
-        empty=$(awk 'prev=="```" && $0=="```" {c++} {prev=$0} END {print c+0}' \
-            "$file")
-        if [ "$empty" -gt 0 ]; then
-            echo "l0: $file still has $empty empty code block(s)." >&2
-            if grep -q '^Kind: skill$' "$file"; then
-                echo "  A skill note has to quote the old text, the new text," >&2
-                echo "  and the project code that proved it better. Fill those in first." >&2
-            else
-                echo "  A request is weighed against keeping L0 small, so it has" >&2
-                echo "  to quote the code that could not be written and the" >&2
-                echo "  workaround that shipped instead. Fill those in first." >&2
-            fi
-            exit 1
-        fi
-
-        abs=$(cd "$(dirname "$file")" && pwd)/$(basename "$file")
-        project=$(basename "$PWD")
-
-        # Copy into the L0 repository's inbox when it is on this machine.
-        if [ -n "${L0_HOME:-}" ] && [ -d "$L0_HOME" ]; then
-            mkdir -p "$L0_HOME/requests"
-            dest="$L0_HOME/requests/$project-$(basename "$file")"
-            cp "$file" "$dest"
-            echo "copied to $dest"
-            abs=$dest
-        fi
-
-        # Percent-encode for the deeplink. awk rather than python so the
-        # driver keeps depending on nothing but a POSIX shell and clang.
-        if grep -q '^Kind: skill$' "$file"; then
-            prompt="A skill note for L0 arrived from the project at $PWD.
-
-Read $abs. It is not a language request: it is a proposed change to a
-shipped skill under lib/skills/. Triage it with the l0-evolve skill's
-section on skill notes: merge what would help every L0 project into the
-matching skill, and send back anything that is project-specific."
-        else
-            prompt="A feature request for L0 arrived from the project at $PWD.
-
-Read $abs and triage it with the l0-evolve skill: judge it against
-lib/skills/l0-limits/SKILL.md, then either send it back with the reason, or
-accept it and quote its evidence into spec/changelog.md as the blocker."
-        fi
-
-        encoded=$(printf '%s\n' "$prompt" | LC_ALL=C awk '
-            BEGIN { for (i = 0; i < 256; i++) ord[sprintf("%c", i)] = i }
-            {
-                s = $0; out = ""
-                for (i = 1; i <= length(s); i++) {
-                    c = substr(s, i, 1)
-                    if (c ~ /[A-Za-z0-9._~-]/) out = out c
-                    else out = out sprintf("%%%02X", ord[c])
-                }
-                printf "%s%%0A", out
-            }')
-
-        link="cursor://anysphere.cursor-deeplink/prompt?text=$encoded"
-        if [ "${#link}" -gt 10000 ]; then
-            echo "l0: deeplink exceeds Cursor's 10000 character limit" >&2
-            exit 1
-        fi
-
-        if [ "${2:-}" = "--open" ] || [ "${L0_SUBMIT_OPEN:-0}" = 1 ]; then
-            if command -v open > /dev/null 2>&1; then
-                open "$link"
-                echo "opened Cursor with a triage prompt; confirm it there"
-                exit 0
-            fi
-            echo "l0: no 'open' command available; the link is below" >&2
-        fi
-
-        echo
-        echo "$link"
-        echo
-        echo "Click that to pre-fill a triage prompt in Cursor. It will wait"
-        echo "for you to confirm, and lands in whichever window is active, so"
-        echo "open the L0 repository first."
-        ;;
-
-    request)
-        kind=feature
-        slug=""
-        for arg in "$@"; do
-            case "$arg" in
-                --skill) kind=skill ;;
-                -*)
-                    echo "l0: usage: l0 request [--skill] SHORT-SLUG" >&2
-                    exit 2
-                    ;;
-                *)
-                    if [ -n "$slug" ]; then
-                        echo "l0: usage: l0 request [--skill] SHORT-SLUG" >&2
-                        exit 2
-                    fi
-                    slug=$arg
-                    ;;
-            esac
-        done
-        if [ -z "$slug" ]; then
-            echo "l0: usage: l0 request [--skill] SHORT-SLUG" >&2
-            exit 2
-        fi
-        mkdir -p l0/requests
-        n=1
-        for existing in l0/requests/[0-9]*.md; do
-            [ -f "$existing" ] || continue
-            num=$(basename "$existing" | sed 's/^\([0-9]*\).*/\1/')
-            num=$(printf '%d' "$((10#$num))" 2>/dev/null || echo 0)
-            [ "$num" -ge "$n" ] && n=$((num + 1))
-        done
-        out=$(printf 'l0/requests/%04d-%s.md' "$n" "$slug")
-        if [ -e "$out" ]; then
-            echo "l0: $out already exists" >&2
-            exit 1
-        fi
-        if [ "$kind" = skill ]; then
-            template="$LIB/skill-note-template.md"
-            heading="# Skill note: $slug"
-            heading_from='# Skill note: TITLE'
-        else
-            template="$LIB/request-template.md"
-            heading="# Feature request: $slug"
-            heading_from='# Feature request: TITLE'
-        fi
-        sed -e "s/^$heading_from/$heading/" \
-            -e "s/^Project: PROJECT/Project: $(basename "$PWD")/" \
-            "$template" > "$out"
-        echo "$out"
-        echo
-        if [ "$kind" = skill ]; then
-            echo "Fill in every section. Quote the old skill text, the replacement,"
-            echo "and the project code that proved it better."
-        else
-            echo "Fill in every section. A request without the workaround and its"
-            echo "cost cannot be acted on: it is weighed against keeping L0 small."
-        fi
         ;;
 
     version)

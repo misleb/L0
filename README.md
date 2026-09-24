@@ -1,18 +1,46 @@
 # L0
 
-A small, pure, statically typed language with exactly one goal: **to compile
-itself.**
+A statically typed language, compiled to native code through LLVM, that an AI
+agent is evolving for its own use.
 
-The goal is the point. L0 does not aim to be fast, general, or pleasant for
-humans. It aims to be expressive enough to express its own compiler, and the
-gap between what it can do and what that requires is what drives every decision
-about which features to add next.
+L0 began with a single goal, **to compile itself**, and reached it. That goal
+shaped everything in the language as it stands, and it remains the one
+property no change may cost. It no longer decides what comes next.
 
-L0 is also an experiment in a second sense: the code is written primarily by a
-coding agent that has never seen L0, because L0 did not exist when the model was
-trained. There is no corpus to imitate, so a sufficiently precise specification
-plus a fast validation loop has to take the place of familiarity. The
-specification is not documentation here; it is the substrate.
+## What L0 aims to be
+
+**Compiled.** An L0 program becomes machine code; nothing is interpreted when
+it runs. That is the one sense in which L0 aims to be fast. Emitting LLVM IR
+hands the low-level work, such as tail calls, inlining, and register
+allocation, to LLVM, so L0 does not implement optimizations of its own. Beyond
+being compiled, performance is not a goal, and speed alone does not justify a
+change.
+
+**General purpose.** L0 was expressive enough for exactly one program: its own
+compiler, which is a pure function from bytes to bytes. The aim now is a
+language that can express ordinary programs, so its limits can be pushed from
+inside it. Memory management and I/O come first. Today memory is never freed,
+and a program's only contact with the world is one read of stdin and one write
+to stdout, both done by a C runtime. The direction is for L0 to express those
+itself, until no C source goes into a compiled program. libc stays, as the
+interface to the operating system: on macOS it is the only supported one.
+
+**Written for agents, not for human readers.** L0 does not aim to be pleasant
+for humans to read. Its reader and writer is an agent, so what counts is
+whether code comes out correct and whether the checker catches it when it does
+not. Brevity and familiarity count for little.
+
+## The experiment
+
+The code is written primarily by a coding agent that has never seen L0,
+because L0 did not exist when the model was trained. There is no corpus to
+imitate, so a sufficiently precise specification, a handful of examples, a few
+well-defined skills and rules, and a fast validation loop have to take the
+place of familiarity. The specification is not documentation here; it is the
+substrate.
+
+The question is how far that goes, and what kind of language an agent evolves
+when it is both the one using the language and the one changing it.
 
 ## Status
 
@@ -63,12 +91,13 @@ LLVM IR frontend, so it cannot do that job. Removing the dependency entirely
 would mean emitting machine code directly, which means instruction selection,
 register allocation, and object-file writing, all in L0.
 
-The runtime is permanent, not a bootstrapping crutch. L0 has no pointers, no
-allocation, and no I/O, so it cannot express `cons` allocating a cell, or
-reading stdin, or running on a large stack and reporting exhaustion as an
-error. Every compiled L0 program links against it. Self-hosting means the
-compiler is written in L0; it does not mean the system is built from L0
-alone, and a pure language with no I/O could never make that second claim.
+Every compiled L0 program links against the runtime today, because L0 has no
+pointers, no allocation, and no I/O of its own: it cannot express `cons`
+allocating a cell, or reading stdin, or running on a large stack and reporting
+exhaustion as an error. Self-hosting means the compiler is written in L0; it
+does not mean the system is built from L0 alone. Closing that gap, so that L0
+expresses its own allocation and I/O and the C runtime can go, is one of the
+goals above.
 
 ```bash
 l0 check prog.l0          # type check
@@ -97,13 +126,9 @@ l0 init myproject
 ```
 AGENTS.md                           always-on invariants
 .cursor/skills/l0-code/SKILL.md     how to read, write, and edit L0
-.cursor/skills/l0-limits/SKILL.md   what to do when L0 cannot express
-                                    something
 l0/L0.md                            the language specification
 l0/examples.l0                      worked examples, all of them compiling
 l0/prelude.l0                       the standard library, for reference
-l0/requests/                        feature requests and skill notes,
-                                    for the maintainer
 ```
 
 The specification and examples are copied in rather than linked, because an
@@ -113,57 +138,23 @@ test suite, so the examples a newcomer reads cannot rot.
 
 ## How L0 grows
 
-L0 grows only when real code cannot be written without the addition. Self
-compilation supplied that pressure until it was reached; applications written
-in L0 supply it now.
+The agent that writes L0 in this repository is also the one that changes it.
+When L0 cannot express something, the answer is to change L0, not to write
+around it.
 
-A project scaffolded by `l0 init` carries the `l0-limits` skill, which tells
-an agent to treat the toolchain as read-only, work around the limitation, and
-only then decide whether it is worth reporting:
+That replaces an earlier arrangement, in which projects elsewhere used an
+installed L0, treated it as read-only, and filed requests back here. It was
+too slow, and it taught the wrong reflex: an agent that cannot change the
+language works around the limitation, the workaround ships, and the pressure
+that should have shaped the language is lost. The compiler itself still
+carries nine near-identical result types for want of generics, because under
+that arrangement a cost paid once per use site never justified a change.
 
-- anything about getting data in or out is a **host protocol** question, not
-  a language one. Three separate problems in this project's own history
-  looked like they needed a new primitive and none of them did.
-- anything a ten-line function solves is not a language request either,
-  though it may be a prelude one
-- a cost that is **constant per use site** is worked around, however tedious.
-  The compiler carries nine near-identical result types for want of generics
-  and that never justified a change.
-- a cost that **loses a correctness property**, **grows with the program**,
-  or has appeared in **three unrelated places** is worth reporting
-
-`l0 request SLUG` then produces a document under `l0/requests/` whose
-sections are what `spec/changelog.md` needs as the blocker behind a change,
-and `l0 submit FILE` sends it here:
-
-```bash
-export L0_HOME=/path/to/newlang     # optional, if L0 is on this machine
-l0 submit l0/requests/0001-no-generics.md
-```
-
-Submitting refuses a request whose code blocks are still empty, so the
-evidence rule is enforced by the tool rather than by exhortation. It copies
-the request into `requests/` when `L0_HOME` is set, and prints a
-`cursor://` deeplink that pre-fills a triage prompt in Cursor.
-
-That link is as automated as this can get. Cursor's deeplinks always wait
-for the user to confirm and cannot choose which window they land in, so open
-this repository before clicking. There is no way for an agent here to listen
-for requests; the flow is a push from the project that hit the limitation.
-Requests are kept after triage whether accepted or not, since a rejection
-records why the language did not change.
-
-The point of the ceremony is that the workaround has to exist before the
-request does. Requests then contain evidence rather than preferences, and
-the default answer stays no.
-
-The same path carries **skill notes**. The skills `l0 init` copies are how an
-agent learns to write L0 at all, and they are not the spec: a better testing
-convention or a syntax trap belongs in `lib/skills/`, not in `spec/L0.md`.
-`l0 request --skill SLUG` starts a note that quotes the old skill text, the
-replacement, and the project code that proved it better. `l0 submit` sends
-it; triage merges what would help any L0 project and sends back anything
-project-specific.
+A change still has to be earned by code: L0 in this repository that it makes
+possible, or makes harder to get wrong. The spec changes first. `spec/L0.md`
+states the rule, `spec/changelog.md` records why, and the compiler follows.
+Using a new feature inside the compiler itself has to wait one bootstrap, for
+reasons the "Building the compiler from a fresh clone" section below explains.
 
 ## The standard library
 
@@ -201,17 +192,17 @@ had already used the name. Spec section 7.1 has the rule and
 `spec/changelog.md` has the reasoning, including why this is two groups of
 names rather than a module system.
 
-## What L0 is not
+## What L0 cannot do yet
 
-L0 met its goal and is not a general-purpose language. A program is a pure
-function from stdin bytes to stdout bytes: there are no files, no command-line
-arguments, no network, no clock, and no environment. There is no garbage
-collector, so memory is proportional to total allocation rather than to live
-data. Lists are the only data structure, so indexing is O(n), and there are no
-arrays, maps, floats, modules, or higher-order functions.
+A program is a pure function from stdin bytes to stdout bytes: there are no
+files, no command-line arguments, no network, no clock, and no environment.
+Memory is never freed, so it is proportional to total allocation rather than
+to live data. Lists are the only data structure, so indexing is O(n), and
+there are no arrays, maps, floats, modules, or higher-order functions.
 
-Those are deliberate. Each one is absent because the bootstrap goal never
-demanded it, which is the rule recorded in `spec/changelog.md`.
+None of these was ruled out. Each is absent because self-compilation never
+demanded it, and a general-purpose L0 will. Memory management and I/O come
+first.
 
 ## How the compiler is tested
 
@@ -269,10 +260,10 @@ result:
 (def main ((input (list int))) (list int))
 ```
 
-This signature is the whole reason the project is tractable. A compiler is a
-function from source bytes to output bytes, so **L0 needs no I/O, no strings,
-and no module system to compile itself** — it only needs to be expressive enough
-to compute one byte list from another. The self-hosting compiler emits LLVM IR
+This signature is what made self-hosting tractable. A compiler is a function
+from source bytes to output bytes, so **L0 needed no I/O, no strings, and no
+module system to compile itself** — only enough expressiveness to compute one
+byte list from another. The self-hosting compiler emits LLVM IR
 as text, which `clang` then assembles, so L0 never needs to know about object
 files or linking either.
 
@@ -339,7 +330,7 @@ will tell you. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 
 ```
 spec/          L0.md (what the language is) and changelog.md (why)
-runtime/       permanent C: values, allocation, host I/O
+runtime/       the C runtime: values, allocation, host I/O
 compiler/      the L0 compiler, written in L0
 lib/           prelude.l0 (the standard library), examples, and the files
                `l0 init` copies into a new project
@@ -349,14 +340,15 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself)
 tools/         l0 (the driver), install.sh, build.sh, test.sh, bootstrap.sh
 seeds/         the original seed spec, superseded by spec/
+roadmap/       plans and status for work in progress; never knowledge about L0
 .cursor/skills/  agent instructions for developing L0 itself
 ```
 
 The skills under `.cursor/skills/` are for working *on* L0 and refer to the
 compiler sources and test suite. Those under `lib/skills/`, which `l0 init`
 installs, are for working *in* L0 and refer only to files a project has.
-Improvements to the shipped skills come back as skill notes on the same
-`l0 submit` path as language requests.
+When writing L0 here teaches something about writing L0 anywhere, the shipped
+skill is updated in the same change.
 
 `spec/changelog.md` is worth reading before the spec if you want to know why L0
 is shaped the way it is rather than merely what shape it has.

@@ -1,8 +1,8 @@
 # Working with L0 in this project
 
-L0 is a small, pure, statically typed language. **There is almost certainly no
-L0 in your training data**, so familiarity cannot substitute for reading the
-specification and running the checker.
+L0 is a statically typed language compiled to native code through LLVM.
+**There is almost certainly no L0 in your training data**, so familiarity
+cannot substitute for reading the specification and running the checker.
 
 ## Invariants
 
@@ -23,9 +23,6 @@ several values, and reporting failure.
 l0 check FILE.l0 ...      type check
 l0 run   FILE.l0 ...      build and run, reading stdin
 l0 build FILE.l0 -o PROG  produce an executable
-l0 request SLUG           start a language request under l0/requests/
-l0 request --skill SLUG   start a skill note under l0/requests/
-l0 submit FILE            send a finished request or note to L0
 ```
 
 Several files are compiled together, since L0 has no module system. The
@@ -39,38 +36,19 @@ shadowable and still have to be unique.
 
 ## When L0 cannot express something
 
-**The L0 toolchain is read-only.** Never edit the installed prelude or
-compiler, and never vendor a patched copy. Write the workaround, and if the
-limitation is worth reporting, `l0 request SLUG` starts a feature request
-and `l0 submit FILE` sends it. Submitting prints a link for the operator to
-click; do not open it yourself.
+**The L0 toolchain is read-only here.** Never edit the installed prelude or
+compiler, and never vendor a patched copy. L0 is changed in its own
+repository, not from projects that use it.
 
-Before weighing any of this, check that the workaround still does what was
-asked. One that quietly narrows the task is not a workaround, and no cost
-test below will notice.
+If L0 cannot express what was asked, say so plainly and name what could not be
+written. Do not ship something that quietly narrows the task: a program that
+does something adjacent to what was asked, with tests written from the same
+narrowed contract, passes and is still wrong.
 
-Most walls are not language problems. Anything about getting data in or out
-is a question of putting more structure on the byte channel, and anything
-that a ten-line function would solve is not a language request. The exception
-is ordering: the host reads stdin to end of file before evaluating `main` and
-writes nothing until it returns, so a prompt, a confirmation, or progress
-during a run is not a format problem and no format fixes it. Work around a
-cost that is constant per use site; report one that loses a correctness
-property, grows with the program, has now appeared in three unrelated places,
-or leaves the task impossible to perform at all. The `l0-limits` skill covers
-the decision in full.
-
-## When a shipped skill is wrong or incomplete
-
-The files under `.cursor/skills/` were copied by `l0 init`. If you change
-one because the practice it taught was worse than what you actually used,
-that change belongs in every L0 project, not only this one.
-
-`l0 request --skill SLUG` writes a note under `l0/requests/`. Quote the old
-skill text, the replacement, and the project code that proved it better.
-`l0 submit FILE` sends it the same way a language request is sent.
-Submitting prints a link for the operator to click; do not open it yourself.
-The `l0-code` skill covers the decision in full.
+Anything a ten-line function solves is not a language limitation. Ordering is:
+the host reads stdin to end of file before evaluating `main` and writes nothing
+until it returns, so a prompt, a confirmation, or progress during a run cannot
+be written today, and no output format changes that.
 
 ## Two traps specific to L0
 

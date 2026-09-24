@@ -6,9 +6,9 @@
 ;
 ; Note the family of near-identical result types below. L0's data types are
 ; monomorphic and list is its only parametric type constructor, so a "either a
-; value or an error" type cannot be written once and reused. If this becomes
-; intolerable it is the concrete blocker that would justify adding parametric
-; data types, via the ritual in the l0-evolve skill. It is tolerable so far.
+; value or an error" type cannot be written once and reused. This is the
+; concrete case for parametric data types; adopting them here follows the
+; two-step rule in the l0-bootstrap skill.
 
 (data Ty
   (TyInt)

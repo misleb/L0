@@ -1,9 +1,9 @@
 ---
 name: l0-bootstrap
-description: Build, test, and bootstrap the L0 toolchain, and diagnose self-compilation fixpoint failures where stage2.ll and stage3.ll differ. Use when running the build or test suite, investigating a broken bootstrap, or debugging nondeterministic compiler output.
+description: Change the L0 language, and build, test, and bootstrap the L0 toolchain without breaking self-compilation. Covers the spec-first order of work, the two-step rule for using a new feature inside the compiler, the frozen stage-0 oracle, and diagnosing fixpoint failures where stage2.ll and stage3.ll differ. Use when changing spec/L0.md, adding a builtin, syntax form, or runtime function, altering L0 semantics, running the build or test suite, investigating a broken bootstrap, or debugging nondeterministic compiler output.
 ---
 
-# Building and bootstrapping L0
+# Changing, building, and bootstrapping L0
 
 ## Commands
 
@@ -31,9 +31,11 @@ silent and converts a caught bug into a permanent one.
 ## The pieces
 
 - `spec/L0.md` — the only source of truth
-- `runtime/l0core.c`, `runtime/l0rt.c` — **permanent.** Value representation,
-  allocation, host I/O. Shared with stage 0 so the interpreter and compiled
-  code can never disagree about what a value is.
+- `runtime/l0core.c`, `runtime/l0rt.c` — value representation, allocation,
+  host I/O. Shared with stage 0 so the interpreter and compiled code can never
+  disagree about what a value is. Compiled programs are meant to outgrow this
+  as L0 learns to express allocation and I/O itself; see the constraint on the
+  runtime interface below before removing anything.
 - `compiler/*.l0` — the L0 compiler, written in L0
 - `bootstrap/stage2.ll` — the compiler, compiled. The bootstrap entry point.
 - `stage0/l0i.c` — **frozen.** No longer part of the bootstrap, and never
@@ -109,10 +111,114 @@ module system, so `cat` is the whole of linking the source. Glob order is
 lexicographic and therefore stable, which matters because the fixpoint compares
 bytes.
 
-## Two constraints the seed imposes
+## Changing the language
+
+Changing the language is not the same as changing a program in it. The spec,
+the compiler, and the frozen stage-0 interpreter all encode the same rules, and
+a disagreement between them breaks the bootstrap in confusing ways.
+
+A change is earned by L0 in this repository that it makes possible, or makes
+harder to get wrong. When L0 cannot express something, change L0 rather than
+writing around it, and keep the program that hit the limit: it becomes the
+test and the changelog's evidence.
+
+**The spec changes first, always.** It is the only source of truth, and an
+implementation that runs ahead of it produces code no future agent can justify.
+
+```
+1. spec/L0.md        state the new rule precisely
+2. spec/changelog.md record what changed and WHY, with the code that needed it
+3. compiler/*.l0     lexer, parser, checker, emitter (see the two-step rule)
+4. tests/            a passing case and a failing case for every new rule
+5. tools/test.sh     green, and tools/test.sh --compiled green
+6. tools/bootstrap.sh --refresh-seed, and commit the seed
+```
+
+Skipping step 2 is the most common mistake and the most costly, because the
+reason a feature exists is exactly what is unrecoverable later.
+
+If the change teaches something about writing L0 in general, update
+`lib/skills/l0-code/SKILL.md` and `lib/examples.l0` in the same change, since
+those are what `l0 init` gives an agent outside this repository.
+
+### The two-step rule
+
+**To use a new feature inside the compiler's own source, ship the ability to
+compile it before you ship any use of it.** Two separate, individually
+bootstrapped changes:
+
+```
+Step 1    compiler/*.l0 can COMPILE the feature, but uses none of it.
+          tools/bootstrap.sh          -- the fixpoint must hold
+
+Step 1b   Install that compiler as the bootstrap seed, and commit it.
+          tools/bootstrap.sh --refresh-seed
+
+Step 2    compiler/*.l0 now USES the feature in its own source.
+          tools/bootstrap.sh          -- the fixpoint must hold again
+```
+
+Doing both at once produces a compiler whose source needs a feature that the
+last working compiler cannot compile. Nothing in the chain can then build it,
+and the only ways out are hand-editing generated IR or reverting.
+
+**Step 1b is not optional, and its position between the two steps is the whole
+point.** The seed can only compile features that existed when it was cut.
+Refreshing after step 2 is too late: your working tree keeps building because
+it already has a current compiler, while a fresh clone becomes unbuildable.
+Nothing you can run locally reveals that.
+
+The same rule applies to *removing* or changing the meaning of a feature, in
+reverse: stop using it, bootstrap, refresh the seed, then drop support, then
+bootstrap again.
+
+### Stage 0 stays frozen
+
+**Do not extend `stage0/l0i.c` for new language features.** It is kept only as
+an independent implementation for `tools/test.sh --compiled` to judge the
+compiler against, and it stays independent only as long as nobody edits it to
+agree with the compiler. Programs using a new feature cannot run under stage 0;
+the compiled suite skips them, and coverage of the old language stays intact.
+
+If the two disagree on something both support, **the spec decides which is
+wrong.** If the spec is silent, that is the actual bug, and the fix belongs in
+the spec.
+
+### Properties that cost something to break
+
+These restrictions keep the checker simple and every error local, which is
+worth more to an agent writing L0 than any keystroke they cost. Breaking one is
+allowed, but should buy something substantial, and the changelog should say
+what:
+
+- `match` patterns are one level deep with no wildcard, so adding a constructor
+  becomes a compile error at every site that must handle it
+- there is no type inference, so every expression's type is determined by itself
+  and never by context
+- `list` is the only parametric type constructor, so no unification is needed
+  anywhere
+- there are no function values, so name resolution is purely syntactic
+
+### Ambiguities
+
+Implementing a change will turn up questions the spec does not answer. Do not
+guess silently: settle it in the spec as part of the change, or record it in
+`spec/changelog.md` with the question, the decision, and why, so it can be
+overruled later.
+
+### Done means
+
+- [ ] `spec/L0.md` states the rule, and nothing in it is now false
+- [ ] `spec/changelog.md` says what changed and why
+- [ ] `tools/test.sh` passes, including a new failing case per new error
+- [ ] `tools/test.sh --compiled` passes
+- [ ] the bootstrap fixpoint holds, and the seed is refreshed if the compiler
+      learned something
+
+## Constraints the seed imposes
 
 **The seed must be refreshed between the two steps of a feature addition,** not
-after both. See the `l0-evolve` skill; `tools/bootstrap.sh` reports when the
+after both. See the two-step rule above; `tools/bootstrap.sh` reports when the
 seed has gone stale.
 
 **The runtime interface is effectively append-only.** The seed contains
@@ -167,8 +273,8 @@ if the compiler numbers temporaries sequentially.
 ## When the bootstrap fails earlier
 
 If `stage1` cannot compile `compiler.l0` at all, the compiler is missing support
-for a construct its own source uses. This is the failure the two-step rule in
-the `l0-evolve` skill exists to prevent: support for a feature must ship and be
+for a construct its own source uses. This is the failure the two-step rule
+above exists to prevent: support for a feature must ship and be
 bootstrapped *before* any use of that feature. Check whether a recent change
 started using something the previous compiler could not compile, and split it
 into two steps.

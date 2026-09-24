@@ -200,20 +200,3 @@ file of expected bytes.
 
 Keep `check` in a support file that is not itself a test, and link it in. A
 test then only writes the assertions.
-
-## This skill travels
-
-This file was copied into the project by `l0 init`. If you change it because
-the convention it taught was wrong, incomplete, or worse than what you
-actually used, that change belongs in every L0 project, not only this one.
-
-`l0 request --skill short-slug` starts a note. Quote the old text, the new
-text, and the project code that proved the new one better. `l0 submit` sends
-it the same way a language request is sent. The L0 maintainer merges what
-would help any project into the skill that `l0 init` copies, and leaves
-behind anything that names this project's files, scripts, or layout.
-
-Do not file this as a language request. A better testing convention, a
-syntax trap the checker did not catch first, or an idiom that actually
-worked are all in scope. Language walls still go through the `l0-limits`
-skill.
