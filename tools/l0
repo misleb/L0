@@ -52,13 +52,20 @@ find_cc() {
     fi
 }
 
-# In a source checkout the compiler and runtime may not be built yet. Build
-# them from the checked-in seed, which needs clang but no existing L0.
+# In a source checkout the compiler and runtime may not be built yet, or may
+# predate the checked-in seed and runtime. Build them from those, which needs
+# clang but no existing L0.
 ensure_toolchain() {
-    if [ -x "$LIB/l0c" ] && [ -f "$LIB/libl0rt.a" ]; then
-        return 0
-    fi
     root=$(cd "$LIB/.." && pwd)
+    if [ -x "$LIB/l0c" ] && [ -f "$LIB/libl0rt.a" ]; then
+        if [ ! -f "$root/bootstrap/stage2.ll" ]; then
+            return 0
+        fi
+        if [ ! "$root/bootstrap/stage2.ll" -nt "$LIB/l0c" ] &&
+            [ ! "$root/runtime/l0rt.ll" -nt "$LIB/libl0rt.a" ]; then
+            return 0
+        fi
+    fi
     if [ ! -f "$root/bootstrap/stage2.ll" ]; then
         echo "l0: installation is incomplete (no compiler at $LIB/l0c)" >&2
         exit 2

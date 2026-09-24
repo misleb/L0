@@ -6,10 +6,18 @@
 #
 # All files given are checked together as one program, since L0 has no module
 # system and declaration order does not matter. A file that is only part of a
-# program will report unknown names unless its companions are listed too.
+# program will report unknown names unless its companions are listed too. A
+# main need not be present, but one that is must have the signature spec
+# section 9 requires.
 #
 # Exit status is 0 when everything checks, 1 when it does not. Diagnostics are
 # written to stderr as file:line:column: error: message.
+#
+# The checker is the compiler's own, built from the current compiler/*.l0, so
+# it knows every feature the compiler does. It runs under the stage-0
+# interpreter, which always runs the current source and so can never be
+# stale. Stage 0's own checker is not used here: it is frozen, and serves only
+# as the differential oracle in tools/test.sh.
 
 set -eu
 
@@ -21,24 +29,63 @@ if [ $# -eq 0 ]; then
     exit 2
 fi
 
+for f in "$@"; do
+    if [ ! -f "$f" ]; then
+        echo "l0check: cannot read $f" >&2
+        exit 2
+    fi
+done
+
 if [ ! -x "$BUILD/l0i" ]; then
     "$ROOT/tools/build.sh" > /dev/null
 fi
 
-if [ ! -x "$BUILD/l0i" ]; then
-    echo "error: no type checker available." >&2
-    echo "  stage0/ has been deleted, so checking now goes through the L0" >&2
-    echo "  compiler. Build it with tools/bootstrap.sh and check with:" >&2
-    echo "    cat FILE.l0 | build/l0c > /dev/null" >&2
-    exit 1
+COMPILER_SOURCES="lib/prelude.l0 compiler/lex.l0 compiler/parse.l0 compiler/check.l0 compiler/emit.l0 compiler/main.l0"
+
+IN=$(mktemp "${TMPDIR:-/tmp}/l0check-in.XXXXXX")
+OUT=$(mktemp "${TMPDIR:-/tmp}/l0check-out.XXXXXX")
+trap 'rm -f "$IN" "$OUT"' EXIT
+
+# Paths are recorded as given, before changing directory, so diagnostics name
+# files the way the caller named them.
+{
+    echo "#l0bundle"
+    echo "#nomain"
+    offset=0
+    for f in "$@"; do
+        echo "$offset $f"
+        size=$(wc -c < "$f" | tr -d ' ')
+        offset=$((offset + size))
+    done
+    echo "#source"
+    cat "$@"
+} > "$IN"
+
+if [ -x "$BUILD/l0i" ]; then
+    # shellcheck disable=SC2086
+    (cd "$ROOT" && "$BUILD/l0i" run $COMPILER_SOURCES) < "$IN" > "$OUT"
+elif [ -x "$BUILD/l0c-native" ]; then
+    "$BUILD/l0c-native" < "$IN" > "$OUT"
+else
+    echo "l0check: no compiler available; run tools/bootstrap.sh" >&2
+    exit 2
 fi
 
-if "$BUILD/l0i" check "$@"; then
-    if [ $# -eq 1 ]; then
-        echo "ok: $1 type checks"
-    else
-        echo "ok: $# files type check together"
-    fi
-else
-    exit 1
-fi
+case "$(head -n 1 "$OUT")" in
+    O)
+        if [ $# -eq 1 ]; then
+            echo "ok: $1 type checks"
+        else
+            echo "ok: $# files type check together"
+        fi
+        ;;
+    E)
+        tail -n +2 "$OUT" >&2
+        exit 1
+        ;;
+    *)
+        echo "l0check: the compiler produced untagged output" >&2
+        head -n 5 "$OUT" >&2
+        exit 2
+        ;;
+esac

@@ -11,13 +11,11 @@ management and I/O".
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0007](0007-main-signature-check.md) checking enforces `main`'s signature
-   — active
-2. [0008](0008-streaming-io.md) streaming standard input and output — queued,
-   needs 0007
-3. [0009](0009-args-files-failure.md) arguments, files, and failure — queued,
+1. [0008](0008-streaming-io.md) streaming standard input and output — queued,
+   ready
+2. [0009](0009-args-files-failure.md) arguments, files, and failure — queued,
    needs 0008
-4. [0010](0010-reference-counting.md) reclaim memory by reference counting —
+3. [0010](0010-reference-counting.md) reclaim memory by reference counting —
    queued, needs 0009
 
 ## Other open items
@@ -41,3 +39,5 @@ Changes to the language, strictly in order. At most one is active.
   memory management and I/O"
 - [0006](0006-ordinary-programs.md) program: write ordinary programs and
   record where L0 stops — done, seven limits and four spec findings
+- [0007](0007-main-signature-check.md) checking enforces `main`'s signature —
+  done, changelog "Checking a fragment still checks its main"

@@ -7,6 +7,57 @@ New entries go at the top.
 
 ---
 
+## Checking a fragment still checks its main
+
+**A check that used to pass now fails.** With `#nomain`, a program `main` that
+is present must still have section 9's signature. Section 9.1 says so, and a
+wrong `main` is now reported at its declaration, with a file and line, rather
+than at no position.
+
+**The blocker.** Roadmap item 0006 wrote this, to show that command-line
+arguments cannot be reached:
+
+```
+(def main ((args (list (list int))) (input (list int))) (list int)
+  (head args))
+```
+
+`tools/l0check` printed `ok` for it. Checking passes `#nomain`, and a present
+`main` was not examined at all, although 9.1 said `#nomain` "relaxes nothing
+else". Only `tools/l0 build` rejected it, with no location:
+
+```
+error: main must take one parameter of type (list int)
+```
+
+The worker nearly recorded a blocked program as passing, because the one rule
+it had been given was to trust `l0check`. A checker that says `ok` about a
+program that cannot run is worse than one that says nothing.
+
+**`tools/l0check` now uses the compiler's checker.** It used to run stage 0's,
+which is frozen, so it could not have been fixed there. The compiler's checker
+runs under the stage-0 interpreter, which executes the current
+`compiler/*.l0` and so is never stale, and it takes about a tenth of a second
+on a 30 KB file. This also had to happen before the next language item: once
+L0 gains builtins stage 0 does not know, stage 0's checker would reject every
+program that uses them. Stage 0's checker remains in use as the oracle in
+`tools/test.sh`, which is its only job. Diagnostics now carry the compiler's
+wording, which differs slightly from stage 0's.
+
+When the compiler's own source starts using a feature stage 0 cannot run,
+`l0check` will need a native compiler built from the current source instead.
+It falls back to `build/l0c-native` already, but that one is only as current
+as the last `tools/test.sh --compiled`.
+
+**One more stale-compiler trap, found verifying this.** In a checkout,
+`tools/l0` rebuilt `lib/l0c` from the seed only when it was missing, so after
+a seed refresh `l0 check` and `l0 build` went on using the previous compiler,
+and reported the old unlocated message. It now rebuilds when the seed or
+`runtime/l0rt.ll` is newer than what it built. An installed prefix has no
+seed beside it and is unaffected.
+
+---
+
 ## The route to memory management and I/O
 
 **No semantic change yet. L0 is exactly the language it was before this

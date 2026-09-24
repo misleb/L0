@@ -1,7 +1,7 @@
 # 0007: Checking enforces main's signature
 
 Kind: language
-Status: active
+Status: done
 Needs: nothing
 
 ## Why
@@ -43,3 +43,17 @@ recorded a blocked program as passing.
 ## Log
 
 - 2026-09-23: opened from 0005's recommendation.
+- 2026-09-23: done; changelog "Checking a fragment still checks its main".
+  `check.l0` checks a present `main` whether or not one is required, and
+  reports it at its declaration. `tools/l0check`, `tools/l0 check`, and
+  `tools/l0 build` all now reject 0006's limit 05 at `14:1`. Two findings
+  along the way:
+  - `tools/l0check` ran stage 0's frozen checker, so it could not have been
+    fixed in the compiler alone. It now runs the compiler's checker under
+    the stage-0 interpreter, which is always current. 0008 needed this
+    anyway, since stage 0's checker cannot know new builtins.
+  - In a checkout, `tools/l0` rebuilt `lib/` only when it was missing, so
+    after a seed refresh `l0 build` kept using the old compiler. It now
+    rebuilds when the seed or the runtime is newer.
+  Both suites pass (56 and 51), the fixpoint holds, and the seed is
+  refreshed.

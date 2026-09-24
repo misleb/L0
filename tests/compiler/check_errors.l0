@@ -42,4 +42,8 @@
   (let y (push (check_source (append "(def f ((a int)) int (g a)) "
                               (both "(def g ((a bool)) int 0)"))) x)
   (let z (push (check_source (both "(def f ((a int)) int (f a a))")) y)
-    (rev z)))))))))))))))))))))))))))
+  (let aa (push (check_source_lib
+             "(def f ((a int)) int a) (def main ((a int) (b int)) int 0)") z)
+  (let ab (push (check_source_lib
+             "(def main ((input (list int))) (list bool) (nil bool))") aa)
+    (rev ab)))))))))))))))))))))))))))))

@@ -234,7 +234,9 @@ the seed, not from source. When the runtime moved stack-exhaustion reporting
 into checks the compiler emits, programs built by the old seed had no checks
 and crashed instead of reporting the error. `tools/test.sh --compiled` cannot
 see this, because it bootstraps from source first. Check such a change with
-`tools/l0 build`, and refresh the seed before committing.
+`tools/l0 build`, and refresh the seed before committing. In a checkout,
+`tools/l0` rebuilds `lib/` by itself when the seed or `runtime/l0rt.ll` is
+newer than what it last built.
 
 **The seed pins a range of LLVM versions.** Textual IR is not guaranteed stable
 across LLVM major versions. L0 emits close to the most stable possible subset
