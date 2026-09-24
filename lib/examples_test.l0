@@ -1,0 +1,73 @@
+; examples_test.l0 -- tests of examples.l0, and worked examples of l0 test.
+;
+; Run them with:
+;
+;   l0 test l0/examples.l0 l0/examples_test.l0
+;
+; l0 test runs every (def test_NAME () int ...) in its own process and
+; reports each as a line of TAP. A test returns how many of its assertions
+; failed. Keep tests small: one to three assertions each, and as many tests
+; as you like, since there is no list of them to maintain.
+
+; One assertion: the name, what the code computed, what it should be.
+(def test_max2 () int
+  (check_int "larger first" (max2 7 3) 7))
+
+; Several assertions are summed. add evaluates left to right, so they run,
+; and report, in the order written.
+(def test_count_vowels () int
+  (add (check_int "none" (count_vowels "rhythm" 0) 0)
+       (check_int "some" (count_vowels "education" 0) 5)))
+
+; check_str shows both strings as L0 literals, and where they first differ.
+(def test_report () int
+  (check_str "format" (report 3 12) "count=3 total=12\n"))
+
+(def test_area () int
+  (add (check_int "circle" (area (Circle 2)) 12)
+       (add (check_int "rect" (area (Rect 3 4)) 12)
+            (check_int "dot" (area (Dot)) 0))))
+
+(def test_depth () int
+  (check_int "lopsided" (depth (Branch (Leaf 1) (Branch (Leaf 2) (Leaf 3)))) 3))
+
+(def test_first_line () int
+  (add (check_str "stops at newline" (first_line "one\ntwo") "one")
+       (check_str "no newline" (first_line "only") "only")))
+
+; A function that returns a data type is tested by matching on it, and a case
+; that should not happen is a failure you name.
+(def test_parse_digits () int
+  (match (parse_digits "42rest" 0 false)
+    ((Ok v rest)
+      (add (check_int "value" v 42)
+           (check_str "remaining" rest "rest")))
+    ((Bad msg) (check_str "should have parsed" msg ""))))
+
+(def test_parse_rejects_letters () int
+  (match (parse_digits "x" 0 false)
+    ((Ok v rest) (check_true "should have failed" false))
+    ((Bad msg) (check_str "message" msg "expected a digit"))))
+
+; A test that must die with a runtime error names it in expect_NAME, with the
+; same NAME. It passes only if it dies with exactly that error.
+(def test_head_of_nothing () int
+  (head (first_line "")))
+
+(def expect_head_of_nothing () (list int)
+  "head of empty list")
+
+; A property test: the two ways of summing agree on many pseudo-random
+; lists. rand_next and rand_below come from l0/test.l0, and give the same
+; sequence on every run, so a failure can be reproduced.
+(def sums_agree ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let xs (rand_bytes s (rand_below s 50))
+        (if (eq (sum_tail xs 0) (sum_naive xs))
+            (sums_agree (rand_next (rand_next s)) (sub runs 1))
+            (check_int "sum_tail against sum_naive" (sum_tail xs 0)
+                       (sum_naive xs))))))
+
+(def test_sums_agree () int
+  (sums_agree 1 200))

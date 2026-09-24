@@ -1,0 +1,214 @@
+; test.l0 -- assertions for `l0 test`.
+;
+; l0 test finds every (def test_NAME () int ...) in the files it is given,
+; builds them once with this file, lib/prelude.l0, and lib/io.l0 in the
+; prelude group, and runs each test in its own process. A test returns how
+; many of its assertions failed, so one with several returns their sum, and
+; add evaluates them in order:
+;
+;   (def test_arithmetic () int
+;     (add (check_int "sum" (add 2 3) 5)
+;          (check_int "product" (mul 6 7) 42)))
+;
+; Every assertion writes one line as it runs, "ok NAME" or "not ok NAME",
+; followed on failure by what it got and what it wanted. l0 test shows those
+; lines under a test that fails.
+;
+; Expected runtime errors, golden files and --bless, and --match are
+; described in the l0-code skill.
+
+; ---------------------------------------------------------------- rendering
+
+; A string as an L0 string literal, with the escapes of spec section 2.2, so
+; a value shown in a failure can be pasted back into a test. An element that
+; is not a byte is shown as {N}, which is not valid L0 and says so.
+(def show_str ((s (list int))) (list int)
+  (rev (cons 34 (show_str_onto s (cons 34 (nil int))))))
+
+(def show_str_onto ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      acc
+      (show_str_onto (tail s) (show_byte (head s) acc))))
+
+(def show_byte ((b int) (acc (list int))) (list int)
+  (if (eq b 10)
+      (push "\\n" acc)
+      (if (eq b 9)
+          (push "\\t" acc)
+          (if (eq b 13)
+              (push "\\r" acc)
+              (show_byte_rest b acc)))))
+
+(def show_byte_rest ((b int) (acc (list int))) (list int)
+  (if (eq b 92)
+      (push "\\\\" acc)
+      (if (eq b 34)
+          (push "\\\"" acc)
+          (if (and (ge b 32) (lt b 127))
+              (cons b acc)
+              (if (and (ge b 0) (lt b 256))
+                  (push (hex_escape b) acc)
+                  (push (append "{" (append (digits b) "}")) acc))))))
+
+(def hex_digit ((d int)) int
+  (if (lt d 10) (add 48 d) (add 87 d)))
+
+(def hex_escape ((b int)) (list int)
+  (cons 92 (cons 120
+    (cons (hex_digit (div b 16)) (cons (hex_digit (mod b 16)) (nil int))))))
+
+; A list of strings as [s1, s2, ...].
+(def show_strs ((xs (list (list int)))) (list int)
+  (rev (cons 93 (show_strs_onto xs true (cons 91 (nil int))))))
+
+(def show_strs_onto ((xs (list (list int))) (first bool) (acc (list int)))
+    (list int)
+  (if (is_empty xs)
+      acc
+      (show_strs_onto (tail xs) false
+        (push (show_str (head xs)) (if first acc (push ", " acc))))))
+
+(def show_bool ((b bool)) (list int)
+  (if b "true" "false"))
+
+; The position of the first byte where a and b differ, or -1 if they are
+; equal. A list that ends first differs at its length.
+(def first_diff ((a (list int)) (b (list int)) (i int)) int
+  (if (is_empty a)
+      (if (is_empty b) -1 i)
+      (if (is_empty b)
+          i
+          (if (eq (head a) (head b))
+              (first_diff (tail a) (tail b) (add i 1))
+              i))))
+
+; ---------------------------------------------------------------- reporting
+
+(def pass ((name (list int))) int
+  (let w (write_line (append "ok " name))
+    0))
+
+(def fail ((name (list int)) (got (list int)) (want (list int))) int
+  (let a (write_line (append "not ok " name))
+    (let b (write_line (append "  got:  " got))
+      (let c (write_line (append "  want: " want))
+        1))))
+
+(def fail_because ((name (list int)) (why (list int))) int
+  (let a (write_line (append "not ok " name))
+    (let b (write_line (append "  " why))
+      1)))
+
+; --------------------------------------------------------------- assertions
+
+(def check_int ((name (list int)) (got int) (want int)) int
+  (if (eq got want)
+      (pass name)
+      (fail name (digits got) (digits want))))
+
+(def check_bool ((name (list int)) (got bool) (want bool)) int
+  (if (if got want (not want))
+      (pass name)
+      (fail name (show_bool got) (show_bool want))))
+
+(def check_true ((name (list int)) (ok bool)) int
+  (if ok (pass name) (fail name "false" "true")))
+
+(def check_str ((name (list int)) (got (list int)) (want (list int))) int
+  (if (list_eq got want)
+      (pass name)
+      (let r (fail name (show_str got) (show_str want))
+        (let w (write_line (append "  first difference at byte "
+                 (digits (first_diff got want 0))))
+          r))))
+
+(def check_strs ((name (list int)) (got (list (list int)))
+                 (want (list (list int)))) int
+  (if (strs_eq got want)
+      (pass name)
+      (fail name (show_strs got) (show_strs want))))
+
+(def strs_eq ((a (list (list int))) (b (list (list int)))) bool
+  (if (is_empty a)
+      (is_empty b)
+      (if (is_empty b)
+          false
+          (if (list_eq (head a) (head b))
+              (strs_eq (tail a) (tail b))
+              false))))
+
+; ------------------------------------------------------------- golden files
+
+; Compares got with the contents of the file at path, relative to the
+; directory l0 test runs in. Under l0 test --bless it writes got to the file
+; instead, and passes. Read the diff of every blessed file: blessing turns
+; whatever the code does now into what is correct.
+(def check_file ((name (list int)) (got (list int)) (path (list int))) int
+  (if (list_eq (arg 1) "--bless")
+      (bless_file name got path)
+      (compare_file name got path)))
+
+(def compare_file ((name (list int)) (got (list int)) (path (list int))) int
+  (match (open_in path)
+    ((IoFailed why)
+      (fail_because name
+        (append path (append ": " (append why
+          "; run l0 test --bless to create it")))))
+    ((IoOpened f)
+      (let want (read_all f (nil int))
+        (let c (file_close f)
+          (check_str name got want))))))
+
+(def read_all ((f IoFile) (acc (list int))) (list int)
+  (let b (file_read_byte f)
+    (if (lt b 0)
+        (rev acc)
+        (read_all f (cons b acc)))))
+
+(def bless_file ((name (list int)) (got (list int)) (path (list int))) int
+  (match (open_out path)
+    ((IoFailed why) (fail_because name (append path (append ": " why))))
+    ((IoOpened f)
+      (let w (file_write_str f got)
+        (if (lt (file_close f) 0)
+            (fail_because name (append "could not write " path))
+            (let p (write_line (append "ok " (append name
+                     (append " (blessed " (append path ")")))))
+              0))))))
+
+; ------------------------------------------------------------ random inputs
+
+; A pseudo-random sequence for property tests, the same on every run. A state
+; is an int: start from any seed, (rand_next s) is the state after s, and
+; (rand_below s n) is a value from state s in 0 to n - 1, for n above 0.
+; Thread the state through by hand, as with any L0 loop.
+(def rand_next ((s int)) int
+  (add (mul s 6364136223846793005) 1442695040888963407))
+
+; The high bits of this generator are far better than the low ones, so the
+; value comes from the top 32.
+(def rand_below ((s int) (n int)) int
+  (let hi (div s 4294967296)
+    (mod (if (lt hi 0) (neg hi) hi) n)))
+
+; n pseudo-random bytes starting from state s.
+(def rand_bytes ((s int) (n int)) (list int)
+  (if (le n 0)
+      (nil int)
+      (let s1 (rand_next s)
+        (cons (rand_below s1 256) (rand_bytes s1 (sub n 1))))))
+
+; ---------------------------------------------------- used by the generated main
+
+; What l0 test's generated main returns for a test: 0 if every assertion
+; passed, and 1 otherwise, since an exit status is reduced modulo 256.
+(def test_status ((failed int)) int
+  (if (gt failed 0) 1 0))
+
+; Writes the runtime error a test is expected to die with, for l0 test.
+(def expect_status ((message (list int))) int
+  (write_str message))
+
+(def unknown_test ((name (list int))) int
+  (let w (write_err (append "l0 test: no test named " (append name "\n")))
+    2))

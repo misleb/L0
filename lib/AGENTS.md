@@ -11,23 +11,27 @@ examples. If a construct is not in the specification, it does not exist.
 
 **Never state that L0 code works without running `l0 check` on it.** Code that
 looks plausible is routinely invalid, because L0 is not any language you have
-seen.
+seen. That it type checks says nothing about what it does: write tests, and
+run them with `l0 test`.
 
 **Read `l0/examples.l0` before writing anything substantial.** It is a set of
 working programs covering recursion, strings, data types, `match`, returning
-several values, and reporting failure.
+several values, and reporting failure. `l0/examples_test.l0` shows how to
+test them.
 
 ## Commands
 
 ```bash
 l0 check FILE.l0 ...      type check
+l0 test  FILE.l0 ...      run every (def test_NAME () int ...), as TAP
 l0 run   FILE.l0 ...      build and run, reading stdin
 l0 build FILE.l0 -o PROG  produce an executable
 ```
 
 Several files are compiled together, since L0 has no module system. The
-standard library is linked automatically; `l0/prelude.l0` and `l0/io.l0` are
-readable copies and must not be passed on the command line.
+standard library is linked automatically, and `l0 test` adds the assertions
+of `l0/test.l0`; the copies in `l0/` are for reading and must not be passed on
+the command line.
 
 **A function you define shadows a prelude function of the same name**, and the
 prelude keeps calling its own, so a name the standard library already took is

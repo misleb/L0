@@ -107,9 +107,17 @@ memory management and I/O".
 
 ```bash
 l0 check prog.l0          # type check
+l0 test  prog_test.l0     # run every (def test_NAME () int ...), as TAP
 l0 run   prog.l0 < input  # build and run
 l0 build prog.l0 -o prog  # produce an executable
 ```
+
+`l0 test` finds the tests itself, builds once, and runs each test in its own
+process, so a runtime error fails only its own test. Assertions show what was
+computed and what was expected; a test can also expect a particular runtime
+error, compare against a golden file (`--bless` rewrites them), or check a
+property over seeded pseudo-random inputs. `lib/test.l0` is the library and
+`lib/examples_test.l0` the worked examples.
 
 Several files are compiled together, since L0 has no module system, and
 diagnostics name the file they came from:
@@ -134,7 +142,10 @@ AGENTS.md                           always-on invariants
 .cursor/skills/l0-code/SKILL.md     how to read, write, and edit L0
 l0/L0.md                            the language specification
 l0/examples.l0                      worked examples, all of them compiling
+l0/examples_test.l0                 tests of them, and how to write tests
 l0/prelude.l0                       the standard library, for reference
+l0/io.l0                            line and string I/O, for reference
+l0/test.l0                          assertions for l0 test, for reference
 ```
 
 The specification and examples are copied in rather than linked, because an

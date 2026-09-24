@@ -152,6 +152,9 @@ must include:
   `stage0/`, `lib/prelude.l0`, or `roadmap/`, which the coordinator owns
 - in a worktree, that `build/` starts empty, so it runs `tools/build.sh`
   before `tools/l0check` or any test
+- that it tests what it writes with `tools/l0 test`, as the shipped
+  `l0-code` skill describes, so its claims about behavior come with a test
+  that shows them
 - what to return, below
 
 **Tell program workers to report limits, not route around them.** A worker that

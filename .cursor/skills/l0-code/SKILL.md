@@ -216,7 +216,13 @@ Working examples worth reading before writing anything substantial:
 
 ## Writing tests
 
-Tests live in `tests/lang/` and return one character per assertion, `y` for pass
+Anything stage 0 cannot run, including library code in `lib/io.l0` and
+`lib/test.l0` and programs a worker writes, is tested with `tools/l0 test`,
+which `lib/skills/l0-code/SKILL.md` describes. `tests/io/framework.sh` tests
+`l0 test` itself. What follows is the convention for `tests/lang/`, which stays
+as it is because stage 0, the oracle, cannot run `l0 test`'s I/O.
+
+Tests in `tests/lang/` return one character per assertion, `y` for pass
 and `n` for fail, so a diff points at the exact assertion that broke instead of
 at an aggregate number. `yn` conses, so nesting inward yields source order:
 

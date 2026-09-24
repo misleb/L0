@@ -1,0 +1,6 @@
+; The runner for framework.sh, which tests l0 test itself on the fixture in
+; tests/io/framework/. This program is only what the suite requires every
+; tests/io entry to build.
+
+(def main () int
+  0)

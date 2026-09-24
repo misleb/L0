@@ -212,33 +212,57 @@ There is no clock, network, or environment yet, and memory is never freed.
 
 ## Testing
 
-L0 has no test framework. The convention that works well is one line per
-assertion, `y ` or `n ` followed by the name of what was asserted, so that a
-failure says what broke rather than which position in a row of characters
-broke:
+Use `l0 test`. `l0/examples_test.l0` is a worked file of tests; read it first.
 
-```
-(def check ((name (list int)) (ok bool) (rest (list int))) (list int)
-  (cons (if ok 121 110)
-    (cons 32 (append name (cons 10 rest)))))
-
-(def main ((input (list int))) (list int)
-  (check "addition" (eq (add 2 3) 5)
-  (check "multiplication" (eq (mul 6 7) 42)
-  (nil int))))
+```bash
+l0 test lib_code.l0 lib_code_test.l0             # every test, as TAP
+l0 test lib_code.l0 lib_code_test.l0 --match parse   # only names containing "parse"
 ```
 
-`check` conses, so nesting inward yields the assertions in source order.
-`append` is the right tool for the name: names are short. Run the test with
-`l0 run tests.l0` and confirm every line starts with `y`. A host-side runner
-can parse this format; a line in any other shape should fail the test rather
-than be ignored, so stray output cannot hide a missing assertion.
+A test is `(def test_NAME () int ...)`, with its name and `()` on the line it
+starts. There is no list of tests to maintain: `l0 test` finds them, builds
+the files once with `l0/test.l0` linked, and runs each test in its own
+process. It prints `ok N - test_NAME` or `not ok N - test_NAME` with what went
+wrong underneath, and exits nonzero if any failed.
 
-A program must define exactly one `main`, so a test cannot be linked with the
-entry point it is testing. The test file defines its own `main` and is linked
-only with library files (those that do not define `main`). End-to-end
-coverage of an entry point is a host-side comparison of its stdout against a
-file of expected bytes.
+A test returns how many of its assertions failed. Sum several with `add`,
+which runs them in order:
 
-Keep `check` in a support file that is not itself a test, and link it in. A
-test then only writes the assertions.
+```
+(def test_parse_digits () int
+  (add (check_int "value" (parse_or_zero "42") 42)
+       (check_str "rest" (first_line "a\nb") "a")))
+```
+
+The assertions are `check_int`, `check_bool`, `check_true`, `check_str`, and
+`check_strs`, each taking a name, what the code computed, and what it should
+be. A failing string is shown as an L0 literal you can paste back, with the
+first byte where it differs. For a data type, `match` on it inside the test
+and name the case that should not happen.
+
+**Keep each test to one to three assertions, and write many tests.** Long
+chains of nested assertions are where closing parentheses get miscounted.
+
+**A runtime error fails only its own test**, and its message is shown. To test
+that code must fail, give the test an `expect_NAME` with the same NAME:
+
+```
+(def test_empty_head () int (head (nil int)))
+(def expect_empty_head () (list int) "head of empty list")
+```
+
+**Golden files** hold expected output too long to write inline:
+`(check_file "name" got "path/to/expected.txt")`, with the path relative to
+where `l0 test` runs. `l0 test --bless` writes the files instead of comparing,
+and lists each one it wrote. Blessing turns whatever the code does now into
+what is correct, so read the diff of every file it touched.
+
+**Property tests** use `rand_next` and `rand_below` from `l0/test.l0`, which
+give the same sequence on every run, so a failure reproduces. Check a
+property over a few hundred inputs, such as two implementations agreeing, or
+parsing what was printed.
+
+Test files do not define `main`, since `l0 test` supplies one, and a test that
+uses `arg` sees `l0 test`'s arguments, not yours. Test a whole program by
+putting its logic in functions and testing those, or by running it with
+`l0 run` and comparing what it writes.

@@ -6,11 +6,14 @@
 #   l0 check FILE.l0 [MORE.l0 ...]            type check only
 #   l0 run   FILE.l0 [MORE.l0 ...]            build to a temporary file, run
 #   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
+#   l0 test  FILE.l0 [MORE.l0 ...]            run every (def test_NAME () int ...)
 #   l0 init  [DIR]                            scaffold a project for an agent
 #   l0 version
 #
 # Options:
 #   --no-prelude    do not include the standard library
+#   --match TEXT    l0 test: run only tests whose names contain TEXT
+#   --bless         l0 test: rewrite golden files instead of comparing
 #
 # Several files are compiled together, because L0 has no module system.
 # The standard library, lib/prelude.l0 and lib/io.l0, is included
@@ -75,7 +78,7 @@ ensure_toolchain() {
 }
 
 usage() {
-    sed -n '2,21p' "$SELF/l0" | sed 's/^# \{0,1\}//'
+    sed -n '2,24p' "$SELF/l0" | sed 's/^# \{0,1\}//'
     exit 2
 }
 
@@ -84,11 +87,19 @@ usage() {
 WANT_PRELUDE=1
 OUT=""
 FILES=""
+MATCH=""
+BLESS=""
 
 parse_args() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --no-prelude) WANT_PRELUDE=0 ;;
+            --bless) BLESS="--bless" ;;
+            --match)
+                shift
+                [ $# -gt 0 ] || { echo "l0: --match needs text" >&2; exit 2; }
+                MATCH=$1
+                ;;
             -o)
                 shift
                 [ $# -gt 0 ] || { echo "l0: -o needs a path" >&2; exit 2; }
@@ -215,6 +226,97 @@ case "$cmd" in
         "$TMP/prog"
         ;;
 
+    test)
+        setup "$@"
+        # lib/test.l0 joins the standard library in the prelude group.
+        SOURCES="$LIB/prelude.l0 $LIB/io.l0 $LIB/test.l0 $FILES"
+        PRELUDE_END=$(cat "$LIB/prelude.l0" "$LIB/io.l0" "$LIB/test.l0" |
+            wc -c | tr -d ' ')
+
+        # L0 has no function values, so a program cannot list its own
+        # functions; the tests are found here instead. A test is
+        # (def test_NAME () int ...), and expect_NAME, if defined, is the
+        # runtime error test_NAME must die with. Each starts a line with its
+        # name and empty parameter list.
+        # shellcheck disable=SC2086
+        tests=$(cat $FILES |
+            sed -n 's/^(def[[:space:]]\{1,\}\(test_[A-Za-z0-9_]*\)[[:space:]]*().*/\1/p')
+        # shellcheck disable=SC2086
+        expects=$(cat $FILES |
+            sed -n 's/^(def[[:space:]]\{1,\}expect_\([A-Za-z0-9_]*\)[[:space:]]*().*/\1/p' |
+            tr '\n' ' ')
+        if [ -z "$tests" ]; then
+            echo "l0 test: no tests found; a test is (def test_NAME () int ...)" >&2
+            exit 1
+        fi
+
+        # The generated main runs the test (arg 0) names, or writes the
+        # runtime error a test expects when asked for "expect:NAME".
+        gen="$TMP/l0test_main.l0"
+        {
+            echo "(def main () int"
+            echo "  (let name (arg 0)"
+            closes=""
+            for t in $tests; do
+                echo "  (if (list_eq name \"$t\") (test_status ($t))"
+                closes="$closes)"
+            done
+            for e in $expects; do
+                echo "  (if (list_eq name \"expect:$e\") (expect_status (expect_$e))"
+                closes="$closes)"
+            done
+            echo "  (unknown_test name)$closes))"
+        } > "$gen"
+        SOURCES="$SOURCES $gen"
+        run_compiler "$TMP/out.ll"
+        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$LIB/libl0rt.a" \
+            -o "$TMP/prog"
+
+        selected=""
+        for t in $tests; do
+            case "$t" in *"$MATCH"*) selected="$selected $t" ;; esac
+        done
+        # shellcheck disable=SC2086
+        set -- $selected
+        echo "TAP version 13"
+        echo "1..$#"
+        n=0
+        failed=0
+        for t in "$@"; do
+            n=$((n + 1))
+            if "$TMP/prog" "$t" $BLESS > "$TMP/t.out" 2> "$TMP/t.err" < /dev/null
+            then st=0
+            else st=$?
+            fi
+            want=""
+            case " $expects " in
+                *" ${t#test_} "*) want=$("$TMP/prog" "expect:${t#test_}" 2> /dev/null) ;;
+            esac
+            if [ -n "$want" ]; then
+                if [ "$st" = 70 ] &&
+                    [ "$(cat "$TMP/t.err")" = "l0: runtime error: $want" ]; then
+                    echo "ok $n - $t # expected runtime error: $want"
+                    continue
+                fi
+                echo "not ok $n - $t"
+                echo "  # expected runtime error: $want"
+                echo "  # exit status $st"
+            elif [ "$st" = 0 ]; then
+                echo "ok $n - $t"
+                # Whatever --bless just declared correct is worth seeing.
+                grep ' (blessed ' "$TMP/t.out" | sed 's/^/  # /' || true
+                continue
+            else
+                echo "not ok $n - $t"
+                [ "$st" = 1 ] || echo "  # exit status $st"
+            fi
+            failed=$((failed + 1))
+            sed 's/^/  # /' "$TMP/t.out" "$TMP/t.err"
+        done
+        echo "# $((n - failed)) passed, $failed failed"
+        [ "$failed" = 0 ]
+        ;;
+
     init)
         dir=${1:-.}
         mkdir -p "$dir/.cursor/skills" "$dir/l0"
@@ -222,8 +324,10 @@ case "$cmd" in
         cp "$LIB/AGENTS.md" "$dir/AGENTS.md"
         cp "$LIB/L0.md" "$dir/l0/L0.md"
         cp "$LIB/examples.l0" "$dir/l0/examples.l0"
+        cp "$LIB/examples_test.l0" "$dir/l0/examples_test.l0"
         cp "$LIB/prelude.l0" "$dir/l0/prelude.l0"
         cp "$LIB/io.l0" "$dir/l0/io.l0"
+        cp "$LIB/test.l0" "$dir/l0/test.l0"
         cat <<EOF
 Scaffolded an L0 project in $dir:
 
@@ -231,15 +335,18 @@ Scaffolded an L0 project in $dir:
   .cursor/skills/l0-code/SKILL.md     how to read, write, and edit L0
   l0/L0.md                            the language specification
   l0/examples.l0                      worked examples, all of them compiling
+  l0/examples_test.l0                 tests of them, and how to write tests
   l0/prelude.l0                       the standard library, for reference
   l0/io.l0                            line and string I/O, for reference
+  l0/test.l0                          assertions for l0 test, for reference
 
-Both libraries are linked automatically; the copies in l0/ are there to be
-read.
+The prelude and io libraries are linked automatically, and test.l0 by
+l0 test; the copies in l0/ are there to be read.
 
   l0 check prog.l0          type check
   l0 run   prog.l0          build and run, reading stdin
   l0 build prog.l0          produce an executable
+  l0 test  prog_test.l0     run every (def test_NAME () int ...) in it
 EOF
         ;;
 

@@ -41,3 +41,5 @@ Changes to the language, strictly in order. At most one is active.
   changelog "Reading and writing as a program runs"
 - [0009](0009-args-files-failure.md) arguments, files, and failure — done,
   changelog "Files, arguments, and names reserved for the standard library"
+- [0012](0012-test-framework.md) tooling: a test framework in the standard
+  library — done, changelog "A test framework, and no language change for it"

@@ -7,6 +7,51 @@ New entries go at the top.
 
 ---
 
+## A test framework, and no language change for it
+
+**No change to the language.** `lib/test.l0` and `l0 test` are a library and a
+tool, built entirely on the I/O of the two entries below. This entry records
+why they are shaped as they are, since the shape is what agents will copy.
+
+**The blocker.** L0 had only a convention for tests, a `check` function
+consing `y name` or `n name` onto `main`'s result. It never said what was
+computed or expected; it put every assertion in one nest inside `main`, and
+that nest is exactly where closing parentheses get miscounted, three times in
+the session that built the two entries below; one runtime error ended the
+whole run; and nothing gave an exit status or ran a subset.
+
+**The shape, chosen with the user:**
+
+- **Tests are found, not listed.** L0 has no function values, so a program
+  cannot enumerate its own functions. The driver can, from the source: any
+  `(def test_NAME () int ...)` is a test, and `l0 test` generates a `main`
+  that runs the one named by `(arg 0)`. With nothing to register, the easy
+  thing is many small tests, which is what keeps the parentheses short.
+- **Each test is its own process.** The program is built once and run per
+  test, so a runtime error fails one test, reported with its message. That
+  also makes failure testable, which nothing in L0 can do otherwise, since
+  runtime errors cannot be caught: `expect_NAME` names the error `test_NAME`
+  must die with.
+- **Assertions say what went wrong.** Each shows got and want, strings as L0
+  literals that paste back into a test, with the first differing byte. Each
+  writes as it runs and returns 1 on failure, so a test returns the sum, and
+  `add`'s left-to-right order keeps the report in source order.
+- **TAP**, because agents and CI already parse it, with a nonzero exit on any
+  failure.
+- **Golden files, filtering, and seeded random inputs** for large outputs,
+  focused runs, and property tests. `--bless` lists every golden file it
+  wrote, since blessing makes whatever the code does now correct.
+
+**What it cannot serve.** Stage 0 cannot run I/O, so the oracle-checked suites
+(`tests/lang`, the compiler's stage tests) stay on the old convention; the
+framework is for `tests/io`, the standard library, program-writing workers,
+and projects made by `l0 init`, which now ships `l0/test.l0` and a worked
+`l0/examples_test.l0`. `tests/io/framework.sh` checks `l0 test`'s whole
+report on a fixture against hand-written expectations, and runs the shipped
+example tests, which must pass.
+
+---
+
 ## Files, arguments, and names reserved for the standard library
 
 **L0 can open files and read its command-line arguments.** Seven builtins,

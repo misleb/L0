@@ -1,0 +1,51 @@
+; A fixture for tests/io/framework.sh: tests that pass, tests that fail in
+; each way l0 test reports, an expected runtime error, a golden file, and a
+; property test. framework.sh compares l0 test's output with hand-written
+; expectations.
+
+(def test_passes () int
+  (add (check_int "sum" (add 2 3) 5)
+       (check_str "greeting" (append "hello, " "world") "hello, world")))
+
+(def test_int_mismatch () int
+  (check_int "sum" (add 2 2) 5))
+
+(def test_str_mismatch () int
+  (check_str "tab" "a\nb" "a\tb"))
+
+(def test_strs_and_bools () int
+  (add (check_strs "words" (split_spaces "a b") (split_spaces "a c"))
+       (check_bool "flag" true true)))
+
+(def test_crashes () int
+  (let partial (check_true "before the crash" true)
+    (head (nil int))))
+
+(def test_div_by_zero () int
+  (div 1 0))
+
+(def expect_div_by_zero () (list int)
+  "division by zero")
+
+(def test_wrong_error () int
+  (head (nil int)))
+
+(def expect_wrong_error () (list int)
+  "division by zero")
+
+(def test_golden () int
+  (check_file "greeting" "hello\n" "golden.txt"))
+
+; rand_below stays in range for 1000 consecutive states.
+(def in_range ((s int) (n int)) int
+  (if (eq n 0)
+      0
+      (let v (rand_below s 10)
+        (if (or (lt v 0) (ge v 10))
+            (check_int "in range" v 0)
+            (in_range (rand_next s) (sub n 1))))))
+
+(def test_random_in_range () int
+  (add (in_range 42 1000)
+       (check_int "deterministic" (rand_below (rand_next 7) 1000)
+                                  (rand_below (rand_next 7) 1000))))

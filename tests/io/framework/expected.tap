@@ -1,0 +1,31 @@
+TAP version 13
+1..9
+ok 1 - test_passes
+not ok 2 - test_int_mismatch
+  # not ok sum
+  #   got:  4
+  #   want: 5
+not ok 3 - test_str_mismatch
+  # not ok tab
+  #   got:  "a\nb"
+  #   want: "a\tb"
+  #   first difference at byte 1
+not ok 4 - test_strs_and_bools
+  # not ok words
+  #   got:  ["a", "b"]
+  #   want: ["a", "c"]
+  # ok flag
+not ok 5 - test_crashes
+  # exit status 70
+  # ok before the crash
+  # l0: runtime error: head of empty list
+ok 6 - test_div_by_zero # expected runtime error: division by zero
+not ok 7 - test_wrong_error
+  # expected runtime error: division by zero
+  # exit status 70
+  # l0: runtime error: head of empty list
+not ok 8 - test_golden
+  # not ok greeting
+  #   golden.txt: no such file; run l0 test --bless to create it
+ok 9 - test_random_in_range
+# 3 passed, 6 failed
