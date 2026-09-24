@@ -1,0 +1,37 @@
+; HYPOTHETICAL -- NOT L0. Does not check. Assumes the facilities listed in
+; README.md in this directory: read_line, write_stdout, the argv form of
+; main, and reclamation.
+;
+; The line filter as it should have been written: one line in memory at a
+; time, each match written as soon as its line is read. Unblocks limits 01
+; (stdin read whole) and 03 (output held until exit). With reclamation, each
+; line is garbage once the next one is read, so memory is one line plus
+; constants. Without it this would still grow with the input (limit 02).
+
+(def needle () (list int) "ERROR")
+
+(def contains ((s (list int)) (pat (list int))) bool
+  (if (starts_with s pat)
+      true
+      (if (is_empty s) false (contains (tail s) pat))))
+
+(def last_is_newline ((s (list int))) bool
+  (if (is_empty (tail s)) (eq (head s) 10) (last_is_newline (tail s))))
+
+; line is non-empty here: read_line returns empty only at end of input.
+(def write_match ((line (list int))) int
+  (let w (write_stdout line)
+    (if (last_is_newline line) w (write_stdout "\n"))))
+
+(def filter_lines ((matched int)) int
+  (let line (read_line)
+    (if (is_empty line)
+        matched
+        (if (contains line (needle))
+            (let w (write_match line)
+              (filter_lines (add matched 1)))
+            (filter_lines matched)))))
+
+(def main ((args (list (list int)))) int
+  (let matched (filter_lines 0)
+    0))

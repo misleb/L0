@@ -1,0 +1,16 @@
+; HYPOTHETICAL -- NOT L0. Does not check. Assumes the facilities listed in
+; README.md in this directory: read_line, write_stdout, and the argv form of
+; main.
+;
+; Limit 03's generator, writing each line as it is produced instead of
+; returning all of them. Memory no longer depends on N, and the first line
+; reaches stdout before the last is computed.
+
+(def ys ((n int)) int
+  (if (eq n 0)
+      0
+      (let w (write_stdout "y\n")
+        (ys (sub n 1)))))
+
+(def main ((args (list (list int)))) int
+  (ys (int_prefix (read_line) 0)))

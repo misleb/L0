@@ -1,0 +1,11 @@
+; 07-no-failure-report.l0 -- report a failure on stderr and exit nonzero.
+;
+; Blocks: filecopy (when in.txt is missing it must say so and exit 1, not
+; succeed silently); also every program that validates its arguments.
+;
+; main's result goes to stdout and the process exits 0. The only other exit
+; is one of section 8's four runtime errors, whose status (70) and message
+; are fixed by the runtime. 07b-only-exit-is-a-crash.l0 is that route, run.
+
+(def main ((input (list int))) (list int)
+  (fail 1 "filecopy: cannot open in.txt\n"))

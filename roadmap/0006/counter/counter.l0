@@ -1,0 +1,69 @@
+; counter.l0 -- a running count of every word seen so far, reported per line.
+;
+; What this does: for each input line, writes one output line holding, for
+; each space-separated word on that line in order, "word=N" where N is how
+; many times that word has occurred in the input up to and including this
+; occurrence. Words are separated by single spaces in the output. An empty
+; input line produces an empty output line.
+;
+;   in:  a b a        out:  a=1 b=1 a=2
+;        b                  b=2
+;
+; What it does not do, and cannot in L0 as specified today:
+; - write a line's report when the line has been read. Every report appears
+;   at once, after end of input; a person typing lines sees nothing.
+; - run in memory proportional to its table. The state is a list of a dozen
+;   entries, but memory grows with the input; see README.md for numbers.
+
+(data Entry
+  (E (list int) int))                   ; word, count so far
+
+(data Bumped
+  (B (list Entry) int))                 ; updated table, the word's new count
+
+(data St
+  (S (list Entry) (list int)))          ; table, reversed output
+
+; Increments w's count, adding it with count 1 if absent. Copies the table
+; up to w's entry, because there is no way to update an entry in place.
+(def bump ((t (list Entry)) (w (list int))) Bumped
+  (if (is_empty t)
+      (B (cons (E w 1) (nil Entry)) 1)
+      (match (head t)
+        ((E k c)
+          (if (list_eq k w)
+              (B (cons (E k (add c 1)) (tail t)) (add c 1))
+              (match (bump (tail t) w)
+                ((B rest n) (B (cons (E k c) rest) n))))))))
+
+; A space before every word but the first on its output line.
+(def sep ((out (list int))) (list int)
+  (if (is_empty out)
+      out
+      (if (eq (head out) 10) out (cons 32 out))))
+
+; cur is the word just finished, reversed; it may be empty.
+(def end_word ((cur (list int)) (t (list Entry)) (out (list int))) St
+  (if (is_empty cur)
+      (S t out)
+      (let w (rev cur)
+        (match (bump t w)
+          ((B t2 n) (S t2 (push (digits n) (cons 61 (push w (sep out))))))))))
+
+; mid is whether the current input line has any bytes yet, so that a last
+; line with no trailing newline still gets its output line.
+(def run ((s (list int)) (cur (list int)) (mid bool) (t (list Entry))
+          (out (list int))) (list int)
+  (if (is_empty s)
+      (match (end_word cur t out)
+        ((S t2 o2) (if mid (cons 10 o2) o2)))
+      (if (eq (head s) 10)
+          (match (end_word cur t out)
+            ((S t2 o2) (run (tail s) (nil int) false t2 (cons 10 o2))))
+          (if (eq (head s) 32)
+              (match (end_word cur t out)
+                ((S t2 o2) (run (tail s) (nil int) true t2 o2)))
+              (run (tail s) (cons (head s) cur) true t out)))))
+
+(def main ((input (list int))) (list int)
+  (rev (run input (nil int) false (nil Entry) (nil int))))

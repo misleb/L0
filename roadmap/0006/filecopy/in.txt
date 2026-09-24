@@ -1,0 +1,2 @@
+This is the file filecopy would copy to out.txt.
+It has two lines, and it is named on the command line: ./filecopy in.txt out.txt

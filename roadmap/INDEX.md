@@ -2,24 +2,28 @@
 
 Goals: README.md, "What L0 aims to be". Not restated here.
 
-Current focus: memory management and I/O. The C is gone from compiled
-programs, and C remains only in `stage0/`. The goal starts by choosing a
-route: 0005, with 0006 as its evidence.
+Current focus: memory management and I/O, by the language route: safe
+facilities implemented in the runtime, I/O as effects in expression position,
+and no raw memory in L0 code. See the changelog entry "The route to memory
+management and I/O".
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0007](0007-main-signature-check.md) checking enforces `main`'s signature
+   — active
+2. [0008](0008-streaming-io.md) streaming standard input and output — queued,
+   needs 0007
+3. [0009](0009-args-files-failure.md) arguments, files, and failure — queued,
+   needs 0008
+4. [0010](0010-reference-counting.md) reclaim memory by reference counting —
+   queued, needs 0009
 
 ## Other open items
 
-- [0005](0005-memory-and-io-route.md) research: which route to memory
-  management and I/O — active; questions 1, 2, 3, and 5 answered
-  provisionally, question 4 and the recommendation wait on 0006, and the
-  answer needs the user's agreement
-- [0006](0006-ordinary-programs.md) program: write ordinary programs and
-  record where L0 stops — active, running as a worker
+- [0011](0011-tail-calls.md) research: whether L0 guarantees tail calls —
+  proposed, can run at any time; interacts with 0010
 
 ## Done and dropped
 
@@ -32,3 +36,8 @@ Empty.
   is checked rather than caught"
 - [0004](0004-retire-c-runtime.md) tooling: retire the C runtime files — done;
   C remains only in `stage0/`
+- [0005](0005-memory-and-io-route.md) research: which route to memory
+  management and I/O — done, the language route, changelog "The route to
+  memory management and I/O"
+- [0006](0006-ordinary-programs.md) program: write ordinary programs and
+  record where L0 stops — done, seven limits and four spec findings

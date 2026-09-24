@@ -1,0 +1,23 @@
+; 02-no-reclamation.l0 -- a loop whose live data never exceeds 64 cells.
+;
+; Blocks: linefilter, counter (any loop that allocates per iteration).
+;
+; Input is a decimal count N. The loop runs N times; each iteration builds a
+; fresh 64-element list, sums it, and drops it. At any moment one such list
+; is live, so the program needs about 1 KB. Section 10.3's arena never frees,
+; so every dropped list stays allocated and peak memory grows with N, at
+; 16 bytes per cons cell ever made. See measure.sh for the numbers.
+
+(def fill ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (fill (sub n 1) (cons n acc))))
+
+(def sum ((xs (list int)) (acc int)) int
+  (if (is_empty xs) acc (sum (tail xs) (add acc (head xs)))))
+
+(def loop ((n int) (total int)) int
+  (if (eq n 0)
+      total
+      (loop (sub n 1) (add total (sum (fill 64 (nil int)) 0)))))
+
+(def main ((input (list int))) int
+  (loop (int_prefix input 0) 0))

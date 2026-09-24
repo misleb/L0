@@ -1,0 +1,36 @@
+; linefilter.l0 -- keep the lines of standard input that contain "ERROR".
+;
+; What this does: reads standard input, writes every line that contains the
+; fixed substring "ERROR", each followed by a newline, in input order.
+;
+; What it does not do, and cannot in L0 as specified today:
+; - run in memory proportional to one line. The host materializes all of
+;   stdin as a list before main runs, nothing is ever freed, and the output
+;   is materialized before any of it is written. See README.md for numbers.
+; - write a matching line before the end of input arrives.
+; - take the substring from the command line (there are no arguments).
+
+(def needle ((ignored int)) (list int) "ERROR")
+
+(def contains ((s (list int)) (pat (list int))) bool
+  (if (starts_with s pat)
+      true
+      (if (is_empty s) false (contains (tail s) pat))))
+
+; cur is the current line, reversed. out is the output, reversed.
+(def filter_onto ((s (list int)) (cur (list int)) (out (list int)))
+    (list int)
+  (if (is_empty s)
+      (if (is_empty cur) out (keep_line cur out))
+      (if (eq (head s) 10)
+          (filter_onto (tail s) (nil int) (keep_line cur out))
+          (filter_onto (tail s) (cons (head s) cur) out))))
+
+(def keep_line ((cur (list int)) (out (list int))) (list int)
+  (let line (rev cur)
+    (if (contains line (needle 0))
+        (cons 10 (push line out))
+        out)))
+
+(def main ((input (list int))) (list int)
+  (rev (filter_onto input (nil int) (nil int))))

@@ -1,0 +1,5 @@
+ERROR at start
+middle ERROR middle
+ends with ERROR
+ERRORERROR twice
+last line ERROR, no newline

@@ -1,0 +1,16 @@
+; 03-output-held-until-exit.l0 -- write N lines of output from a tiny input.
+;
+; Blocks: linefilter, counter (output proportional to input), prompt.
+;
+; Input is a decimal count N; output is N copies of "y\n". Section 9 writes
+; main's result only after main returns, so the whole output exists as a
+; list first: 16 bytes of memory per output byte, and no byte reaches stdout
+; until the last one has been computed. This program builds its output in
+; order; one that uses section 11.1's reversed accumulator pays twice,
+; because the final rev copies the list.
+
+(def ys ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (ys (sub n 1) (cons 121 (cons 10 acc)))))
+
+(def main ((input (list int))) (list int)
+  (ys (int_prefix input 0) (nil int)))

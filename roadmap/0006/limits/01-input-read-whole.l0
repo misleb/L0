@@ -1,0 +1,14 @@
+; 01-input-read-whole.l0 -- a program that never looks at its input.
+;
+; Blocks: linefilter, counter (memory proportional to one line or to the
+; state, rather than to the input).
+;
+; Section 9 has the host read standard input to end of file and build the
+; whole (list int) before main is called. So even a program that ignores its
+; input pays for all of it, at 16 bytes per input byte (one cons cell), plus
+; the read buffer. No allocator change fixes this: the list is live as a
+; whole when main is entered, because main's parameter refers to its first
+; cell. See measure.sh for the numbers.
+
+(def main ((input (list int))) int
+  0)

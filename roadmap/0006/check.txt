@@ -1,0 +1,83 @@
+$ tools/l0check lib/prelude.l0 programs/linefilter/linefilter.l0
+ok: 2 files type check together
+exit 0
+
+$ tools/l0check lib/prelude.l0 programs/counter/counter.l0
+ok: 2 files type check together
+exit 0
+
+$ tools/l0check lib/prelude.l0 programs/limits/01-input-read-whole.l0
+ok: 2 files type check together
+exit 0
+
+$ tools/l0check lib/prelude.l0 programs/limits/02-no-reclamation.l0
+ok: 2 files type check together
+exit 0
+
+$ tools/l0check lib/prelude.l0 programs/limits/03-output-held-until-exit.l0
+ok: 2 files type check together
+exit 0
+
+$ tools/l0check lib/prelude.l0 programs/limits/04-no-output-before-eof.l0
+ok: 2 files type check together
+exit 0
+
+$ tools/l0check lib/prelude.l0 programs/limits/05-no-command-line.l0
+ok: 2 files type check together
+exit 0
+
+$ tools/l0check lib/prelude.l0 programs/limits/06-no-files.l0
+programs/limits/06-no-files.l0:10:4: error: unknown function 'read_file'
+programs/limits/06-no-files.l0:13:4: error: unknown function 'write_file'
+exit 1
+
+$ tools/l0check lib/prelude.l0 programs/limits/07-no-failure-report.l0
+programs/limits/07-no-failure-report.l0:11:4: error: unknown function 'fail'
+exit 1
+
+$ tools/l0check lib/prelude.l0 programs/limits/07b-only-exit-is-a-crash.l0
+ok: 2 files type check together
+exit 0
+
+$ tools/l0check lib/prelude.l0 programs/hypothetical/01-input-read-whole.l0
+programs/hypothetical/01-input-read-whole.l0:23:11: error: unknown function 'write_stdout'
+programs/hypothetical/01-input-read-whole.l0:27:14: error: unknown function 'read_line'
+exit 1
+
+$ tools/l0check lib/prelude.l0 programs/hypothetical/02-no-reclamation.l0
+programs/hypothetical/02-no-reclamation.l0:43:14: error: unknown function 'read_line'
+exit 1
+
+$ tools/l0check lib/prelude.l0 programs/hypothetical/03-output-held-until-exit.l0
+programs/hypothetical/03-output-held-until-exit.l0:12:15: error: unknown function 'write_stdout'
+programs/hypothetical/03-output-held-until-exit.l0:16:20: error: unknown function 'read_line'
+exit 1
+
+$ tools/l0check lib/prelude.l0 programs/hypothetical/04-no-output-before-eof.l0
+programs/hypothetical/04-no-output-before-eof.l0:10:15: error: unknown function 'write_stdout'
+exit 1
+
+$ tools/l0check lib/prelude.l0 programs/hypothetical/05-no-command-line.l0
+programs/hypothetical/05-no-command-line.l0:15:14: error: unknown function 'read_line'
+programs/hypothetical/05-no-command-line.l0:25:15: error: unknown function 'write_stderr'
+exit 1
+
+$ tools/l0check lib/prelude.l0 programs/hypothetical/06-no-files.l0
+programs/hypothetical/06-no-files.l0:19:24: error: unknown type 'File'
+programs/hypothetical/06-no-files.l0:27:20: error: unknown type 'File'
+programs/hypothetical/06-no-files.l0:15:11: error: unknown function 'write_stderr'
+programs/hypothetical/06-no-files.l0:38:11: error: unknown function 'open_read'
+programs/hypothetical/06-no-files.l0:51:15: error: unknown function 'write_stderr'
+exit 1
+
+$ tools/l0check lib/prelude.l0 programs/hypothetical/07-no-failure-report.l0
+programs/hypothetical/07-no-failure-report.l0:9:11: error: unknown function 'write_stderr'
+exit 1
+
+$ tools/l0 build programs/limits/05-no-command-line.l0
+error: main must take one parameter of type (list int)
+exit 1
+
+$ build/l0i run lib/prelude.l0 programs/limits/05-no-command-line.l0 < /dev/null
+programs/limits/05-no-command-line.l0:14:6: error: main must take one parameter of type (list int)
+exit 1

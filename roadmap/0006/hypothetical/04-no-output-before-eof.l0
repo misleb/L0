@@ -1,0 +1,13 @@
+; HYPOTHETICAL -- NOT L0. Does not check. Assumes the facilities listed in
+; README.md in this directory: read_line, write_stdout, and the argv form of
+; main.
+;
+; The prompt program. The question is written, and flushed because a read
+; follows, before the answer is read; the greeting depends on the answer.
+; Unblocks limit 04.
+
+(def main ((args (list (list int)))) int
+  (let asked (write_stdout "What is your name? ")
+    (let name (take_line (read_line))
+      (let greeted (write_stdout (append "Hello, " (append name "!\n")))
+        0))))

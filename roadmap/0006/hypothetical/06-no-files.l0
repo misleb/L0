@@ -1,0 +1,51 @@
+; HYPOTHETICAL -- NOT L0. Does not check. Assumes the facilities listed in
+; README.md in this directory: the argv form of main, open_read, open_write,
+; read_bytes, write_bytes, close, write_stderr, the predeclared types File
+; and Opened, and reclamation.
+;
+; filecopy: `./filecopy in.txt out.txt`. Copies in chunks, so memory is one
+; chunk however large the file, given reclamation. Unblocks limit 06, and
+; uses 05 (arguments) and 07 (stderr, exit status) too. Every failure is
+; reported and gives status 1; a wrong argument count gives 2.
+;
+; Because open returns a data type, match's exhaustiveness makes the checker
+; reject a version that forgets the OpenFailed case.
+
+(def complain ((path (list int)) (why (list int))) int
+  (let w (write_stderr
+           (append "filecopy: " (append path (append ": " (append why "\n")))))
+    1))
+
+(def copy_chunks ((src File) (dst File)) int
+  (let chunk (read_bytes src 65536)
+    (if (is_empty chunk)
+        0
+        (if (lt (write_bytes dst chunk) 0)
+            1
+            (copy_chunks src dst)))))
+
+(def copy_to ((src File) (to (list int))) int
+  (match (open_write to)
+    ((OpenFailed why) (complain to why))
+    ((Opened dst)
+      (let status (copy_chunks src dst)
+        (let closed (close dst)
+          (if (and (eq status 0) (ge closed 0))
+              0
+              (complain to "write failed")))))))
+
+(def copy ((from (list int)) (to (list int))) int
+  (match (open_read from)
+    ((OpenFailed why) (complain from why))
+    ((Opened src)
+      (let status (copy_to src to)
+        (let closed (close src)
+          status)))))
+
+(def count_strs ((xs (list (list int))) (n int)) int
+  (if (is_empty xs) n (count_strs (tail xs) (add n 1))))
+
+(def main ((args (list (list int)))) int
+  (if (eq (count_strs args 0) 3)
+      (copy (head (tail args)) (head (tail (tail args))))
+      (let w (write_stderr "usage: filecopy FROM TO\n") 2)))

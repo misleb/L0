@@ -1,0 +1,26 @@
+; HYPOTHETICAL -- NOT L0. Does not check. Assumes the facilities listed in
+; README.md in this directory: the argv form of main, write_stderr, and
+; read_line / write_stdout for the filter itself.
+;
+; The line filter with its substring taken from the command line, as
+; `./linefilter ERROR < app.log`. Unblocks limit 05. The usage message also
+; needs limit 07 lifted (stderr and an exit status).
+
+(def contains ((s (list int)) (pat (list int))) bool
+  (if (starts_with s pat)
+      true
+      (if (is_empty s) false (contains (tail s) pat))))
+
+(def filter_lines ((pat (list int))) int
+  (let line (read_line)
+    (if (is_empty line)
+        0
+        (if (contains line pat)
+            (let w (write_stdout line) (filter_lines pat))
+            (filter_lines pat)))))
+
+; args holds the program name first, so one argument means a list of two.
+(def main ((args (list (list int)))) int
+  (if (is_empty (tail args))
+      (let w (write_stderr "usage: linefilter SUBSTRING\n") 2)
+      (filter_lines (head (tail args)))))

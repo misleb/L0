@@ -1,0 +1,9 @@
+; 07b-only-exit-is-a-crash.l0 -- the one way an L0 program can exit nonzero.
+;
+; Companion to 07. This checks and runs: it takes the head of an empty list
+; on purpose. The process exits 70 with "l0: runtime error: head of empty
+; list" on stderr, and whatever the program meant to say is lost. There is no
+; way to choose the status or the message.
+
+(def main ((input (list int))) (list int)
+  (head (nil (list int))))

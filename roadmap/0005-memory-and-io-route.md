@@ -1,7 +1,7 @@
 # 0005: Which route to memory management and I/O
 
 Kind: research
-Status: active
+Status: done
 Needs: nothing
 
 ## Why
@@ -124,3 +124,56 @@ safe facilities built on them.
   oracle, and uses a property L0 already has; then I/O as builtins in
   expression position under section 8's ordering. The systems primitives
   would wait until a program needs them. 0006 may overturn this.
+- 2026-09-23: **0006 reported; question 4 and the recommendation.**
+
+  4. *The agent as author.* 0006's four programs needed six facilities, and
+     none of them is a raw primitive: reclaimed memory, incremental stdin and
+     stdout, arguments, files, and a way to fail. What would let the checker
+     catch mistakes is an operation that can fail returning a data type with
+     a failure case, since exhaustive one-level `match` then rejects a
+     program that forgets the error path. Raw loads, stores, and C calls give
+     the checker nothing: every value is an `i64`, so a wrong pointer, length,
+     or errno passes. And freeing by hand cannot be made safe in L0, because
+     lists share their tails invisibly.
+
+  0006 also settles the order, with numbers. Neither reclamation nor
+  streaming bounds memory alone: the counter would still cost 86 bytes per
+  input byte with a collector and 120 without one but with streaming. And
+  reclamation changes what a program costs, while streaming I/O changes what
+  can be written at all: prompt and filecopy are impossible today.
+
+  The host loop that "Output before input" preferred, re-running a pure
+  `main` on a longer transcript each turn, fixes prompting and nothing else.
+  For the counter it would mean 2.8 million re-runs on 100 MB of input. It
+  is rejected here on that evidence.
+
+  **Recommendation: the language route.** L0 gains safe facilities
+  implemented in `runtime/l0rt.ll`, and L0 code never touches raw memory.
+  Section 8's guarantee stays whole. The price is purity: I/O becomes
+  effects in expression position, ordered by section 8's existing
+  left-to-right rule. Proposed order, each its own language item:
+
+  1. *Checking enforces `main`'s signature,* per 0006's spec finding 1. Small,
+     independent, and it removes a trap every later item would walk into.
+  2. *Streaming stdin and stdout,* as builtins in expression position, with
+     section 8's no-output-on-error rule revised. This makes prompt possible
+     and removes limits 01, 03, and 04.
+  3. *Arguments, files, and failure,* with operations that can fail
+     returning data types a `match` must handle. This makes filecopy
+     possible.
+  4. *Reclamation by reference counting,* invisible to programs, judged
+     against stage 0 by the whole differential suite, and correcting section
+     10.3's case for the arena. Probably several bootstrapped changes.
+  5. *Tail calls,* either specified or not relied on, per spec finding 4.
+     This needs research of its own: LLVM's `musttail` requires matching
+     signatures, which L0 functions of different arities do not have.
+
+  The systems primitives are deferred, not rejected. They return to the table
+  if a program needs them, or if writing the runtime in L0 becomes a goal in
+  its own right, with 0002's limits as the list.
+
+  Waiting on the user's agreement before opening the items.
+- 2026-09-23: the user agreed to the language route, in the proposed order.
+  Opened 0007 to 0010 as language items and 0011 as research. The decision
+  is recorded in the changelog as "The route to memory management and I/O".
+  Done.

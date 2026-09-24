@@ -1,0 +1,9 @@
+first line
+ERROR at start
+middle ERROR middle
+ends with ERROR
+
+ERRO is not a match
+error in lower case is not a match
+ERRORERROR twice
+last line ERROR, no newline

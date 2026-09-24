@@ -1,0 +1,16 @@
+; 06-no-files.l0 -- read one named file and write another.
+;
+; Blocks: filecopy.
+;
+; Section 6 lists every builtin, and none names a file. Two declarations, so
+; the checker (one error per declaration) reports both missing operations.
+; The paths are literals here so that this limit is independent of 05.
+
+(def load ((path (list int))) (list int)
+  (read_file path))
+
+(def save ((path (list int)) (bytes (list int))) int
+  (write_file path bytes))
+
+(def main ((input (list int))) int
+  (save "out.txt" (load "in.txt")))

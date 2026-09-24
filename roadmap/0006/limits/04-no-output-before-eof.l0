@@ -1,0 +1,16 @@
+; 04-no-output-before-eof.l0 -- the nearest program L0 can express to "ask a
+; name, then greet it". It is NOT the prompt program: it is the evidence that
+; the prompt program cannot be written.
+;
+; Blocks: prompt; also linefilter and counter as pipeline stages (neither can
+; write a result for a line while later input is still to come).
+;
+; The question is part of main's result, and section 9 writes that result
+; only after main returns, and calls main only after standard input has
+; reached end of file. So the question can never be on the screen while the
+; user could still answer it. prompt/measure.sh times this.
+
+(def main ((input (list int))) (list int)
+  (rev (push "!\n"
+         (push (take_line input)
+           (push "What is your name? Hello, " (nil int))))))

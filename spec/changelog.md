@@ -7,6 +7,66 @@ New entries go at the top.
 
 ---
 
+## The route to memory management and I/O
+
+**No semantic change yet. L0 is exactly the language it was before this
+entry.** What this records is a decision about what L0 becomes, made before
+any of it is built, because it ends a property the spec has had since v1.
+
+**The decision.** L0 gains memory management and I/O as safe facilities
+implemented in the runtime, and I/O becomes effects in expression position,
+ordered by section 8's existing left-to-right rule. L0 code does not get raw
+memory. This ends L0's purity, deliberately. Section 8's guarantee that a
+program which type checks cannot read uninitialized memory stays whole.
+
+**The evidence.** Roadmap item 0002 tried to write the runtime in L0 and
+found ten limits, every one of them a systems primitive: loads and stores at
+an address, static storage, calls to C, symbol names, C types. Item 0006 then
+wrote four ordinary programs, a line filter, a word counter, a prompt, and a
+file copy. None of them needed any of those primitives. What they needed was
+reclaimed memory, incremental standard input and output, arguments, files,
+and a way to fail. The prompt and the file copy cannot be written at all
+today, and the two that can are costly, measured:
+
+- the line filter uses 53 bytes of memory per input byte, 16 GB for one pass
+  over 300 MB
+- the word counter, whose table never holds more than 14 entries, uses 208
+  bytes per input byte
+- a loop that never holds more than about 1 KB live reaches 9.8 GB after 10
+  million iterations
+
+**Why safe facilities rather than primitives.** L0 is written by agents, so
+what counts is whether the checker catches their mistakes. An operation that
+can fail can return a data type with a failure case, and exhaustive one-level
+`match` then rejects a program that forgets the error path. Raw memory gives
+the checker nothing: every value is an `i64` at run time, so a wrong pointer,
+length, or errno passes. And freeing by hand cannot be made safe in L0 at all,
+because lists share their tails invisibly.
+
+**Reclamation will be reference counting.** It is complete for L0 without a
+cycle collector: there is no mutation, evaluation is strict, and `let` cannot
+define a recursive value (section 5.3), so an L0 heap can never contain a
+cycle. It is also invisible to programs, so the whole differential suite
+keeps judging it against stage 0.
+
+**What this overrules.** "Output before input is an accepted blocker" below
+preferred keeping `main` pure and re-running it on a longer transcript each
+turn. That fixes prompting and nothing else: for the word counter it would
+mean 2.8 million re-runs on 100 MB of input. Its blocker and measurement
+stand; its preferred shape is rejected on this evidence.
+
+**What was deferred, not rejected.** The systems primitives return to the
+table if a program needs them, or if writing the runtime in L0 becomes a goal
+in its own right. `roadmap/0002/` holds their list and first drafts.
+
+**The order.** Checking enforces `main`'s signature first, a small fix 0006
+found. Then streaming standard input and output, then arguments, files, and
+failure, then reference counting. Streaming comes before reclamation because
+it changes what can be written, not only what it costs, and 0006 measured
+that neither bounds memory without the other.
+
+---
+
 ## The runtime is LLVM IR, and stack exhaustion is checked rather than caught
 
 **No change to what an L0 program means.** Every program produces the same

@@ -1,0 +1,10 @@
+; HYPOTHETICAL -- NOT L0. Does not check. Assumes the facilities listed in
+; README.md in this directory: write_stderr and the argv form of main, whose
+; int result is the exit status.
+;
+; Limit 07's failure, reported: a message of the program's choosing on
+; stderr, nothing on stdout, and exit status 1.
+
+(def main ((args (list (list int)))) int
+  (let w (write_stderr "filecopy: in.txt: No such file or directory\n")
+    1))

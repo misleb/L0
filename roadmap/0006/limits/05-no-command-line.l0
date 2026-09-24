@@ -1,0 +1,15 @@
+; 05-no-command-line.l0 -- read the command-line arguments.
+;
+; Blocks: filecopy (./filecopy in.txt out.txt); also linefilter, whose
+; substring would naturally be an argument rather than a constant.
+;
+; Section 9 requires main to take exactly one parameter, of type (list int),
+; which is standard input. There is no other channel into a program, so
+; argv cannot be reached however main is declared.
+;
+; Note: tools/l0check and `tools/l0 check` both ACCEPT this file, because
+; they check without requiring an entry point and so never look at main's
+; signature. `tools/l0 build` and `build/l0i run` reject it. See README.md.
+
+(def main ((args (list (list int))) (input (list int))) (list int)
+  (head args))

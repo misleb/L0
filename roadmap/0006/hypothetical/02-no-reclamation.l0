@@ -1,0 +1,52 @@
+; HYPOTHETICAL -- NOT L0. Does not check. Assumes the facilities listed in
+; README.md in this directory: read_line, write_stdout, the argv form of
+; main, and reclamation.
+;
+; The word counter as it should have been written. bump, sep, and the data
+; types are exactly those of ../counter/counter.l0, unchanged: reclamation
+; (limit 02) needs no new syntax, only a runtime that frees what bump's copy
+; of the table leaves behind. With it, memory is the table (a dozen entries)
+; plus one line. Reading and reporting a line at a time additionally needs
+; limits 01 and 03 lifted.
+
+(data Entry
+  (E (list int) int))                   ; word, count so far
+
+(data Bumped
+  (B (list Entry) int))                 ; updated table, the word's new count
+
+(data St
+  (S (list Entry) (list int)))          ; table, reversed output line
+
+(def bump ((t (list Entry)) (w (list int))) Bumped
+  (if (is_empty t)
+      (B (cons (E w 1) (nil Entry)) 1)
+      (match (head t)
+        ((E k c)
+          (if (list_eq k w)
+              (B (cons (E k (add c 1)) (tail t)) (add c 1))
+              (match (bump (tail t) w)
+                ((B rest n) (B (cons (E k c) rest) n))))))))
+
+(def sep ((out (list int))) (list int)
+  (if (is_empty out) out (cons 32 out)))
+
+(def report ((ws (list (list int))) (t (list Entry)) (out (list int))) St
+  (if (is_empty ws)
+      (S t out)
+      (match (bump t (head ws))
+        ((B t2 n)
+          (report (tail ws) t2
+            (push (digits n) (cons 61 (push (head ws) (sep out)))))))))
+
+(def count_lines ((t (list Entry))) int
+  (let line (read_line)
+    (if (is_empty line)
+        0
+        (match (report (split_spaces (take_line line)) t (nil int))
+          ((S t2 out)
+            (let w (write_stdout (rev (cons 10 out)))
+              (count_lines t2)))))))
+
+(def main ((args (list (list int)))) int
+  (count_lines (nil Entry)))
