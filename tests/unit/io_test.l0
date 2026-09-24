@@ -96,6 +96,49 @@
           (let c (file_close f)
             (check_strs "lines" lines (want_lines))))))))
 
+; file_next_line reads the same lines as IoLine, then IoEnd every time after.
+(def line_text ((l IoLine)) (list int)
+  (match l
+    ((IoLine s) s)
+    ((IoEnd) "<end>")
+    ((IoError code) (append "<error " (append (digits code) ">")))))
+
+(def next_five ((f IoFile)) (list (list int))
+  (let a (line_text (file_next_line f))
+    (let b (line_text (file_next_line f))
+      (let c (line_text (file_next_line f))
+        (let d (line_text (file_next_line f))
+          (let e (line_text (file_next_line f))
+            (cons a (cons b (cons c (cons d (cons e (nil (list int)))))))))))))
+
+(def test_file_next_line () int
+  (let w (write_lines_file "lines3.txt")
+    (match (open_in "lines3.txt")
+      ((IoFailed why) (check_str "open" why ""))
+      ((IoOpened f)
+        (let lines (next_five f)
+          (let c (file_close f)
+            (check_strs "lines" lines
+              (cons "one\n" (cons "\n" (cons "three"
+                (cons "<end>" (cons "<end>" (nil (list int))))))))))))))
+
+; A failed read is IoError, where file_read_line would have seen an end.
+(def test_next_line_of_a_directory () int
+  (match (open_in ".")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let l (line_text (file_next_line f))
+        (let c (file_close f)
+          (check_str "line" l "<error -5>"))))))
+
+(def test_next_line_of_a_file_being_written () int
+  (match (open_out "written.txt")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let l (line_text (file_next_line f))
+        (let c (file_close f)
+          (check_str "line" l "<error -2>"))))))
+
 ; End of input is -1 on every read after it, not only the first.
 (def test_end_of_input_sticks () int
   (let w (write_lines_file "short.txt")

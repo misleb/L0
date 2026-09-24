@@ -5,8 +5,7 @@ Goals: README.md, "What L0 aims to be". Not restated here.
 Current focus: the memory-management and I/O goal is met by the language route
 (changelog "The route to memory management and I/O"): streaming and file I/O,
 arguments, reference counting, and guaranteed tail calls. From 0014's
-evidence, the gaps it left come first, 0018 to 0020, after the tooling item
-0017. The next goal is arrays, with compact bytes and in-place
+evidence, the gaps it left come first, 0018 to 0020. The next goal is arrays, with compact bytes and in-place
 update, starting from 0021.
 
 ## Language queue
@@ -14,7 +13,7 @@ update, starting from 0021.
 Changes to the language, strictly in order. At most one is active.
 
 1. [0018](0018-write-failures-reported.md) a program can learn that its
-   writes failed — queued, needs 0017
+   writes failed — queued, next
 2. [0019](0019-append-and-rename.md) append to a file, and replace one whole —
    queued, needs 0018
 3. [0020](0020-in-memory-handles.md) handles that read from and write to
@@ -22,8 +21,6 @@ Changes to the language, strictly in order. At most one is active.
 
 ## Other open items
 
-- [0017](0017-library-and-tool-fixes.md) tooling: library and tool fixes from
-  0014 — queued, next
 - [0021](0021-arrays-route.md) research: how L0 gets arrays, compact bytes,
   and in-place update — proposed, after 0020
 
@@ -65,3 +62,6 @@ Changes to the language, strictly in order. At most one is active.
   to 0017 through 0021
 - [0016](0016-linux-test-image.md) tooling: a local image for the Linux test
   runs — done, `tools/linux-test.sh`
+- [0017](0017-library-and-tool-fixes.md) tooling: library and tool fixes from
+  0014 — done, changelog "Reading a line can report a failure, and no
+  language change for it"

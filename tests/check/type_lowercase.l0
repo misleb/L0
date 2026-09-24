@@ -1,0 +1,5 @@
+; A lowercase word where a type belongs names no type, and the message says
+; which word it was.
+(def f ((x string)) int 0)
+
+(def main ((input (list int))) int 0)

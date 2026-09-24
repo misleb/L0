@@ -4,9 +4,11 @@
 # write_bundle NOMAIN FILE... writes a compiler input bundle, spec section
 # 9.1, to stdout. NOMAIN is 1 to relax the requirement for a main.
 #
-# When lib/io.l0 is among the files, it and lib/prelude.l0 are made the
-# prelude group, as tools/l0 always makes them, since only the prelude may
-# declare the names spec section 7.1 reserves for the standard library.
+# When lib/io.l0 or lib/test.l0 is among the files, they and lib/prelude.l0
+# are made the prelude group, as tools/l0 makes them, since only the prelude
+# may declare the names spec section 7.1 reserves for the standard library,
+# and a program may shadow what the prelude defines. lib/test.l0 joins it
+# the way l0 test links it, so a test file checks here as it builds there.
 # Otherwise every file is the program, which is how the compiler itself is
 # built.
 
@@ -19,23 +21,25 @@ write_bundle() {
     shift
     stdlib=0
     for f in "$@"; do
-        if [ "$(abspath "$f")" = "$ROOT/lib/io.l0" ]; then
-            stdlib=1
-        fi
+        case "$(abspath "$f")" in
+            "$ROOT/lib/io.l0" | "$ROOT/lib/test.l0") stdlib=1 ;;
+        esac
     done
     pre=""
     rest=""
     if [ "$stdlib" = 1 ]; then
         pre_p="$ROOT/lib/prelude.l0"
-        pre_i=""
+        pre_i="$ROOT/lib/io.l0"
+        pre_t=""
         for f in "$@"; do
             case "$(abspath "$f")" in
                 "$ROOT/lib/prelude.l0") pre_p=$f ;;
                 "$ROOT/lib/io.l0") pre_i=$f ;;
+                "$ROOT/lib/test.l0") pre_t=$f ;;
                 *) rest="$rest $f" ;;
             esac
         done
-        pre="$pre_p $pre_i"
+        pre="$pre_p $pre_i $pre_t"
     else
         rest="$*"
     fi

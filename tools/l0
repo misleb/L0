@@ -4,7 +4,9 @@
 # Usage:
 #   l0 build FILE.l0 [MORE.l0 ...] [-o OUT]   compile and link an executable
 #   l0 check FILE.l0 [MORE.l0 ...]            type check only
-#   l0 run   FILE.l0 [MORE.l0 ...]            build to a temporary file, run
+#   l0 run   FILE.l0 [MORE.l0 ...] [-- ARG ...]
+#                                             build to a temporary file, and run
+#                                             it with the arguments after --
 #   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
 #   l0 test  FILE.l0 [MORE.l0 ...]            run every (def test_NAME () int ...)
 #   l0 init  [DIR]                            scaffold a project for an agent
@@ -12,8 +14,12 @@
 #
 # Options:
 #   --no-prelude    do not include the standard library
+#   --test          l0 check: check as l0 test builds, with test.l0 linked
 #   --match TEXT    l0 test: run only tests whose names contain TEXT
 #   --bless         l0 test: rewrite golden files instead of comparing
+#
+# l0 test runs every test with L0_RC_CHECK set, and a test that leaves
+# memory it never freed fails, since that is a compiler or runtime bug.
 #
 # Several files are compiled together, because L0 has no module system.
 # The standard library, lib/prelude.l0 and lib/io.l0, is included
@@ -82,13 +88,14 @@ ensure_toolchain() {
 }
 
 usage() {
-    sed -n '2,28p' "$SELF/l0" | sed 's/^# \{0,1\}//'
+    sed -n '2,/^$/p' "$SELF/l0" | sed -e '/^$/d' -e 's/^# \{0,1\}//'
     exit 2
 }
 
 # ------------------------------------------------------------------ inputs
 
 WANT_PRELUDE=1
+WANT_TEST=0
 OUT=""
 FILES=""
 MATCH=""
@@ -98,6 +105,7 @@ parse_args() {
     while [ $# -gt 0 ]; do
         case "$1" in
             --no-prelude) WANT_PRELUDE=0 ;;
+            --test) WANT_TEST=1 ;;
             --bless) BLESS="--bless" ;;
             --match)
                 shift
@@ -186,7 +194,12 @@ setup() {
     RUNTIME=${L0_RUNTIME:-$LIB/libl0rt.a}
     SOURCES=$FILES
     PRELUDE_END=0
-    if [ "$WANT_PRELUDE" = 1 ]; then
+    if [ "$WANT_TEST" = 1 ]; then
+        # lib/test.l0 joins the standard library in the prelude group.
+        SOURCES="$LIB/prelude.l0 $LIB/io.l0 $LIB/test.l0 $FILES"
+        PRELUDE_END=$(cat "$LIB/prelude.l0" "$LIB/io.l0" "$LIB/test.l0" |
+            wc -c | tr -d ' ')
+    elif [ "$WANT_PRELUDE" = 1 ]; then
         SOURCES="$LIB/prelude.l0 $LIB/io.l0 $FILES"
         PRELUDE_END=$(cat "$LIB/prelude.l0" "$LIB/io.l0" | wc -c | tr -d ' ')
     fi
@@ -227,19 +240,31 @@ case "$cmd" in
         ;;
 
     run)
-        setup "$@"
+        # Everything before -- is for the driver, and everything after it
+        # goes to the program, which may take arguments that look like files.
+        n=0
+        for a in "$@"; do
+            [ "$a" = "--" ] && break
+            n=$((n + 1))
+        done
+        own=""
+        while [ "$n" -gt 0 ]; do
+            own="$own $1"
+            shift
+            n=$((n - 1))
+        done
+        [ $# -gt 0 ] && shift
+        # shellcheck disable=SC2086
+        setup $own
         run_compiler "$TMP/out.ll"
         "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
             -o "$TMP/prog"
-        "$TMP/prog"
+        "$TMP/prog" "$@"
         ;;
 
     test)
+        WANT_TEST=1
         setup "$@"
-        # lib/test.l0 joins the standard library in the prelude group.
-        SOURCES="$LIB/prelude.l0 $LIB/io.l0 $LIB/test.l0 $FILES"
-        PRELUDE_END=$(cat "$LIB/prelude.l0" "$LIB/io.l0" "$LIB/test.l0" |
-            wc -c | tr -d ' ')
 
         # L0 has no function values, so a program cannot list its own
         # functions; the tests are found here instead. A test is
@@ -292,9 +317,19 @@ case "$cmd" in
         failed=0
         for t in "$@"; do
             n=$((n + 1))
-            if "$TMP/prog" "$t" $BLESS > "$TMP/t.out" 2> "$TMP/t.err" < /dev/null
+            if L0_RC_CHECK=1 "$TMP/prog" "$t" $BLESS > "$TMP/t.out" \
+                2> "$TMP/t.err" < /dev/null
             then st=0
             else st=$?
+            fi
+            # The runtime reports blocks still live at a normal exit, and
+            # exits 0 all the same; spec section 10.3.
+            if [ "$st" = 0 ] && grep -q '^l0: blocks still live' "$TMP/t.err"; then
+                echo "not ok $n - $t"
+                echo "  # memory was never freed: a compiler or runtime bug"
+                failed=$((failed + 1))
+                sed 's/^/  # /' "$TMP/t.err"
+                continue
             fi
             want=""
             case " $expects " in

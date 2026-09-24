@@ -25,16 +25,16 @@
       (push (tail chunk) (cons (head chunk) acc))))
 
 ; Ordinary concatenation. Only for short strings such as diagnostics, never
-; for building compiler output.
+; for building compiler output. It copies xs twice, reversing it and then
+; reversing it onto ys, so that neither pass takes a stack frame per byte.
 (def append ((xs (list int)) (ys (list int))) (list int)
-  (if (is_empty xs)
-      ys
-      (cons (head xs) (append (tail xs) ys))))
+  (rev_onto (rev xs) ys))
 
 (def length ((xs (list int))) int
-  (if (is_empty xs)
-      0
-      (add 1 (length (tail xs)))))
+  (length_onto xs 0))
+
+(def length_onto ((xs (list int)) (n int)) int
+  (if (is_empty xs) n (length_onto (tail xs) (add n 1))))
 
 (def list_eq ((xs (list int)) (ys (list int))) bool
   (if (is_empty xs)

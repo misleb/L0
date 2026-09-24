@@ -1,7 +1,7 @@
 # 0017: Library and tool fixes from 0014
 
 Kind: tooling
-Status: queued
+Status: done
 Needs: nothing
 
 ## Why
@@ -38,3 +38,33 @@ each fix, and both suites green.
 ## Log
 
 - 2026-09-24: opened from 0014.
+- 2026-09-24: done; changelog "Reading a line can report a failure, and no
+  language change for it". Each finding:
+  - *read_line's errors:* fixed by adding `next_line` and `file_next_line`,
+    returning `IoLine`; the old two keep their meaning and say so. Tested in
+    `tests/unit/io_test.l0` on a file, a directory (`IoError -5`), and a file
+    open for writing (`IoError -2`).
+  - *leaks invisible:* fixed. `l0 test` runs every test with `L0_RC_CHECK=1`
+    and fails one whose run reports blocks still live. `tests/io/framework.sh`
+    shows it with a stand-in compiler that drops every `l0_dec`.
+  - *grouping of `lib/test.l0`:* fixed in `tools/bundle.sh`, and
+    `l0 check --test` added; both tested in `framework.sh` on a test file that
+    shadows `read_all`.
+  - *skill paths:* the in-repository `l0-code` skill now maps the shipped
+    skill's `l0/` paths onto `spec/` and `lib/`; the shipped skill no longer
+    calls L0 pure.
+  - *`l0 run` arguments:* fixed, as `l0 run FILE... -- ARG...`, and the
+    program's exit status is the driver's; tested in `framework.sh`.
+  - *`main` in its own file:* now said in the shipped skill's testing section.
+  - *non-tail prelude functions:* `length`, `append`, and `args` fixed.
+    `tests/io/prelude_depth` runs a million elements at `-O0` on a 1 MB
+    stack; with the old prelude it exhausts the stack.
+  - *unnamed "unknown type":* only the parser's message for a lowercase word
+    in type position lacked the name; it now gives the word and what a type
+    can be. New `tests/check/type_lowercase`; `parse_errors`' golden changed
+    by exactly those two lines.
+  - *`is_lower` and `_`:* declined as a change, since it tests what may start
+    a lowercase name and the lexer relies on that; the shipped skill says so.
+
+  Both suites green (58 and 67), fixpoint holds, seed refreshed, since the
+  prelude the compiler is built from changed.

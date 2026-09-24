@@ -8,9 +8,11 @@ compiled to native code through LLVM, with no C in a compiled program, and
 gaining I/O and memory management as safe facilities the runtime provides. It
 is written for agents to read and write, not humans.
 
-Smallness and purity describe L0 as it stands, not promises about what it stays.
-Both are revisable; `spec/L0.md` names what currently rests on purity so the
-cost of revising it can be read rather than guessed.
+L0 is small, and is no longer pure: its I/O builtins are effects, sequenced by
+evaluation order, though it still has no mutable state. Smallness is a
+description, not a commitment, and so was purity; `spec/L0.md` says what gave
+it up and what still holds, so the cost of each next revision can be read
+rather than guessed.
 
 You are the primary author of L0 code here, and also the one who changes the
 language. **There is no L0 in your training data**, so familiarity cannot

@@ -205,7 +205,9 @@
                   "list needs an element type, as in (list int)")
                 (if (name_is_upper n)
                     (PTOk (TyData n) rest)
-                    (PTErr (tok_offset t) "unknown type")))))))
+                    (PTErr (tok_offset t)
+                      (append "unknown type " (append n
+                        ": a type is int, bool, (list T), or a data type, whose name starts uppercase")))))))))
 
 (def parse_list_type ((ts (list Token)) (open int)) PTy
   (if (is_empty ts)

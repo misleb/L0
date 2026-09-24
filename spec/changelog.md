@@ -7,6 +7,35 @@ New entries go at the top.
 
 ---
 
+## Reading a line can report a failure, and no language change for it
+
+**`lib/io.l0` gains `next_line` and `file_next_line`,** which return an
+`IoLine`: `(IoLine s)`, `(IoEnd)`, or `(IoError code)`. All three of roadmap
+item 0014's workers found that `read_line` and `file_read_line` treat a
+failed read as end of input, so a failed read looked like a short file,
+which the skill tells a program never to allow. linediff, minigrep, and
+kvstore each wrote their own reader. Two of their hypotheticals proposed this
+same type, one with a code and one with words; it carries the code, because
+kvstore had to match on the text of `IoFailed`'s words to tell a missing
+file from others, and `io_error` still gives the words.
+
+`read_line` and `file_read_line` stay as they were, since most programs
+reading standard input only want the lines, and now say in their comments
+that a failure ends a line.
+
+**The prelude's `length` and `append` no longer take a stack frame per
+element,** nor does `lib/io.l0`'s `args`. `length` of 10 million elements
+used 320 MB of stack. `append` now reverses its first list and reverses that
+onto the second: twice the copying, for no measured change in the compiler's
+time, since it only ever appends short strings.
+
+None of this is a language change: no rule in `spec/L0.md` changed, and the
+prelude remains ordinary L0. It is recorded here because the prelude is what
+every program links, and because the choice between an `IoLine` type and a
+second return value is one a later reader would otherwise have to guess.
+
+---
+
 ## A tail call uses no stack
 
 **Every tail call is now guaranteed** (section 8). Section 8 defines tail

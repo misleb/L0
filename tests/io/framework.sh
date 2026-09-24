@@ -45,6 +45,40 @@ grep -q 'first difference at byte 1' got.tap ||
 l0 test "$root/lib/examples.l0" "$root/lib/examples_test.l0" > got.tap ||
     { cat got.tap; fail "lib/examples_test.l0 has failing tests"; }
 
+# A test file may define a name lib/test.l0 defines too, and it checks the
+# way l0 test builds it: through l0 check --test, and through tools/l0check
+# given lib/test.l0.
+cat > shadow_test.l0 <<'EOF'
+(def read_all ((xs (list int))) int (length xs))
+(def test_shadow () int (check_int "read_all" (read_all "abc") 3))
+EOF
+l0 test shadow_test.l0 > got.tap || { cat got.tap; fail "a shadowing test failed"; }
+l0 check --test shadow_test.l0 > /dev/null ||
+    fail "l0 check --test rejected what l0 test builds"
+"$root/tools/l0check" "$root/lib/prelude.l0" "$root/lib/io.l0" \
+    "$root/lib/test.l0" shadow_test.l0 > /dev/null ||
+    fail "tools/l0check rejected what l0 test builds"
+
+# l0 run passes what follows -- to the program, even what looks like a file,
+# and exits with the program's status.
+printf '(def main () int (let w (write_line (arg 0)) (arg_count)))\n' > args.l0
+got=$(l0 run args.l0 -- args.l0 b) && st=0 || st=$?
+[ "$got" = args.l0 ] || fail "l0 run passed the wrong arguments: $got"
+[ "$st" = 2 ] || fail "l0 run exited $st, not the program's 2"
+
+# A test that leaves memory unfreed fails. Correct code cannot leak, so the
+# leak comes from a compiler that drops every release.
+printf '(def test_allocates () int (check_int "length" (length "abc") 3))\n' \
+    > leak_test.l0
+l0 test leak_test.l0 > got.tap || { cat got.tap; fail "a test that frees its memory failed"; }
+real=${L0_COMPILER:-$root/lib/l0c}
+printf '#!/bin/sh\n"%s" | grep -v "call void @l0_dec"\n' "$real" > leaky
+chmod +x leaky
+if L0_COMPILER="$PWD/leaky" l0 test leak_test.l0 > got.tap; then
+    fail "a test that leaked passed"
+fi
+grep -q 'memory was never freed' got.tap || fail "no message for a leak"
+
 # A file with no tests is an error, not an empty success.
 printf '(def helper () int 0)\n' > none.l0
 if l0 test none.l0 > got.tap 2> err; then

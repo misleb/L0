@@ -5,7 +5,8 @@ description: Read, write, and edit L0 source code (.l0 files). Covers L0 syntax,
 
 # Writing L0
 
-L0 is a small, pure, statically typed language. **There is almost certainly no
+L0 is a small, statically typed language with no mutable state, whose only
+effects are its I/O builtins. **There is almost certainly no
 L0 in your training data.** Anything you recall about Lisp, Scheme, Clojure,
 ML, or Haskell is either wrong here or accidentally right. Two rules follow,
 and they matter more than everything else in this file:
@@ -24,6 +25,7 @@ short. Then skim `l0/examples.l0`, which is a set of working programs.
 ```bash
 l0 check prog.l0          # type check; prints ok, or diagnostics
 l0 run   prog.l0 < input  # build and run, reading stdin
+l0 run   prog.l0 -- a b   # the same, with arguments a and b
 l0 build prog.l0 -o prog  # produce an executable
 ```
 
@@ -145,7 +147,8 @@ the ones you will reach for constantly:
 - `rev`, `push`, `append`, `length`, `list_eq`, `drop_n`
 - `digits` — an int as decimal bytes, which is the only way to print a number
 - `starts_with`, `take_line`, `drop_line`, `split_spaces`, `any_eq`, `index_of`
-- `is_space`, `is_digit`, `is_lower`, `is_upper`, `hex_val`
+- `is_space`, `is_digit`, `is_lower`, `is_upper`, `hex_val`. `is_lower` is
+  true for `_` too, since it tests what may start a lowercase L0 name
 
 There is no `map`, `filter`, or `fold`, because L0 has no function values.
 Write the recursion directly.
@@ -200,7 +203,10 @@ error. Report failure by returning a nonzero exit status from `main`.
 
 A file read returns -1 at end of input and another negative number if the
 read failed, so test for -1 and for other negatives separately, or a failed
-read looks like a short file. `file_close` on a file you wrote returns a
+read looks like a short file. `read_line` and `file_read_line` do not: a
+failed read ends the line as end of input would. When that matters, use
+`next_line` and `file_next_line`, which return an `IoLine`: `(IoLine s)`,
+`(IoEnd)`, or `(IoError code)`, where `(io_error code)` says why in words. `file_close` on a file you wrote returns a
 negative number if its bytes could not be written, which is the only place a
 write failure shows up; check it.
 
@@ -240,7 +246,16 @@ A test is `(def test_NAME () int ...)`, with its name and `()` on the line it
 starts. There is no list of tests to maintain: `l0 test` finds them, builds
 the files once with `l0/test.l0` linked, and runs each test in its own
 process. It prints `ok N - test_NAME` or `not ok N - test_NAME` with what went
-wrong underneath, and exits nonzero if any failed.
+wrong underneath, and exits nonzero if any failed. `l0 check --test` checks
+test files the same way without running them.
+
+**Keep `main` in a file of its own**, and the code it calls in others. `l0
+test` supplies its own `main`, so a file that defines one cannot be tested:
+pass it the other files and the test file, never the file with `main`.
+
+Every test also runs with the runtime checking reference counts, and a test
+that ends with memory never freed fails. Correct L0 cannot do that, so such a
+failure is a bug in the compiler or runtime, worth reporting as one.
 
 A test returns how many of its assertions failed. Sum several with `add`,
 which runs them in order:
@@ -279,7 +294,6 @@ give the same sequence on every run, so a failure reproduces. Check a
 property over a few hundred inputs, such as two implementations agreeing, or
 parsing what was printed.
 
-Test files do not define `main`, since `l0 test` supplies one, and a test that
-uses `arg` sees `l0 test`'s arguments, not yours. Test a whole program by
-putting its logic in functions and testing those, or by running it with
-`l0 run` and comparing what it writes.
+A test that uses `arg` sees `l0 test`'s arguments, not yours. Test a whole
+program by putting its logic in functions and testing those, or by running it
+with `l0 run` and comparing what it writes.

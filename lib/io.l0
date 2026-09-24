@@ -8,8 +8,9 @@
 ; tools/l0check does not know the I/O builtins.
 
 ; The next line of standard input, including its newline if it has one. The
-; empty list means end of input, and nothing else does: a blank line is "\n",
-; and a last line with no newline comes back without one.
+; empty list means end of input: a blank line is "\n", and a last line with no
+; newline comes back without one. A failed read also ends the line, and looks
+; like end of input; use next_line when that must be told apart.
 (def read_line () (list int)
   (rev (read_line_onto (nil int))))
 
@@ -20,6 +21,28 @@
         (if (eq b 10)
             (cons b acc)
             (read_line_onto (cons b acc))))))
+
+; A line read by next_line or file_next_line. IoError carries the negative
+; code of spec section 6.3, which io_error puts into words; the bytes of the
+; line read before the failure are dropped.
+(data IoLine
+  (IoLine (list int))                   ; a line, with its newline if it had one
+  (IoEnd)                               ; end of input, before any byte of a line
+  (IoError int))
+
+; The next line of standard input, or IoEnd, or IoError if a read failed.
+(def next_line () IoLine
+  (next_line_from 0 (nil int)))
+
+(def next_line_from ((h int) (acc (list int))) IoLine
+  (let b (read_from h)
+    (if (eq b 10)
+        (IoLine (rev (cons b acc)))
+        (if (ge b 0)
+            (next_line_from h (cons b acc))
+            (if (lt b -1)
+                (IoError b)
+                (if (is_empty acc) (IoEnd) (IoLine (rev acc))))))))
 
 ; Writes every byte of s, in order, and returns 0.
 (def write_str ((s (list int))) int
@@ -47,12 +70,13 @@
 
 ; Every command-line argument, in order, not counting the program's name.
 (def args () (list (list int))
-  (args_from 0 (arg_count)))
+  (args_before (sub (arg_count) 1) (nil (list int))))
 
-(def args_from ((i int) (n int)) (list (list int))
-  (if (ge i n)
-      (nil (list int))
-      (cons (arg i) (args_from (add i 1) n))))
+; Arguments 0 to i, consed on in front of acc from the last.
+(def args_before ((i int) (acc (list (list int)))) (list (list int))
+  (if (lt i 0)
+      acc
+      (args_before (sub i 1) (cons (arg i) acc))))
 
 ; ---------------------------------------------------------------------- files
 ;
@@ -105,7 +129,8 @@
 (def file_write_str ((f IoFile) (s (list int))) int
   (match f ((IoFile h) (write_to_handle h s))))
 
-; The next line of f, as read_line reads standard input.
+; The next line of f, as read_line reads standard input, so a failed read
+; looks like end of input; file_next_line tells them apart.
 (def file_read_line ((f IoFile)) (list int)
   (match f ((IoFile h) (rev (read_line_from h (nil int))))))
 
@@ -116,6 +141,10 @@
         (if (eq b 10)
             (cons b acc)
             (read_line_from h (cons b acc))))))
+
+; The next line of f, or IoEnd, or IoError if a read failed.
+(def file_next_line ((f IoFile)) IoLine
+  (match f ((IoFile h) (next_line_from h (nil int)))))
 
 ; Closes f. Returns 0, or a negative code if bytes written to it were lost.
 (def file_close ((f IoFile)) int

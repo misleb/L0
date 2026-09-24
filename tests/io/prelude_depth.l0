@@ -1,0 +1,13 @@
+; The prelude's list functions run in constant stack, whatever the length of
+; the list. prelude_depth.sh runs this on a 1 MB stack, about fifteen
+; thousand frames at -O0, with a list of a million elements.
+
+(def build ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (build (sub n 1) (cons 7 acc))))
+
+(def main () int
+  (let xs (build (int_prefix (arg 0) 0) (nil int))
+    (let w1 (write_line (digits (length xs)))
+      (let w2 (write_line (digits (length (append xs "!"))))
+        (let w3 (write_line (digits (length (rev xs))))
+          0)))))

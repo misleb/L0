@@ -219,7 +219,12 @@ Working examples worth reading before writing anything substantial:
 
 Anything stage 0 cannot run, including library code in `lib/io.l0` and
 `lib/test.l0` and programs a worker writes, is tested with `tools/l0 test`,
-which `lib/skills/l0-code/SKILL.md` describes. Such tests live in
+which `lib/skills/l0-code/SKILL.md` describes. That skill is written for a
+project `l0 init` made, so read its paths as this repository's: `l0/L0.md` is
+`spec/L0.md`, `l0/prelude.l0`, `l0/io.l0`, and `l0/test.l0` are in `lib/`,
+and `l0 check` is `tools/l0 check`. Check a test file with
+`tools/l0 check --test`, or with `tools/l0check` given `lib/test.l0`, which
+both group it as `l0 test` does. Such tests live in
 `tests/unit/NAME_test.l0`, with a `.extra` file naming companions if needed,
 and `tools/test.sh --compiled` runs each through `l0 test` in a scratch
 directory, against the compiler it just built. `tests/io/` is only for what a
