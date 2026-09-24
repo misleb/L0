@@ -1,0 +1,39 @@
+$ tools/l0check programs/runtime/limits/01-memory-access.l0
+programs/runtime/limits/01-memory-access.l0:8:4: error: unknown function 'load_word'
+[exit 1]
+
+$ tools/l0check programs/runtime/limits/02-global-state.l0
+programs/runtime/limits/02-global-state.l0:7:1: error: expected a top-level (def ...) or (data ...)
+[exit 1]
+
+$ tools/l0check programs/runtime/limits/03-foreign-call.l0
+programs/runtime/limits/03-foreign-call.l0:10:4: error: unknown function 'malloc'
+[exit 1]
+
+$ tools/l0check programs/runtime/limits/04-main-result-as-word.l0
+programs/runtime/limits/04-main-result-as-word.l0:16:3: error: l0_entry declares return type int, but its body is (list int)
+[exit 1]
+
+$ tools/l0check programs/runtime/limits/05-function-value.l0
+programs/runtime/limits/05-function-value.l0:15:20: error: 'run' is a function, and L0 has no function values; call it as (run ...)
+[exit 1]
+
+$ tools/l0check programs/runtime/limits/06-process-entry.l0
+programs/runtime/limits/06-process-entry.l0:14:6: error: function 'main' is already defined at programs/runtime/limits/06-process-entry.l0:11:6
+[exit 1]
+
+$ tools/l0check programs/runtime/limits/07-c-abi-types.l0
+programs/runtime/limits/07-c-abi-types.l0:7:35: error: unknown type 'i32'
+[exit 1]
+
+$ tools/l0check programs/runtime/limits/08-unchecked-division.l0
+ok: programs/runtime/limits/08-unchecked-division.l0 type checks
+[exit 0]
+
+$ tools/l0check programs/runtime/limits/10-allocation-free.l0
+ok: programs/runtime/limits/10-allocation-free.l0 type checks
+[exit 0]
+
+$ tools/l0check programs/runtime/limits/09-library-entry.l0 programs/runtime/limits/09-library-entry-program.l0
+ok: 2 files type check together
+[exit 0]

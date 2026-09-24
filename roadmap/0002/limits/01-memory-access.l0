@@ -1,0 +1,8 @@
+; Limit 01: no way to read or write a word of memory at an address.
+; Blocks job 1 (l0_cons, l0_data_new/set/tag/get, and the load in l0_head and
+; l0_tail), and the buffer handling in jobs 4, 5 and 6.
+;
+; l0_data_tag is `return ((l0_val *)block)[0];` in C.
+
+(def l0_data_tag ((block int)) int
+  (load_word block))

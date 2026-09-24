@@ -1,0 +1,83 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What job 6 would be if limits 05 and 07 were lifted, together with 01, 02,
+; and 03, all of which it needs.
+;
+;   (fn_addr NAME) -> int   the address of a function, for handing to C
+;   (cdef NAME ((PARAM TYPE) ...) TYPE BODY)
+;                           a definition with the exact symbol NAME and a C
+;                           signature over int, i32, and void (limits 06, 07)
+;
+; Struct sizes, field offsets, and flag values are the ones this Darwin arm64
+; host reports. They are not portable: on Linux x86-64 SIGBUS is 7, SA_ONSTACK
+; is 0x08000000, SA_SIGINFO is 4, struct sigaction is 152 bytes, and stack_t
+; puts ss_flags before ss_size. An L0 runtime would need one of these files
+; per target, chosen by the driver, since section 10.2 forbids the compiler
+; from baking in the host.
+
+(extern getenv ((name int)) int)
+(extern pthread_attr_init ((attr int)) i32)
+(extern pthread_attr_setstacksize ((attr int) (size int)) i32)
+(extern pthread_attr_destroy ((attr int)) i32)
+(extern pthread_create ((thread int) (attr int) (start int) (arg int)) i32)
+(extern pthread_join ((thread int) (result int)) i32)
+(extern sigaltstack ((ss int) (old int)) i32)
+(extern sigaction ((sig i32) (act int) (old int)) i32)
+
+(static altstack 131072)
+(static stack_t_buf 24)
+(static sigaction_buf 16)
+(static attr_buf 64)
+(static thread_buf 8)
+
+; The handler may make only async-signal-safe calls and must not allocate. An
+; L0 string literal is a chain of l0_cons calls (compiler/emit.l0,
+; emit_string), so the message has to exist as bytes before the signal
+; arrives. This form is one more thing L0 would need:
+;
+;   (static_bytes NAME "TEXT")   static storage initialized to TEXT's bytes
+
+(static_bytes stack_msg "l0: runtime error: stack exhausted\n")
+
+(cdef l0_on_stack_overflow ((sig i32) (info int) (ctx int)) void
+  (let _ (write 2 (static_addr stack_msg) 35)
+    (_exit (exit_runtime_error))))
+
+(def install_stack_overflow_handler () int
+  (let ss (static_addr stack_t_buf)
+    (let _ (store_word ss (static_addr altstack))                ; ss_sp
+      (let _ (store_word (add ss 8) (altstack_bytes))            ; ss_size
+        (if (eq (sigaltstack ss 0) 0)
+            (let sa (static_addr sigaction_buf)
+              (let _ (store_word sa (fn_addr l0_on_stack_overflow))  ; sa_sigaction
+                (let _ (store_i32 (add sa 12) 65)                ; SA_ONSTACK | SA_SIGINFO
+                  (let _ (sigaction 11 sa 0)                     ; SIGSEGV
+                    (sigaction 10 sa 0)))))                      ; SIGBUS
+            0)))))
+
+(cdef l0_big_stack_start ((arg int)) int
+  (let _ (install_stack_overflow_handler)
+    (l0_run arg)))
+
+(def c_string_to_list ((p int) (acc (list int))) (list int)
+  (if (eq (load_byte p) 0)
+      (rev acc)
+      (c_string_to_list (add p 1) (cons (load_byte p) acc))))
+
+(static_bytes stack_env_name "L0_STACK_MB\x00")
+
+(def requested_stack_mb () int
+  (let p (getenv (static_addr stack_env_name))
+    (stack_mb_from_text (if (eq p 0) (nil int) (c_string_to_list p (nil int))))))
+
+(def l0_run_on_big_stack ((arg int)) int
+  (let attr (static_addr attr_buf)
+    (if (eq (pthread_attr_init attr) 0)
+        (let _ (pthread_attr_setstacksize attr (stack_bytes (requested_stack_mb)))
+          (let rc (pthread_create (static_addr thread_buf) attr
+                                  (fn_addr l0_big_stack_start) arg)
+            (let _ (pthread_attr_destroy attr)
+              (if (eq rc 0)
+                  (pthread_join (load_word (static_addr thread_buf)) 0)
+                  (let _ (install_stack_overflow_handler) (l0_run arg))))))
+        (l0_run arg))))

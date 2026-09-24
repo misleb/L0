@@ -4,9 +4,9 @@ L0 is a programming language being built in this repository, by you, for your
 own use. Compiling itself is the goal that shaped it, and it must keep doing
 so: that is the one property no change may cost. That goal has been reached
 and no longer sets the direction. L0 is now being made general purpose:
-compiled to native code through LLVM, able to manage memory and do I/O, and
-eventually free of its C runtime. It is written for agents to read and write,
-not humans.
+compiled to native code through LLVM, with no C in a compiled program, and
+able to manage memory and do I/O itself. It is written for agents to read and
+write, not humans.
 
 Smallness and purity describe L0 as it stands, not promises about what it stays.
 Both are revisable; `spec/L0.md` names what currently rests on purity so the
@@ -73,7 +73,7 @@ that this file deliberately omits.
 
 ```
 spec/          L0.md (the language) and changelog.md (why it is that way)
-runtime/       the C runtime: value representation, allocation, host I/O
+runtime/       l0rt.ll, the runtime as LLVM IR; l0core.c, used by stage 0 only
 compiler/      the L0 compiler, written in L0
 bootstrap/     stage2.ll, the checked-in seed the compiler is built from
 stage0/        frozen C interpreter, kept only as a differential oracle

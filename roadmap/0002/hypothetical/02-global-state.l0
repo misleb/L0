@@ -1,0 +1,49 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What job 3 would be if limit 02 were lifted. The proposal is static
+; storage rather than mutable variables: it adds no new namespace for
+; expression-position names, and the same form gives job 6 its alternate
+; signal stack.
+;
+;   (static NAME BYTES)       top level: BYTES of zeroed storage for the run
+;   (static_addr NAME) -> int the address of that storage
+;
+; Loads and stores are limit 01's primitives, malloc is limit 03's extern,
+; and align16, arena_fits, and arena_grow_bytes are in runtime.l0.
+;
+; Nothing here may allocate (limit 10): every function returns an int, and the
+; "heap exhausted" message is static bytes, written with limit 03's write
+; rather than through l0_runtime_error, which builds its line on the heap.
+
+(static arena 16)                          ; word 0: cur, word 1: end
+
+(static_bytes heap_msg "l0: runtime error: heap exhausted\n")
+
+(def arena_cur_addr () int (static_addr arena))
+
+(def arena_end_addr () int (add (static_addr arena) (word_bytes)))
+
+(def heap_exhausted () int
+  (let _ (write 2 (static_addr heap_msg) 34)
+    (_exit (exit_runtime_error))))
+
+; Makes a fresh chunk the arena. Returns 0; only its stores matter.
+(def arena_refill ((size int)) int
+  (let want (arena_grow_bytes size)
+    (let chunk (malloc want)
+      (if (eq chunk 0)
+          (heap_exhausted)
+          (let _ (store_word (arena_cur_addr) chunk)
+            (store_word (arena_end_addr) (add chunk want)))))))
+
+(def bump ((size int)) int
+  (let p (load_word (arena_cur_addr))
+    (let _ (store_word (arena_cur_addr) (add p size))
+      p)))
+
+(def l0_arena_alloc ((bytes int)) int
+  (let size (align16 bytes)
+    (if (arena_fits (load_word (arena_cur_addr)) (load_word (arena_end_addr)) size)
+        (bump size)
+        (let _ (arena_refill size)
+          (bump size)))))

@@ -1,0 +1,95 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What jobs 2, 4, and the output half of 5 would be if limit 03 were lifted.
+;
+;   (extern NAME ((PARAM TYPE) ...) TYPE)
+;
+; declares a C function callable as (NAME ...). It is called by its bare
+; symbol. int is passed as i64. i32 and void are limit 07's boundary types:
+; an i32 argument is truncated, an i32 result sign-extended to int, and a void
+; result is 0.
+;
+; Memory primitives are limit 01's, static storage limit 02's, and the pure
+; parts (runtime_error_line, render_*) are in runtime.l0.
+
+(extern read ((fd i32) (buf int) (n int)) int)
+(extern write ((fd i32) (buf int) (n int)) int)
+(extern malloc ((n int)) int)
+(extern realloc ((p int) (n int)) int)
+(extern free ((p int)) void)
+(extern _exit ((status i32)) void)
+
+; ------------------------------------------------------------ job 2: errors
+;
+; For the four builtin errors the heap still works, so the line is built as a
+; list and copied into a static buffer; it is never more than a few dozen
+; bytes. "heap exhausted" cannot go this way (limit 10) and is heap_exhausted
+; in 02-global-state.l0.
+
+(static error_buf 256)
+
+(def fill_bytes ((buf int) (bytes (list int))) int
+  (if (is_empty bytes)
+      buf
+      (let _ (store_byte buf (head bytes))
+        (fill_bytes (add buf 1) (tail bytes)))))
+
+(def l0_runtime_error ((msg (list int))) int
+  (let line (runtime_error_line msg)
+    (let _ (fill_bytes (static_addr error_buf) line)
+      (let _ (write 2 (static_addr error_buf) (length line))
+        (_exit (exit_runtime_error))))))
+
+; ------------------------------------------------------ job 4: reading stdin
+
+(def bytes_to_list ((buf int) (i int) (acc (list int))) (list int)
+  (if (eq i 0)
+      acc
+      (bytes_to_list buf (sub i 1) (cons (load_byte (add buf (sub i 1))) acc))))
+
+(def grow_buffer ((buf int) (cap int)) int
+  (let grown (realloc buf (mul cap 2))
+    (if (eq grown 0) (heap_exhausted) grown)))
+
+(def read_all ((buf int) (cap int) (len int)) (list int)
+  (if (eq len cap)
+      (read_all (grow_buffer buf cap) (mul cap 2) len)
+      (let n (read 0 (add buf len) (sub cap len))
+        (if (le n 0)
+            (let xs (bytes_to_list buf len (nil int))
+              (let _ (free buf)
+                xs))
+            (read_all buf cap (add len n))))))
+
+(def l0_read_stdin_list () (list int)
+  (let buf (malloc 65536)
+    (if (eq buf 0)
+        (let _ (heap_exhausted) (nil int))
+        (read_all buf 65536 0))))
+
+; --------------------------------------------- job 5: writing the bytes out
+
+(static out_buf 65536)
+
+(data Filled
+  (Filled int (list int)))                 ; bytes placed, bytes left over
+
+(def fill_chunk ((buf int) (n int) (xs (list int))) Filled
+  (if (is_empty xs)
+      (Filled n xs)
+      (if (eq n 65536)
+          (Filled n xs)
+          (let _ (store_byte (add buf n) (head xs))
+            (fill_chunk buf (add n 1) (tail xs))))))
+
+(def write_all ((buf int) (n int)) int
+  (if (le n 0)
+      0
+      (let w (write 1 buf n)
+        (if (lt w 0) 0 (write_all (add buf w) (sub n w))))))
+
+(def l0_write_bytes ((xs (list int))) int
+  (match (fill_chunk (static_addr out_buf) 0 xs)
+    ((Filled n rest)
+      (let _ (write_all (static_addr out_buf) n)
+        (if (is_empty rest) 0 (l0_write_bytes rest))))))

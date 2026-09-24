@@ -1,0 +1,24 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What job 7 would be if limits 06, 09, 04, and 03 were lifted.
+;
+;   (cdef NAME ((PARAM TYPE) ...) TYPE BODY)
+;
+; defines a function whose symbol is exactly NAME with a C signature (limit
+; 07's types), so the OS can enter at main and generated code can call
+; @l0_cons, @l0_head, and the rest of section 10.3 by the names it already
+; uses. It does not collide with the program's main because the program's
+; main is @l0_f_main: cdef names live in the C symbol space, not in L0's
+; function namespace.
+
+(cdef main ((argc i32) (argv int)) i32
+  (l0_run_on_big_stack 0))
+
+; Called on the big stack by l0_big_stack_start (05-function-value.l0).
+; (main input) resolving from runtime code is limit 09; as_word is limit 04;
+; extern_addr is limit 03 extended to data symbols.
+(def l0_run ((unused int)) int
+  (let input (l0_read_stdin_list)
+    (let result (as_word (main input))
+      (let _ (l0_write_result result (load_word (extern_addr l0_main_ret_kind)))
+        0))))

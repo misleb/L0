@@ -1,0 +1,28 @@
+; Limit 10: runtime code below the allocator cannot return more than one
+; value, or build any list, data value, or string, because every one of those
+; is heap-allocated through l0_cons or l0_data_new.
+; Constrains jobs 2 and 3.
+;
+; This program type checks. The limit is in what it compiles to: arena_bump
+; returns its two results the way L0 programs do, as a data value, and that
+; lowers to `call i64 @l0_data_new`. If l0_data_new is itself written in L0 on
+; top of arena_bump, allocation recurses without end. Likewise the message
+; for "heap exhausted" cannot be a string literal, since building it calls
+; l0_cons on the heap that just ran out. See 10-allocation-free.ir.txt.
+;
+; runtime.l0 therefore restricts jobs 2 and 3 to functions returning int or
+; bool; that is expressible, so this limit constrains rather than blocks.
+
+(data Bump
+  (Fits int int)
+  (Grow int))
+
+(def arena_bump ((cur int) (end int) (bytes int)) Bump
+  (if (lt (sub end cur) bytes)
+      (Grow bytes)
+      (Fits cur (add cur bytes))))
+
+(def main ((input (list int))) int
+  (match (arena_bump 0 0 16)
+    ((Fits addr next) addr)
+    ((Grow want) want)))

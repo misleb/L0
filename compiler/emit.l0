@@ -374,6 +374,8 @@
           "define i64 @l0_f_"
           "define internal i64 @l0_f_")))
 
+; Every function checks the stack before doing anything else, since the
+; runtime cannot portably catch running off the end of it. Spec 10.3.
 (def emit_fn ((d Decl) (sc Scope) (st Emit)) Emit
   (match d
     ((DData o n cs) st)
@@ -382,7 +384,8 @@
                  (append (fn_header n (sc_is_prelude sc))
                    (append n
                      (append "(" (append (fmt_ir_params ps 0) ") {")))) st)
-        (let st2 (emit_line "entry:" st1)
+        (let st2 (emit_line "  call void @l0_stack_check()"
+                   (emit_line "entry:" st1))
           (match (emit_expr body
                    (Ev (param_binds ps 0 (nil EBind)) (sc_ctx sc)
                        (sc_prelude_names sc))
@@ -448,7 +451,8 @@
                 (append "declare i64 @l0_data_new(i64, i64)\n"
                   (append "declare void @l0_data_set(i64, i64, i64)\n"
                     (append "declare i64 @l0_data_tag(i64)\n"
-                      "declare i64 @l0_data_get(i64, i64)\n\n")))))))))))
+                      (append "declare i64 @l0_data_get(i64, i64)\n"
+                        "declare void @l0_stack_check()\n\n"))))))))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

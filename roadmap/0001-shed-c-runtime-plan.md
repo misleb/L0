@@ -1,7 +1,7 @@
 # 0001: How to shed the C runtime
 
 Kind: research
-Status: active
+Status: done
 Needs: nothing
 
 ## Why
@@ -139,3 +139,11 @@ directly as IR. The last four are where the design questions are.
      sentence stays true.
   Opened [0003](0003-ir-runtime.md) and [0004](0004-retire-c-runtime.md) from
   these. Question 1's longer-term half stays open until 0002 reports.
+- 2026-09-23: 0003 landed, so no C source goes into a compiled program. 0002
+  reported, answering question 1's longer-term half: writing the runtime in
+  L0 would need at least memory access, static storage, and calls to C
+  functions, and at the entry point also symbol naming, C types, and function
+  values. None of that is needed any more to shed the C, which is done. So
+  whether L0 grows those primitives is no longer a question about the runtime.
+  It is a question about what the memory-management and I/O goals mean for L0
+  programs, and it is the next item's to answer. Done.

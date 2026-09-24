@@ -1,0 +1,9 @@
+; Unbounded recursion that is not in tail position, through cons, which no
+; implementation can turn into a loop. Stack exhaustion is a runtime error
+; like any other: one line on stderr, no stdout, exit 70. Spec section 8.
+
+(def forever ((n int)) (list int)
+  (cons n (forever (add n 1))))
+
+(def main ((input (list int))) (list int)
+  (forever 0))

@@ -1,0 +1,4 @@
+; The program half of limit 09. See 09-library-entry.l0.
+
+(def main ((input (list int))) (list int)
+  input)

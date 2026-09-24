@@ -1,0 +1,15 @@
+; HYPOTHETICAL. THIS IS NOT L0 AS SPECIFIED.
+;
+; What limit 09 blocks. This is ordinary L0 syntax; what is hypothetical is
+; the rule. Spec section 7.1 says a call in a prelude declaration resolves
+; only to prelude functions, so if the runtime is linked as the prelude, the
+; call to main below is "unknown function main". The smallest rule change
+; would be: in the prelude, a call to main resolves to the program's main.
+;
+; That alone is not enough, because main's type varies by program (limit 04),
+; so the runtime would also have to be generic over it. The design that
+; needs neither change is for the compiler to emit this function itself, per
+; program, calling the one writer that matches main's declared type.
+
+(def l0_entry ((input (list int))) (list int)
+  (main input))

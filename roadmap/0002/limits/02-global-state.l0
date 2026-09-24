@@ -1,0 +1,7 @@
+; Limit 02: no state that outlives a call.
+; Blocks job 3. The arena's bump pointer must persist from one l0_cons call to
+; the next, and l0_cons has the fixed signature (i64, i64) -> i64 from spec
+; section 10.3, so the pointer cannot be threaded through as a parameter. The
+; C is `static char *arena_cur;` at file scope.
+
+(global arena_cur 0)

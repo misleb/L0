@@ -1,0 +1,28 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What the dispatch half of job 5 would be if limit 04 were lifted.
+;
+;   (as_word EXPR) -> int     the i64 that represents EXPR's value
+;   (from_word TYPE WORD)     WORD reinterpreted as a value of TYPE; unchecked
+;
+; from_word gives up section 8's promise that a well-typed program cannot
+; misread memory, which is the real cost of this proposal. The alternative
+; needs no language change: the compiler, which knows main's return type,
+; emits the call to the matching writer itself, and @l0_main_ret_kind and
+; this dispatch disappear. See the report.
+
+(def l0_write_result ((value int) (kind int)) int
+  (if (eq kind (ret_kind_int))
+      (l0_write_bytes (render_int value))
+      (if (eq kind (ret_kind_bool))
+          (l0_write_bytes (render_bool (from_word bool value)))
+          (if (eq kind (ret_kind_list))
+              (l0_write_bytes (render_list (from_word (list int) value)))
+              (l0_runtime_error "internal: bad return kind for main")))))
+
+; And the call site in the entry point, which is what limits/04 shows failing:
+;
+;   (l0_write_result (as_word (main input)) (load_word (extern_addr l0_main_ret_kind)))
+;
+; extern_addr, the address of a data symbol defined outside L0, is limit 03
+; extended to data.

@@ -1,0 +1,16 @@
+; Limit 04: no way to treat a typed value as the machine word it is.
+; Blocks job 7 (and the dispatch half of job 5). The runtime's entry point is
+; one piece of code linked into every program, but main returns (list int),
+; int, or bool depending on the program. The C runtime receives the result as
+; an l0_val and picks a writer from @l0_main_ret_kind. In L0 the result has
+; exactly one static type, so entry code written for one return type does not
+; check against a program whose main returns another.
+;
+; The first def is a program; the second is the runtime's entry point, written
+; the way l0rt.c's run() is.
+
+(def main ((input (list int))) (list int)
+  input)
+
+(def l0_entry ((input (list int))) int
+  (main input))

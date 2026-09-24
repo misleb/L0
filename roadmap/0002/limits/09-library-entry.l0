@@ -1,0 +1,13 @@
+; Limit 09: runtime code shipped as a library cannot call the program's main.
+; Blocks job 7. A runtime written in L0 would be linked into every program the
+; way lib/prelude.l0 is: as the prelude group of spec section 7.1. A call in a
+; prelude declaration resolves only to prelude functions, so the entry point
+; cannot reach main. Putting the runtime in the program group instead makes
+; every runtime helper name collide with the user's definitions.
+;
+; This file is the runtime; 09-library-entry-program.l0 is the program. They
+; must be compiled as a bundle with this file as the prelude, which
+; tools/l0check cannot express. See 09-library-entry.out.txt.
+
+(def l0_entry ((input (list int))) (list int)
+  (main input))

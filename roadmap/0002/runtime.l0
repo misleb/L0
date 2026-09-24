@@ -1,0 +1,243 @@
+; runtime.l0 -- the C runtime (runtime/l0core.c and runtime/l0rt.c) written in
+; L0, as far as L0 as it stands can express it.
+;
+; Only the pure computation in each job is here. Every job also needs
+; something L0 cannot say, and that part is not written, not emulated: each
+; section ends with a BLOCKED note naming the limit, whose smallest failing
+; program is in limits/ and whose intended code is in hypothetical/.
+;
+; Check with: tools/l0check lib/prelude.l0 programs/runtime/runtime.l0
+; It uses rev, push, and digits from the prelude.
+
+; ------------------------------------------------ job 1: cons cells and data
+;
+; Spec section 10.1. A cons cell is two words, element then rest. A data block
+; is a tag word followed by one word per field. Every value is one i64, and
+; the empty list is the word 0.
+
+(def word_bytes () int 8)
+
+(def empty_list_word () int 0)
+
+(def cons_cell_bytes () int (mul 2 (word_bytes)))
+
+(def cons_head_offset () int 0)
+
+(def cons_tail_offset () int (word_bytes))
+
+(def data_block_bytes ((nfields int)) int
+  (mul (add nfields 1) (word_bytes)))
+
+(def data_tag_offset () int 0)
+
+(def data_field_offset ((index int)) int
+  (mul (add index 1) (word_bytes)))
+
+; BLOCKED: storing the two words of a cell, storing the tag and zeroing the
+; fields of a block, and reading any of them back. Limit 01 (memory access).
+; The allocation itself is job 3.
+
+; ------------------------------------------- job 2: runtime errors (section 8)
+
+(def exit_runtime_error () int 70)
+
+; The checks return only int and bool. l0_head, l0_tail, l0_div, and l0_mod
+; run on every use of those builtins, and anything richer, such as a data
+; value saying which way the check went, would allocate each time (limit 10).
+
+(def int_min_word () int -9223372036854775808)
+
+(def is_empty_word ((cell int)) bool
+  (eq cell (empty_list_word)))
+
+(def is_zero_divisor ((b int)) bool
+  (eq b 0))
+
+; The most negative integer divided by -1 is undefined behavior for LLVM's
+; sdiv and srem, so L0's wrapping result (spec section 6.1) is produced
+; without dividing.
+(def is_overflowing_division ((a int) (b int)) bool
+  (if (eq b -1) (eq a (int_min_word)) false))
+
+(def div_overflow_result () int (int_min_word))
+
+(def mod_overflow_result () int 0)
+
+; The diagnostics. Building them allocates, which is fine for the four
+; builtin errors because the heap still works when they happen. It is not
+; fine for "heap exhausted", which must already exist as bytes when the heap
+; runs out (limit 10), so that text is here for testing only.
+
+(def runtime_error_line ((msg (list int))) (list int)
+  (rev (push "\n" (push msg (push "l0: runtime error: " (nil int))))))
+
+(def msg_head_empty () (list int) "head of empty list")
+
+(def msg_tail_empty () (list int) "tail of empty list")
+
+(def msg_div_zero () (list int) "division by zero")
+
+(def msg_mod_zero () (list int) "modulo by zero")
+
+(def msg_heap_exhausted () (list int) "heap exhausted")
+
+; BLOCKED:
+; - writing the line to fd 2 and exiting with status 70: limit 03 (foreign
+;   calls), and limit 01 to put the bytes in a buffer for write(2).
+; - the load in head and tail once the check passes: limit 01.
+; - the division in div and mod once the checks pass: limit 08. The builtin
+;   div is itself a call to the C l0_div, so there is nothing to divide with.
+; "No stdout on error" needs nothing extra in an L0 runtime: stdout is only
+; written at the very end, by job 5, so there is no buffer to leave unflushed.
+
+; --------------------------------------------- job 3: the bump-pointer arena
+
+(def arena_chunk_bytes () int 67108864)
+
+(def arena_align () int 16)
+
+; Rounds up to a multiple of 16. bytes is never negative.
+(def align16 ((bytes int)) int
+  (mul (div (add bytes (sub (arena_align) 1)) (arena_align)) (arena_align)))
+
+(def larger ((a int) (b int)) int
+  (if (gt a b) a b))
+
+; The allocator is the one place that must not allocate, so its decisions are
+; separate int and bool functions rather than one function returning a data
+; value (limit 10). size is always the result of align16.
+
+(def arena_fits ((cur int) (end int) (size int)) bool
+  (ge (sub end cur) size))
+
+; How much to ask the OS for when the request does not fit. The chunk becomes
+; the new arena, starting at its first byte; alignment of the result rests on
+; the OS returning 16-byte aligned memory, as malloc and mmap do on 64-bit
+; targets.
+(def arena_grow_bytes ((size int)) int
+  (larger size (arena_chunk_bytes)))
+
+; BLOCKED:
+; - keeping cur and end from one l0_cons call to the next: limit 02 (no state
+;   outlives a call; l0_cons's signature is fixed, so it cannot be threaded).
+; - getting a chunk from the OS: limit 03 (malloc or mmap).
+; Limit 10 shaped this section without blocking it: l0_arena_alloc cannot
+; return the address and the new bump pointer together, but once limits 01
+; and 02 are lifted it does not need to, since the new pointer is stored.
+
+; ----------------------------------------------- job 4: reading stdin
+;
+; BLOCKED entirely. Reading needs read(0, buf, n) (limit 03) and a buffer to
+; read into and take bytes out of (limit 01). The one part that is not I/O,
+; building the list back to front, is the builtin cons and needs no code here.
+
+; ------------------------------------------- job 5: writing main's result
+
+(def ret_kind_int () int 0)
+
+(def ret_kind_bool () int 1)
+
+(def ret_kind_list () int 2)
+
+; Section 9: each element is written as one byte, reduced modulo 256. mod has
+; the sign of the dividend, so a negative remainder is moved up by 256.
+(def byte_of ((x int)) int
+  (let r (mod x 256)
+    (if (lt r 0) (add r 256) r)))
+
+(def bytes_onto ((xs (list int)) (acc (list int))) (list int)
+  (if (is_empty xs)
+      acc
+      (bytes_onto (tail xs) (cons (byte_of (head xs)) acc))))
+
+(def render_list ((xs (list int))) (list int)
+  (rev (bytes_onto xs (nil int))))
+
+(def render_int ((n int)) (list int)
+  (rev (push "\n" (push (digits n) (nil int)))))
+
+(def render_bool ((b bool)) (list int)
+  (if b "true\n" "false\n"))
+
+; BLOCKED:
+; - writing the rendered bytes to fd 1: limit 03 (write), and limit 01 to copy
+;   them into a buffer.
+; - choosing among the three renderers from @l0_main_ret_kind: limit 04. The
+;   value arrives as one word whose L0 type depends on the program.
+
+; -------------------------------------------- job 6: running on a big stack
+
+(def default_stack_mb () int 512)
+
+(def altstack_bytes () int 131072)
+
+(def int_max_word () int 9223372036854775807)
+
+; C's isspace in the "C" locale: space, \t, \n, \v, \f, \r.
+(def is_c_space ((c int)) bool
+  (or (eq c 32) (and (ge c 9) (le c 13))))
+
+(def skip_c_spaces ((s (list int))) (list int)
+  (if (is_empty s)
+      s
+      (if (is_c_space (head s)) (skip_c_spaces (tail s)) s)))
+
+(def is_decimal_digit ((c int)) bool
+  (and (ge c 48) (le c 57)))
+
+; Leading digits as a number, saturating at the largest int the way strtol
+; clamps to LONG_MAX.
+(def decimal_saturating ((s (list int)) (acc int)) int
+  (if (is_empty s)
+      acc
+      (if (is_decimal_digit (head s))
+          (decimal_saturating (tail s) (times_ten_plus acc (sub (head s) 48)))
+          acc)))
+
+(def times_ten_plus ((acc int) (d int)) int
+  (if (gt acc (div (sub (int_max_word) d) 10))
+      (int_max_word)
+      (add (mul acc 10) d)))
+
+; strtol(s, NULL, 10) as l0_run_on_big_stack uses it: only a positive result
+; replaces the default, so a leading '-' can only ever mean the default.
+(def stack_mb_from_text ((s (list int))) int
+  (let t (skip_c_spaces s)
+    (if (is_empty t)
+        (default_stack_mb)
+        (if (eq (head t) 45)
+            (default_stack_mb)
+            (let v (decimal_saturating (if (eq (head t) 43) (tail t) t) 0)
+              (if (gt v 0) v (default_stack_mb)))))))
+
+; getenv returns NULL when L0_STACK_MB is unset and "" when it is empty. Both
+; mean the default, which stack_mb_from_text gives for the empty list, so the
+; two need not be told apart.
+(def stack_bytes ((mb int)) int
+  (mul mb 1048576))
+
+; For testing only: the signal handler may not allocate, so the real message
+; must already exist as bytes (limit 10).
+(def stack_exhausted_line () (list int)
+  (runtime_error_line "stack exhausted"))
+
+; BLOCKED:
+; - reading L0_STACK_MB: limit 03 (getenv), limit 01 (walk the C string).
+; - writing the message from the handler without allocating: limit 10.
+; - creating the thread with the big stack: limits 03 (pthread_*) and 05
+;   (pthread_create needs the address of the function to run).
+; - reporting exhaustion: limits 03 (sigaltstack, sigaction), 05 (the handler
+;   is passed by address), 07 (the handler's C signature is
+;   void (int, siginfo_t *, void *)), 02 (the alternate stack is static
+;   storage), and 01 (filling in stack_t and struct sigaction).
+
+; -------------------------------------------------- job 7: the entry point
+;
+; BLOCKED entirely:
+; - limit 06: the OS enters at the C symbol main, which an L0 def cannot be.
+; - limit 09: a runtime linked like the prelude cannot call the program's main.
+; - limit 04: one entry point cannot take main's result, whose type varies.
+; - limit 03: reading @l0_main_ret_kind, which lives outside L0.
+; Its sequencing (read, then call, then write) is already expressible: let is
+; strict and evaluates its value before its body. What is missing is a type
+; for "no result", so an effect would have to return a dummy int.

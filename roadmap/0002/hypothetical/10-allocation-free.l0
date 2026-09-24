@@ -1,0 +1,37 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What limit 10 constrains. Two separate things would lift it.
+;
+; 1. Static initialized bytes, for text that must exist before the heap does
+;    or after it is gone: "heap exhausted", and "stack exhausted" in the
+;    signal handler.
+;
+;      (static_bytes NAME "TEXT")   static storage holding TEXT's bytes
+;
+; 2. A way to return two results without a heap block. The allocator in
+;    runtime.l0 was split into arena_fits and arena_grow_bytes only because
+;    returning both answers means building a data value, which calls
+;    l0_data_new. With a non-allocating data declaration, for example
+;
+;      (value_data NAME CTOR ...)   passed and returned in registers, never
+;                                   stored in a list or another data value
+;
+;    the natural version would compile to no allocation:
+
+(static_bytes heap_msg "l0: runtime error: heap exhausted\n")
+
+(value_data Bump
+  (Fits int int)                           ; address, new bump pointer
+  (Grow int))                              ; chunk size to ask the OS for
+
+(def arena_bump ((cur int) (end int) (bytes int)) Bump
+  (let size (align16 bytes)
+    (if (arena_fits cur end size)
+        (Fits cur (add cur size))
+        (Grow (arena_grow_bytes size)))))
+
+; Of the two, only the first is needed for the runtime. Once static storage
+; and stores exist (limits 01 and 02), the allocator keeps its state in
+; memory and never needs to return two things; 02-global-state.l0 is written
+; that way. The second is listed because it is what an L0 programmer reaches
+; for first, and the recursion it causes is silent until the runtime is L0.

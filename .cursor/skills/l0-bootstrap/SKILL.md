@@ -31,11 +31,12 @@ silent and converts a caught bug into a permanent one.
 ## The pieces
 
 - `spec/L0.md` — the only source of truth
-- `runtime/l0core.c`, `runtime/l0rt.c` — value representation, allocation,
-  host I/O. Shared with stage 0 so the interpreter and compiled code can never
-  disagree about what a value is. Compiled programs are meant to outgrow this
-  as L0 learns to express allocation and I/O itself; see the constraint on the
-  runtime interface below before removing anything.
+- `runtime/l0rt.ll` — the runtime every compiled program links: allocation,
+  host I/O, the entry point, and stack checks, as LLVM IR calling libc. It
+  must stay the same text on every host; its header says what that rules out.
+  See the constraints on the runtime interface below before changing it.
+- `runtime/l0core.c` — C, used only by stage 0 now
+- `runtime/l0rt.c` — linked by nothing; roadmap item 0004 deletes it
 - `compiler/*.l0` — the L0 compiler, written in L0
 - `bootstrap/stage2.ll` — the compiler, compiled. The bootstrap entry point.
 - `stage0/l0i.c` — **frozen.** No longer part of the bootstrap, and never
@@ -100,7 +101,7 @@ can build without already having one. `tools/bootstrap.sh` does all of this,
 but the steps are worth knowing:
 
 ```bash
-tools/build.sh                                  # the C runtime
+tools/build.sh                                  # the runtime, and stage 0
 tools/l0ll bootstrap/stage2.ll build/l0c-seed        # a compiler, from text alone
 cat compiler/*.l0 | build/l0c-seed > build/stage1.ll
 tools/l0ll build/stage1.ll build/l0c            # the compiler, from source
@@ -226,6 +227,14 @@ seed has gone stale.
 removing anything in spec section 10.3 breaks every existing seed. The
 interface may gain functions freely; losing one requires cutting a new seed in
 the same change.
+
+**A runtime that relies on something the compiler emits needs a fresh seed in
+the same change.** `tools/l0` compiles with the installed compiler, built from
+the seed, not from source. When the runtime moved stack-exhaustion reporting
+into checks the compiler emits, programs built by the old seed had no checks
+and crashed instead of reporting the error. `tools/test.sh --compiled` cannot
+see this, because it bootstraps from source first. Check such a change with
+`tools/l0 build`, and refresh the seed before committing.
 
 **The seed pins a range of LLVM versions.** Textual IR is not guaranteed stable
 across LLVM major versions. L0 emits close to the most stable possible subset

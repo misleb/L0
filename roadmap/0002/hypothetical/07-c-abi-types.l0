@@ -1,0 +1,25 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What limit 07 blocks, and the smallest form that would lift it: two
+; boundary types usable only in extern and cdef signatures, never as the type
+; of an ordinary L0 expression.
+;
+;   i32    a C int. An argument is truncated to 32 bits, a result is
+;          sign-extended to int. Needed because x86-64 and AArch64 leave the
+;          upper half of a returned int undefined, so declaring
+;          pthread_create as returning i64 would read garbage.
+;   void   no result. A call to a void extern has type int and value 0; a
+;          void cdef discards its body's value.
+;
+; Inside the body every parameter is an ordinary int, so nothing else in the
+; type system changes.
+
+(cdef l0_on_stack_overflow ((sig i32) (info int) (ctx int)) void
+  (let _ (write 2 (static_addr stack_msg) 35)
+    (_exit (exit_runtime_error))))
+
+(cdef l0_data_set ((block int) (index int) (value int)) void
+  (store_word (add block (data_field_offset index)) value))
+
+(extern pthread_create ((thread int) (attr int) (start int) (arg int)) i32)
+(extern _exit ((status i32)) void)

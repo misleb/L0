@@ -1,0 +1,58 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What job 1 would be if limit 01 were lifted. It uses runtime.l0 for the
+; layout and the checks, and these proposed primitives, where an address is
+; an int because every L0 value is already one i64 (spec section 10.1):
+;
+;   (load_word ADDR) -> int          the i64 at byte address ADDR
+;   (store_word ADDR VALUE) -> int   store it; the result is 0 and is ignored
+;   (load_byte ADDR) -> int          the byte at ADDR, 0..255
+;   (store_byte ADDR VALUE) -> int   store VALUE mod 256
+;   (store_i32 ADDR VALUE) -> int    store the low 32 bits (C int fields)
+;
+; l0_arena_alloc is in 02-global-state.l0 and l0_runtime_error in
+; 03-foreign-call.l0.
+;
+; Even with these, the functions below compile to @l0_p_l0_cons and so on,
+; not to the @l0_cons that generated code calls. That is limit 06 again.
+; l0_data_set also returns a word where section 10.3 declares void; see 07.
+
+(def l0_cons ((h int) (t int)) int
+  (let cell (l0_arena_alloc (cons_cell_bytes))
+    (let _ (store_word (add cell (cons_head_offset)) h)
+      (let _ (store_word (add cell (cons_tail_offset)) t)
+        cell))))
+
+(def l0_head ((cell int)) int
+  (if (is_empty_word cell)
+      (l0_runtime_error (msg_head_empty))
+      (load_word (add cell (cons_head_offset)))))
+
+(def l0_tail ((cell int)) int
+  (if (is_empty_word cell)
+      (l0_runtime_error (msg_tail_empty))
+      (load_word (add cell (cons_tail_offset)))))
+
+(def l0_is_empty ((cell int)) int
+  (if (is_empty_word cell) 1 0))
+
+(def zero_fields ((block int) (i int) (nfields int)) int
+  (if (ge i nfields)
+      0
+      (let _ (store_word (add block (data_field_offset i)) 0)
+        (zero_fields block (add i 1) nfields))))
+
+(def l0_data_new ((tag int) (nfields int)) int
+  (let block (l0_arena_alloc (data_block_bytes nfields))
+    (let _ (store_word (add block (data_tag_offset)) tag)
+      (let _ (zero_fields block 0 nfields)
+        block))))
+
+(def l0_data_set ((block int) (index int) (value int)) int
+  (store_word (add block (data_field_offset index)) value))
+
+(def l0_data_tag ((block int)) int
+  (load_word (add block (data_tag_offset))))
+
+(def l0_data_get ((block int) (index int)) int
+  (load_word (add block (data_field_offset index))))

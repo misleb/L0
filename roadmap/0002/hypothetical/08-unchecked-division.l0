@@ -1,0 +1,29 @@
+; HYPOTHETICAL. THIS IS NOT L0 AND DOES NOT TYPE CHECK.
+;
+; What the division in job 2 would be if limit 08 were lifted.
+;
+;   (div_unchecked A B) -> int   LLVM sdiv: undefined when B is 0, or when A
+;   (mod_unchecked A B) -> int   is the most negative int and B is -1
+;
+; These are unsafe exactly in the two cases that is_zero_divisor and
+; is_overflowing_division in runtime.l0 catch first, which is why they are
+; only ever reached behind those checks.
+;
+; The alternative needs no new primitive: the compiler emits the zero check
+; and the overflow case inline, around a bare sdiv or srem, and calls one
+; error function. Then l0_div and l0_mod leave the runtime, and so do head
+; and tail, whose checks are a compare against 0 before a load.
+
+(def l0_div ((a int) (b int)) int
+  (if (is_zero_divisor b)
+      (l0_runtime_error (msg_div_zero))
+      (if (is_overflowing_division a b)
+          (div_overflow_result)
+          (div_unchecked a b))))
+
+(def l0_mod ((a int) (b int)) int
+  (if (is_zero_divisor b)
+      (l0_runtime_error (msg_mod_zero))
+      (if (is_overflowing_division a b)
+          (mod_overflow_result)
+          (mod_unchecked a b))))

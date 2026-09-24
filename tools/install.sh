@@ -17,8 +17,8 @@
 #
 # Requires clang and nothing from L0: the compiler is built from the
 # checked-in seed rather than from the L0 sources, so no existing L0
-# toolchain is needed. clang specifically, because it both compiles the C
-# runtime and assembles bootstrap/stage2.ll, which is LLVM IR text.
+# toolchain is needed. clang specifically, because the runtime and
+# bootstrap/stage2.ll are both LLVM IR text. No C is compiled.
 
 set -eu
 
@@ -56,21 +56,18 @@ fi
 mkdir -p "$LIBDIR" "$BUILD"
 [ -n "$BINDIR" ] && mkdir -p "$BINDIR"
 
-CFLAGS="-std=c11 -O2 -Wall -Wextra -Wpedantic -Werror"
-
-echo "cc   runtime"
-"$CC" $CFLAGS -I"$ROOT/runtime" -c "$ROOT/runtime/l0core.c" -o "$BUILD/l0core.o"
-"$CC" $CFLAGS -I"$ROOT/runtime" -c "$ROOT/runtime/l0rt.c" -o "$BUILD/l0rt.o"
+echo "ll   runtime/l0rt.ll"
+"$CC" -O2 -Wno-override-module -c "$ROOT/runtime/l0rt.ll" -o "$BUILD/l0rt.o"
 # ar adds to an existing archive rather than replacing it, so an archive left
 # by an earlier install would keep its old members. One built on another
 # platform is worse than stale: macOS ar cannot read a GNU symbol table and
 # leaves an archive with no objects in it at all.
 rm -f "$LIBDIR/libl0rt.a"
-ar rcs "$LIBDIR/libl0rt.a" "$BUILD/l0core.o" "$BUILD/l0rt.o"
+ar rcs "$LIBDIR/libl0rt.a" "$BUILD/l0rt.o"
 
 echo "link compiler from bootstrap/stage2.ll"
 "$CC" -O2 -Wno-override-module "$ROOT/bootstrap/stage2.ll" \
-    "$BUILD/l0rt.o" "$BUILD/l0core.o" -o "$LIBDIR/l0c"
+    "$BUILD/l0rt.o" -o "$LIBDIR/l0c"
 
 # In --into mode the destination is usually the repository's own lib/, where
 # these files already live; copying them onto themselves would fail.

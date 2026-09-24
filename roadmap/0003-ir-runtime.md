@@ -1,7 +1,7 @@
 # 0003: Link compiled programs against an IR runtime instead of C
 
 Kind: language
-Status: queued
+Status: done
 Needs: 0001
 
 ## Why
@@ -43,3 +43,11 @@ self-compiling byte-identically on macOS arm64 and Linux aarch64.
 ## Log
 
 - 2026-09-23: opened from 0001's answers.
+- 2026-09-23: done. The reasoning is in the changelog entry "The runtime is
+  LLVM IR, and stack exhaustion is checked rather than caught". Both suites
+  pass (56 interpreted, 51 compiled), the fixpoint holds, and the seed is
+  refreshed. A fresh copy of the tree installs with no C compiled and reports
+  stack exhaustion through `l0 build`. The seed refresh turned out to be
+  required in the same change, not merely tidy: before it, `l0 build` used a
+  compiler that emitted no stack checks, and its programs crashed with a bus
+  error on deep recursion. The `l0-bootstrap` skill now says so.

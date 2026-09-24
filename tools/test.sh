@@ -318,7 +318,7 @@ for src in tests/backend/*.ll; do
     exe="$TMP/backend-$name"
 
     if ! "$CC" -O2 -Wno-override-module "$src" "$BUILD/l0rt.o" \
-        "$BUILD/l0core.o" -o "$exe" 2> "$TMP/link.err"; then
+        -o "$exe" 2> "$TMP/link.err"; then
         nfail=$((nfail + 1))
         failures="$failures backend/$name"
         echo "FAIL backend/$name: link failed"

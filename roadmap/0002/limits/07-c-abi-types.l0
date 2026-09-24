@@ -1,0 +1,8 @@
+; Limit 07: L0 types cannot describe a C signature.
+; Blocks job 6. The OS calls the stack-overflow handler as
+; void handler(int sig, siginfo_t *info, void *ctx): a 32-bit parameter and no
+; return value. Every L0 function is i64 (i64, ...) -> i64 (spec section 10.1),
+; and there is no 32-bit type, pointer type, or void.
+
+(def stack_overflow_handler ((sig i32) (info int) (ctx int)) void
+  0)

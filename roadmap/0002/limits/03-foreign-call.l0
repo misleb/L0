@@ -1,0 +1,10 @@
+; Limit 03: no way to call a function that is not written in L0.
+; Blocks every job that touches the OS: job 2 (write to fd 2, _exit 70),
+; job 3 (malloc or mmap for a chunk), job 4 (read from fd 0), job 5 (write to
+; fd 1), job 6 (getenv, pthread_*, sigaltstack, sigaction), job 7 (reading
+; @l0_main_ret_kind and calling @l0_f_main from outside the program).
+;
+; arena_grow is `char *chunk = malloc(want);` in C.
+
+(def arena_grow ((want int)) int
+  (malloc want))

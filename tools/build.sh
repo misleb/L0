@@ -1,12 +1,12 @@
 #!/bin/sh
-# Builds the C parts of the toolchain into build/.
+# Builds the runtime and the stage-0 interpreter into build/.
 #
 # Usage: tools/build.sh
 #
-# Always builds the runtime, which is permanent. Builds the stage-0
-# interpreter only if stage0/ is still present: it is deleted once
-# self-compilation reaches a fixpoint, and everything here must keep working
-# from a fresh clone after that happens.
+# The runtime compiled programs link is LLVM IR, runtime/l0rt.ll, assembled
+# here into build/l0rt.o. The only C is the stage-0 interpreter and the
+# runtime/l0core.c it shares its value representation with, built only if
+# stage0/ is present.
 
 set -eu
 
@@ -17,13 +17,13 @@ mkdir -p "$BUILD"
 
 CFLAGS="-std=c11 -O2 -Wall -Wextra -Wpedantic -Werror"
 
-echo "cc  runtime/l0core.c"
-"$CC" $CFLAGS -I"$ROOT/runtime" -c "$ROOT/runtime/l0core.c" -o "$BUILD/l0core.o"
-
-echo "cc  runtime/l0rt.c"
-"$CC" $CFLAGS -I"$ROOT/runtime" -c "$ROOT/runtime/l0rt.c" -o "$BUILD/l0rt.o"
+echo "ll  runtime/l0rt.ll"
+"$CC" -O2 -Wno-override-module -c "$ROOT/runtime/l0rt.ll" -o "$BUILD/l0rt.o"
 
 if [ -f "$ROOT/stage0/l0i.c" ]; then
+    echo "cc  runtime/l0core.c"
+    "$CC" $CFLAGS -I"$ROOT/runtime" -c "$ROOT/runtime/l0core.c" \
+        -o "$BUILD/l0core.o"
     echo "cc  stage0/l0i.c"
     "$CC" $CFLAGS -I"$ROOT/runtime" "$ROOT/stage0/l0i.c" "$BUILD/l0core.o" \
         -o "$BUILD/l0i"

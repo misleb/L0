@@ -1,0 +1,10 @@
+$ tools/l0c < bundle   # 09-library-entry.l0 as the prelude group, 09-library-entry-program.l0 as the program
+#l0bundle
+#prelude 726
+0 09-library-entry.l0
+726 09-library-entry-program.l0
+#source
+(concatenated sources follow)
+
+09-library-entry.l0:13:3: error: unknown function main
+[exit 1]

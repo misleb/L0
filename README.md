@@ -21,9 +21,10 @@ compiler, which is a pure function from bytes to bytes. The aim now is a
 language that can express ordinary programs, so its limits can be pushed from
 inside it. Memory management and I/O come first. Today memory is never freed,
 and a program's only contact with the world is one read of stdin and one write
-to stdout, both done by a C runtime. The direction is for L0 to express those
-itself, until no C source goes into a compiled program. libc stays, as the
-interface to the operating system: on macOS it is the only supported one.
+to stdout, both done by a runtime written in LLVM IR. No C source goes into a
+compiled program any more; libc stays, as the interface to the operating
+system, since on macOS it is the only supported one. The direction now is for
+L0 to express allocation and I/O itself.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is
@@ -50,12 +51,13 @@ entirely, the checked-in seed rebuilds the compiler from source and the result
 works.
 
 - `spec/L0.md` — L0 v1, complete
-- `runtime/` — value representation, allocation, and host I/O, in C
+- `runtime/l0rt.ll` — allocation, host I/O, and the entry point, as LLVM IR
+  calling libc
 - `compiler/*.l0` — lexer, parser, checker, and emitter, **written in L0**
 - `bootstrap/stage2.ll` — the compiler, compiled, as checked-in LLVM IR text
 - `stage0/l0i.c` — an interpreter in C, now **frozen**: no longer part of the
   bootstrap, kept as an independent oracle for the differential suite
-- `tests/` — 52 golden test cases, plus 47 run again through the compiler
+- `tests/` — 56 golden test cases, plus 51 run again through the compiler
 
 ## Quick start
 
@@ -75,29 +77,29 @@ This needs `clang` and nothing from L0. **Installing L0 does not require an
 existing L0 compiler**, which is the whole point of checking in
 `bootstrap/stage2.ll`.
 
-C is compiled exactly once, at install:
+**No C is compiled, at install or ever.** Installing assembles two files of
+LLVM IR text:
 
-- the 317-line runtime becomes `lib/l0/libl0rt.a`
-- `bootstrap/stage2.ll`, which is LLVM IR text rather than a binary, is
-  assembled and linked into the `lib/l0/l0c` compiler
+- `runtime/l0rt.ll`, the runtime, becomes `lib/l0/libl0rt.a`
+- `bootstrap/stage2.ll`, the compiler, is linked into `lib/l0/l0c`
 
-**After that, no C is ever compiled.** `l0 build` links the prebuilt archive
-into your program. You can delete `runtime/`, `compiler/`, and `lib/` from a
-checkout and an installed `l0` keeps working.
+`l0 build` links the prebuilt archive into your program. You can delete
+`runtime/`, `compiler/`, and `lib/` from a checkout and an installed `l0`
+keeps working.
 
 `clang` is still invoked on every build, but only as an assembler and linker
-for the LLVM IR the compiler emits. GCC could compile the runtime but has no
-LLVM IR frontend, so it cannot do that job. Removing the dependency entirely
-would mean emitting machine code directly, which means instruction selection,
-register allocation, and object-file writing, all in L0.
+for LLVM IR. GCC has no LLVM IR frontend, so it cannot do that job. Removing
+the dependency entirely would mean emitting machine code directly, which means
+instruction selection, register allocation, and object-file writing, all in
+L0.
 
-Every compiled L0 program links against the runtime today, because L0 has no
+Every compiled L0 program links against the runtime, because L0 has no
 pointers, no allocation, and no I/O of its own: it cannot express `cons`
 allocating a cell, or reading stdin, or running on a large stack and reporting
-exhaustion as an error. Self-hosting means the compiler is written in L0; it
+exhaustion as an error. The runtime is hand-written IR that calls libc, the
+same text on every host. Self-hosting means the compiler is written in L0; it
 does not mean the system is built from L0 alone. Closing that gap, so that L0
-expresses its own allocation and I/O and the C runtime can go, is one of the
-goals above.
+expresses its own allocation and I/O, is one of the goals above.
 
 ```bash
 l0 check prog.l0          # type check
@@ -308,7 +310,7 @@ compiler you can build without already having a compiler, and it needs no L0
 tooling, no interpreter, and no prebuilt binary.
 
 ```bash
-tools/build.sh                                  # the C runtime
+tools/build.sh                                  # the runtime, and stage 0
 tools/l0ll bootstrap/stage2.ll build/l0c-seed        # a compiler, from text alone
 cat compiler/*.l0 | build/l0c-seed > build/stage1.ll
 tools/l0ll build/stage1.ll build/l0c            # the compiler, from its source
@@ -330,7 +332,7 @@ will tell you. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 
 ```
 spec/          L0.md (what the language is) and changelog.md (why)
-runtime/       the C runtime: values, allocation, host I/O
+runtime/       l0rt.ll, the runtime: allocation, host I/O, entry point
 compiler/      the L0 compiler, written in L0
 lib/           prelude.l0 (the standard library), examples, and the files
                `l0 init` copies into a new project

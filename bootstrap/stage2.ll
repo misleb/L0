@@ -9,11 +9,13 @@ declare i64 @l0_data_new(i64, i64)
 declare void @l0_data_set(i64, i64, i64)
 declare i64 @l0_data_tag(i64)
 declare i64 @l0_data_get(i64, i64)
+declare void @l0_stack_check()
 
 @l0_main_ret_kind = global i64 2
 
 define internal i64 @l0_f_rev_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -35,12 +37,14 @@ Lx0:
 
 define internal i64 @l0_f_rev(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_rev_onto(i64 %a0, i64 0)
   ret i64 %t0
 }
 
 define internal i64 @l0_f_push(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -62,6 +66,7 @@ Lx0:
 
 define internal i64 @l0_f_append(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -83,6 +88,7 @@ Lx0:
 
 define internal i64 @l0_f_length(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -103,6 +109,7 @@ Lx0:
 
 define internal i64 @l0_f_list_eq(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -151,11 +158,13 @@ Lx0:
 
 define internal i64 @l0_f_int_min(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   ret i64 -9223372036854775808
 }
 
 define internal i64 @l0_f_digits_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = icmp slt i64 %a0, 10
   %t2 = zext i1 %t1 to i64
@@ -181,6 +190,7 @@ Lx0:
 
 define internal i64 @l0_f_digits(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_int_min(i64 0)
   %t2 = icmp eq i64 %a0, %t1
@@ -237,6 +247,7 @@ Lx0:
 
 define internal i64 @l0_f_drop_n(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = icmp sle i64 %a1, 0
   %t2 = zext i1 %t1 to i64
@@ -270,6 +281,7 @@ Lx0:
 
 define internal i64 @l0_f_starts_with(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -317,6 +329,7 @@ Lx0:
 
 define internal i64 @l0_f_take_line_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -354,12 +367,14 @@ Lx0:
 
 define internal i64 @l0_f_take_line(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_take_line_onto(i64 %a0, i64 0)
   ret i64 %t0
 }
 
 define internal i64 @l0_f_drop_line(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -394,6 +409,7 @@ Lx0:
 
 define internal i64 @l0_f_skip_digits(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -426,6 +442,7 @@ Lx0:
 
 define internal i64 @l0_f_skip_spaces(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -459,6 +476,7 @@ Lx0:
 
 define internal i64 @l0_f_int_prefix(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -495,6 +513,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_strs_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -516,6 +535,7 @@ Lx0:
 
 define internal i64 @l0_f_split_spaces_onto(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -581,6 +601,7 @@ Lx0:
 
 define internal i64 @l0_f_split_spaces(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_split_spaces_onto(i64 %a0, i64 0, i64 0)
   %t1 = call i64 @l0_f_rev_strs_onto(i64 %t0, i64 0)
   ret i64 %t1
@@ -588,6 +609,7 @@ entry:
 
 define internal i64 @l0_f_any_eq(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -620,6 +642,7 @@ Lx0:
 
 define internal i64 @l0_f_index_of_from(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -653,12 +676,14 @@ Lx0:
 
 define internal i64 @l0_f_index_of(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_index_of_from(i64 %a0, i64 %a1, i64 0)
   ret i64 %t0
 }
 
 define internal i64 @l0_f_is_space(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = icmp eq i64 %a0, 32
   %t1 = zext i1 %t0 to i64
   %t2 = icmp eq i64 %a0, 9
@@ -675,6 +700,7 @@ entry:
 
 define internal i64 @l0_f_is_digit(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = icmp sge i64 %a0, 48
   %t1 = zext i1 %t0 to i64
   %t2 = icmp sle i64 %a0, 57
@@ -685,6 +711,7 @@ entry:
 
 define internal i64 @l0_f_is_lower(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = icmp sge i64 %a0, 97
   %t1 = zext i1 %t0 to i64
   %t2 = icmp sle i64 %a0, 122
@@ -698,6 +725,7 @@ entry:
 
 define internal i64 @l0_f_is_upper(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = icmp sge i64 %a0, 65
   %t1 = zext i1 %t0 to i64
   %t2 = icmp sle i64 %a0, 90
@@ -708,6 +736,7 @@ entry:
 
 define internal i64 @l0_f_is_name_start(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_is_lower(i64 %a0)
   %t1 = call i64 @l0_f_is_upper(i64 %a0)
   %t2 = or i64 %t0, %t1
@@ -716,6 +745,7 @@ entry:
 
 define internal i64 @l0_f_is_name_rest(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_is_name_start(i64 %a0)
   %t1 = call i64 @l0_f_is_digit(i64 %a0)
   %t2 = or i64 %t0, %t1
@@ -724,6 +754,7 @@ entry:
 
 define internal i64 @l0_f_hex_val(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_is_digit(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -778,6 +809,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_diags_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -799,6 +831,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_tys_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -820,6 +853,7 @@ Lx0:
 
 define internal i64 @l0_f_ctx_sigs(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -838,6 +872,7 @@ Lm0:
 
 define internal i64 @l0_f_ctx_ctors(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -856,6 +891,7 @@ Lm0:
 
 define internal i64 @l0_f_ctx_datas(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -874,6 +910,7 @@ Lm0:
 
 define internal i64 @l0_f_find_bind(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -921,6 +958,7 @@ Lx0:
 
 define internal i64 @l0_f_find_sig(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -970,6 +1008,7 @@ Lx0:
 
 define internal i64 @l0_f_find_ctor(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -1020,6 +1059,7 @@ Lx0:
 
 define internal i64 @l0_f_find_data(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -1069,6 +1109,7 @@ Lx0:
 
 define internal i64 @l0_f_ctor_tag(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -1088,6 +1129,7 @@ Lm0:
 
 define internal i64 @l0_f_ctor_fields(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -1107,6 +1149,7 @@ Lm0:
 
 define internal i64 @l0_f_ctor_type_name(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -1126,6 +1169,7 @@ Lm0:
 
 define internal i64 @l0_f_data_ctors(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -1144,6 +1188,7 @@ Lm0:
 
 define internal i64 @l0_f_data_max_fields(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -1162,6 +1207,7 @@ Lm0:
 
 define internal i64 @l0_f_bi_int_int_int(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 100, i64 0)
   %t1 = call i64 @l0_cons(i64 111, i64 %t0)
   %t2 = call i64 @l0_cons(i64 109, i64 %t1)
@@ -1187,6 +1233,7 @@ entry:
 
 define internal i64 @l0_f_bi_int_int_bool(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 113, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
   %t2 = call i64 @l0_cons(i64 32, i64 %t1)
@@ -1207,6 +1254,7 @@ entry:
 
 define internal i64 @l0_f_bi_bool_bool(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 114, i64 0)
   %t1 = call i64 @l0_cons(i64 111, i64 %t0)
   %t2 = call i64 @l0_cons(i64 32, i64 %t1)
@@ -1219,6 +1267,7 @@ entry:
 
 define internal i64 @l0_f_bi_list_ops(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 121, i64 0)
   %t1 = call i64 @l0_cons(i64 116, i64 %t0)
   %t2 = call i64 @l0_cons(i64 112, i64 %t1)
@@ -1248,6 +1297,7 @@ entry:
 
 define internal i64 @l0_f_is_builtin(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_bi_int_int_int(i64 0)
   %t1 = call i64 @l0_f_any_eq(i64 %a0, i64 %t0)
   %t2 = call i64 @l0_f_bi_int_int_bool(i64 0)
@@ -1274,6 +1324,7 @@ entry:
 
 define internal i64 @l0_f_builtin_arity(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 103, i64 0)
   %t2 = call i64 @l0_cons(i64 101, i64 %t1)
@@ -1321,6 +1372,7 @@ Lx0:
 
 define internal i64 @l0_f_plural(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = icmp eq i64 %a0, 1
   %t2 = zext i1 %t1 to i64
@@ -1341,6 +1393,7 @@ Lx0:
 
 define internal i64 @l0_f_wrong_arity_msg(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 115, i64 %t0)
   %t2 = call i64 @l0_cons(i64 101, i64 %t1)
@@ -1381,6 +1434,7 @@ entry:
 
 define internal i64 @l0_f_type_msg(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
   %t2 = call i64 @l0_cons(i64 98, i64 %t1)
@@ -1414,6 +1468,7 @@ entry:
 
 define internal i64 @l0_f_length_tys(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -1434,6 +1489,7 @@ Lx0:
 
 define internal i64 @l0_f_length_strs(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -1454,6 +1510,7 @@ Lx0:
 
 define internal i64 @l0_f_check_builtin(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_length_tys(i64 %a1)
   %t2 = call i64 @l0_f_builtin_arity(i64 %a0)
@@ -1566,6 +1623,7 @@ Lx0:
 
 define internal i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -1622,6 +1680,7 @@ Lx0:
 
 define internal i64 @l0_f_check_list_builtin(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 115, i64 0)
   %t2 = call i64 @l0_cons(i64 110, i64 %t1)
@@ -1708,6 +1767,7 @@ Lx0:
 
 define internal i64 @l0_f_check_cons(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_head(i64 %a0)
   %t1 = call i64 @l0_tail(i64 %a0)
   %t2 = call i64 @l0_head(i64 %t1)
@@ -1817,6 +1877,7 @@ Lx3:
 
 define internal i64 @l0_f_check_expr(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 i64 2, label %A0_2 i64 6, label %A0_3 i64 3, label %A0_4 i64 4, label %A0_5 i64 5, label %A0_6 i64 7, label %A0_7 i64 8, label %A0_8 i64 9, label %A0_9 ]
@@ -1904,6 +1965,7 @@ Lm0:
 
 define internal i64 @l0_f_unknown_ty(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_ty_is_list(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -1953,6 +2015,7 @@ Lx0:
 
 define internal i64 @l0_f_check_nil(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_ctx_datas(i64 %a2)
   %t1 = call i64 @l0_f_unknown_ty(i64 %a1, i64 %t0)
   %r2 = alloca i64
@@ -1993,6 +2056,7 @@ Lx2:
 
 define internal i64 @l0_f_check_var(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_find_bind(i64 %a1, i64 %a2)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -2100,6 +2164,7 @@ Lm0:
 
 define internal i64 @l0_f_sig_exists(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_find_sig(i64 %a0, i64 %a1)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -2120,6 +2185,7 @@ Lm0:
 
 define internal i64 @l0_f_if_branch_msg(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 115, i64 %t0)
   %t2 = call i64 @l0_cons(i64 105, i64 %t1)
@@ -2202,6 +2268,7 @@ entry:
 
 define internal i64 @l0_f_check_if(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_expr(i64 %a1, i64 %a4, i64 %a5)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -2272,6 +2339,7 @@ Lm0:
 
 define internal i64 @l0_f_check_if_branches(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_expr(i64 %a1, i64 %a3, i64 %a4)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -2335,6 +2403,7 @@ Lm0:
 
 define internal i64 @l0_f_check_let(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_expr(i64 %a2, i64 %a4, i64 %a5)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -2365,6 +2434,7 @@ Lm0:
 
 define internal i64 @l0_f_check_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -2409,6 +2479,7 @@ Lx0:
 
 define internal i64 @l0_f_check_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_args(i64 %a2, i64 %a3, i64 %a4, i64 0)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -2465,6 +2536,7 @@ Lm0:
 
 define internal i64 @l0_f_check_call_missing(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_find_bind(i64 %a1, i64 %a2)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -2555,6 +2627,7 @@ Lm0:
 
 define internal i64 @l0_f_check_user_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a3)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -2617,6 +2690,7 @@ Lm0:
 
 define internal i64 @l0_f_match_params(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -2679,6 +2753,7 @@ Lx0:
 
 define internal i64 @l0_f_check_ctor_expr(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_ctx_ctors(i64 %a4)
   %t2 = call i64 @l0_f_find_ctor(i64 %a1, i64 %t1)
@@ -2745,6 +2820,7 @@ Lm0:
 
 define internal i64 @l0_f_check_ctor_fields(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_ctor_fields(i64 %a3)
   %r1 = alloca i64
   %t2 = call i64 @l0_f_length_tys(i64 %a2)
@@ -2830,6 +2906,7 @@ Lx1:
 
 define internal i64 @l0_f_check_match(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_expr(i64 %a1, i64 %a3, i64 %a4)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -2941,6 +3018,7 @@ Lm0:
 
 define internal i64 @l0_f_check_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_check_each_arm(i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 0)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -3022,6 +3100,7 @@ Lm0:
 
 define internal i64 @l0_f_data_name(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -3040,6 +3119,7 @@ Lm0:
 
 define internal i64 @l0_f_ctor_decl_name(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -3058,6 +3138,7 @@ Lm0:
 
 define internal i64 @l0_f_arm_ctor_name(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -3077,6 +3158,7 @@ Lm0:
 
 define internal i64 @l0_f_seen_ctors(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3099,6 +3181,7 @@ Lx0:
 
 define internal i64 @l0_f_missing_ctor(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3134,6 +3217,7 @@ Lx0:
 
 define internal i64 @l0_f_check_each_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3176,6 +3260,7 @@ Lx0:
 
 define internal i64 @l0_f_check_rest_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_tail(i64 %a1)
   %t2 = call i64 @l0_is_empty(i64 %t1)
@@ -3312,6 +3397,7 @@ Lx0:
 
 define internal i64 @l0_f_arm_offset(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -3331,6 +3417,7 @@ Lm0:
 
 define internal i64 @l0_f_check_one_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -3440,6 +3527,7 @@ Lm0:
 
 define internal i64 @l0_f_check_arm_binds(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_ctor_type_name(i64 %a4)
   %t2 = call i64 @l0_f_data_name(i64 %a5)
@@ -3622,6 +3710,7 @@ Lx0:
 
 define internal i64 @l0_f_bind_fields(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3648,6 +3737,7 @@ Lx0:
 
 define internal i64 @l0_f_dup_name(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3683,6 +3773,7 @@ Lx0:
 
 define internal i64 @l0_f_collect_sigs(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3732,6 +3823,7 @@ Lx0:
 
 define internal i64 @l0_f_max_fields(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3779,6 +3871,7 @@ Lx0:
 
 define internal i64 @l0_f_collect_datas(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3828,6 +3921,7 @@ Lx0:
 
 define internal i64 @l0_f_collect_ctor_infos(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3872,6 +3966,7 @@ Lx0:
 
 define internal i64 @l0_f_ctor_infos_of(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -3912,6 +4007,7 @@ Lx0:
 
 define internal i64 @l0_f_param_tys(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3945,6 +4041,7 @@ Lx0:
 
 define internal i64 @l0_f_params_to_env(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -3981,6 +4078,7 @@ Lx0:
 
 define internal i64 @l0_f_dup_param(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4026,6 +4124,7 @@ Lx0:
 
 define internal i64 @l0_f_one_diag(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_data_new(i64 0, i64 2)
   call void @l0_data_set(i64 %t0, i64 0, i64 %a0)
   call void @l0_data_set(i64 %t0, i64 1, i64 %a1)
@@ -4035,6 +4134,7 @@ entry:
 
 define internal i64 @l0_f_ret_mismatch_msg(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
   %t2 = call i64 @l0_cons(i64 112, i64 %t1)
@@ -4086,6 +4186,7 @@ entry:
 
 define internal i64 @l0_f_bad_sig_ty(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4132,6 +4233,7 @@ Lx0:
 
 define internal i64 @l0_f_check_decl(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
@@ -4160,6 +4262,7 @@ Lm0:
 
 define internal i64 @l0_f_check_def_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_dup_param(i64 %a2, i64 0)
   %r1 = alloca i64
   %t2 = call i64 @l0_is_empty(i64 %t0)
@@ -4241,6 +4344,7 @@ Lx1:
 
 define internal i64 @l0_f_check_body(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_params_to_env(i64 %a2, i64 0)
   %t2 = call i64 @l0_f_check_expr(i64 %a4, i64 %t1, i64 %a5)
@@ -4279,6 +4383,7 @@ Lm0:
 
 define internal i64 @l0_f_check_data_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_ctx_datas(i64 %a3)
   %t1 = call i64 @l0_f_bad_field_ty(i64 %a2, i64 %t0)
   %r2 = alloca i64
@@ -4313,6 +4418,7 @@ Lx2:
 
 define internal i64 @l0_f_bad_field_ty(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4359,6 +4465,7 @@ Lx0:
 
 define internal i64 @l0_f_bad_ty_in(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4392,6 +4499,7 @@ Lx0:
 
 define internal i64 @l0_f_decl_name(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
@@ -4418,6 +4526,7 @@ Lm0:
 
 define internal i64 @l0_f_decl_offset(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
@@ -4444,6 +4553,7 @@ Lm0:
 
 define internal i64 @l0_f_is_def(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
@@ -4470,6 +4580,7 @@ Lm0:
 
 define internal i64 @l0_f_check_dups(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4504,6 +4615,7 @@ Lx0:
 
 define internal i64 @l0_f_check_fn_dup(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_in_prelude(i64 %a0, i64 %a2)
   %t2 = icmp ne i64 %t1, 0
@@ -4557,6 +4669,7 @@ Lx0:
 
 define internal i64 @l0_f_dup_fn_diag(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_decl_offset(i64 %a0)
   %t1 = call i64 @l0_cons(i64 32, i64 0)
   %t2 = call i64 @l0_cons(i64 110, i64 %t1)
@@ -4598,6 +4711,7 @@ entry:
 
 define internal i64 @l0_f_check_data_dups(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_decl_name(i64 %a0)
   %t2 = call i64 @l0_f_any_eq(i64 %t1, i64 %a5)
@@ -4719,6 +4833,7 @@ Lx0:
 
 define internal i64 @l0_f_decl_ctors(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
@@ -4745,6 +4860,7 @@ Lm0:
 
 define internal i64 @l0_f_dup_ctor_name(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4783,6 +4899,7 @@ Lx0:
 
 define internal i64 @l0_f_add_ctor_names(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4805,6 +4922,7 @@ Lx0:
 
 define internal i64 @l0_f_check_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4829,6 +4947,7 @@ Lx0:
 
 define internal i64 @l0_f_view_for(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_in_prelude(i64 %a0, i64 %a3)
   %t2 = icmp ne i64 %t1, 0
@@ -4846,6 +4965,7 @@ Lx0:
 
 define internal i64 @l0_f_in_prelude(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_decl_offset(i64 %a0)
   %t1 = icmp slt i64 %t0, %a1
   %t2 = zext i1 %t1 to i64
@@ -4854,6 +4974,7 @@ entry:
 
 define internal i64 @l0_f_prepend_diags(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -4875,6 +4996,7 @@ Lx0:
 
 define internal i64 @l0_f_check_main(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 110, i64 0)
   %t2 = call i64 @l0_cons(i64 105, i64 %t1)
@@ -5128,6 +5250,7 @@ Lm0:
 
 define internal i64 @l0_f_main_ret_ok(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_data_new(i64 0, i64 1)
   %t1 = call i64 @l0_f_ty_eq(i64 %a0, i64 %t0)
   %t2 = call i64 @l0_data_new(i64 1, i64 1)
@@ -5143,6 +5266,7 @@ entry:
 
 define internal i64 @l0_f_build_ctx(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_collect_sigs(i64 %a0, i64 0)
   %t1 = call i64 @l0_f_collect_ctor_infos(i64 %a0, i64 0)
   %t2 = call i64 @l0_f_collect_datas(i64 %a0, i64 0)
@@ -5155,6 +5279,7 @@ entry:
 
 define internal i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -5190,6 +5315,7 @@ Lx0:
 
 define internal i64 @l0_f_program_decls(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -5225,6 +5351,7 @@ Lx0:
 
 define internal i64 @l0_f_append_sigs(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -5246,6 +5373,7 @@ Lx0:
 
 define internal i64 @l0_f_prelude_view(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0)
   %t1 = call i64 @l0_f_collect_sigs(i64 %t0, i64 0)
   %t2 = call i64 @l0_f_collect_ctor_infos(i64 %a0, i64 0)
@@ -5259,6 +5387,7 @@ entry:
 
 define internal i64 @l0_f_program_view(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_program_decls(i64 %a0, i64 %a1, i64 0)
   %t1 = call i64 @l0_f_collect_sigs(i64 %t0, i64 0)
   %t2 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0)
@@ -5275,6 +5404,7 @@ entry:
 
 define internal i64 @l0_f_check_program(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_program_decls(i64 %a0, i64 %a2, i64 0)
   %t1 = call i64 @l0_f_prelude_view(i64 %a0, i64 %a2)
   %t2 = call i64 @l0_f_program_view(i64 %a0, i64 %a2)
@@ -5299,6 +5429,7 @@ Lx5:
 
 define internal i64 @l0_f_env_binds(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -5317,6 +5448,7 @@ Lm0:
 
 define internal i64 @l0_f_env_ctx(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -5335,6 +5467,7 @@ Lm0:
 
 define internal i64 @l0_f_env_prelude(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -5353,6 +5486,7 @@ Lm0:
 
 define internal i64 @l0_f_env_bind(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a2)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -5379,6 +5513,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_line(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a1)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -5402,6 +5537,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_text(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -5420,6 +5556,7 @@ Lm0:
 
 define internal i64 @l0_f_fresh_id(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -5438,6 +5575,7 @@ Lm0:
 
 define internal i64 @l0_f_bump(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -5459,6 +5597,7 @@ Lm0:
 
 define internal i64 @l0_f_lookup_operand(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -5504,6 +5643,7 @@ Lx0:
 
 define internal i64 @l0_f_fmt_ops(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -5552,6 +5692,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_assign(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 116, i64 0)
   %t1 = call i64 @l0_cons(i64 37, i64 %t0)
   %t2 = call i64 @l0_f_fresh_id(i64 %a1)
@@ -5574,6 +5715,7 @@ entry:
 
 define internal i64 @l0_f_emit_rt_call(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 64, i64 0)
   %t1 = call i64 @l0_cons(i64 32, i64 %t0)
   %t2 = call i64 @l0_cons(i64 52, i64 %t1)
@@ -5597,6 +5739,7 @@ entry:
 
 define internal i64 @l0_f_emit_binop(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 52, i64 %t0)
   %t2 = call i64 @l0_cons(i64 54, i64 %t1)
@@ -5614,6 +5757,7 @@ entry:
 
 define internal i64 @l0_f_emit_cmp(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 32, i64 0)
   %t2 = call i64 @l0_cons(i64 112, i64 %t1)
@@ -5667,6 +5811,7 @@ Lm0:
 
 define internal i64 @l0_f_two_ops(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 %a1, i64 0)
   %t1 = call i64 @l0_cons(i64 %a0, i64 %t0)
   ret i64 %t1
@@ -5674,12 +5819,14 @@ entry:
 
 define internal i64 @l0_f_one_op(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 %a0, i64 0)
   ret i64 %t0
 }
 
 define internal i64 @l0_f_emit_expr(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 i64 6, label %A0_2 i64 2, label %A0_3 i64 3, label %A0_4 i64 4, label %A0_5 i64 5, label %A0_6 i64 7, label %A0_7 i64 8, label %A0_8 i64 9, label %A0_9 ]
@@ -5786,6 +5933,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_let(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_emit_expr(i64 %a1, i64 %a3, i64 %a4)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -5806,6 +5954,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_string(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -5851,6 +6000,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_store(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 32, i64 0)
   %t1 = call i64 @l0_cons(i64 52, i64 %t0)
   %t2 = call i64 @l0_cons(i64 54, i64 %t1)
@@ -5878,6 +6028,7 @@ entry:
 
 define internal i64 @l0_f_emit_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 58, i64 0)
   %t1 = call i64 @l0_f_append(i64 %a0, i64 %t0)
   %t2 = call i64 @l0_f_emit_line(i64 %t1, i64 %a5)
@@ -5914,6 +6065,7 @@ Lm3:
 
 define internal i64 @l0_f_emit_if(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_fresh_id(i64 %a4)
   %t1 = call i64 @l0_cons(i64 114, i64 0)
   %t2 = call i64 @l0_cons(i64 37, i64 %t1)
@@ -5956,6 +6108,7 @@ Lm23:
 
 define internal i64 @l0_f_emit_if_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 116, i64 0)
   %t1 = call i64 @l0_cons(i64 76, i64 %t0)
   %t2 = call i64 @l0_f_append(i64 %t1, i64 %a0)
@@ -6053,6 +6206,7 @@ Lm9:
 
 define internal i64 @l0_f_emit_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -6091,6 +6245,7 @@ Lx0:
 
 define internal i64 @l0_f_call_sym(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_env_prelude(i64 %a1)
   %t2 = call i64 @l0_f_any_eq(i64 %a0, i64 %t1)
@@ -6121,6 +6276,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_emit_args(i64 %a1, i64 %a2, i64 %a3, i64 0)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -6141,6 +6297,7 @@ Lm0:
 
 define internal i64 @l0_f_ctor_block_width(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_ctor_type_name(i64 %a0)
   %t2 = call i64 @l0_f_ctx_datas(i64 %a1)
@@ -6164,6 +6321,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_ctor(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_env_ctx(i64 %a2)
   %t2 = call i64 @l0_f_ctx_ctors(i64 %t1)
@@ -6205,6 +6363,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_ctor_block(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 119, i64 0)
   %t2 = call i64 @l0_cons(i64 101, i64 %t1)
@@ -6243,6 +6402,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_field_stores(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -6314,6 +6474,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_match(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_fresh_id(i64 %a3)
   %t1 = call i64 @l0_cons(i64 109, i64 0)
   %t2 = call i64 @l0_cons(i64 37, i64 %t1)
@@ -6356,6 +6517,7 @@ Lm23:
 
 define internal i64 @l0_f_arm_label(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 65, i64 0)
   %t1 = call i64 @l0_cons(i64 95, i64 0)
   %t2 = call i64 @l0_f_digits(i64 %a1)
@@ -6367,6 +6529,7 @@ entry:
 
 define internal i64 @l0_f_arm_tag(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_arm_ctor_name(i64 %a0)
   %t2 = call i64 @l0_f_env_ctx(i64 %a1)
@@ -6391,6 +6554,7 @@ Lm0:
 
 define internal i64 @l0_f_switch_entries(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -6433,6 +6597,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_match_dispatch(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 103, i64 0)
   %t2 = call i64 @l0_cons(i64 97, i64 %t1)
@@ -6504,6 +6669,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_match_tail(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_emit_match_arms(i64 %a3, i64 %a4, i64 %a0, i64 0, i64 %a1, i64 %a2, i64 %a5, i64 %a7)
   %t1 = call i64 @l0_cons(i64 58, i64 0)
   %t2 = call i64 @l0_f_append(i64 %a6, i64 %t1)
@@ -6546,6 +6712,7 @@ entry:
 
 define internal i64 @l0_f_emit_match_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -6569,6 +6736,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_match_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -6632,6 +6800,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_field_loads(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -6683,6 +6852,7 @@ Lx0:
 
 define internal i64 @l0_f_arith_ops(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 114, i64 0)
   %t1 = call i64 @l0_cons(i64 111, i64 %t0)
   %t2 = call i64 @l0_cons(i64 32, i64 %t1)
@@ -6707,6 +6877,7 @@ entry:
 
 define internal i64 @l0_f_cmp_names(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 113, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
   %t2 = call i64 @l0_cons(i64 32, i64 %t1)
@@ -6727,6 +6898,7 @@ entry:
 
 define internal i64 @l0_f_cmp_preds(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 113, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
   %t2 = call i64 @l0_cons(i64 32, i64 %t1)
@@ -6751,6 +6923,7 @@ entry:
 
 define internal i64 @l0_f_rt_names(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 121, i64 0)
   %t1 = call i64 @l0_cons(i64 116, i64 %t0)
   %t2 = call i64 @l0_cons(i64 112, i64 %t1)
@@ -6788,6 +6961,7 @@ entry:
 
 define internal i64 @l0_f_rt_syms(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 121, i64 0)
   %t1 = call i64 @l0_cons(i64 116, i64 %t0)
   %t2 = call i64 @l0_cons(i64 112, i64 %t1)
@@ -6843,6 +7017,7 @@ entry:
 
 define internal i64 @l0_f_nth_str(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = icmp sle i64 %a1, 0
   %t2 = zext i1 %t1 to i64
@@ -6865,6 +7040,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_op(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_arith_ops(i64 0)
   %t2 = call i64 @l0_f_any_eq(i64 %a0, i64 %t1)
@@ -6931,6 +7107,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_op_rest(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 103, i64 0)
   %t2 = call i64 @l0_cons(i64 101, i64 %t1)
@@ -6979,6 +7156,7 @@ Lx0:
 
 define internal i64 @l0_f_fmt_ir_params(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -7024,6 +7202,7 @@ Lx0:
 
 define internal i64 @l0_f_param_binds(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -7065,6 +7244,7 @@ Lx0:
 
 define internal i64 @l0_f_sc_ctx(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -7083,6 +7263,7 @@ Lm0:
 
 define internal i64 @l0_f_sc_prelude_names(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -7101,6 +7282,7 @@ Lm0:
 
 define internal i64 @l0_f_sc_is_prelude(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -7119,6 +7301,7 @@ Lm0:
 
 define internal i64 @l0_f_fn_header(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = icmp ne i64 %a1, 0
   br i1 %t1, label %Lt0, label %Le0
@@ -7220,6 +7403,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_fn(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
@@ -7247,59 +7431,90 @@ A0_1:
   %t19 = call i64 @l0_f_append(i64 %t6, i64 %t18)
   %t20 = call i64 @l0_f_append(i64 %t11, i64 %t19)
   %t21 = call i64 @l0_f_emit_line(i64 %t20, i64 %a2)
-  %t22 = call i64 @l0_cons(i64 58, i64 0)
-  %t23 = call i64 @l0_cons(i64 121, i64 %t22)
-  %t24 = call i64 @l0_cons(i64 114, i64 %t23)
-  %t25 = call i64 @l0_cons(i64 116, i64 %t24)
-  %t26 = call i64 @l0_cons(i64 110, i64 %t25)
-  %t27 = call i64 @l0_cons(i64 101, i64 %t26)
-  %t28 = call i64 @l0_f_emit_line(i64 %t27, i64 %t21)
-  %m29 = alloca i64
-  %t30 = call i64 @l0_f_param_binds(i64 %t7, i64 0, i64 0)
-  %t31 = call i64 @l0_f_sc_ctx(i64 %a1)
-  %t32 = call i64 @l0_f_sc_prelude_names(i64 %a1)
-  %t33 = call i64 @l0_data_new(i64 0, i64 3)
-  call void @l0_data_set(i64 %t33, i64 0, i64 %t30)
-  call void @l0_data_set(i64 %t33, i64 1, i64 %t31)
-  call void @l0_data_set(i64 %t33, i64 2, i64 %t32)
-  %t34 = call i64 @l0_f_emit_expr(i64 %t9, i64 %t33, i64 %t28)
-  %t35 = call i64 @l0_data_tag(i64 %t34)
-  switch i64 %t35, label %Ln29 [ i64 0, label %A29_0 ]
-A29_0:
-  %t36 = call i64 @l0_data_get(i64 %t34, i64 0)
-  %t37 = call i64 @l0_data_get(i64 %t34, i64 1)
-  %t38 = call i64 @l0_cons(i64 125, i64 0)
-  %t39 = call i64 @l0_cons(i64 32, i64 0)
-  %t40 = call i64 @l0_cons(i64 52, i64 %t39)
-  %t41 = call i64 @l0_cons(i64 54, i64 %t40)
-  %t42 = call i64 @l0_cons(i64 105, i64 %t41)
-  %t43 = call i64 @l0_cons(i64 32, i64 %t42)
-  %t44 = call i64 @l0_cons(i64 116, i64 %t43)
-  %t45 = call i64 @l0_cons(i64 101, i64 %t44)
-  %t46 = call i64 @l0_cons(i64 114, i64 %t45)
-  %t47 = call i64 @l0_cons(i64 32, i64 %t46)
-  %t48 = call i64 @l0_cons(i64 32, i64 %t47)
-  %t49 = call i64 @l0_f_append(i64 %t48, i64 %t36)
-  %t50 = call i64 @l0_f_emit_line(i64 %t49, i64 %t37)
-  %t51 = call i64 @l0_f_emit_line(i64 %t38, i64 %t50)
-  %t52 = call i64 @l0_f_emit_line(i64 0, i64 %t51)
-  store i64 %t52, ptr %m29
-  br label %Lm29
-Ln29:
+  %t22 = call i64 @l0_cons(i64 41, i64 0)
+  %t23 = call i64 @l0_cons(i64 40, i64 %t22)
+  %t24 = call i64 @l0_cons(i64 107, i64 %t23)
+  %t25 = call i64 @l0_cons(i64 99, i64 %t24)
+  %t26 = call i64 @l0_cons(i64 101, i64 %t25)
+  %t27 = call i64 @l0_cons(i64 104, i64 %t26)
+  %t28 = call i64 @l0_cons(i64 99, i64 %t27)
+  %t29 = call i64 @l0_cons(i64 95, i64 %t28)
+  %t30 = call i64 @l0_cons(i64 107, i64 %t29)
+  %t31 = call i64 @l0_cons(i64 99, i64 %t30)
+  %t32 = call i64 @l0_cons(i64 97, i64 %t31)
+  %t33 = call i64 @l0_cons(i64 116, i64 %t32)
+  %t34 = call i64 @l0_cons(i64 115, i64 %t33)
+  %t35 = call i64 @l0_cons(i64 95, i64 %t34)
+  %t36 = call i64 @l0_cons(i64 48, i64 %t35)
+  %t37 = call i64 @l0_cons(i64 108, i64 %t36)
+  %t38 = call i64 @l0_cons(i64 64, i64 %t37)
+  %t39 = call i64 @l0_cons(i64 32, i64 %t38)
+  %t40 = call i64 @l0_cons(i64 100, i64 %t39)
+  %t41 = call i64 @l0_cons(i64 105, i64 %t40)
+  %t42 = call i64 @l0_cons(i64 111, i64 %t41)
+  %t43 = call i64 @l0_cons(i64 118, i64 %t42)
+  %t44 = call i64 @l0_cons(i64 32, i64 %t43)
+  %t45 = call i64 @l0_cons(i64 108, i64 %t44)
+  %t46 = call i64 @l0_cons(i64 108, i64 %t45)
+  %t47 = call i64 @l0_cons(i64 97, i64 %t46)
+  %t48 = call i64 @l0_cons(i64 99, i64 %t47)
+  %t49 = call i64 @l0_cons(i64 32, i64 %t48)
+  %t50 = call i64 @l0_cons(i64 32, i64 %t49)
+  %t51 = call i64 @l0_cons(i64 58, i64 0)
+  %t52 = call i64 @l0_cons(i64 121, i64 %t51)
+  %t53 = call i64 @l0_cons(i64 114, i64 %t52)
+  %t54 = call i64 @l0_cons(i64 116, i64 %t53)
+  %t55 = call i64 @l0_cons(i64 110, i64 %t54)
+  %t56 = call i64 @l0_cons(i64 101, i64 %t55)
+  %t57 = call i64 @l0_f_emit_line(i64 %t56, i64 %t21)
+  %t58 = call i64 @l0_f_emit_line(i64 %t50, i64 %t57)
+  %m59 = alloca i64
+  %t60 = call i64 @l0_f_param_binds(i64 %t7, i64 0, i64 0)
+  %t61 = call i64 @l0_f_sc_ctx(i64 %a1)
+  %t62 = call i64 @l0_f_sc_prelude_names(i64 %a1)
+  %t63 = call i64 @l0_data_new(i64 0, i64 3)
+  call void @l0_data_set(i64 %t63, i64 0, i64 %t60)
+  call void @l0_data_set(i64 %t63, i64 1, i64 %t61)
+  call void @l0_data_set(i64 %t63, i64 2, i64 %t62)
+  %t64 = call i64 @l0_f_emit_expr(i64 %t9, i64 %t63, i64 %t58)
+  %t65 = call i64 @l0_data_tag(i64 %t64)
+  switch i64 %t65, label %Ln59 [ i64 0, label %A59_0 ]
+A59_0:
+  %t66 = call i64 @l0_data_get(i64 %t64, i64 0)
+  %t67 = call i64 @l0_data_get(i64 %t64, i64 1)
+  %t68 = call i64 @l0_cons(i64 125, i64 0)
+  %t69 = call i64 @l0_cons(i64 32, i64 0)
+  %t70 = call i64 @l0_cons(i64 52, i64 %t69)
+  %t71 = call i64 @l0_cons(i64 54, i64 %t70)
+  %t72 = call i64 @l0_cons(i64 105, i64 %t71)
+  %t73 = call i64 @l0_cons(i64 32, i64 %t72)
+  %t74 = call i64 @l0_cons(i64 116, i64 %t73)
+  %t75 = call i64 @l0_cons(i64 101, i64 %t74)
+  %t76 = call i64 @l0_cons(i64 114, i64 %t75)
+  %t77 = call i64 @l0_cons(i64 32, i64 %t76)
+  %t78 = call i64 @l0_cons(i64 32, i64 %t77)
+  %t79 = call i64 @l0_f_append(i64 %t78, i64 %t66)
+  %t80 = call i64 @l0_f_emit_line(i64 %t79, i64 %t67)
+  %t81 = call i64 @l0_f_emit_line(i64 %t68, i64 %t80)
+  %t82 = call i64 @l0_f_emit_line(i64 0, i64 %t81)
+  store i64 %t82, ptr %m59
+  br label %Lm59
+Ln59:
   unreachable
-Lm29:
-  %t53 = load i64, ptr %m29
-  store i64 %t53, ptr %m0
+Lm59:
+  %t83 = load i64, ptr %m59
+  store i64 %t83, ptr %m0
   br label %Lm0
 Ln0:
   unreachable
 Lm0:
-  %t54 = load i64, ptr %m0
-  ret i64 %t54
+  %t84 = load i64, ptr %m0
+  ret i64 %t84
 }
 
 define internal i64 @l0_f_reset_counter(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -7320,6 +7535,7 @@ Lm0:
 
 define internal i64 @l0_f_emit_fns(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -7355,6 +7571,7 @@ Lx0:
 
 define internal i64 @l0_f_fn_names(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -7390,6 +7607,7 @@ Lx0:
 
 define internal i64 @l0_f_unshadowed(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -7424,6 +7642,7 @@ Lx0:
 
 define internal i64 @l0_f_prelude_scope(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_prelude_view(i64 %a0, i64 %a1)
   %t1 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0)
   %t2 = call i64 @l0_f_fn_names(i64 %t1, i64 0)
@@ -7436,6 +7655,7 @@ entry:
 
 define internal i64 @l0_f_program_scope(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_program_view(i64 %a0, i64 %a1)
   %t1 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0)
   %t2 = call i64 @l0_f_fn_names(i64 %t1, i64 0)
@@ -7451,6 +7671,7 @@ entry:
 
 define internal i64 @l0_f_ir_header(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 10, i64 0)
   %t1 = call i64 @l0_cons(i64 114, i64 %t0)
   %t2 = call i64 @l0_cons(i64 101, i64 %t1)
@@ -7762,56 +7983,89 @@ entry:
   %t308 = call i64 @l0_cons(i64 101, i64 %t307)
   %t309 = call i64 @l0_cons(i64 100, i64 %t308)
   %t310 = call i64 @l0_cons(i64 10, i64 0)
-  %t311 = call i64 @l0_cons(i64 10, i64 %t310)
-  %t312 = call i64 @l0_cons(i64 41, i64 %t311)
-  %t313 = call i64 @l0_cons(i64 52, i64 %t312)
-  %t314 = call i64 @l0_cons(i64 54, i64 %t313)
-  %t315 = call i64 @l0_cons(i64 105, i64 %t314)
-  %t316 = call i64 @l0_cons(i64 32, i64 %t315)
-  %t317 = call i64 @l0_cons(i64 44, i64 %t316)
-  %t318 = call i64 @l0_cons(i64 52, i64 %t317)
-  %t319 = call i64 @l0_cons(i64 54, i64 %t318)
-  %t320 = call i64 @l0_cons(i64 105, i64 %t319)
-  %t321 = call i64 @l0_cons(i64 40, i64 %t320)
-  %t322 = call i64 @l0_cons(i64 116, i64 %t321)
-  %t323 = call i64 @l0_cons(i64 101, i64 %t322)
-  %t324 = call i64 @l0_cons(i64 103, i64 %t323)
-  %t325 = call i64 @l0_cons(i64 95, i64 %t324)
-  %t326 = call i64 @l0_cons(i64 97, i64 %t325)
-  %t327 = call i64 @l0_cons(i64 116, i64 %t326)
-  %t328 = call i64 @l0_cons(i64 97, i64 %t327)
-  %t329 = call i64 @l0_cons(i64 100, i64 %t328)
-  %t330 = call i64 @l0_cons(i64 95, i64 %t329)
-  %t331 = call i64 @l0_cons(i64 48, i64 %t330)
-  %t332 = call i64 @l0_cons(i64 108, i64 %t331)
-  %t333 = call i64 @l0_cons(i64 64, i64 %t332)
-  %t334 = call i64 @l0_cons(i64 32, i64 %t333)
-  %t335 = call i64 @l0_cons(i64 52, i64 %t334)
-  %t336 = call i64 @l0_cons(i64 54, i64 %t335)
-  %t337 = call i64 @l0_cons(i64 105, i64 %t336)
-  %t338 = call i64 @l0_cons(i64 32, i64 %t337)
-  %t339 = call i64 @l0_cons(i64 101, i64 %t338)
-  %t340 = call i64 @l0_cons(i64 114, i64 %t339)
-  %t341 = call i64 @l0_cons(i64 97, i64 %t340)
-  %t342 = call i64 @l0_cons(i64 108, i64 %t341)
-  %t343 = call i64 @l0_cons(i64 99, i64 %t342)
-  %t344 = call i64 @l0_cons(i64 101, i64 %t343)
-  %t345 = call i64 @l0_cons(i64 100, i64 %t344)
-  %t346 = call i64 @l0_f_append(i64 %t309, i64 %t345)
-  %t347 = call i64 @l0_f_append(i64 %t279, i64 %t346)
-  %t348 = call i64 @l0_f_append(i64 %t238, i64 %t347)
-  %t349 = call i64 @l0_f_append(i64 %t203, i64 %t348)
-  %t350 = call i64 @l0_f_append(i64 %t173, i64 %t349)
-  %t351 = call i64 @l0_f_append(i64 %t143, i64 %t350)
-  %t352 = call i64 @l0_f_append(i64 %t113, i64 %t351)
-  %t353 = call i64 @l0_f_append(i64 %t87, i64 %t352)
-  %t354 = call i64 @l0_f_append(i64 %t61, i64 %t353)
-  %t355 = call i64 @l0_f_append(i64 %t30, i64 %t354)
-  ret i64 %t355
+  %t311 = call i64 @l0_cons(i64 41, i64 %t310)
+  %t312 = call i64 @l0_cons(i64 52, i64 %t311)
+  %t313 = call i64 @l0_cons(i64 54, i64 %t312)
+  %t314 = call i64 @l0_cons(i64 105, i64 %t313)
+  %t315 = call i64 @l0_cons(i64 32, i64 %t314)
+  %t316 = call i64 @l0_cons(i64 44, i64 %t315)
+  %t317 = call i64 @l0_cons(i64 52, i64 %t316)
+  %t318 = call i64 @l0_cons(i64 54, i64 %t317)
+  %t319 = call i64 @l0_cons(i64 105, i64 %t318)
+  %t320 = call i64 @l0_cons(i64 40, i64 %t319)
+  %t321 = call i64 @l0_cons(i64 116, i64 %t320)
+  %t322 = call i64 @l0_cons(i64 101, i64 %t321)
+  %t323 = call i64 @l0_cons(i64 103, i64 %t322)
+  %t324 = call i64 @l0_cons(i64 95, i64 %t323)
+  %t325 = call i64 @l0_cons(i64 97, i64 %t324)
+  %t326 = call i64 @l0_cons(i64 116, i64 %t325)
+  %t327 = call i64 @l0_cons(i64 97, i64 %t326)
+  %t328 = call i64 @l0_cons(i64 100, i64 %t327)
+  %t329 = call i64 @l0_cons(i64 95, i64 %t328)
+  %t330 = call i64 @l0_cons(i64 48, i64 %t329)
+  %t331 = call i64 @l0_cons(i64 108, i64 %t330)
+  %t332 = call i64 @l0_cons(i64 64, i64 %t331)
+  %t333 = call i64 @l0_cons(i64 32, i64 %t332)
+  %t334 = call i64 @l0_cons(i64 52, i64 %t333)
+  %t335 = call i64 @l0_cons(i64 54, i64 %t334)
+  %t336 = call i64 @l0_cons(i64 105, i64 %t335)
+  %t337 = call i64 @l0_cons(i64 32, i64 %t336)
+  %t338 = call i64 @l0_cons(i64 101, i64 %t337)
+  %t339 = call i64 @l0_cons(i64 114, i64 %t338)
+  %t340 = call i64 @l0_cons(i64 97, i64 %t339)
+  %t341 = call i64 @l0_cons(i64 108, i64 %t340)
+  %t342 = call i64 @l0_cons(i64 99, i64 %t341)
+  %t343 = call i64 @l0_cons(i64 101, i64 %t342)
+  %t344 = call i64 @l0_cons(i64 100, i64 %t343)
+  %t345 = call i64 @l0_cons(i64 10, i64 0)
+  %t346 = call i64 @l0_cons(i64 10, i64 %t345)
+  %t347 = call i64 @l0_cons(i64 41, i64 %t346)
+  %t348 = call i64 @l0_cons(i64 40, i64 %t347)
+  %t349 = call i64 @l0_cons(i64 107, i64 %t348)
+  %t350 = call i64 @l0_cons(i64 99, i64 %t349)
+  %t351 = call i64 @l0_cons(i64 101, i64 %t350)
+  %t352 = call i64 @l0_cons(i64 104, i64 %t351)
+  %t353 = call i64 @l0_cons(i64 99, i64 %t352)
+  %t354 = call i64 @l0_cons(i64 95, i64 %t353)
+  %t355 = call i64 @l0_cons(i64 107, i64 %t354)
+  %t356 = call i64 @l0_cons(i64 99, i64 %t355)
+  %t357 = call i64 @l0_cons(i64 97, i64 %t356)
+  %t358 = call i64 @l0_cons(i64 116, i64 %t357)
+  %t359 = call i64 @l0_cons(i64 115, i64 %t358)
+  %t360 = call i64 @l0_cons(i64 95, i64 %t359)
+  %t361 = call i64 @l0_cons(i64 48, i64 %t360)
+  %t362 = call i64 @l0_cons(i64 108, i64 %t361)
+  %t363 = call i64 @l0_cons(i64 64, i64 %t362)
+  %t364 = call i64 @l0_cons(i64 32, i64 %t363)
+  %t365 = call i64 @l0_cons(i64 100, i64 %t364)
+  %t366 = call i64 @l0_cons(i64 105, i64 %t365)
+  %t367 = call i64 @l0_cons(i64 111, i64 %t366)
+  %t368 = call i64 @l0_cons(i64 118, i64 %t367)
+  %t369 = call i64 @l0_cons(i64 32, i64 %t368)
+  %t370 = call i64 @l0_cons(i64 101, i64 %t369)
+  %t371 = call i64 @l0_cons(i64 114, i64 %t370)
+  %t372 = call i64 @l0_cons(i64 97, i64 %t371)
+  %t373 = call i64 @l0_cons(i64 108, i64 %t372)
+  %t374 = call i64 @l0_cons(i64 99, i64 %t373)
+  %t375 = call i64 @l0_cons(i64 101, i64 %t374)
+  %t376 = call i64 @l0_cons(i64 100, i64 %t375)
+  %t377 = call i64 @l0_f_append(i64 %t344, i64 %t376)
+  %t378 = call i64 @l0_f_append(i64 %t309, i64 %t377)
+  %t379 = call i64 @l0_f_append(i64 %t279, i64 %t378)
+  %t380 = call i64 @l0_f_append(i64 %t238, i64 %t379)
+  %t381 = call i64 @l0_f_append(i64 %t203, i64 %t380)
+  %t382 = call i64 @l0_f_append(i64 %t173, i64 %t381)
+  %t383 = call i64 @l0_f_append(i64 %t143, i64 %t382)
+  %t384 = call i64 @l0_f_append(i64 %t113, i64 %t383)
+  %t385 = call i64 @l0_f_append(i64 %t87, i64 %t384)
+  %t386 = call i64 @l0_f_append(i64 %t61, i64 %t385)
+  %t387 = call i64 @l0_f_append(i64 %t30, i64 %t386)
+  ret i64 %t387
 }
 
 define internal i64 @l0_f_ret_kind(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -7897,6 +8151,7 @@ Lx0:
 
 define internal i64 @l0_f_emit_module(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_ir_header(i64 0)
   %t1 = call i64 @l0_f_push(i64 %t0, i64 0)
   %t2 = call i64 @l0_data_new(i64 0, i64 2)
@@ -7949,6 +8204,7 @@ entry:
 
 define internal i64 @l0_f_tok_offset(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 i64 2, label %A0_2 i64 3, label %A0_3 i64 4, label %A0_4 i64 5, label %A0_5 ]
@@ -7989,6 +8245,7 @@ Lm0:
 
 define internal i64 @l0_f_tok_kind(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 i64 2, label %A0_2 i64 3, label %A0_3 i64 4, label %A0_4 i64 5, label %A0_5 ]
@@ -8029,6 +8286,7 @@ Lm0:
 
 define internal i64 @l0_f_tok_is_lparen(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 0
   %t2 = zext i1 %t1 to i64
@@ -8037,6 +8295,7 @@ entry:
 
 define internal i64 @l0_f_tok_is_rparen(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 1
   %t2 = zext i1 %t1 to i64
@@ -8045,6 +8304,7 @@ entry:
 
 define internal i64 @l0_f_tok_is_int(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 2
   %t2 = zext i1 %t1 to i64
@@ -8053,6 +8313,7 @@ entry:
 
 define internal i64 @l0_f_tok_is_str(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 3
   %t2 = zext i1 %t1 to i64
@@ -8061,6 +8322,7 @@ entry:
 
 define internal i64 @l0_f_tok_is_name(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 4
   %t2 = zext i1 %t1 to i64
@@ -8069,6 +8331,7 @@ entry:
 
 define internal i64 @l0_f_tok_is_err(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_tok_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 5
   %t2 = zext i1 %t1 to i64
@@ -8077,6 +8340,7 @@ entry:
 
 define internal i64 @l0_f_tok_int(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 2, label %A0_0 i64 0, label %A0_1 i64 1, label %A0_2 i64 3, label %A0_3 i64 4, label %A0_4 i64 5, label %A0_5 ]
@@ -8117,6 +8381,7 @@ Lm0:
 
 define internal i64 @l0_f_tok_bytes(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 3, label %A0_0 i64 4, label %A0_1 i64 5, label %A0_2 i64 0, label %A0_3 i64 1, label %A0_4 i64 2, label %A0_5 ]
@@ -8157,6 +8422,7 @@ Lm0:
 
 define internal i64 @l0_f_head_offset(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8176,6 +8442,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_tokens_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8197,12 +8464,14 @@ Lx0:
 
 define internal i64 @l0_f_rev_tokens(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_rev_tokens_onto(i64 %a0, i64 0)
   ret i64 %t0
 }
 
 define internal i64 @l0_f_skip_trivia(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8258,6 +8527,7 @@ Lx0:
 
 define internal i64 @l0_f_skip_comment(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8298,6 +8568,7 @@ Lx0:
 
 define internal i64 @l0_f_scan_string(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8448,6 +8719,7 @@ Lx0:
 
 define internal i64 @l0_f_escape_byte(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = icmp eq i64 %a0, 110
   %t2 = zext i1 %t1 to i64
@@ -8518,6 +8790,7 @@ Lx0:
 
 define internal i64 @l0_f_scan_escape(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8665,6 +8938,7 @@ Lx0:
 
 define internal i64 @l0_f_scan_hex(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8828,6 +9102,7 @@ Lx0:
 
 define internal i64 @l0_f_acc_overflows(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = icmp slt i64 %a0, -922337203685477580
   %t1 = zext i1 %t0 to i64
   %t2 = icmp eq i64 %a0, -922337203685477580
@@ -8841,6 +9116,7 @@ entry:
 
 define internal i64 @l0_f_scan_digits(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8953,6 +9229,7 @@ Lx0:
 
 define internal i64 @l0_f_skip_name_rest(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -8985,6 +9262,7 @@ Lx0:
 
 define internal i64 @l0_f_count_digits(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -9018,6 +9296,7 @@ Lx0:
 
 define internal i64 @l0_f_scan_number(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_head(i64 %a0)
   %t1 = icmp eq i64 %t0, 45
   %t2 = zext i1 %t1 to i64
@@ -9098,6 +9377,7 @@ Lx11:
 
 define internal i64 @l0_f_finish_number(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -9304,6 +9584,7 @@ Lm0:
 
 define internal i64 @l0_f_scan_name_bytes(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -9355,6 +9636,7 @@ Lx0:
 
 define internal i64 @l0_f_scan_name(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_scan_name_bytes(i64 %a0, i64 %a1, i64 0)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -9436,6 +9718,7 @@ Lm0:
 
 define internal i64 @l0_f_scan_token(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_head(i64 %a0)
   %r1 = alloca i64
   %t2 = icmp eq i64 %t0, 40
@@ -9558,6 +9841,7 @@ Lx1:
 
 define internal i64 @l0_f_lex_onto(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_skip_trivia(i64 %a0, i64 %a1)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -9604,6 +9888,7 @@ Lm0:
 
 define internal i64 @l0_f_lex(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_lex_onto(i64 %a0, i64 0, i64 0)
   %t1 = call i64 @l0_f_rev_tokens(i64 %t0)
   ret i64 %t1
@@ -9611,6 +9896,7 @@ entry:
 
 define internal i64 @l0_f_first_lex_error(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -9674,6 +9960,7 @@ Lx0:
 
 define internal i64 @l0_f_fe_start(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -9691,6 +9978,7 @@ Lm0:
 
 define internal i64 @l0_f_fe_path(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -9708,6 +9996,7 @@ Lm0:
 
 define internal i64 @l0_f_rev_entries_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -9729,6 +10018,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_entry(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_int_prefix(i64 %a0, i64 0)
   %t1 = call i64 @l0_f_skip_digits(i64 %a0)
   %t2 = call i64 @l0_f_skip_spaces(i64 %t1)
@@ -9740,6 +10030,7 @@ entry:
 
 define internal i64 @l0_f_parse_entries(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -9790,6 +10081,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_header_line(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 110, i64 0)
   %t2 = call i64 @l0_cons(i64 105, i64 %t1)
@@ -9846,6 +10138,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_bundle(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 101, i64 0)
   %t2 = call i64 @l0_cons(i64 108, i64 %t1)
@@ -9879,6 +10172,7 @@ Lx0:
 
 define internal i64 @l0_f_file_at(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -9914,6 +10208,7 @@ Lx0:
 
 define internal i64 @l0_f_line_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -9962,6 +10257,7 @@ Lx0:
 
 define internal i64 @l0_f_col_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10010,6 +10306,7 @@ Lx0:
 
 define internal i64 @l0_f_render_diag(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a2)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 ]
@@ -10057,6 +10354,7 @@ Lm0:
 
 define internal i64 @l0_f_render_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_drop_n(i64 %a0, i64 %a2)
   %t1 = sub i64 %a3, %a2
   %t2 = call i64 @l0_f_file_prefix(i64 %a1)
@@ -10086,6 +10384,7 @@ entry:
 
 define internal i64 @l0_f_file_prefix(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10105,6 +10404,7 @@ Lx0:
 
 define internal i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a2)
   %t2 = icmp ne i64 %t1, 0
@@ -10127,6 +10427,7 @@ Lx0:
 
 define internal i64 @l0_f_failure(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 10, i64 0)
   %t1 = call i64 @l0_cons(i64 69, i64 %t0)
   %t2 = call i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %a2, i64 0)
@@ -10137,6 +10438,7 @@ entry:
 
 define internal i64 @l0_f_compile(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_bundle(i64 %a0)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -10190,6 +10492,7 @@ Lm0:
 
 define internal i64 @l0_f_append_diags(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10211,12 +10514,14 @@ Lx0:
 
 define i64 @l0_f_main(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_compile(i64 %a0)
   ret i64 %t0
 }
 
 define internal i64 @l0_f_ty_kind(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 i64 2, label %A0_2 i64 3, label %A0_3 ]
@@ -10243,6 +10548,7 @@ Lm0:
 
 define internal i64 @l0_f_ty_is_list(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_ty_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 2
   %t2 = zext i1 %t1 to i64
@@ -10251,6 +10557,7 @@ entry:
 
 define internal i64 @l0_f_ty_is_data(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_ty_kind(i64 %a0)
   %t1 = icmp eq i64 %t0, 3
   %t2 = zext i1 %t1 to i64
@@ -10259,6 +10566,7 @@ entry:
 
 define internal i64 @l0_f_ty_elem(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 2, label %A0_0 i64 0, label %A0_1 i64 1, label %A0_2 i64 3, label %A0_3 ]
@@ -10288,6 +10596,7 @@ Lm0:
 
 define internal i64 @l0_f_ty_name(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 3, label %A0_0 i64 0, label %A0_1 i64 1, label %A0_2 i64 2, label %A0_3 ]
@@ -10314,6 +10623,7 @@ Lm0:
 
 define internal i64 @l0_f_ty_eq(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_ty_kind(i64 %a0)
   %t2 = call i64 @l0_f_ty_kind(i64 %a1)
@@ -10365,6 +10675,7 @@ Lx0:
 
 define internal i64 @l0_f_ty_str(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_data_tag(i64 %a0)
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 i64 2, label %A0_2 i64 3, label %A0_3 ]
@@ -10408,6 +10719,7 @@ Lm0:
 
 define internal i64 @l0_f_reserved_words(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 116, i64 0)
   %t1 = call i64 @l0_cons(i64 115, i64 %t0)
   %t2 = call i64 @l0_cons(i64 105, i64 %t1)
@@ -10464,6 +10776,7 @@ entry:
 
 define internal i64 @l0_f_is_reserved(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_reserved_words(i64 0)
   %t1 = call i64 @l0_f_any_eq(i64 %a0, i64 %t0)
   ret i64 %t1
@@ -10471,6 +10784,7 @@ entry:
 
 define internal i64 @l0_f_name_is_lower(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10490,6 +10804,7 @@ Lx0:
 
 define internal i64 @l0_f_name_is_upper(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10509,6 +10824,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_exprs_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10530,6 +10846,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_params_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10551,6 +10868,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_decls_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10572,6 +10890,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_arms_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10593,6 +10912,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_ctors_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10614,6 +10934,7 @@ Lx0:
 
 define internal i64 @l0_f_rev_tys_list_onto(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10635,6 +10956,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_type(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -10760,6 +11082,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_type_name(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_tok_bytes(i64 %a0)
   %r1 = alloca i64
   %t2 = call i64 @l0_cons(i64 116, i64 0)
@@ -10902,6 +11225,7 @@ Lx1:
 
 define internal i64 @l0_f_parse_list_type(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -11021,6 +11345,7 @@ Lx0:
 
 define internal i64 @l0_f_close_list_type(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -11126,6 +11451,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_expr(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -11306,6 +11632,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_atom_name(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_f_tok_bytes(i64 %a0)
   %t1 = call i64 @l0_f_tok_offset(i64 %a0)
   %r2 = alloca i64
@@ -11493,6 +11820,7 @@ Lx2:
 
 define internal i64 @l0_f_parse_form(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -11610,6 +11938,7 @@ Lx0:
 
 define internal i64 @l0_f_dispatch_form(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_cons(i64 102, i64 0)
   %t2 = call i64 @l0_cons(i64 105, i64 %t1)
@@ -11803,6 +12132,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_ctor_call(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_args(i64 %a1, i64 0)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -11836,6 +12166,7 @@ Lm0:
 
 define internal i64 @l0_f_parse_match(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 109, i64 0)
   %t2 = call i64 @l0_cons(i64 114, i64 %t1)
@@ -11989,6 +12320,7 @@ Lm0:
 
 define internal i64 @l0_f_parse_arms(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -12072,6 +12404,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_arm(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_head(i64 %a0)
   %r1 = alloca i64
   %t2 = call i64 @l0_f_tok_is_lparen(i64 %t0)
@@ -12147,6 +12480,7 @@ Lx1:
 
 define internal i64 @l0_f_parse_arm_pattern(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -12254,6 +12588,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_arm_ctor(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -12394,6 +12729,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_binders(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -12587,6 +12923,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_arm_body(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_cons(i64 41, i64 0)
   %t2 = call i64 @l0_cons(i64 116, i64 %t1)
@@ -12779,6 +13116,7 @@ Lm0:
 
 define internal i64 @l0_f_need_expr(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -12828,6 +13166,7 @@ Lx0:
 
 define internal i64 @l0_f_if_arity(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 41, i64 0)
   %t1 = call i64 @l0_cons(i64 101, i64 %t0)
   %t2 = call i64 @l0_cons(i64 115, i64 %t1)
@@ -12883,6 +13222,7 @@ entry:
 
 define internal i64 @l0_f_let_arity(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %t0 = call i64 @l0_cons(i64 41, i64 0)
   %t1 = call i64 @l0_cons(i64 121, i64 %t0)
   %t2 = call i64 @l0_cons(i64 100, i64 %t1)
@@ -12936,6 +13276,7 @@ entry:
 
 define internal i64 @l0_f_parse_if(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_if_arity(i64 0)
   %t2 = call i64 @l0_f_need_expr(i64 %a0, i64 %a1, i64 %t1)
@@ -13014,6 +13355,7 @@ Lm0:
 
 define internal i64 @l0_f_parse_let(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -13191,6 +13533,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_let_value(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_let_arity(i64 0)
   %t2 = call i64 @l0_f_need_expr(i64 %a1, i64 %a2, i64 %t1)
@@ -13247,6 +13590,7 @@ Lm0:
 
 define internal i64 @l0_f_parse_nil(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_type(i64 %a0)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -13328,6 +13672,7 @@ Lm0:
 
 define internal i64 @l0_f_parse_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_f_name_is_lower(i64 %a0)
   %t2 = xor i64 %t1, 1
@@ -13410,6 +13755,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_args(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -13491,6 +13837,7 @@ Lx0:
 
 define internal i64 @l0_f_close_form(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -13543,6 +13890,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_params(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -13663,6 +14011,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_param(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -13826,6 +14175,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_param_type(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_type(i64 %a1)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -13945,6 +14295,7 @@ Lm0:
 
 define internal i64 @l0_f_parse_decl(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -14055,6 +14406,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_decl_head(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -14218,6 +14570,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_data_name(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -14403,6 +14756,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_ctors(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -14557,6 +14911,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_ctor(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -14666,6 +15021,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_ctor_fields(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -14759,6 +15115,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_def_name(i64 %a0, i64 %a1) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -14915,6 +15272,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_def_params(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a1)
   %t2 = icmp ne i64 %t1, 0
@@ -15038,6 +15396,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_def_ret(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
+  call void @l0_stack_check()
   %m0 = alloca i64
   %t1 = call i64 @l0_f_parse_type(i64 %a2)
   %t2 = call i64 @l0_data_tag(i64 %t1)
@@ -15086,6 +15445,7 @@ Lm0:
 
 define internal i64 @l0_f_close_decl(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a4)
   %t2 = icmp ne i64 %t1, 0
@@ -15192,6 +15552,7 @@ Lx0:
 
 define internal i64 @l0_f_starts_decl(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -15252,6 +15613,7 @@ Lx0:
 
 define internal i64 @l0_f_resync(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -15283,6 +15645,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_decls(i64 %a0, i64 %a1, i64 %a2) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0
@@ -15332,6 +15695,7 @@ Lx0:
 
 define internal i64 @l0_f_parse_program(i64 %a0) {
 entry:
+  call void @l0_stack_check()
   %r0 = alloca i64
   %t1 = call i64 @l0_is_empty(i64 %a0)
   %t2 = icmp ne i64 %t1, 0

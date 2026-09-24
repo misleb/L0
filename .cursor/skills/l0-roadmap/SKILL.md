@@ -109,8 +109,8 @@ The four kinds:
    not ready; open a program or research item that will produce that code.
 3. While a language item is active, research and program items may run
    alongside it, within the limits under "Parallel work".
-4. When the queue is empty, go back to the goals: take the next gap (memory
-   management, then I/O, then dropping the C runtime) and open the research or
+4. When the queue is empty, go back to the goals in README.md: take the next
+   gap between what L0 can do and what they ask for, and open the research or
    program item that would produce its first language item.
 
 Break a goal down until each language item is one bootstrapped change. When the

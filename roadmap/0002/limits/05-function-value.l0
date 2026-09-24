@@ -1,0 +1,15 @@
+; Limit 05: functions are not values, so none can be handed to the OS.
+; Blocks job 6. l0_run_on_big_stack passes a start routine to pthread_create,
+; and stack exhaustion is reported by a handler passed to sigaction. Both need
+; the address of a function.
+;
+; start_on_thread stands in for pthread_create(&t, &attr, run, NULL).
+
+(def run ((unused int)) int
+  0)
+
+(def start_on_thread ((start int)) int
+  start)
+
+(def l0_run_on_big_stack ((unused int)) int
+  (start_on_thread run))

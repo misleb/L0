@@ -7,6 +7,75 @@ New entries go at the top.
 
 ---
 
+## The runtime is LLVM IR, and stack exhaustion is checked rather than caught
+
+**No change to what an L0 program means.** Every program produces the same
+output, the same errors, and the same exit status as before. What changed is
+what a compiled program is made of. Section 10.3 now says the runtime is LLVM
+IR that calls libc, and adds one function to it, `@l0_stack_check`, which
+every compiled function calls on entry.
+
+**The blocker.** Every compiled program linked `runtime/l0core.c` and
+`runtime/l0rt.c`, and "A new goal" below makes no C source in a compiled
+program the first milestone. Roadmap item 0001 set out what the C did and
+what each part needed from the operating system. Lists, data blocks, `div`,
+`mod`, and error reporting need nothing but an allocator and `write`.
+Allocation needs `malloc`, input and output need `read` and `write`, and the
+entry point runs the program on a 512 MB thread so that deep recursion works.
+
+**The replacement** is `runtime/l0rt.ll`, hand-written IR that calls 14 libc
+functions and nothing else. It exports the same names the C did, so the
+checked-in seed, which declares them, links against it unchanged. It carries
+no target triple, and it is the same text on every host because it avoids
+everything whose shape differs between operating systems:
+
+- file descriptors rather than `FILE*`, whose symbol names differ
+- no varargs, so no `printf`; decimal output is written out by hand
+- `pthread_attr_t` as an opaque buffer larger than any platform's
+- no signal handling at all
+
+A prototype was measured before this change was made. On macOS arm64, and on
+Linux aarch64 under Docker (Ubuntu 24.04, glibc, clang 18), with identical
+results on both, it passed all 30 compiled tests against the interpreter's
+expectations, and the compiler linked against it compiled itself
+byte-identically.
+
+**Why the stack is checked rather than caught.** The C runtime reported
+exhaustion from a SIGSEGV/SIGBUS handler running on an alternate stack.
+`struct sigaction`, the value of `SA_ONSTACK`, and the number of `SIGBUS` all
+differ between macOS and Linux, and target-independent IR cannot express any of
+them. So the thread records a limit when it starts, 256 KB above the bottom of
+its stack, and each function compares its frame address against it. The cost
+is one call per function entry. Measured against the C handler, exhaustion is
+reported at exactly the same depth for every `L0_STACK_MB` tried, from 1 to
+512.
+
+The big stack stays, and is still sized by `L0_STACK_MB`. The compiler does
+not need it: at `-O2`, LLVM turns its recursion into loops, and it compiles
+itself on 1 MB. User programs do. Recursion that LLVM cannot rewrite, such as
+rebuilding a list through `cons`, costs 32 bytes a frame on arm64, so the
+default 8 MB stack fails on a 1 MB input that 512 MB handles. macOS could set
+that size at link time, but Linux has no equivalent, so it is still a thread.
+
+**A trap in the transition, and why this landed with a fresh seed.** The
+compiler now emits the checks, but the seed predates them, so a compiler built
+from it produces programs with no stack checks. Linked against the new
+runtime, those programs crash with a bus error on deep recursion rather than
+reporting it. Nothing in the test suite would have caught this, because
+`--compiled` bootstraps from source first. It showed up only through
+`l0 build`, which uses the installed compiler. So the seed was refreshed in the
+same change, and there is no commit at which the installed toolchain loses the
+error.
+
+`tests/lang/err_stack` is new. Stack exhaustion had no test before.
+
+**What stays C.** Only stage 0. `runtime/l0core.c` is now compiled for the
+interpreter alone, and `tools/install.sh` compiles no C at all. `l0rt.c` is
+linked by nothing; roadmap item 0004 deletes it and moves `l0core.c` under
+`stage0/`.
+
+---
+
 ## A new goal, and the agent that uses L0 is the one that changes it
 
 **No semantic change. L0 is exactly the language it was before this entry.**

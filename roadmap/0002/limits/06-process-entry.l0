@@ -1,0 +1,15 @@
+; Limit 06: an L0 function cannot be the process entry point.
+; Blocks job 7. The OS calls the C symbol `main` as int main(int, char **).
+; An L0 def named main is the L0 program's main: spec section 9 fixes its
+; signature to one (list int) parameter, and section 10.2 compiles it to
+; @l0_f_main. L0 has no way to choose a symbol name, so the runtime's entry
+; point cannot be given the name the OS looks for, and naming it main collides
+; with the program.
+;
+; The first def is a program; the second is l0rt.c's main.
+
+(def main ((input (list int))) (list int)
+  input)
+
+(def main ((argc int) (argv int)) int
+  0)
