@@ -5,8 +5,8 @@ Goals: README.md, "What L0 aims to be". Not restated here.
 Current focus: the memory-management and I/O goal is met by the language route
 (changelog "The route to memory management and I/O"): streaming and file I/O,
 arguments, reference counting, and guaranteed tail calls. From 0014's
-evidence, the gaps it left come first, 0018 to 0020, after the tooling items
-0016 and 0017. The next goal is arrays, with compact bytes and in-place
+evidence, the gaps it left come first, 0018 to 0020, after the tooling item
+0017. The next goal is arrays, with compact bytes and in-place
 update, starting from 0021.
 
 ## Language queue
@@ -22,10 +22,8 @@ Changes to the language, strictly in order. At most one is active.
 
 ## Other open items
 
-- [0016](0016-linux-test-image.md) tooling: a local image for the Linux test
-  runs — queued, next
 - [0017](0017-library-and-tool-fixes.md) tooling: library and tool fixes from
-  0014 — queued
+  0014 — queued, next
 - [0021](0021-arrays-route.md) research: how L0 gets arrays, compact bytes,
   and in-place update — proposed, after 0020
 
@@ -65,3 +63,5 @@ Changes to the language, strictly in order. At most one is active.
 - [0014](0014-programs-round-two.md) program: a second round of ordinary
   programs, to choose the next goal — done; nine programs, the ranking led
   to 0017 through 0021
+- [0016](0016-linux-test-image.md) tooling: a local image for the Linux test
+  runs — done, `tools/linux-test.sh`

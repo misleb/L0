@@ -81,7 +81,7 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself), io (what
                stage 0 cannot run, with hand-written expectations), unit
                (tests written with l0 test)
-tools/         build.sh, test.sh, bootstrap.sh, l0c, l0check, l0ll
+tools/         build.sh, test.sh, bootstrap.sh, l0c, l0check, l0ll, linux-test.sh
 seeds/         the original seed spec, kept for history, superseded by spec/
 roadmap/       plans and status for work in progress (see l0-roadmap)
 ```

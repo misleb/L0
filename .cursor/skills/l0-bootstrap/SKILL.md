@@ -17,7 +17,14 @@ tools/l0ll FILE.ll OUT          # link generated IR against the runtime
 build/l0i run FILE.l0 ... < in  # run a program
 tools/bootstrap.sh              # self-compile and check the fixpoint
 tools/bootstrap.sh --refresh-seed   # also install the result as bootstrap/stage2.ll
+tools/linux-test.sh [arm64] [amd64] # both suites on Linux, in a local container
 ```
+
+Run `tools/linux-test.sh` on any change to the runtime or the emitter, since
+LLVM and libc behave differently between hosts in ways macOS alone won't
+show. It needs Docker, builds its image from `tools/linux/Dockerfile` the
+first time, and tests the working tree as it is, uncommitted changes
+included.
 
 `LLVM_PREFIX` overrides the LLVM location (default `/opt/homebrew/opt/llvm`).
 `L0_STACK_MB` sets the stack for an L0 program, in megabytes (default 512).
