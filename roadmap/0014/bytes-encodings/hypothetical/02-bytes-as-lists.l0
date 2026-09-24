@@ -1,0 +1,51 @@
+; HYPOTHETICAL -- not valid L0. minigrep's line loop and matcher if L0 had
+; a packed byte string: a type `bytes`, immutable, one byte per byte, with
+; O(1) length and indexing.
+;
+;   (read_line_bytes h)   the next line of h, without its newline, as bytes;
+;                         a negative length would need a way to say "end" or
+;                         "failed", here an IoLine data type
+;   (bytes_len s)         its length
+;   (byte_at s i)         byte i, a runtime error out of range as head is
+;   (write_bytes h s)     write all of s
+;
+; The matcher then walks an index instead of a list, so trying a pattern at
+; every position allocates nothing and touches no reference counts, and a
+; line is one allocation instead of two per byte.
+
+(data IoLine
+  (IoLine bytes)
+  (IoEnd)
+  (IoLineFailed int))
+
+(def match_here ((ts (list Tok)) (s bytes) (i int) (end bool)) bool
+  (if (is_empty ts)
+      (if end (eq i (bytes_len s)) true)
+      (match (head ts)
+        ((One a)
+          (if (ge i (bytes_len s))
+              false
+              (if (atom_matches a (byte_at s i))
+                  (match_here (tail ts) s (add i 1) end)
+                  false)))
+        ((Many a) (match_star a (tail ts) s i end)))))
+
+(def match_anywhere ((ts (list Tok)) (s bytes) (i int) (end bool)) bool
+  (if (match_here ts s i end)
+      true
+      (if (ge i (bytes_len s))
+          false
+          (match_anywhere ts s (add i 1) end))))
+
+(def grep_handle ((p Pat) (name bytes) (h int) (out int) (n int)) int
+  (match (read_line_bytes h)
+    ((IoEnd) n)
+    ((IoLineFailed code) -1)
+    ((IoLine s)
+      (if (matches p s)
+          (let a (write_bytes out name)
+            (let b (write_to out 58)
+              (let c (write_bytes out s)
+                (let d (write_to out 10)
+                  (grep_handle p name h out (add n 1))))))
+          (grep_handle p name h out n)))))

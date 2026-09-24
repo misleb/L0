@@ -218,7 +218,12 @@ frees each iteration's garbage before the next. So:
 - a `main` that takes its input gets it as a list built in full before `main`
   starts, one cons cell per byte, about 2.4 GB for 100 MB, however little of
   it `main` then keeps
-- write loops as tail calls, so each iteration's values are freed as it goes
+- write loops as tail calls, so each iteration's values are freed as it goes.
+  A tail call uses no stack at all, between functions of any arities and at
+  any optimization level (spec section 8), so a loop through tail calls,
+  mutual recursion included, can run forever. Recursion that is not a tail
+  call, such as `(add 1 (count (tail xs)))`, takes a frame per level, and a
+  long enough list exhausts the stack
 
 There is no clock, network, or environment yet.
 

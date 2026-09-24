@@ -1,0 +1,20 @@
+; HYPOTHETICAL -- this is not L0. It does not type check today.
+;
+; LIMIT 04 with three predicates, which need no new type:
+;
+;   (add_fits a b)   int, int -> bool   whether a + b is representable
+;   (sub_fits a b)   int, int -> bool
+;   (mul_fits a b)   int, int -> bool
+;
+; Each is one LLVM intrinsic (llvm.sadd.with.overflow and friends), so they
+; would cost an instruction rather than calc's 38 lines of sign analysis.
+; div and neg overflow only at one value each, which a program can test.
+
+(def checked ((op int) (a int) (b int)) Arith
+  (if (eq op 43)
+      (if (add_fits a b) (AOk (add a b)) (overflow 0))
+      (if (eq op 45)
+          (if (sub_fits a b) (AOk (sub a b)) (overflow 0))
+          (if (eq op 42)
+              (if (mul_fits a b) (AOk (mul a b)) (overflow 0))
+              (checked_div a b)))))

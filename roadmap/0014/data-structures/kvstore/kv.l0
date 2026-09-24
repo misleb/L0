@@ -1,0 +1,230 @@
+; kv.l0 -- the storage format and updates for kv, as library functions.
+;
+; A store is a text file with one entry per line, "KEY\tVALUE\n", in which
+; backslash, tab, and newline inside a key or value are written \\, \t, and
+; \n. Escaping is injective and leaves no raw tab in a key, so the line for a
+; key is exactly the one beginning with escape(key) followed by a tab, and a
+; lookup compares bytes without decoding any line but the one it wants.
+
+; ----------------------------------------------------------------- escaping
+
+(def escape_onto ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      acc
+      (escape_onto (tail s) (escape_byte (head s) acc))))
+
+(def escape_byte ((c int) (acc (list int))) (list int)
+  (if (eq c 92)
+      (cons 92 (cons 92 acc))
+      (if (eq c 9)
+          (cons 116 (cons 92 acc))
+          (if (eq c 10)
+              (cons 110 (cons 92 acc))
+              (cons c acc)))))
+
+; What a key's line begins with.
+(def key_prefix ((key (list int))) (list int)
+  (rev (cons 9 (escape_onto key (nil int)))))
+
+(def entry_line ((key (list int)) (value (list int))) (list int)
+  (rev (cons 10 (escape_onto value (cons 9 (escape_onto key (nil int)))))))
+
+; The value in a line, given the line after its key prefix.
+(def unescape ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      (rev acc)
+      (if (eq (head s) 10)
+          (rev acc)
+          (if (if (eq (head s) 92) (not (is_empty (tail s))) false)
+              (unescape (tail (tail s)) (cons (unescaped (head (tail s))) acc))
+              (unescape (tail s) (cons (head s) acc))))))
+
+(def unescaped ((c int)) int
+  (if (eq c 116) 9 (if (eq c 110) 10 c)))
+
+; ------------------------------------------------------------------ updates
+
+; The lines after an update, and whether the key had a line before it.
+(data Updated
+  (Updated (list (list int)) bool))
+
+; Replaces the line starting with prefix, keeping its place, or adds line at
+; the end if there is none.
+(def put_line ((lines (list (list int))) (prefix (list int)) (line (list int))
+               (acc (list (list int)))) Updated
+  (if (is_empty lines)
+      (Updated (rev_strs_onto (cons line acc) (nil (list int))) false)
+      (if (starts_with (head lines) prefix)
+          (Updated (rev_strs_onto acc (cons line (tail lines))) true)
+          (put_line (tail lines) prefix line (cons (head lines) acc)))))
+
+(def remove_line ((lines (list (list int))) (prefix (list int))
+                  (acc (list (list int)))) Updated
+  (if (is_empty lines)
+      (Updated (rev_strs_onto acc (nil (list int))) false)
+      (if (starts_with (head lines) prefix)
+          (Updated (rev_strs_onto acc (tail lines)) true)
+          (remove_line (tail lines) prefix (cons (head lines) acc)))))
+
+; The value for prefix's key among lines, if there is one.
+(data Lookup
+  (Found (list int))
+  (Missing))
+
+(def find_in ((lines (list (list int))) (prefix (list int))) Lookup
+  (if (is_empty lines)
+      (Missing)
+      (if (starts_with (head lines) prefix)
+          (Found (unescape (drop_n (head lines) (length prefix)) (nil int)))
+          (find_in (tail lines) prefix))))
+
+; ------------------------------------------------------------------ reading
+;
+; file_read_line in lib/io.l0 returns what it has on any negative result, so
+; a failed read looks like the end of the file. Rewriting a store after a
+; read that failed partway would silently drop every entry after the
+; failure, so kv reads through this instead.
+
+(data Line
+  (Line (list int))                     ; a line, with a newline added if absent
+  (LineEnd)
+  (LineFailed (list int)))
+
+(def next_line ((f IoFile) (acc (list int))) Line
+  (let b (file_read_byte f)
+    (if (eq b -1)
+        (if (is_empty acc) (LineEnd) (Line (rev (cons 10 acc))))
+        (if (lt b 0)
+            (LineFailed (io_error b))
+            (if (eq b 10)
+                (Line (rev (cons 10 acc)))
+                (next_line f (cons b acc)))))))
+
+(data Lines
+  (Lines (list (list int)))
+  (LinesFailed (list int)))
+
+(def read_lines ((f IoFile) (acc (list (list int)))) Lines
+  (match (next_line f (nil int))
+    ((Line s) (read_lines f (cons s acc)))
+    ((LineEnd) (Lines (rev_strs_onto acc (nil (list int)))))
+    ((LineFailed why) (LinesFailed why))))
+
+; Scans f for prefix's key without holding the file, stopping at the match.
+(data Scan
+  (ScanFound (list int))
+  (ScanMissing)
+  (ScanFailed (list int)))
+
+(def scan_for ((f IoFile) (prefix (list int))) Scan
+  (match (next_line f (nil int))
+    ((Line s)
+      (if (starts_with s prefix)
+          (ScanFound (unescape (drop_n s (length prefix)) (nil int)))
+          (scan_for f prefix)))
+    ((LineEnd) (ScanMissing))
+    ((LineFailed why) (ScanFailed why))))
+
+(def write_lines ((f IoFile) (lines (list (list int)))) int
+  (if (is_empty lines)
+      0
+      (let w (file_write_str f (head lines))
+        (write_lines f (tail lines)))))
+
+; ----------------------------------------------------------------- sharding
+;
+; With buckets above 0, a key lives in FILE.N for N = bucket_of(key), so a
+; set rewrites one bucket rather than the whole store. gen_store.py computes
+; the same hash.
+
+(def store_path ((file (list int)) (key (list int)) (buckets int)) (list int)
+  (if (le buckets 0)
+      file
+      (append file (cons 46 (digits (bucket_of key buckets))))))
+
+(def bucket_of ((key (list int)) (buckets int)) int
+  (mod (hash_onto key 0) buckets))
+
+(def hash_onto ((s (list int)) (h int)) int
+  (if (is_empty s)
+      h
+      (hash_onto (tail s) (mod (add (mul h 31) (head s)) 1000003))))
+
+; ----------------------------------------------------------------- commands
+;
+; Exit status 0 on success, 1 when the key is absent, 2 for usage or I/O
+; errors. A store file that does not exist is empty.
+
+(def run ((buckets int)) int
+  (let cmd (arg 1)
+    (let path (store_path (arg 0) (arg 2) buckets)
+      (if (if (list_eq cmd "get") (eq (arg_count) 3) false)
+          (cmd_get path (arg 2))
+          (if (if (list_eq cmd "set") (eq (arg_count) 4) false)
+              (cmd_set path (arg 2) (arg 3))
+              (if (if (list_eq cmd "del") (eq (arg_count) 3) false)
+                  (cmd_del path (arg 2))
+                  (usage 0)))))))
+
+(def usage ((ignored int)) int
+  (let w (write_err
+           "usage: kv FILE get KEY | kv FILE set KEY VALUE | kv FILE del KEY\n")
+    2))
+
+(def kv_fail ((path (list int)) (why (list int))) int
+  (let w (write_err (append "kv: " (append path (append ": " (append why "\n")))))
+    2))
+
+(def not_found ((key (list int))) int
+  (let w (write_err (append "kv: no key " (append key "\n")))
+    1))
+
+(def cmd_get ((path (list int)) (key (list int))) int
+  (match (open_in path)
+    ((IoFailed why)
+      (if (list_eq why "no such file") (not_found key) (kv_fail path why)))
+    ((IoOpened f)
+      (let r (scan_for f (key_prefix key))
+        (let c (file_close f)
+          (match r
+            ((ScanFound v) (write_line v))
+            ((ScanMissing) (not_found key))
+            ((ScanFailed why) (kv_fail path why))))))))
+
+(def cmd_set ((path (list int)) (key (list int)) (value (list int))) int
+  (match (load path)
+    ((LinesFailed why) (kv_fail path why))
+    ((Lines lines)
+      (match (put_line lines (key_prefix key) (entry_line key value)
+                       (nil (list int)))
+        ((Updated new found) (store path new))))))
+
+(def cmd_del ((path (list int)) (key (list int))) int
+  (match (load path)
+    ((LinesFailed why) (kv_fail path why))
+    ((Lines lines)
+      (match (remove_line lines (key_prefix key) (nil (list int)))
+        ((Updated new found)
+          (if found (store path new) (not_found key)))))))
+
+; Every line of the store at path; none if it does not exist yet. IoFailed
+; says why only in words, so "does not exist" is recognised by its text.
+(def load ((path (list int))) Lines
+  (match (open_in path)
+    ((IoFailed why)
+      (if (list_eq why "no such file") (Lines (nil (list int))) (LinesFailed why)))
+    ((IoOpened f)
+      (let r (read_lines f (nil (list int)))
+        (let c (file_close f)
+          r)))))
+
+; open_out empties the file before a byte is written and L0 has no rename,
+; so a crash between here and file_close loses the store or bucket.
+(def store ((path (list int)) (lines (list (list int)))) int
+  (match (open_out path)
+    ((IoFailed why) (kv_fail path why))
+    ((IoOpened f)
+      (let w (write_lines f lines)
+        (if (lt (file_close f) 0)
+            (kv_fail path "could not write")
+            0)))))

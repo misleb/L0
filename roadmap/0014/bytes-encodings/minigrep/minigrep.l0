@@ -1,0 +1,175 @@
+; minigrep.l0 -- a small grep, without main so it can be tested.
+;
+; A pattern is made of:
+;
+;   c     any byte other than the ones below matches itself
+;   .     matches any byte
+;   x*    zero or more of x, where x is a byte or .
+;   ^     at the start, anchors the match to the start of the line
+;   $     at the end, anchors the match to the end of the line
+;
+; Anywhere else ^ and $ match themselves, and so does a * with nothing
+; before it to repeat, as in a POSIX basic regular expression. A second *
+; in a row changes nothing.
+;
+; The matcher backtracks, as in Kernighan and Pike's "The Practice of
+; Programming", chapter 9. Its cost is linear for a pattern without *, and
+; grows as a power of the line length with the number of *s.
+
+; ------------------------------------------------------------------ patterns
+
+(data Atom
+  (Lit int)
+  (Any))
+
+(data Tok
+  (One Atom)
+  (Many Atom))
+
+; Anchored at the start, the tokens, anchored at the end.
+(data Pat
+  (Pat bool (list Tok) bool))
+
+(def rev_toks ((xs (list Tok)) (acc (list Tok))) (list Tok)
+  (if (is_empty xs) acc (rev_toks (tail xs) (cons (head xs) acc))))
+
+(def parse_pattern ((p (list int))) Pat
+  (if (is_empty p)
+      (Pat false (nil Tok) false)
+      (if (eq (head p) 94)
+          (parse_body true (tail p))
+          (parse_body false p))))
+
+(def parse_body ((start bool) (p (list int))) Pat
+  (parse_toks start p (nil Tok)))
+
+; acc holds the tokens so far, last first, so a * can take the one before it.
+(def parse_toks ((start bool) (p (list int)) (acc (list Tok))) Pat
+  (if (is_empty p)
+      (Pat start (rev_toks acc (nil Tok)) false)
+      (let c (head p)
+        (if (and (eq c 36) (is_empty (tail p)))
+            (Pat start (rev_toks acc (nil Tok)) true)
+            (if (eq c 42)
+                (parse_toks start (tail p) (star acc))
+                (parse_toks start (tail p) (cons (One (atom_of c)) acc)))))))
+
+(def atom_of ((c int)) Atom
+  (if (eq c 46) (Any) (Lit c)))
+
+; Applies a * to the token before it. With nothing to repeat the * is a
+; literal; after another * it changes nothing, as in GNU grep.
+(def star ((acc (list Tok))) (list Tok)
+  (if (is_empty acc)
+      (cons (One (Lit 42)) acc)
+      (match (head acc)
+        ((One a) (cons (Many a) (tail acc)))
+        ((Many a) acc))))
+
+; ------------------------------------------------------------------ matching
+
+(def atom_matches ((a Atom) (c int)) bool
+  (match a
+    ((Lit x) (eq x c))
+    ((Any) true)))
+
+; Whether the tokens match a prefix of s, or all of s when end is set.
+(def match_here ((ts (list Tok)) (s (list int)) (end bool)) bool
+  (if (is_empty ts)
+      (if end (is_empty s) true)
+      (match (head ts)
+        ((One a)
+          (if (is_empty s)
+              false
+              (if (atom_matches a (head s))
+                  (match_here (tail ts) (tail s) end)
+                  false)))
+        ((Many a) (match_star a (tail ts) s end)))))
+
+; Zero or more of a, then the rest: tries the fewest repetitions first.
+(def match_star ((a Atom) (rest (list Tok)) (s (list int)) (end bool)) bool
+  (if (match_here rest s end)
+      true
+      (if (is_empty s)
+          false
+          (if (atom_matches a (head s))
+              (match_star a rest (tail s) end)
+              false))))
+
+; Tries every starting position, including the empty one at the end.
+(def match_anywhere ((ts (list Tok)) (s (list int)) (end bool)) bool
+  (if (match_here ts s end)
+      true
+      (if (is_empty s)
+          false
+          (match_anywhere ts (tail s) end))))
+
+(def matches ((p Pat) (line (list int))) bool
+  (match p
+    ((Pat start ts end)
+      (if start
+          (match_here ts line end)
+          (match_anywhere ts line end)))))
+
+; -------------------------------------------------------------------- lines
+
+(data Read
+  (Line (list int))
+  (Eof)
+  (ReadFailed int))
+
+; The next line of h without its newline. A last line with no newline is
+; still a line, and a failed read is not taken for the end of input.
+(def read_line_h ((h int) (acc (list int))) Read
+  (let b (read_from h)
+    (if (eq b -1)
+        (if (is_empty acc) (Eof) (Line (rev acc)))
+        (if (lt b 0)
+            (ReadFailed b)
+            (if (eq b 10)
+                (Line (rev acc))
+                (read_line_h h (cons b acc)))))))
+
+; --------------------------------------------------------------- searching
+
+; Writes name:line to out for every line of h that p matches. Returns how
+; many matched, or -1 if reading failed.
+(def grep_handle ((p Pat) (name (list int)) (h int) (out int) (n int)) int
+  (match (read_line_h h (nil int))
+    ((Eof) n)
+    ((ReadFailed code)
+      (let w (complain (append name (append ": " (io_error code)))) -1))
+    ((Line s)
+      (if (matches p s)
+          (let a (write_to_handle out name)
+            (let b (write_to out 58)
+              (let c (write_to_handle out s)
+                (let d (write_to out 10)
+                  (grep_handle p name h out (add n 1))))))
+          (grep_handle p name h out n)))))
+
+; grep_handle on the file at path, or -1 if it cannot be opened.
+(def grep_path ((p Pat) (path (list int)) (out int)) int
+  (match (open_in path)
+    ((IoFailed why)
+      (let w (complain (append path (append ": " why))) -1))
+    ((IoOpened f)
+      (match f
+        ((IoFile h)
+          (let n (grep_handle p path h out 0)
+            (let c (file_close f)
+              n)))))))
+
+(def complain ((why (list int))) int
+  (write_err (append "minigrep: " (append why "\n"))))
+
+; Searches the files named by arguments i to n - 1. The status is grep's:
+; 2 if anything went wrong, otherwise 0 if any line matched and 1 if none.
+(def grep_args ((p Pat) (i int) (n int) (out int) (matched bool) (failed bool))
+    int
+  (if (ge i n)
+      (if failed 2 (if matched 0 1))
+      (let r (grep_path p (arg i) out)
+        (grep_args p (add i 1) n out
+          (or matched (gt r 0))
+          (or failed (lt r 0))))))

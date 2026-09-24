@@ -1,0 +1,126 @@
+self         ret.O0             limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted)
+self         ret.O2             no limit up to 1000000000
+self         ret.noinl.O2       no limit up to 1000000000
+self         tail.O0            no limit up to 1000000000
+self         tail.O2            no limit up to 1000000000
+self         tail.noinl.O2      no limit up to 1000000000
+self         mustsame.O0        no limit up to 1000000000
+self         mustsame.O2        no limit up to 1000000000
+self         mustsame.noinl.O2  no limit up to 1000000000
+self         tailcc.O0          no limit up to 1000000000
+self         tailcc.O2          no limit up to 1000000000
+self         tailcc.noinl.O2    no limit up to 1000000000
+self         loop.O0            no limit up to 1000000000
+self         loop.O2            no limit up to 1000000000
+self         loop.noinl.O2      no limit up to 1000000000
+self         loopnh.O0          no limit up to 1000000000
+self         loopnh.O2          no limit up to 1000000000
+self         loopnh.noinl.O2    no limit up to 1000000000
+mutual       ret.O0             limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted)
+mutual       ret.O2             no limit up to 1000000000
+mutual       ret.noinl.O2       no limit up to 1000000000
+mutual       tail.O0            no limit up to 1000000000
+mutual       tail.O2            no limit up to 1000000000
+mutual       tail.noinl.O2      no limit up to 1000000000
+mutual       mustsame.O0        no limit up to 1000000000
+mutual       mustsame.O2        no limit up to 1000000000
+mutual       mustsame.noinl.O2  no limit up to 1000000000
+mutual       tailcc.O0          no limit up to 1000000000
+mutual       tailcc.O2          no limit up to 1000000000
+mutual       tailcc.noinl.O2    no limit up to 1000000000
+mutual       loop.O0            limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted)
+mutual       loop.O2            no limit up to 1000000000
+mutual       loop.noinl.O2      no limit up to 1000000000
+mutual       loopnh.O0          limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted)
+mutual       loopnh.O2          no limit up to 1000000000
+mutual       loopnh.noinl.O2    no limit up to 1000000000
+mutual_wide  ret.O0             limit ~5570312 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  ret.O2             no limit up to 1000000000
+mutual_wide  ret.noinl.O2       limit ~22304687 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  tail.O0            limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  tail.O2            no limit up to 1000000000
+mutual_wide  tail.noinl.O2      limit ~22304687 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  mustsame.O0        limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  mustsame.O2        no limit up to 1000000000
+mutual_wide  mustsame.noinl.O2  limit ~22304687 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  tailcc.O0          no limit up to 1000000000
+mutual_wide  tailcc.O2          no limit up to 1000000000
+mutual_wide  tailcc.noinl.O2    no limit up to 1000000000
+mutual_wide  loop.O0            limit ~5570312 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  loop.O2            no limit up to 1000000000
+mutual_wide  loop.noinl.O2      limit ~22304687 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  loopnh.O0          limit ~5570312 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  loopnh.O2          no limit up to 1000000000
+mutual_wide  loopnh.noinl.O2    limit ~22304687 (fail rc=70: l0: runtime error: stack exhausted)
+listloop     ret.O0             limit ~8382812 (fail rc=70: l0: runtime error: stack exhausted)
+listloop     ret.O2             no limit up to 1000000000
+listloop     ret.noinl.O2       no limit up to 1000000000
+listloop     tail.O0            no limit up to 1000000000
+listloop     tail.O2            no limit up to 1000000000
+listloop     tail.noinl.O2      no limit up to 1000000000
+listloop     mustsame.O0        no limit up to 1000000000
+listloop     mustsame.O2        no limit up to 1000000000
+listloop     mustsame.noinl.O2  no limit up to 1000000000
+listloop     tailcc.O0          no limit up to 1000000000
+listloop     tailcc.O2          no limit up to 1000000000
+listloop     tailcc.noinl.O2    no limit up to 1000000000
+listloop     loop.O0            no limit up to 1000000000
+listloop     loop.O2            no limit up to 1000000000
+listloop     loop.noinl.O2      no limit up to 1000000000
+listloop     loopnh.O0          limit ~33378906 (fail rc=138: )
+listloop     loopnh.O2          no limit up to 1000000000
+listloop     loopnh.noinl.O2    no limit up to 1000000000
+walk         ret.O0             limit ~8382812 (fail rc=70: l0: runtime error: stack exhausted)
+walk         ret.O2             no limit up to 30000000
+walk         ret.noinl.O2       no limit up to 30000000
+walk         tail.O0            no limit up to 30000000
+walk         tail.O2            no limit up to 30000000
+walk         tail.noinl.O2      no limit up to 30000000
+walk         mustsame.O0        no limit up to 30000000
+walk         mustsame.O2        no limit up to 30000000
+walk         mustsame.noinl.O2  no limit up to 30000000
+walk         tailcc.O0          no limit up to 30000000
+walk         tailcc.O2          no limit up to 30000000
+walk         tailcc.noinl.O2    no limit up to 30000000
+walk         loop.O0            no limit up to 30000000
+walk         loop.O2            no limit up to 30000000
+walk         loop.noinl.O2      no limit up to 30000000
+walk         loopnh.O0          no limit up to 30000000
+walk         loopnh.O2          no limit up to 30000000
+walk         loopnh.noinl.O2    no limit up to 30000000
+matchloop    ret.O0             limit ~3707031 (fail rc=70: l0: runtime error: stack exhausted)
+matchloop    ret.O2             no limit up to 1000000000
+matchloop    ret.noinl.O2       no limit up to 1000000000
+matchloop    tail.O0            no limit up to 1000000000
+matchloop    tail.O2            no limit up to 1000000000
+matchloop    tail.noinl.O2      no limit up to 1000000000
+matchloop    mustsame.O0        no limit up to 1000000000
+matchloop    mustsame.O2        no limit up to 1000000000
+matchloop    mustsame.noinl.O2  no limit up to 1000000000
+matchloop    tailcc.O0          no limit up to 1000000000
+matchloop    tailcc.O2          no limit up to 1000000000
+matchloop    tailcc.noinl.O2    no limit up to 1000000000
+matchloop    loop.O0            no limit up to 1000000000
+matchloop    loop.O2            no limit up to 1000000000
+matchloop    loop.noinl.O2      no limit up to 1000000000
+matchloop    loopnh.O0          limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+matchloop    loopnh.O2          no limit up to 1000000000
+matchloop    loopnh.noinl.O2    no limit up to 1000000000
+nontail      ret.O0             limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+nontail      ret.O2             no limit up to 1000000000
+nontail      ret.noinl.O2       no limit up to 1000000000
+nontail      tail.O0            limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+nontail      tail.O2            no limit up to 1000000000
+nontail      tail.noinl.O2      no limit up to 1000000000
+nontail      mustsame.O0        limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+nontail      mustsame.O2        no limit up to 1000000000
+nontail      mustsame.noinl.O2  no limit up to 1000000000
+nontail      tailcc.O0          limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+nontail      tailcc.O2          no limit up to 1000000000
+nontail      tailcc.noinl.O2    no limit up to 1000000000
+nontail      loop.O0            limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+nontail      loop.O2            no limit up to 1000000000
+nontail      loop.noinl.O2      no limit up to 1000000000
+nontail      loopnh.O0          limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+nontail      loopnh.O2          no limit up to 1000000000
+nontail      loopnh.noinl.O2    no limit up to 1000000000

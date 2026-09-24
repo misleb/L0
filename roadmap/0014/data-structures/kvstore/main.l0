@@ -1,0 +1,13 @@
+; main.l0 -- kv: a persistent key-value store in one file.
+;
+;   tools/l0 build programs/kvstore/kv.l0 programs/kvstore/main.l0 -o kv
+;   kv FILE get KEY          print the value; exit 1 if there is none
+;   kv FILE set KEY VALUE    add or replace
+;   kv FILE del KEY          remove; exit 1 if there was nothing to remove
+;
+; L0 can only read a file from the start and can only open one for writing by
+; emptying it, so every set and del reads the whole store and writes it back.
+; sharded.l0 is the same program spread over 256 files.
+
+(def main () int
+  (run 0))

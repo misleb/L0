@@ -1,0 +1,10 @@
+; sharded.l0 -- kv over 256 bucket files, FILE.0 to FILE.255.
+;
+;   tools/l0 build programs/kvstore/kv.l0 programs/kvstore/sharded.l0 -o kvs
+;
+; The same commands as main.l0. This is a workaround, not a design: L0 has no
+; seek and no append, so the only way to make a write cost less than the
+; whole store is to make each file smaller. See the README.
+
+(def main () int
+  (run 256))

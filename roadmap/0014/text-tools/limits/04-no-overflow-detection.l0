@@ -1,0 +1,24 @@
+; LIMIT 04: arithmetic wraps silently, and nothing reports that it did.
+;
+; add, sub, mul, neg, and div wrap on overflow (spec 3, 6.1), which is
+; right for a hash but wrong for a calculator, whose user asked for the
+; true value. L0 has no checked arithmetic and no bitwise operations, so the
+; usual one-line tests (the sign bits of a ^ r and b ^ r) cannot be written
+; either. calc detects overflow by case analysis on signs, with the
+; -9223372036854775808 * -1 and / -1 cases handled apart:
+;
+;   calc.l0   overflow, checked_add, checked_sub, checked_mul, checked_neg,
+;             checked_div, checked_mod: 38 lines
+;   calc_test.l0  a property test of checked_mul against a division-based
+;             bound (37 lines), and nine edge-case assertions, to trust
+;             those 38 lines
+;
+; A number too large to be a literal is the same problem in the lexer, which
+; checks v > (max - d) / 10 before each digit.
+;
+; The smallest program: it prints -9223372036854775808, exit status 0, and
+; no program can tell from the result that anything went wrong.
+
+(def main () int
+  (let w (write_line (digits (add 9223372036854775807 1)))
+    0))

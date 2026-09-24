@@ -43,9 +43,15 @@ entry:
 
 define i64 @l0_f_main(i64 %a0) {
 entry:
+  %r = call i64 @l0_f_main.body(i64 %a0)
+  ret i64 %r
+}
+
+define internal i64 @l0_f_main.body(i64 %a0) {
+entry:
   call void @l0_stack_check()
   call void @l0_dec(i64 %a0)
-  %t0 = call i64 @l0_f_h(i64 4)
+  %t0 = musttail call i64 @l0_f_h(i64 4)
   ret i64 %t0
 }
 

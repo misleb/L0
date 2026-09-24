@@ -1,0 +1,11 @@
+; Mutual recursion between functions of different arity (3 and 2), every
+; argument in a register under the C convention.
+(def ping ((n int) (acc int) (k int)) int
+  (if (eq n 0) acc (pong (sub n 1) (add acc k))))
+
+(def pong ((n int) (acc int)) int
+  (if (eq n 0) acc (ping (sub n 1) acc 1)))
+
+(def main () int
+  (let r (write_line (digits (ping (int_prefix (arg 0) 0) 0 1)))
+    0))

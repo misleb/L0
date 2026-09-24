@@ -1,0 +1,46 @@
+; 03-no-arrays.l0 -- L0 has no array, so a vector that an algorithm updates
+; in place must be rebuilt as a new list every step.
+;
+; This is the skeleton of Myers' diff (linediff) with the files taken out:
+; for d = 1 to D, the vector of furthest points for edit distance d is
+; computed from the one for d - 1, V[k] = max(V[k - 1] + 1, V[k + 1]).
+; With an array that is one store per diagonal and no allocation. As lists,
+; each step allocates a new list of d + 1 cells and a reversed copy, and
+; frees the old one.
+;
+;   tools/l0 build programs/limits/03-no-arrays.l0 -o /tmp/v
+;   /usr/bin/time -l /tmp/v 10000
+;
+; D = 10000 (two 5,000-line files with nothing in common), best of three,
+; Apple M4 Pro: 1.40 s, 1.9 MB peak, for 50 million element updates. The
+; same loop in C over one array, updated in place, clang -O2: 0.02 s. That
+; C program was a throwaway measurement and is not in the repository.
+;
+; That is the floor. linediff on those files takes 8.4 s and 595 MB peak,
+; because each point also carries the edits that reach it, which it must
+; since there is no array to record the trace in and walk back through,
+; and Apple's diff takes 0.01 s. See programs/hypothetical/03-no-arrays.l0.
+
+(def rev_onto_ints ((xs (list int)) (acc (list int))) (list int)
+  (if (is_empty xs) acc (rev_onto_ints (tail xs) (cons (head xs) acc))))
+
+(def max2 ((a int) (b int)) int
+  (if (gt a b) a b))
+
+(def step_mid ((left int) (rest (list int)) (acc (list int))) (list int)
+  (if (is_empty rest)
+      (rev_onto_ints (cons (add left 1) acc) (nil int))
+      (step_mid (head rest) (tail rest)
+        (cons (max2 (add left 1) (head rest)) acc))))
+
+(def step ((v (list int))) (list int)
+  (step_mid (head v) (tail v) (cons (head v) (nil int))))
+
+(def run ((d int) (big int) (v (list int))) int
+  (if (gt d big)
+      (head v)
+      (run (add d 1) big (step v))))
+
+(def main () int
+  (let w (write_line (digits (run 1 (int_prefix (arg 0) 0) (cons 0 (nil int)))))
+    0))

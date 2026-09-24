@@ -1,0 +1,252 @@
+; calc.l0 -- evaluate one line of integer arithmetic.
+;
+;   expr   := term (("+" | "-") term)*
+;   term   := unary (("*" | "/" | "%") unary)*
+;   unary  := ("-" | "+") unary | atom
+;   atom   := NUMBER | "(" expr ")"
+;
+; Operators of one precedence associate to the left. / and % truncate toward
+; zero, as L0's div and mod do. Every result is a 64-bit integer, and a result
+; that does not fit is reported as an overflow rather than wrapped, so each
+; operator is checked by hand: L0's own arithmetic wraps silently.
+
+; ---------------------------------------------------------------- tokens
+
+(data Tok
+  (TNum int)
+  (TOp int)                             ; the operator's byte: + - * / %
+  (TOpen)
+  (TClose))
+
+(data Lexed
+  (Lexed (list Tok))
+  (LexFailed (list int)))
+
+(def is_op ((c int)) bool
+  (any_eq (cons c (nil int)) (split_spaces "+ - * / %")))
+
+(def rev_toks ((xs (list Tok)) (acc (list Tok))) (list Tok)
+  (if (is_empty xs)
+      acc
+      (rev_toks (tail xs) (cons (head xs) acc))))
+
+(def lex ((s (list int)) (acc (list Tok))) Lexed
+  (if (is_empty s)
+      (Lexed (rev_toks acc (nil Tok)))
+      (lex_at (head s) s acc)))
+
+(def lex_at ((c int) (s (list int)) (acc (list Tok))) Lexed
+  (if (is_space c)
+      (lex (tail s) acc)
+      (if (is_digit c)
+          (lex_number s 0 acc)
+          (if (is_op c)
+              (lex (tail s) (cons (TOp c) acc))
+              (if (eq c 40)
+                  (lex (tail s) (cons (TOpen) acc))
+                  (if (eq c 41)
+                      (lex (tail s) (cons (TClose) acc))
+                      (LexFailed (append "unexpected character "
+                                   (show_byte_quoted c)))))))))
+
+(def lex_number ((s (list int)) (v int) (acc (list Tok))) Lexed
+  (if (if (is_empty s) false (is_digit (head s)))
+      (let d (sub (head s) 48)
+        (if (gt v (div (sub 9223372036854775807 d) 10))
+            (LexFailed "number too large")
+            (lex_number (tail s) (add (mul v 10) d) acc)))
+      (lex s (cons (TNum v) acc))))
+
+; A byte as 'c', or as its decimal value if it is not printable.
+(def show_byte_quoted ((c int)) (list int)
+  (if (and (gt c 32) (lt c 127))
+      (cons 39 (cons c (cons 39 (nil int))))
+      (append "byte " (digits c))))
+
+(def describe ((t Tok)) (list int)
+  (match t
+    ((TNum n) (digits n))
+    ((TOp c) (cons c (nil int)))
+    ((TOpen) "(")
+    ((TClose) ")")))
+
+; ------------------------------------------------------------ arithmetic
+
+(data Arith
+  (AOk int)
+  (AErr (list int)))
+
+(def overflow ((ignored int)) Arith
+  (AErr "overflow"))
+
+(def checked_add ((a int) (b int)) Arith
+  (let r (add a b)
+    (if (and (ge a 0) (ge b 0))
+        (if (lt r 0) (overflow 0) (AOk r))
+        (if (and (lt a 0) (lt b 0))
+            (if (ge r 0) (overflow 0) (AOk r))
+            (AOk r)))))
+
+(def checked_sub ((a int) (b int)) Arith
+  (if (eq b (int_min 0))
+      (if (ge a 0) (overflow 0) (AOk (sub a b)))
+      (checked_add a (neg b))))
+
+(def checked_mul ((a int) (b int)) Arith
+  (if (or (eq a 0) (eq b 0))
+      (AOk 0)
+      (if (eq a -1)
+          (checked_neg b)
+          (if (eq b -1)
+              (checked_neg a)
+              (let r (mul a b)
+                (if (eq (div r b) a) (AOk r) (overflow 0)))))))
+
+(def checked_neg ((a int)) Arith
+  (if (eq a (int_min 0)) (overflow 0) (AOk (neg a))))
+
+(def checked_div ((a int) (b int)) Arith
+  (if (eq b 0)
+      (AErr "division by zero")
+      (if (and (eq a (int_min 0)) (eq b -1))
+          (overflow 0)
+          (AOk (div a b)))))
+
+(def checked_mod ((a int) (b int)) Arith
+  (if (eq b 0) (AErr "division by zero") (AOk (mod a b))))
+
+(def apply ((op int) (a int) (b int)) Arith
+  (if (eq op 43)
+      (checked_add a b)
+      (if (eq op 45)
+          (checked_sub a b)
+          (if (eq op 42)
+              (checked_mul a b)
+              (if (eq op 47) (checked_div a b) (checked_mod a b))))))
+
+; ---------------------------------------------------------------- parser
+
+; Each rule returns its value and the tokens after what it consumed.
+(data Val
+  (Val int (list Tok))
+  (Err (list int)))
+
+; The operator at the front of ts, or 0 if ts does not start with one.
+(def peek_op ((ts (list Tok))) int
+  (if (is_empty ts)
+      0
+      (match (head ts)
+        ((TNum n) 0)
+        ((TOp c) c)
+        ((TOpen) 0)
+        ((TClose) 0))))
+
+(def starts_close ((ts (list Tok))) bool
+  (if (is_empty ts)
+      false
+      (match (head ts)
+        ((TNum n) false)
+        ((TOp c) false)
+        ((TOpen) false)
+        ((TClose) true))))
+
+(def is_additive ((op int)) bool
+  (or (eq op 43) (eq op 45)))
+
+(def is_multiplicative ((op int)) bool
+  (or (eq op 42) (or (eq op 47) (eq op 37))))
+
+(def expr ((ts (list Tok))) Val
+  (match (term ts)
+    ((Val v rest) (expr_more v rest))
+    ((Err why) (Err why))))
+
+(def expr_more ((v int) (ts (list Tok))) Val
+  (let op (peek_op ts)
+    (if (is_additive op)
+        (match (term (tail ts))
+          ((Val w rest) (combine op v w rest (Additive)))
+          ((Err why) (Err why)))
+        (Val v ts))))
+
+(def term ((ts (list Tok))) Val
+  (match (unary ts)
+    ((Val v rest) (term_more v rest))
+    ((Err why) (Err why))))
+
+(def term_more ((v int) (ts (list Tok))) Val
+  (let op (peek_op ts)
+    (if (is_multiplicative op)
+        (match (unary (tail ts))
+          ((Val w rest) (combine op v w rest (Multiplicative)))
+          ((Err why) (Err why)))
+        (Val v ts))))
+
+; Which loop to go back to after applying an operator.
+(data Level
+  (Additive)
+  (Multiplicative))
+
+(def combine ((op int) (v int) (w int) (rest (list Tok)) (level Level)) Val
+  (match (apply op v w)
+    ((AErr why) (Err why))
+    ((AOk x)
+      (match level
+        ((Additive) (expr_more x rest))
+        ((Multiplicative) (term_more x rest))))))
+
+(def unary ((ts (list Tok))) Val
+  (let op (peek_op ts)
+    (if (eq op 45)
+        (match (unary (tail ts))
+          ((Val v rest)
+            (match (checked_neg v)
+              ((AOk x) (Val x rest))
+              ((AErr why) (Err why))))
+          ((Err why) (Err why)))
+        (if (eq op 43)
+            (unary (tail ts))
+            (atom ts)))))
+
+(def atom ((ts (list Tok))) Val
+  (if (is_empty ts)
+      (Err "expected a number or ( at the end of the line")
+      (match (head ts)
+        ((TNum n) (Val n (tail ts)))
+        ((TOpen) (close_paren (expr (tail ts))))
+        ((TOp c) (expected_before (head ts)))
+        ((TClose) (expected_before (head ts))))))
+
+(def expected_before ((t Tok)) Val
+  (Err (append "expected a number or ( before " (describe t))))
+
+(def close_paren ((r Val)) Val
+  (match r
+    ((Err why) (Err why))
+    ((Val v rest)
+      (if (starts_close rest)
+          (Val v (tail rest))
+          (Err "missing )")))))
+
+; ------------------------------------------------------------------- lines
+
+; What calc prints for one line of input: the value, an error, or nothing
+; for a blank line.
+(def answer ((line (list int))) (list int)
+  (match (lex line (nil Tok))
+    ((LexFailed why) (error_line why))
+    ((Lexed ts)
+      (if (is_empty ts)
+          (nil int)
+          (answer_tokens ts)))))
+
+(def answer_tokens ((ts (list Tok))) (list int)
+  (match (expr ts)
+    ((Err why) (error_line why))
+    ((Val v rest)
+      (if (is_empty rest)
+          (append (digits v) "\n")
+          (error_line (append "unexpected " (describe (head rest))))))))
+
+(def error_line ((why (list int))) (list int)
+  (append "error: " (append why "\n")))

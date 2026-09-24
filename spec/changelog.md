@@ -7,6 +7,103 @@ New entries go at the top.
 
 ---
 
+## A tail call uses no stack
+
+**Every tail call is now guaranteed** (section 8). Section 8 defines tail
+position and tail calls, and a chain of tail calls of any length, between
+functions of any arities, runs in the stack of one activation. Before, it
+left the outcome unspecified, and the outcome depended on the host: the
+optimization level, whether LLVM inlined the functions involved, and how
+many arguments the target passes in registers. That was the question roadmap
+item 0011 researched; its measurements are in `roadmap/0011/`.
+
+**The blocker.** L0 has no loops, so every loop is recursion, and a state
+machine written as mutually recursive functions is ordinary L0. Measured
+with an 8 MB stack before this change:
+
+```
+self-recursive loop, -O0                        exhausted at 1 million
+tail calls between a 10- and a 2-argument
+  function, -O2, neither inlined                exhausted at 1 million
+```
+
+The second is the default build of a program large enough that LLVM does
+not inline its loops, and a call between functions of seven and two
+arguments behaved differently on arm64 and x86-64. So the same program could
+run on one machine and exhaust the stack on another. The compiler itself,
+built at `-O0`, needed a 128 MB stack to compile itself.
+
+**How.** A tail call is emitted as `musttail call` followed by `ret`, and an
+`if` or `match` in tail position returns from each branch instead of joining
+(10.3). `musttail` makes LLVM keep the guarantee at every optimization level
+or refuse to compile, so a toolchain that cannot honor it fails at build
+time, never at run time. It requires caller and callee to have the same
+prototype, so a function takes as many parameters as the widest function in
+its tail-call component, padded with zeros (10.2). The program's `main` is
+wrapped, because the runtime calls every `main` with one argument.
+
+**Why this way.** 0011 compared five implementations by rewriting the IR the
+compiler emitted:
+
+- `tailcc`, LLVM's convention for guaranteed tail calls, needs no padding, but
+  LLVM rejects it for RISC-V, 32-bit ARM at `-O0`, and wasm. Section 10 makes
+  the output the same bytes on every host, so the compiler cannot choose it
+  per target.
+- `musttail` with the C convention and no padding fails at once: the prelude
+  itself tail-calls across arities.
+- Padding every function to the module's widest costs 13% more code at `-O0`,
+  and one wide function makes every call pay for it. Padding per component
+  pads only what needs it.
+- Turning self tail calls into loops in the emitter is portable, but covers
+  200 of the compiler's 314 tail calls and none that are mutual.
+
+**Measured after**, all on an 8 MB stack unless stated:
+
+```
+the eight shapes 0011 tested, 10 million iterations,
+  at -O0 and at -O2 with nothing inlined       all complete
+the compiler at -O0, compiling itself          on a 1 MB stack, with
+                                               L0_RC_CHECK, output identical
+the compiler's own IR                          898,092 -> 850,276 bytes
+```
+
+The IR is smaller because branches in tail position no longer store to a
+slot and join. The compiler emits 336 `musttail` calls in itself, and 29
+allocas remain, all for branches that are not in tail position. The compiler
+IR assembles at `-O0` and `-O2` for x86-64, AArch64, RISC-V, and 32-bit ARM;
+wasm refuses it at build time without the tail-call feature, as intended.
+Both suites pass on macOS arm64, and on Linux aarch64 and x86-64 with
+clang 18.
+
+**What it costs.** Self-compilation went from 0.21 to 0.26 seconds,
+including process start, best of three; not yet profiled. And the property
+section 10.2 had, that a function's IR prototype is its L0 parameters and
+nothing else, is gone.
+
+**What was decided along the way.**
+
+- *A builtin in tail position is not a tail call.* Builtins cannot recurse,
+  and `head`, `tail`, and the others that borrow their argument release it
+  after the call, which `musttail` would forbid.
+- *No alloca moves to the entry block.* 0011 found that a loop within a
+  function would allocate its join slots on every iteration. No emitted
+  function has a back edge, so each alloca runs at most once per call, and
+  10.4 now says a compiler that emits a loop must hoist them.
+- *`main`'s body is `@l0_f_main.body`.* The runtime must keep calling
+  `@l0_f_main`, because the seed defines that symbol and links against the
+  same runtime. No L0 name can contain a dot, so the new symbol cannot
+  collide with a program's function.
+- *How deep recursion that is not a tail call may go is not specified,* and
+  an implementation may run some of it in constant stack: LLVM already turns
+  `(add 1 (count ...))` into a loop at `-O1`.
+
+**Spec text corrected with it.** 10.3 said "a call in tail position stays
+one", which was false for the emitted IR at every level, and that a streaming
+program runs in constant memory, which held only for the heap. It now names
+`L0_STACK_MB` and its 512 MB default.
+
+---
+
 ## Memory is reclaimed by reference counting
 
 **Programs now free memory.** The compiler emits reference counting, and the

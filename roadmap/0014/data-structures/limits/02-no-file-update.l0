@@ -1,0 +1,48 @@
+; LIMIT 02: a file can only be read from its start, or emptied and written
+; from its start. There is no append mode, no seek, and no rename.
+;
+; Blocked: programs/kvstore. Adding one line to a file costs reading and
+; rewriting all of it, so every kv set and del is O(store size); a sorted or
+; hashed file with in-place updates is impossible; and because open_write
+; empties the file before anything is written and there is no rename to
+; replace a file whole, a crash during a set loses the store. Crash safety
+; is impossible, not merely costly.
+;
+; Checker, for programs/hypothetical/02-no-file-update.l0:
+;   error: unknown function open_append
+;
+; This program appends its second argument as a line to the file named by
+; its first, the only way L0 can:
+;
+;   tools/l0 build programs/limits/02-no-file-update.l0 -o addline
+;   ./addline FILE LINE
+;
+; Measured (Apple Silicon, mean of 20), on "keyNNNNNNN\tvalue-..." lines:
+;   10,000 lines     0.29 MB    20 ms
+;   100,000 lines    2.9 MB    120 ms
+;   200,000 lines    5.8 MB    235 ms
+; sh -c 'echo LINE >> FILE' takes 12 ms at every size, all of it starting
+; the process, so appending is linear in the file for L0 alone. Loading
+; 100,000 keys one kv set at a time is then about 1.7 us x 100000^2 / 2,
+; roughly 2.4 hours; see programs/kvstore/README.md.
+
+(def main () int
+  (match (open_in (arg 0))
+    ((IoFailed why) (write_back (arg 0) (nil int)))
+    ((IoOpened f)
+      (let old (read_all_bytes f (nil int))
+        (let c (file_close f)
+          (write_back (arg 0) old))))))
+
+(def read_all_bytes ((f IoFile) (acc (list int))) (list int)
+  (let b (file_read_byte f)
+    (if (lt b 0) (rev acc) (read_all_bytes f (cons b acc)))))
+
+(def write_back ((path (list int)) (old (list int))) int
+  (match (open_out path)
+    ((IoFailed why) (let w (write_err why) 2))
+    ((IoOpened f)
+      (let a (file_write_str f old)
+        (let b (file_write_str f (arg 1))
+          (let c (file_write_byte f 10)
+            (if (lt (file_close f) 0) 2 0)))))))

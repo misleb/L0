@@ -1,0 +1,131 @@
+; minigrep_test.l0 -- run with:
+;
+;   tools/l0 test programs/minigrep/minigrep.l0 programs/minigrep/minigrep_test.l0
+
+(def m ((pattern (list int)) (line (list int))) bool
+  (matches (parse_pattern pattern) line))
+
+; ----------------------------------------------------------------- literals
+
+(def test_literal () int
+  (add (check_true "inside" (m "ell" "hello"))
+       (check_bool "absent" (m "elo" "hello") false)))
+
+(def test_empty_pattern_matches_everything () int
+  (add (check_true "empty line" (m "" ""))
+       (check_true "any line" (m "" "abc"))))
+
+(def test_pattern_longer_than_line () int
+  (check_bool "too long" (m "abcd" "abc") false))
+
+(def test_high_bytes () int
+  (check_true "byte 255" (m "\xff." "a\xff\x00")))
+
+; ------------------------------------------------------------------ anchors
+
+(def test_caret () int
+  (add (check_true "at start" (m "^he" "hello"))
+       (check_bool "not at start" (m "^el" "hello") false)))
+
+(def test_dollar () int
+  (add (check_true "at end" (m "lo$" "hello"))
+       (check_bool "not at end" (m "ll$" "hello") false)))
+
+(def test_both_anchors () int
+  (add (check_true "whole line" (m "^hello$" "hello"))
+       (check_bool "longer line" (m "^hello$" "hello!") false)))
+
+(def test_empty_line_pattern () int
+  (add (check_true "empty" (m "^$" ""))
+       (check_bool "not empty" (m "^$" " ") false)))
+
+(def test_anchors_elsewhere_are_literal () int
+  (add (check_true "caret inside" (m "a^b" "xa^by"))
+       (check_true "dollar inside" (m "a$b" "a$b"))))
+
+; ---------------------------------------------------------- dot and star
+
+(def test_dot () int
+  (add (check_true "any byte" (m "h.llo" "hallo"))
+       (check_bool "needs a byte" (m "hello." "hello") false)))
+
+(def test_star_zero_or_more () int
+  (add (check_true "zero" (m "^ab*c$" "ac"))
+       (add (check_true "one" (m "^ab*c$" "abc"))
+            (check_true "many" (m "^ab*c$" "abbbbc")))))
+
+(def test_dot_star () int
+  (add (check_true "spans" (m "^a.*z$" "a to z"))
+       (check_bool "wrong end" (m "^a.*z$" "a to y") false)))
+
+(def test_star_backtracks () int
+  (check_true "gives back" (m "^a*ab$" "aaab")))
+
+(def test_leading_star_is_literal () int
+  (add (check_true "star at start" (m "*a" "x*a"))
+       (add (check_bool "not a repeat" (m "*a" "a") false)
+            (check_true "after caret" (m "^*" "*x")))))
+
+(def test_double_star () int
+  (check_true "same as one" (m "^ab**c$" "abbc")))
+
+; ----------------------------------------------------------------- parsing
+
+(def tok_count ((p Pat)) int
+  (match p ((Pat s ts e) (length_toks ts 0))))
+
+(def length_toks ((ts (list Tok)) (n int)) int
+  (if (is_empty ts) n (length_toks (tail ts) (add n 1))))
+
+(def test_parse_counts () int
+  (add (check_int "a.b*" (tok_count (parse_pattern "a.b*")) 3)
+       (check_int "^x$" (tok_count (parse_pattern "^x$")) 1)))
+
+; ------------------------------------------------------------ whole files
+
+(def write_file ((path (list int)) (bytes (list int))) int
+  (match (open_out path)
+    ((IoFailed why) -1)
+    ((IoOpened f)
+      (let w (file_write_str f bytes)
+        (file_close f)))))
+
+(def read_file ((path (list int))) (list int)
+  (match (open_in path)
+    ((IoFailed why) "<unreadable>")
+    ((IoOpened f)
+      (let bytes (read_all f (nil int))
+        (let c (file_close f)
+          bytes)))))
+
+; Runs grep_path with its output going to a file, and returns what it wrote
+; followed by the count it returned.
+(def grep_to_file ((pattern (list int)) (path (list int))) (list int)
+  (match (open_out "/tmp/l0_minigrep_out")
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (match f
+        ((IoFile h)
+          (let n (grep_path (parse_pattern pattern) path h)
+            (let c (file_close f)
+              (append (read_file "/tmp/l0_minigrep_out")
+                      (append "count " (digits n))))))))))
+
+(def test_file_prefixes_and_count () int
+  (let w (write_file "/tmp/l0_minigrep_in" "one\ntwo\nthree\n")
+    (check_str "output" (grep_to_file "o" "/tmp/l0_minigrep_in")
+      "/tmp/l0_minigrep_in:one\n/tmp/l0_minigrep_in:two\ncount 2")))
+
+(def test_file_last_line_without_newline () int
+  (let w (write_file "/tmp/l0_minigrep_in" "a\nlast")
+    (check_str "output" (grep_to_file "t$" "/tmp/l0_minigrep_in")
+      "/tmp/l0_minigrep_in:last\ncount 1")))
+
+(def test_file_blank_lines () int
+  (let w (write_file "/tmp/l0_minigrep_in" "\nx\n\n")
+    (check_str "output" (grep_to_file "^$" "/tmp/l0_minigrep_in")
+      "/tmp/l0_minigrep_in:\n/tmp/l0_minigrep_in:\ncount 2")))
+
+(def test_missing_file () int
+  (check_str "output" (grep_to_file "x" "/tmp/l0_minigrep_no_such_file")
+    "count -1"))

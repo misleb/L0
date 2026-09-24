@@ -1,0 +1,24 @@
+; HYPOTHETICAL: this is not L0's library. It does not check against
+; lib/io.l0, and is kept to show the io.l0 kvstore wanted.
+;
+; Assumed: IoFailed keeps the builtin's code beside the words, and a line
+; read says how it ended.
+;
+;   (data IoOpened (IoOpened IoFile) (IoFailed int (list int)))
+;   (data IoLine (IoLine (list int)) (IoEnd) (IoReadFailed (list int)))
+;   (def file_next_line ((f IoFile)) IoLine ...)
+
+(def load ((path (list int))) Lines
+  (match (open_in path)
+    ((IoFailed code why)
+      (if (eq code -3) (Lines (nil (list int))) (LinesFailed why)))
+    ((IoOpened f)
+      (let r (read_lines f (nil (list int)))
+        (let c (file_close f)
+          r)))))
+
+(def read_lines ((f IoFile) (acc (list (list int)))) Lines
+  (match (file_next_line f)
+    ((IoLine s) (read_lines f (cons s acc)))
+    ((IoEnd) (Lines (rev_strs_onto acc (nil (list int)))))
+    ((IoReadFailed why) (LinesFailed why))))

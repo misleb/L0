@@ -1,0 +1,38 @@
+; LIMIT 02: a function cannot take "where the next byte comes from" as an
+; argument, so code that consumes bytes is written once per source.
+;
+; csvcol's parser has to read from a file in the program and from a string in
+; its tests. L0 has no function values and no handle over an in-memory
+; string, so either the parser is written twice, or it is turned inside out
+; into a pure step function (state, byte) -> state that each source drives,
+; which is what programs/csvcol does. wordfreq instead writes its tokenizer
+; loop twice (count_list in wordfreq.l0, scan in main.l0).
+;
+; The inside-out parser allocates a state block per byte. Measured on a 14.5
+; MB CSV (programs/csvcol/gen.py 200000 8), column 5, programs/measure.sh:
+;
+;   csvcol, the step function driven by a file         1.07 s   1.6 MB
+;   02-...-direct.l0, one function per state, reading   0.27 s   1.5 MB
+;   Python's csv module                                0.19 s
+;
+; Both L0 versions print the same bytes as Python's csv module. Testability
+; costs a factor of four.
+;
+; The smallest program: count newlines from any source. This is what one
+; would write, and what tools/l0check says about it:
+;
+;   02-no-byte-source-argument.l0:38:19: error: from_stdin is a function, and L0 has no function values
+;
+; A third workaround exists: tests write their input to a temporary file,
+; and the parser takes an output IoFile too, so tests read its output back.
+; That keeps one fast parser at the price of file plumbing in every test.
+
+(def from_stdin () int
+  (read_byte))
+
+(def count_newlines ((next int) (n int)) int
+  (let b next
+    (if (lt b 0) n (count_newlines next (if (eq b 10) (add n 1) n)))))
+
+(def main () int
+  (count_newlines from_stdin 0))

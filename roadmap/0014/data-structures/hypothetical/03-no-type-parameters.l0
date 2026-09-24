@@ -1,0 +1,53 @@
+; HYPOTHETICAL: this is not L0. It does not check, and is kept to show what
+; the trie in programs/paths would have been with type parameters.
+;
+; Assumed syntax, chosen to keep L0's rule that an expression's type comes
+; from the expression and not its context:
+;   (data (Trie V) ...)            a type with a parameter V
+;   (Trie int)                     applying it, as (list int) is applied
+;   (def f ((m (Trie V)) ...) ...) a function generic in V, the way cons,
+;                                  head, and tail already are generic in T
+; A constructor with no field mentioning V, such as TEmpty, needs its type
+; written, as nil does: (TEmpty int).
+;
+; One definition replaces IntMap, EdgeMap, and NameMap, and could live in the
+; standard library beside rev and push, so that no program writes it again.
+
+(data (Trie V)
+  (TEmpty)
+  (TNode (list V) (Trie V) (Trie V)))   ; zero or one value here, even, odd
+
+(def trie_get ((m (Trie V)) (k int)) (list V)
+  (match m
+    ((TEmpty) (nil V))
+    ((TNode here e o)
+      (if (eq k 0)
+          here
+          (if (eq (mod k 2) 0)
+              (trie_get e (div k 2))
+              (trie_get o (div k 2)))))))
+
+(def trie_put ((m (Trie V)) (k int) (x V)) (Trie V)
+  (match m
+    ((TEmpty) (trie_put (TNode (nil V) (TEmpty V) (TEmpty V)) k x))
+    ((TNode here e o)
+      (if (eq k 0)
+          (TNode (cons x (nil V)) e o)
+          (if (eq (mod k 2) 0)
+              (TNode here (trie_put e (div k 2) x) o)
+              (TNode here e (trie_put o (div k 2) x)))))))
+
+(data (Option V)
+  (None)
+  (Some V))
+
+(data (Result V)
+  (Ok V (list int))                     ; value, remaining input
+  (Err (list int) (list int)))          ; where, why
+
+; paths.l0 would then declare its three tables as:
+;   (Trie int)              distances
+;   (Trie (list Edge))      out-edges
+;   (Trie (list Named))     name buckets
+; and json.l0's PJ and PS would be (Result Json) and (Result (list int)),
+; with no function to move an error from one to the other.

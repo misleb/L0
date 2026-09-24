@@ -1,0 +1,20 @@
+; Mutual recursion between a 7-argument and a 2-argument function. Seven
+; arguments fit in arm64's eight argument registers but not in x86-64's six,
+; so whether the 2-to-7 call can be a sibling call depends on the target.
+(def mix7 ((a int) (b int) (c int) (d int) (e int) (f int)) int
+  (add (sub (add a c) (add b d)) (sub e f)))
+
+(def seven ((n int) (a int) (b int) (c int) (d int) (e int) (f int)) int
+  (if (eq n 0)
+      (mix7 a b c d e f)
+      (pong (sub n 1) (mix7 a b c d e f))))
+
+(def pong ((n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (seven (sub n 1) acc (add acc 1) (mul acc 2) (add acc 3) (mul acc 4)
+             (add acc 5))))
+
+(def main () int
+  (let r (write_line (digits (pong (int_prefix (arg 0) 0) 0)))
+    0))

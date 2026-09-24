@@ -1,0 +1,18 @@
+; Tail call inside a match arm, inside an if, passing a data value that
+; holds a list. The arm's fields and the parameter are released before the
+; call.
+(data St
+  (Go int (list int))
+  (Stop int))
+
+(def step ((s St)) int
+  (match s
+    ((Go n xs)
+      (if (eq n 0)
+          (step (Stop (length xs)))
+          (step (Go (sub n 1) (cons n (nil int))))))
+    ((Stop k) k)))
+
+(def main () int
+  (let r (write_line (digits (step (Go (int_prefix (arg 0) 0) (nil int)))))
+    0))

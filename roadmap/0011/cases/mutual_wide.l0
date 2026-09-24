@@ -1,0 +1,26 @@
+; Mutual recursion where one side takes 10 arguments, more than arm64 passes
+; in registers (8), and the other takes 2. Under the C convention a
+; 2-argument caller has no incoming stack-argument area for the 10-argument
+; callee to reuse, so a sibling call is not possible from pong to wide.
+; Every argument is distinct and live, so LLVM cannot delete any of them.
+(def mix ((a int) (b int) (c int) (d int) (e int) (f int) (g int) (h int)
+          (i int)) int
+  (let x (sub (add a c) (add b d))
+    (let y (sub (add e g) (add f h))
+      (add x (add y i)))))
+
+(def wide ((n int) (a int) (b int) (c int) (d int) (e int) (f int) (g int)
+           (h int) (i int)) int
+  (if (eq n 0)
+      (mix a b c d e f g h i)
+      (pong (sub n 1) (mix a b c d e f g h i))))
+
+(def pong ((n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (wide (sub n 1) acc (add acc 1) (mul acc 2) (add acc 3) (mul acc 4)
+            (add acc 5) (mul acc 6) (add acc 7) (mul acc 3))))
+
+(def main () int
+  (let r (write_line (digits (pong (int_prefix (arg 0) 0) 0)))
+    0))

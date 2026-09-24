@@ -19,7 +19,8 @@
 ; exists. Only if and match need storage, and both use an alloca and a load
 ; rather than a phi node, so no basic-block bookkeeping is needed. Emission
 ; is structured, so a value is only ever used in the block that defines it or
-; in a block that block dominates.
+; in a block that block dominates. In tail position neither joins: each
+; branch returns, which is what lets a call there be a musttail call.
 
 (data Emit
   (Em int (list int)))                  ; next name number, reversed output
@@ -38,21 +39,23 @@
 (data EBind
   (EB (list int) (list int) Ty))        ; L0 name, operand text, type
 
-; Local bindings, the global tables, and the function names that resolve to
-; the prelude from here. The emitter builds the constructor table from the
-; declarations itself, so it still needs nothing the checker produced.
+; Local bindings, the global tables, the function names that resolve to the
+; prelude from here, and how many parameters each function takes. The
+; emitter builds the constructor table from the declarations itself, so it
+; still needs nothing the checker produced.
 (data Env
-  (Ev (list EBind) Ctx (list (list int))))
+  (Ev (list EBind) Ctx (list (list int)) (list Pad)))
 
 (data EnvEmit
   (EnvSt Env Emit))
 
-(def env_binds ((e Env)) (list EBind) (match e ((Ev b c p) b)))
-(def env_ctx ((e Env)) Ctx (match e ((Ev b c p) c)))
-(def env_prelude ((e Env)) (list (list int)) (match e ((Ev b c p) p)))
+(def env_binds ((e Env)) (list EBind) (match e ((Ev b c p k) b)))
+(def env_ctx ((e Env)) Ctx (match e ((Ev b c p k) c)))
+(def env_prelude ((e Env)) (list (list int)) (match e ((Ev b c p k) p)))
+(def env_pads ((e Env)) (list Pad) (match e ((Ev b c p k) k)))
 
 (def env_bind ((n (list int)) (op (list int)) (t Ty) (e Env)) Env
-  (match e ((Ev b c p) (Ev (cons (EB n op t) b) c p))))
+  (match e ((Ev b c p k) (Ev (cons (EB n op t) b) c p k))))
 
 ; ------------------------------------------------------------------ output
 
@@ -144,8 +147,8 @@
 ; tl is true in tail position. There every scope enclosing the expression
 ; ends with it, so every binding in the environment is released, and before
 ; the final call rather than after it: a release after the call would take
-; it out of tail position, and loops that LLVM now turns into jumps would
-; recurse. Spec 10.3.
+; it out of tail position, and it could no longer be a tail call. The
+; expression then returns its value itself. Spec 8 and 10.3.
 
 (def emit_inc ((op (list int)) (st Emit)) Emit
   (emit_line (append "  call void @l0_inc(i64 " (append op ")")) st))
@@ -170,10 +173,17 @@
           (release_n (tail binds) (sub n 1)
             (if (ty_is_ptr t) (emit_dec op st) st))))))
 
-; A value computed in tail position is followed by releasing every binding.
+; A value computed in tail position is followed by releasing every binding,
+; and is then the function's result.
 (def finish ((tl bool) (env Env) (v EmitVal)) EmitVal
   (if tl
-      (match v ((Val o t s) (Val o t (release_all (env_binds env) s))))
+      (match v
+        ((Val o t s) (emit_ret true (Val o t (release_all (env_binds env) s)))))
+      v))
+
+(def emit_ret ((tl bool) (v EmitVal)) EmitVal
+  (if tl
+      (match v ((Val o t s) (Val o t (emit_line (append "  ret i64 " o) s))))
       v))
 
 (def emit_use ((n (list int)) (env Env) (st Emit)) EmitVal
@@ -224,22 +234,29 @@
 (def emit_store ((v (list int)) (slot (list int)) (st Emit)) Emit
   (emit_line (append "  store i64 " (append v (append ", ptr " slot))) st))
 
-; An arm's value goes to the join slot; the arm reports the value's type,
-; which the checker has already proved is the same for every arm.
+; An arm's value goes to the join slot, or in tail position the arm has
+; returned it already. The arm reports the value's type, which the checker
+; has proved is the same for every arm.
 (def emit_arm ((lbl (list int)) (e Expr) (slot (list int))
                (lend (list int)) (env Env) (tl bool) (st Emit)) EmitVal
   (let st1 (emit_line (append lbl ":") st)
     (match (emit_expr e env tl st1)
       ((Val v t st2)
         (Val "" t
-          (emit_line (append "  br label %" lend) (emit_store v slot st2)))))))
+          (if tl
+              st2
+              (emit_line (append "  br label %" lend)
+                (emit_store v slot st2))))))))
+
+; A slot to join through, which tail position does without.
+(def emit_slot ((slot (list int)) (tl bool) (st Emit)) Emit
+  (if tl st (emit_line (append "  " (append slot " = alloca i64")) st)))
 
 (def emit_if ((c Expr) (a Expr) (b Expr) (env Env) (tl bool) (st Emit))
     EmitVal
   (let id (fresh_id st)
     (let slot (append "%r" id)
-      (let st1 (emit_line (append "  " (append slot " = alloca i64"))
-                          (bump st))
+      (let st1 (emit_slot slot tl (bump st))
         (match (emit_expr c env false st1)
           ((Val cv ct st2) (emit_if_arms id slot cv a b env tl st2)))))))
 
@@ -261,8 +278,10 @@
                    (lend (list int)) (t Ty) (env Env) (tl bool) (st Emit))
     EmitVal
   (let st4 (val_st (emit_arm lelse b slot lend env tl st))
-    (let st5 (emit_line (append lend ":") st4)
-      (retype (emit_assign (append "load i64, ptr " slot) st5) t))))
+    (if tl
+        (Val "" t st4)
+        (let st5 (emit_line (append lend ":") st4)
+          (retype (emit_assign (append "load i64, ptr " slot) st5) t)))))
 
 (def emit_args ((args (list Expr)) (env Env) (st Emit)
                 (acc (list (list int))) (tacc (list Ty))) EmitOps
@@ -275,24 +294,32 @@
 (def rev_tys ((ts (list Ty)) (acc (list Ty))) (list Ty)
   (if (is_empty ts) acc (rev_tys (tail ts) (cons (head ts) acc))))
 
-; A call resolves to the prelude's function when the name is one this scope
-; reaches there, and to the program's otherwise. The two carry different
-; symbols, which is what lets both exist at once. Spec 7.1 and 10.2.
 (def call_sym ((n (list int)) (env Env)) (list int)
-  (if (any_eq n (env_prelude env))
-      (append "l0_p_" n)
-      (append "l0_f_" n)))
+  (fn_sym n (env_prelude env)))
 
 ; In tail position the bindings are released after the arguments are
-; evaluated, which took references of their own, and before the call.
+; evaluated, which took references of their own, and before the call. A call
+; to a function there is a tail call, spec 8, and nothing may come between
+; it and the ret, which a builtin's borrowing does not need.
 (def emit_call ((n (list int)) (args (list Expr)) (env Env) (tl bool)
                 (st Emit)) EmitVal
   (match (emit_args args env st (nil (list int)) (nil Ty))
     ((Ops ops ts st1)
       (let st2 (if tl (release_all (env_binds env) st1) st1)
-        (after_borrow n ops ts
-          (retype (emit_op n (call_sym n env) ops ts st2)
-                  (call_type n ts env)))))))
+        (let t (call_type n ts env)
+          (emit_ret tl
+            (if (is_builtin n)
+                (after_borrow n ops ts (retype (emit_op n ops ts st2) t))
+                (retype (emit_def_call (call_sym n env) ops env tl st2) t))))))))
+
+(def emit_def_call ((sym (list int)) (ops (list (list int))) (env Env)
+                    (tl bool) (st Emit)) EmitVal
+  (emit_assign
+    (append (if tl "musttail call i64 @" "call i64 @")
+      (append sym
+        (append "("
+          (append (fmt_ops (pad_ops ops (pad_of sym (env_pads env)))) ")"))))
+    st))
 
 ; head, tail, is_empty, and the builtins taking a path read their list
 ; argument without consuming it. Their result gains a reference if it is a
@@ -382,8 +409,7 @@
                  (st Emit)) EmitVal
   (let id (fresh_id st)
     (let slot (append "%m" id)
-      (let st1 (emit_line (append "  " (append slot " = alloca i64"))
-                          (bump st))
+      (let st1 (emit_slot slot tl (bump st))
         (match (emit_expr subject env false st1)
           ((Val sv svt st2)
             (emit_match_dispatch id slot sv arms (Mx env tl) st2)))))))
@@ -429,10 +455,11 @@
                       (lnm (list int)) (st Emit)) EmitVal
   (match (emit_match_arms arms mx id 0 slot sv lend (TyInt) st)
     ((Val x t st1)
-      (let st2 (emit_line (append lnm ":") st1)
-        (let st3 (emit_line "  unreachable" st2)
-          (let st4 (emit_line (append lend ":") st3)
-            (retype (emit_assign (append "load i64, ptr " slot) st4) t)))))))
+      (let st3 (emit_line "  unreachable" (emit_line (append lnm ":") st1))
+        (if (mx_tl mx)
+            (Val "" t st3)
+            (let st4 (emit_line (append lend ":") st3)
+              (retype (emit_assign (append "load i64, ptr " slot) st4) t)))))))
 
 ; Every arm has the same type, which the checker proved, so the last one
 ; emitted gives the match its type.
@@ -459,8 +486,10 @@
                      (emit_dec sv st2))
               ((Val v t st3)
                 (Val "" t
-                  (emit_line (append "  br label %" lend)
-                    (emit_store v slot st3)))))))))))
+                  (if (mx_tl mx)
+                      st3
+                      (emit_line (append "  br label %" lend)
+                        (emit_store v slot st3))))))))))))
 
 ; Outside tail position an arm releases the fields it bound after its body.
 (def emit_arm_body ((body Expr) (env Env) (nfields int) (tl bool) (st Emit))
@@ -514,11 +543,10 @@
 (def nth_str ((xs (list (list int))) (i int)) (list int)
   (if (le i 0) (head xs) (nth_str (tail xs) (sub i 1))))
 
-; sym is the symbol a call to a user function would use, resolved by the
-; caller while the environment was still in hand. Builtins ignore it. ts are
-; the arguments' types; emit_call sets the result's type afterwards.
-(def emit_op ((n (list int)) (sym (list int)) (ops (list (list int)))
-              (ts (list Ty)) (st Emit)) EmitVal
+; A builtin. ts are the arguments' types; emit_call sets the result's type
+; afterwards.
+(def emit_op ((n (list int)) (ops (list (list int))) (ts (list Ty))
+              (st Emit)) EmitVal
   (if (any_eq n (arith_ops 0))
       (emit_binop n (head ops) (head (tail ops)) st)
       (if (ge (index_of n (cmp_names 0)) 0)
@@ -527,28 +555,180 @@
           (if (ge (index_of n (rt_names 0)) 0)
               (emit_rt_call (nth_str (rt_syms 0) (index_of n (rt_names 0)))
                             ops st)
-              (emit_op_rest n sym ops ts st)))))
+              (emit_op_rest n ops ts st)))))
 
-(def emit_op_rest ((n (list int)) (sym (list int)) (ops (list (list int)))
-                   (ts (list Ty)) (st Emit)) EmitVal
+(def emit_op_rest ((n (list int)) (ops (list (list int))) (ts (list Ty))
+                   (st Emit)) EmitVal
   (if (list_eq n "neg")
       (emit_binop "sub" "0" (head ops) st)
       (if (list_eq n "not")
           (emit_binop "xor" (head ops) "1" st)
-          (if (list_eq n "cons")
-              (emit_rt_call "l0_new_cons"
-                (append_strs ops (one_op (cons_mask (ty_elem (head (tail ts)))))) st)
-              (emit_rt_call sym ops st)))))
+          (emit_rt_call "l0_new_cons"
+            (append_strs ops (one_op (cons_mask (ty_elem (head (tail ts))))))
+            st))))
+
+; ------------------------------------------------------------- tail calls
+;
+; A tail call is emitted as musttail, which LLVM accepts only between
+; functions of one prototype. So every function takes as many parameters as
+; the widest function in its tail-call component, the functions joined to it
+; by tail calls in either direction, and a caller passes 0 for the extra
+; ones. Spec 8 and 10.2.
+
+(data Pad
+  (Pd (list int) int))                  ; symbol, parameters it takes
+
+; One function: its symbol, its L0 arity, and the symbols it tail-calls.
+(data Node
+  (Nd (list int) int (list (list int))))
+
+(data Edge
+  (Ed int int))                         ; positions of caller and callee
+
+; A call resolves to the prelude's function when the name is one this scope
+; reaches there, and to the program's otherwise. The two carry different
+; symbols, which is what lets both exist at once, and the program's main has
+; a body apart from the entry point the runtime calls. Spec 7.1 and 10.2.
+(def fn_sym ((n (list int)) (pnames (list (list int)))) (list int)
+  (if (any_eq n pnames)
+      (append "l0_p_" n)
+      (if (list_eq n "main") "l0_f_main.body" (append "l0_f_" n))))
+
+(def def_sym ((n (list int)) (inpre bool)) (list int)
+  (if inpre (append "l0_p_" n) (fn_sym n (nil (list int)))))
+
+(def tail_callees ((e Expr) (pn (list (list int))) (acc (list (list int))))
+    (list (list int))
+  (match e
+    ((EInt o v) acc)
+    ((EBool o v) acc)
+    ((EStr o s) acc)
+    ((EVar o n) acc)
+    ((EIf o c a b) (tail_callees b pn (tail_callees a pn acc)))
+    ((ELet o n v body) (tail_callees body pn acc))
+    ((ENil o t) acc)
+    ((ECtor o n args) acc)
+    ((EMatch o s arms) (arm_callees arms pn acc))
+    ((ECall o n args)
+      (if (is_builtin n) acc (cons (fn_sym n pn) acc)))))
+
+(def arm_callees ((arms (list Arm)) (pn (list (list int)))
+                  (acc (list (list int)))) (list (list int))
+  (if (is_empty arms)
+      acc
+      (match (head arms)
+        ((A o cn names body)
+          (arm_callees (tail arms) pn (tail_callees body pn acc))))))
+
+(def length_params ((ps (list Param))) int
+  (if (is_empty ps) 0 (add 1 (length_params (tail ps)))))
+
+; Every function of both groups, in declaration order. ppre and pprog are the
+; prelude names each group's calls reach.
+(def graph_nodes ((ds (list Decl)) (pre int) (ppre (list (list int)))
+                  (pprog (list (list int)))) (list Node)
+  (if (is_empty ds)
+      (nil Node)
+      (match (head ds)
+        ((DData o n cs) (graph_nodes (tail ds) pre ppre pprog))
+        ((DDef o n ps ret body)
+          (let inpre (lt o pre)
+            (cons (Nd (def_sym n inpre) (length_params ps)
+                      (tail_callees body (if inpre ppre pprog)
+                                    (nil (list int))))
+                  (graph_nodes (tail ds) pre ppre pprog)))))))
+
+(def node_syms ((ns (list Node))) (list (list int))
+  (if (is_empty ns)
+      (nil (list int))
+      (match (head ns) ((Nd s k cs) (cons s (node_syms (tail ns)))))))
+
+(def node_arities ((ns (list Node))) (list int)
+  (if (is_empty ns)
+      (nil int)
+      (match (head ns) ((Nd s k cs) (cons k (node_arities (tail ns)))))))
+
+(def graph_edges ((ns (list Node)) (syms (list (list int))) (i int)
+                  (acc (list Edge))) (list Edge)
+  (if (is_empty ns)
+      acc
+      (match (head ns)
+        ((Nd s k cs)
+          (graph_edges (tail ns) syms (add i 1)
+            (callee_edges cs syms i acc))))))
+
+(def callee_edges ((cs (list (list int))) (syms (list (list int))) (i int)
+                   (acc (list Edge))) (list Edge)
+  (if (is_empty cs)
+      acc
+      (let j (index_of (head cs) syms)
+        (callee_edges (tail cs) syms i
+          (if (or (lt j 0) (eq i j)) acc (cons (Ed i j) acc))))))
+
+(def nth_int ((xs (list int)) (i int)) int
+  (if (le i 0) (head xs) (nth_int (tail xs) (sub i 1))))
+
+(def set_int ((xs (list int)) (i int) (v int)) (list int)
+  (if (le i 0)
+      (cons v (tail xs))
+      (cons (head xs) (set_int (tail xs) (sub i 1) v))))
+
+; Raises both ends of every edge to the larger arity until nothing changes,
+; which leaves each function with its component's widest.
+(def spread ((es (list Edge)) (ks (list int))) (list int)
+  (let next (spread_once es ks)
+    (if (list_eq next ks) ks (spread es next))))
+
+(def spread_once ((es (list Edge)) (ks (list int))) (list int)
+  (if (is_empty es)
+      ks
+      (match (head es)
+        ((Ed i j)
+          (spread_once (tail es) (spread_edge i j ks))))))
+
+(def spread_edge ((i int) (j int) (ks (list int))) (list int)
+  (let a (nth_int ks i)
+    (let b (nth_int ks j)
+      (if (eq a b)
+          ks
+          (let m (if (gt a b) a b)
+            (set_int (set_int ks i m) j m))))))
+
+(def pad_table ((ns (list Node)) (ks (list int)) (acc (list Pad)))
+    (list Pad)
+  (if (is_empty ns)
+      acc
+      (match (head ns)
+        ((Nd s k cs)
+          (pad_table (tail ns) (tail ks) (cons (Pd s (head ks)) acc))))))
+
+(def module_pads ((ds (list Decl)) (pre int) (ppre (list (list int)))
+                  (pprog (list (list int)))) (list Pad)
+  (let ns (graph_nodes ds pre ppre pprog)
+    (pad_table ns
+      (spread (graph_edges ns (node_syms ns) 0 (nil Edge)) (node_arities ns))
+      (nil Pad))))
+
+(def pad_of ((s (list int)) (ps (list Pad))) int
+  (if (is_empty ps)
+      0
+      (match (head ps)
+        ((Pd n k) (if (list_eq s n) k (pad_of s (tail ps)))))))
+
+; ops followed by as many "0" as bring them to k.
+(def pad_ops ((ops (list (list int))) (k int)) (list (list int))
+  (if (is_empty ops)
+      (if (le k 0) ops (cons "0" (pad_ops ops (sub k 1))))
+      (cons (head ops) (pad_ops (tail ops) (sub k 1)))))
 
 ; -------------------------------------------------------------- functions
 
-(def fmt_ir_params ((ps (list Param)) (i int)) (list int)
-  (if (is_empty ps)
+; "i64 %a0, i64 %a1", for k parameters from the i-th.
+(def fmt_params ((i int) (k int)) (list int)
+  (if (ge i k)
       ""
       (append "i64 %a" (append (digits i)
-        (if (is_empty (tail ps))
-            ""
-            (append ", " (fmt_ir_params (tail ps) (add i 1))))))))
+        (if (ge (add i 1) k) "" (append ", " (fmt_params (add i 1) k)))))))
 
 (def param_binds ((ps (list Param)) (i int) (acc (list EBind))) (list EBind)
   (if (is_empty ps)
@@ -559,55 +739,57 @@
             (cons (EB n (append "%a" (digits i)) t) acc))))))
 
 ; What emitting one group's declarations needs: the tables its calls resolve
-; against, the names among them that land in the prelude, and which group it
-; is.
+; against, the names among them that land in the prelude, which group it is,
+; and how many parameters every function takes.
 (data Scope
-  (Sc Ctx (list (list int)) bool))
+  (Sc Ctx (list (list int)) bool (list Pad)))
 
-(def sc_ctx ((s Scope)) Ctx (match s ((Sc c p i) c)))
-(def sc_prelude_names ((s Scope)) (list (list int)) (match s ((Sc c p i) p)))
-(def sc_is_prelude ((s Scope)) bool (match s ((Sc c p i) i)))
+(def sc_ctx ((s Scope)) Ctx (match s ((Sc c p i k) c)))
+(def sc_prelude_names ((s Scope)) (list (list int)) (match s ((Sc c p i k) p)))
+(def sc_is_prelude ((s Scope)) bool (match s ((Sc c p i k) i)))
+(def sc_pads ((s Scope)) (list Pad) (match s ((Sc c p i k) k)))
 
 ; A program is a closed module, and the runtime reaches into it by name for
 ; exactly one function, so everything else gets internal linkage and LLVM can
-; delete what the program never calls. Prelude functions take the l0_p_ prefix
-; and are never the entry point, however they are named. Spec 10.2.
-(def fn_header ((n (list int)) (inpre bool)) (list int)
-  (if inpre
-      "define internal i64 @l0_p_"
-      (if (list_eq n "main")
-          "define i64 @l0_f_"
-          "define internal i64 @l0_f_")))
-
-; The runtime calls every main with one argument, so a main that takes none
-; still accepts one and ignores it. Spec 10.2.
-(def fn_params ((n (list int)) (ps (list Param)) (inpre bool)) (list int)
-  (if (is_empty ps)
-      (if inpre "" (if (list_eq n "main") "i64 %unused" ""))
-      (fmt_ir_params ps 0)))
-
-; Every function checks the stack before doing anything else, since the
-; runtime cannot portably catch running off the end of it. Spec 10.3.
+; delete what the program never calls. Every function checks the stack
+; before doing anything else, since the runtime cannot portably catch running
+; off the end of it. The body is in tail position, so it returns by itself.
+; Spec 10.2 and 10.3.
 (def emit_fn ((d Decl) (sc Scope) (st Emit)) Emit
   (match d
     ((DData o n cs) st)
     ((DDef o n ps ret body)
-      (let st1 (emit_line
-                 (append (fn_header n (sc_is_prelude sc))
-                   (append n
-                     (append "("
-                       (append (fn_params n ps (sc_is_prelude sc)) ") {"))))
-                 st)
-        (let st2 (emit_line "  call void @l0_stack_check()"
-                   (emit_line "entry:" st1))
-          (match (emit_expr body
-                   (Ev (param_binds ps 0 (nil EBind)) (sc_ctx sc)
-                       (sc_prelude_names sc))
-                   true st2)
-            ((Val v t st3)
+      (let sym (def_sym n (sc_is_prelude sc))
+        (let k (pad_of sym (sc_pads sc))
+          (let st1 (emit_line
+                     (append "define internal i64 @"
+                       (append sym
+                         (append "(" (append (fmt_params 0 k) ") {"))))
+                     (emit_entry n ps k sc st))
+            (let st2 (emit_line "  call void @l0_stack_check()"
+                       (emit_line "entry:" st1))
               (emit_line ""
                 (emit_line "}"
-                  (emit_line (append "  ret i64 " v) st3))))))))))
+                  (val_st (emit_expr body
+                            (Ev (param_binds ps 0 (nil EBind)) (sc_ctx sc)
+                                (sc_prelude_names sc) (sc_pads sc))
+                            true st2)))))))))))
+
+; The runtime calls every main as @l0_f_main with one argument, whatever the
+; body's prototype, and a main that takes no parameters ignores it. Prelude
+; functions are never the entry point, however they are named. Spec 10.2.
+(def emit_entry ((n (list int)) (ps (list Param)) (k int) (sc Scope)
+                 (st Emit)) Emit
+  (if (or (sc_is_prelude sc) (not (list_eq n "main")))
+      st
+      (let ops (pad_ops (if (is_empty ps) (nil (list int)) (one_op "%a0")) k)
+        (emit_line ""
+          (emit_line "}"
+            (emit_line "  ret i64 %r"
+              (emit_line (append "  %r = call i64 @l0_f_main.body("
+                           (append (fmt_ops ops) ")"))
+                (emit_line "entry:"
+                  (emit_line "define i64 @l0_f_main(i64 %a0) {" st)))))))))
 
 ; The counter restarts per function purely to keep names short. Numbering is
 ; a function of program structure either way, so output stays deterministic.
@@ -639,18 +821,13 @@
       (unshadowed (tail pnames) unames
         (if (any_eq (head pnames) unames) acc (cons (head pnames) acc)))))
 
-(def prelude_scope ((ds (list Decl)) (pre int)) Scope
-  (Sc (prelude_view ds pre)
-      (fn_names (prelude_decls ds pre (nil Decl)) (nil (list int)))
-      true))
+(def prelude_names ((ds (list Decl)) (pre int)) (list (list int))
+  (fn_names (prelude_decls ds pre (nil Decl)) (nil (list int))))
 
-(def program_scope ((ds (list Decl)) (pre int)) Scope
-  (Sc (program_view ds pre)
-      (unshadowed
-        (fn_names (prelude_decls ds pre (nil Decl)) (nil (list int)))
-        (fn_names (program_decls ds pre (nil Decl)) (nil (list int)))
-        (nil (list int)))
-      false))
+(def program_prelude_names ((ds (list Decl)) (pre int)) (list (list int))
+  (unshadowed (prelude_names ds pre)
+    (fn_names (program_decls ds pre (nil Decl)) (nil (list int)))
+    (nil (list int))))
 
 ; ----------------------------------------------------------------- module
 
@@ -708,5 +885,12 @@
     (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
                 (append (digits (ret_kind (program_decls ds pre (nil Decl))))
                         "\n")) st0)
-      (emit_text
-        (emit_fns ds (prelude_scope ds pre) (program_scope ds pre) pre st1)))))
+      (emit_module_fns ds pre (prelude_names ds pre)
+        (program_prelude_names ds pre) st1))))
+
+(def emit_module_fns ((ds (list Decl)) (pre int) (ppre (list (list int)))
+                      (pprog (list (list int))) (st Emit)) (list int)
+  (let pads (module_pads ds pre ppre pprog)
+    (emit_text
+      (emit_fns ds (Sc (prelude_view ds pre) ppre true pads)
+                   (Sc (program_view ds pre) pprog false pads) pre st))))

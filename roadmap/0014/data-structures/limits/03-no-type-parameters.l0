@@ -1,0 +1,47 @@
+; LIMIT 03: data types take no type parameters, and functions other than the
+; list builtins are monomorphic.
+;
+; Costly in all three programs, and it has one consequence that is
+; impossible rather than costly: the standard library cannot provide a map, a
+; set, a heap, or an optional value, because it cannot be written once for
+; every element type. Each program writes its own, once per element type.
+;
+; Checker, for a data type with a parameter:
+;   (data Box (Box T))
+;   error: unknown type T
+; and for a type applied to an argument, (Map int):
+;   error: expected list after ( in a type
+;
+; Measured cost, by counting lines in programs/ (1607 lines of L0 in all):
+;   paths.l0      the same trie three times: IntMap, EdgeMap, NameMap.
+;                 Two copies are redundant, about 50 of its 249 lines.
+;   json.l0       rev_json and rev_members beside the prelude's rev; a
+;                 second result type PS for strings, and string_value and
+;                 two match arms that only move an error from PS to PJ.
+;   json_test.l0  Gen, GenList, GenMembers, GenStr: one "value and random
+;                 state" type per value type.
+;   kv.l0         Updated, Lookup, Line, Lines, Scan: five result types that
+;                 are Option or Result of something.
+;   kv_test.l0, paths/main.l0   length_strs and count_fields, copies of
+;                 length for (list (list int)).
+; About 100 lines in all, and every one a place for the copies to drift.
+;
+; The smallest program: length, needed at three element types.
+
+(data Edge
+  (Edge int int))
+
+(def length_ints ((xs (list int))) int
+  (if (is_empty xs) 0 (add 1 (length_ints (tail xs)))))
+
+(def length_strs ((xs (list (list int)))) int
+  (if (is_empty xs) 0 (add 1 (length_strs (tail xs)))))
+
+(def length_edges ((xs (list Edge))) int
+  (if (is_empty xs) 0 (add 1 (length_edges (tail xs)))))
+
+(def main () int
+  (let w (write_line (digits (add (length_ints "abc")
+                              (add (length_strs (cons "x" (nil (list int))))
+                                   (length_edges (nil Edge))))))
+    0))

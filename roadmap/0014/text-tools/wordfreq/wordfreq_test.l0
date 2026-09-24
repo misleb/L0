@@ -1,0 +1,92 @@
+; wordfreq_test.l0 -- run with: tools/l0 test wordfreq.l0 wordfreq_test.l0
+
+(def test_cmp_str () int
+  (add (check_int "equal" (cmp_str "abc" "abc") 0)
+       (add (check_true "prefix first" (lt (cmp_str "ab" "abc") 0))
+            (check_true "byte order" (gt (cmp_str "b" "abc") 0)))))
+
+(def test_word_bytes () int
+  (add (check_bool "apostrophe splits" (is_word_byte 39) false)
+       (add (check_bool "underscore splits" (is_word_byte 95) false)
+            (check_bool "utf-8 byte joins" (is_word_byte 195) true))))
+
+(def test_empty () int
+  (check_str "no words" (report " \n\t.,;") ""))
+
+(def test_single () int
+  (check_str "one word" (report "hello") "hello 1\n"))
+
+(def test_case_folds () int
+  (check_str "folded" (report "The the THE tHe") "the 4\n"))
+
+(def test_most_frequent_first () int
+  (check_str "order" (report "b a b c b a") "b 3\na 2\nc 1\n"))
+
+(def test_ties_alphabetical () int
+  (check_str "ties" (report "pear apple fig apple fig pear zoo")
+             "apple 2\nfig 2\npear 2\nzoo 1\n"))
+
+(def test_separators () int
+  (check_str "punctuation" (report "don't stop--now!\nx2 x2")
+             "x2 2\ndon 1\nnow 1\nstop 1\nt 1\n"))
+
+(def test_utf8_words_stay_whole () int
+  (check_str "cafe" (report "caf\xc3\xa9 caf\xc3\xa9 cafe")
+             "caf\xc3\xa9 2\ncafe 1\n"))
+
+; An AVL tree stays within 1.44 log2(n) of perfect. 1023 ascending keys,
+; the worst case for an unbalanced tree, must give height 10 exactly.
+(def insert_nums ((t Tree) (i int) (n int)) Tree
+  (if (ge i n)
+      t
+      (insert_nums (insert t (pad (digits i))) (add i 1) n)))
+
+(def pad ((s (list int))) (list int)
+  (if (ge (length s) 4) s (pad (cons 48 s))))
+
+(def count_nodes ((t Tree)) int
+  (match t
+    ((Tip) 0)
+    ((Node l w c r h) (add 1 (add (count_nodes l) (count_nodes r))))))
+
+(def test_balanced_on_sorted_input () int
+  (let t (insert_nums (Tip) 0 1023)
+    (add (check_int "nodes" (count_nodes t) 1023)
+         (check_int "height" (height t) 10))))
+
+; Sorting agrees with a slow reference on pseudo-random texts: every
+; adjacent pair of the report is in order and the counts add up.
+(def sorted_ok ((xs (list WC))) bool
+  (if (is_empty xs)
+      true
+      (if (is_empty (tail xs))
+          true
+          (if (before (head xs) (head (tail xs)))
+              (sorted_ok (tail xs))
+              false))))
+
+(def total ((xs (list WC)) (acc int)) int
+  (if (is_empty xs)
+      acc
+      (match (head xs) ((WC w c) (total (tail xs) (add acc c))))))
+
+; n words, each one of 30 short random words.
+(def rand_text ((s int) (n int) (acc (list int))) (list int)
+  (if (le n 0)
+      acc
+      (let s1 (rand_next s)
+        (let w (cons (add 97 (rand_below s1 3))
+                 (cons (add 97 (rand_below (rand_next s1) 10)) (nil int)))
+          (rand_text (rand_next s1) (sub n 1) (push w (cons 32 acc)))))))
+
+(def sorts_ok ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let n (rand_below s 300)
+        (let xs (ranked (count_list (Tip) (nil int) (rand_text s n (nil int))))
+          (if (and (sorted_ok xs) (eq (total xs 0) n))
+              (sorts_ok (rand_next (rand_next (rand_next s))) (sub runs 1))
+              (check_true "sorted, and counts sum to the word count" false))))))
+
+(def test_sorts_random_texts () int
+  (sorts_ok 7 200))

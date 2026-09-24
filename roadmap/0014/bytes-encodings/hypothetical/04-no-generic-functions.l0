@@ -1,0 +1,28 @@
+; HYPOTHETICAL -- not valid L0. One rev for every list type.
+;
+; A type variable, written here as a lower name in type position, standing
+; for any type, bound per call by the argument types. This needs no
+; inference beyond what the builtins already do: cons, head, tail, and
+; is_empty find T from their list argument, and a def with type variables
+; would find them the same way, from its arguments, left to right. Every
+; value is one i64 (spec 10.1) and the compiler's reference counting is
+; driven by the static type, so each instantiation would be compiled
+; separately, as the element mask of a cons cell already depends on T.
+
+(def rev_onto ((xs (list t)) (acc (list t))) (list t)
+  (if (is_empty xs)
+      acc
+      (rev_onto (tail xs) (cons (head xs) acc))))
+
+; (nil t) names the type variable of the enclosing def, which is known at
+; each call because xs fixed it.
+(def rev ((xs (list t))) (list t)
+  (rev_onto xs (nil t)))
+
+(def length ((xs (list t))) int
+  (if (is_empty xs) 0 (add 1 (length (tail xs)))))
+
+; linediff and minigrep then call rev and length on (list Front),
+; (list Edit), (list Tok), and (list (list int)), and the five copies go.
+; A type variable in a def's result that none of its parameters mention
+; would have nothing to bind it, and would be an error.

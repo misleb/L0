@@ -1,0 +1,38 @@
+; HYPOTHETICAL: this is not L0. It does not check, and is kept to show what
+; the heart of programs/json would have been with a packed byte string.
+;
+; Assumed: a type bytes, one byte per byte in memory, immutable, with
+;   (read_all_stdin)       -> bytes     the rest of standard input
+;   (bytes_len s)          -> int
+;   (byte_at s i)          -> int       0..255; error when out of range
+;   (bytes_slice s i j)    -> bytes     sharing s's storage
+;   (write_bytes s)        -> int       write all of s to standard output
+; and a string literal usable as bytes.
+;
+; A parser position becomes an int into one shared bytes value instead of
+; the remaining list, the error's offset is that int with no counting, and
+; a string value is a slice of the input rather than a list copied from it.
+; An 11.5 MB document would be held in 11.5 MB rather than 276 MB.
+
+(data PJ
+  (PJOk Json int)                       ; value, position after it
+  (PJErr int (list int)))               ; position, why
+
+(def skip_ws ((s bytes) (i int)) int
+  (if (ge i (bytes_len s))
+      i
+      (if (is_space (byte_at s i)) (skip_ws s (add i 1)) i)))
+
+(def parse_value ((s bytes) (i int)) PJ
+  (let j (skip_ws s i)
+    (if (ge j (bytes_len s))
+        (PJErr j "expected a value, found end of input")
+        (parse_value_at s j (byte_at s j)))))
+
+(def main () int
+  (let input (read_all_stdin)
+    (match (parse_json input 0)
+      ((PJErr at msg)
+        (let w (write_err (error_text input at msg)) 1))
+      ((PJOk v end)
+        (let w (write_bytes (render v)) 0)))))

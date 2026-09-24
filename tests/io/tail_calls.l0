@@ -1,0 +1,63 @@
+; Each shape of tail call that spec section 8 guarantees uses no stack, run n
+; times, where n is the first argument. tail_calls.sh builds this at -O0,
+; where LLVM eliminates no call by itself, and runs it on a 1 MB stack, about
+; fifteen thousand frames.
+
+; A self-recursive loop, the tail call in an if branch.
+(def count ((n int) (acc int)) int
+  (if (eq n 0) acc (count (sub n 1) (add acc 1))))
+
+; Mutual recursion between a wide function and a narrow one. Ten parameters
+; are more than any common target passes in registers, which is where LLVM
+; left such a call real even at -O2.
+(def wide ((n int) (a int) (b int) (c int) (d int) (e int) (f int) (g int)
+           (h int) (i int)) int
+  (if (eq n 0)
+      (add a (add b (add c (add d (add e (add f (add g (add h i))))))))
+      (narrow (sub n 1) (add a 1))))
+
+(def narrow ((n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (wide (sub n 1) (add acc 1) 0 0 0 0 0 0 0 0)))
+
+; A tail call in a match arm, on a data value built for each iteration.
+(data Walk
+  (Step int)
+  (Done))
+
+(def next ((n int)) Walk
+  (if (eq n 0) (Done) (Step (sub n 1))))
+
+(def walk ((w Walk) (acc int)) int
+  (match w
+    ((Step k) (walk (next k) (add acc 1)))
+    ((Done) acc)))
+
+; A tail call under a let, with an if in its argument: that if joins through
+; a slot, inside the loop.
+(def evens ((n int) (acc int)) int
+  (let half (div n 2)
+    (if (eq n 0)
+        acc
+        (evens (sub n 1) (if (eq (mul half 2) n) (add acc 1) acc)))))
+
+; A list built and then walked, both by tail calls.
+(def build ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (build (sub n 1) (cons n acc))))
+
+(def sum ((xs (list int)) (acc int)) int
+  (if (is_empty xs) acc (sum (tail xs) (add acc (head xs)))))
+
+; main's own tail call, which puts main in a component with a wider function.
+(def drain ((n int) (status int)) int
+  (if (eq n 0) status (drain (sub n 1) status)))
+
+(def main () int
+  (let n (int_prefix (arg 0) 0)
+    (let w1 (write_line (digits (count n 0)))
+      (let w2 (write_line (digits (narrow n 0)))
+        (let w3 (write_line (digits (walk (next n) 0)))
+          (let w4 (write_line (digits (evens n 0)))
+            (let w5 (write_line (digits (sum (build n (nil int)) 0)))
+              (drain n 0))))))))

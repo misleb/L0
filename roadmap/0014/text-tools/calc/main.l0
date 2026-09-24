@@ -1,0 +1,12 @@
+; main.l0 -- calc's entry point: prompt, read a line, answer, repeat.
+
+(def repl ((ignored int)) int
+  (let p (write_str "> ")
+    (let line (read_line)
+      (if (is_empty line)
+          (let w (write_byte 10) 0)
+          (let w (write_str (answer (take_line line)))
+            (repl 0))))))
+
+(def main () int
+  (repl 0))

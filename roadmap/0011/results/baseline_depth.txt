@@ -1,0 +1,49 @@
+self         brew.O0          limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted)
+self         brew.O1          no limit up to 1000000000
+self         brew.O2          no limit up to 1000000000
+self         noinl.brew.O2    no limit up to 1000000000
+self         apple.O0         limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted)
+self         apple.O2         no limit up to 1000000000
+self         noinl.apple.O2   no limit up to 1000000000
+mutual       brew.O0          limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted)
+mutual       brew.O1          no limit up to 1000000000
+mutual       brew.O2          no limit up to 1000000000
+mutual       noinl.brew.O2    no limit up to 1000000000
+mutual       apple.O0         limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted)
+mutual       apple.O2         no limit up to 1000000000
+mutual       noinl.apple.O2   no limit up to 1000000000
+mutual_wide  brew.O0          limit ~5570312 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  brew.O1          no limit up to 1000000000
+mutual_wide  brew.O2          no limit up to 1000000000
+mutual_wide  noinl.brew.O2    limit ~22304687 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  apple.O0         limit ~5570312 (fail rc=70: l0: runtime error: stack exhausted)
+mutual_wide  apple.O2         no limit up to 1000000000
+mutual_wide  noinl.apple.O2   limit ~22304687 (fail rc=70: l0: runtime error: stack exhausted)
+listloop     brew.O0          limit ~8382812 (fail rc=70: l0: runtime error: stack exhausted)
+listloop     brew.O1          no limit up to 1000000000
+listloop     brew.O2          no limit up to 1000000000
+listloop     noinl.brew.O2    no limit up to 1000000000
+listloop     apple.O0         limit ~8382812 (fail rc=70: l0: runtime error: stack exhausted)
+listloop     apple.O2         no limit up to 1000000000
+listloop     noinl.apple.O2   no limit up to 1000000000
+walk         brew.O0          limit ~8382812 (fail rc=70: l0: runtime error: stack exhausted)
+walk         brew.O1          no limit up to 30000000
+walk         brew.O2          no limit up to 30000000
+walk         noinl.brew.O2    no limit up to 30000000
+walk         apple.O0         limit ~8382812 (fail rc=70: l0: runtime error: stack exhausted)
+walk         apple.O2         no limit up to 30000000
+walk         noinl.apple.O2   no limit up to 30000000
+matchloop    brew.O0          limit ~3337890 (fail rc=70: l0: runtime error: stack exhausted)
+matchloop    brew.O1          no limit up to 1000000000
+matchloop    brew.O2          no limit up to 1000000000
+matchloop    noinl.brew.O2    no limit up to 1000000000
+matchloop    apple.O0         limit ~3337890 (fail rc=70: l0: runtime error: stack exhausted)
+matchloop    apple.O2         no limit up to 1000000000
+matchloop    noinl.apple.O2   no limit up to 1000000000
+nontail      brew.O0          limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+nontail      brew.O1          no limit up to 1000000000
+nontail      brew.O2          no limit up to 1000000000
+nontail      noinl.brew.O2    no limit up to 1000000000
+nontail      apple.O0         limit ~16679687 (fail rc=70: l0: runtime error: stack exhausted)
+nontail      apple.O2         no limit up to 1000000000
+nontail      noinl.apple.O2   no limit up to 1000000000

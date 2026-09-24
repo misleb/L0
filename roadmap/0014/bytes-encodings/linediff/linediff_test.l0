@@ -1,0 +1,137 @@
+; linediff_test.l0 -- run with:
+;
+;   tools/l0 test programs/linediff/linediff.l0 programs/linediff/linediff_test.l0
+
+(def lines ((s (list int))) (list (list int))
+  (split_lines s))
+
+(def diff_text ((a (list int)) (b (list int))) (list int)
+  (render (diff (lines a) (lines b))))
+
+; ------------------------------------------------------------- splitting
+
+(def test_split_basic () int
+  (check_strs "four lines" (lines "a\nbb\n\nc\n")
+    (cons "a" (cons "bb" (cons "" (cons "c" (nil (list int))))))))
+
+(def test_split_keeps_blank_line () int
+  (check_int "count" (length_strs (lines "a\n\nb\n")) 3))
+
+(def test_split_no_final_newline () int
+  (check_strs "last line kept" (lines "a\nb") (split_spaces "a b")))
+
+(def test_split_empty () int
+  (check_int "no lines" (length_strs (lines "")) 0))
+
+(def length_strs ((xs (list (list int)))) int
+  (if (is_empty xs) 0 (add 1 (length_strs (tail xs)))))
+
+; ------------------------------------------------------------------ diffs
+
+(def test_identical () int
+  (check_str "all kept" (diff_text "a\nb\n" "a\nb\n") " a\n b\n"))
+
+(def test_both_empty () int
+  (check_str "nothing" (diff_text "" "") ""))
+
+(def test_from_empty () int
+  (check_str "all inserted" (diff_text "" "x\ny\n") "+x\n+y\n"))
+
+(def test_to_empty () int
+  (check_str "all deleted" (diff_text "x\ny\n" "") "-x\n-y\n"))
+
+(def test_changed_line_shows_old_first () int
+  (check_str "replace" (diff_text "a\nb\nc\n" "a\nB\nc\n") " a\n-b\n+B\n c\n"))
+
+(def test_mixed () int
+  (check_str "delete, insert, append"
+    (diff_text "a\nb\nc\nd\ne\n" "a\nc\nd\nX\ne\nf\n")
+    " a\n-b\n c\n d\n+X\n e\n+f\n"))
+
+; abcabba to cbabac, the example in Myers' paper, has distance 5.
+(def test_myers_example () int
+  (check_int "distance"
+    (distance (diff (lines "a\nb\nc\na\nb\nb\na\n") (lines "c\nb\na\nb\na\nc\n")) 0)
+    5))
+
+; --------------------------------------------------------------- properties
+;
+; The script must turn a into b: its kept and deleted lines are a, and its
+; kept and inserted lines are b. It must also be shortest: its distance is
+; |a| + |b| - 2 LCS(a, b), where LCS is computed here by the textbook
+; dynamic program, a row at a time.
+
+(def old_side ((es (list Edit)) (acc (list (list int)))) (list (list int))
+  (if (is_empty es)
+      (rev_strs_onto acc (nil (list int)))
+      (match (head es)
+        ((Keep s) (old_side (tail es) (cons s acc)))
+        ((Del s) (old_side (tail es) (cons s acc)))
+        ((Ins s) (old_side (tail es) acc)))))
+
+(def new_side ((es (list Edit)) (acc (list (list int)))) (list (list int))
+  (if (is_empty es)
+      (rev_strs_onto acc (nil (list int)))
+      (match (head es)
+        ((Keep s) (new_side (tail es) (cons s acc)))
+        ((Del s) (new_side (tail es) acc))
+        ((Ins s) (new_side (tail es) (cons s acc))))))
+
+(def max2 ((a int) (b int)) int
+  (if (gt a b) a b))
+
+(def zeros ((n int)) (list int)
+  (if (le n 0) (nil int) (cons 0 (zeros (sub n 1)))))
+
+; One row of the table: diag is the previous row's entry to the left of up.
+(def lcs_row ((ai (list int)) (bs (list (list int))) (diag int)
+              (up (list int)) (left int) (acc (list int))) (list int)
+  (if (is_empty bs)
+      (rev acc)
+      (let v (if (list_eq ai (head bs)) (add diag 1) (max2 (head up) left))
+        (lcs_row ai (tail bs) (head up) (tail up) v (cons v acc)))))
+
+(def lcs_rows ((as (list (list int))) (bs (list (list int))) (row (list int)))
+    int
+  (if (is_empty as)
+      (last row)
+      (lcs_rows (tail as) bs
+        (lcs_row (head as) bs (head row) (tail row) 0 (cons 0 (nil int))))))
+
+(def last ((xs (list int))) int
+  (if (is_empty (tail xs)) (head xs) (last (tail xs))))
+
+(def lcs_len ((as (list (list int))) (bs (list (list int)))) int
+  (lcs_rows as bs (zeros (add 1 (length_strs bs)))))
+
+(def test_lcs_reference () int
+  (check_int "abcabba cbabac" (lcs_len (lines "a\nb\nc\na\nb\nb\na\n")
+                                       (lines "c\nb\na\nb\na\nc\n")) 4))
+
+; Random files of one-letter lines from a three-letter alphabet, so they
+; share plenty of lines and have many different shortest scripts.
+(def rand_lines ((s int) (n int)) (list (list int))
+  (if (le n 0)
+      (nil (list int))
+      (let s1 (rand_next s)
+        (cons (cons (add 97 (rand_below s1 3)) (nil int))
+              (rand_lines s1 (sub n 1))))))
+
+(def diffs_ok ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let a (rand_lines s (rand_below s 40))
+        (let b (rand_lines (rand_next s) (rand_below (rand_next s) 40))
+          (let es (diff a b)
+            (let want (sub (add (length_strs a) (length_strs b))
+                           (mul 2 (lcs_len a b)))
+              (if (and (strs_eq (old_side es (nil (list int))) a)
+                       (and (strs_eq (new_side es (nil (list int))) b)
+                            (eq (distance es 0) want)))
+                  (diffs_ok (rand_next (rand_next (rand_next s))) (sub runs 1))
+                  (add (check_strs "old side" (old_side es (nil (list int))) a)
+                       (add (check_strs "new side" (new_side es (nil (list int))) b)
+                            (check_int "distance" (distance es 0) want))))))))))
+
+(def test_random_diffs_shortest () int
+  (diffs_ok 5 300))

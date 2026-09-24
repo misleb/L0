@@ -1,0 +1,41 @@
+pad   self         -O0  no limit up to 100000000  rc-check stderr: ""
+pad   self         -O2  no limit up to 100000000  rc-check stderr: ""
+pad   mutual       -O0  no limit up to 100000000  rc-check stderr: ""
+pad   mutual       -O2  no limit up to 100000000  rc-check stderr: ""
+pad   mutual_wide  -O0  no limit up to 100000000  rc-check stderr: ""
+pad   mutual_wide  -O2  no limit up to 100000000  rc-check stderr: ""
+pad   listloop     -O0  no limit up to 100000000  rc-check stderr: ""
+pad   listloop     -O2  no limit up to 100000000  rc-check stderr: ""
+pad   walk         -O0  no limit up to 100000000  rc-check stderr: ""
+pad   walk         -O2  no limit up to 100000000  rc-check stderr: ""
+pad   matchloop    -O0  no limit up to 100000000  rc-check stderr: ""
+pad   matchloop    -O2  no limit up to 100000000  rc-check stderr: ""
+pad   nested       -O0  no limit up to 100000000  rc-check stderr: ""
+pad   nested       -O2  no limit up to 100000000  rc-check stderr: ""
+pad   compiler     -O0  output identical, smallest L0_STACK_MB 1, __text 322696 bytes
+pad   compiler     -O2  output identical, smallest L0_STACK_MB 1, __text 204488 bytes
+padc  self         -O0  no limit up to 100000000  rc-check stderr: ""
+padc  self         -O2  no limit up to 100000000  rc-check stderr: ""
+padc  mutual       -O0  no limit up to 100000000  rc-check stderr: ""
+padc  mutual       -O2  no limit up to 100000000  rc-check stderr: ""
+padc  mutual_wide  -O0  no limit up to 100000000  rc-check stderr: ""
+padc  mutual_wide  -O2  no limit up to 100000000  rc-check stderr: ""
+padc  listloop     -O0  no limit up to 100000000  rc-check stderr: ""
+padc  listloop     -O2  no limit up to 100000000  rc-check stderr: ""
+padc  walk         -O0  no limit up to 100000000  rc-check stderr: ""
+padc  walk         -O2  no limit up to 100000000  rc-check stderr: ""
+padc  matchloop    -O0  no limit up to 100000000  rc-check stderr: ""
+padc  matchloop    -O2  no limit up to 100000000  rc-check stderr: ""
+padc  nested       -O0  no limit up to 100000000  rc-check stderr: ""
+padc  nested       -O2  no limit up to 100000000  rc-check stderr: ""
+pad-component: 138 of 346 functions padded, extra params 347
+padc  compiler     -O0  output identical, smallest L0_STACK_MB 1, __text 282252 bytes
+padc  compiler     -O2  output identical, smallest L0_STACK_MB 1, __text 203672 bytes
+pad mutual_wide riscv64-linux-gnu -O0: calls=1 jumps=2
+pad mutual_wide riscv64-linux-gnu -O2: calls=1 jumps=2
+pad mutual_wide armv7-linux-gnueabihf -O0: calls=1 jumps=2
+pad mutual_wide armv7-linux-gnueabihf -O2: calls=1 jumps=2
+pad mutual_wide x86_64-linux-gnu -O0: calls=1 jumps=2
+pad mutual_wide x86_64-linux-gnu -O2: calls=1 jumps=2
+pad mutual_wide wasm32-wasi -O0: error: <unknown>:0:0: in function l0_p_rev_onto i64 (i64, i64, i64, i64, i64, i64, i64, i64, i64, i64): WebAssembly 'tail-call' feature not 
+pad mutual_wide wasm32-wasi -O2: error: <unknown>:0:0: in function l0_p_digits i64 (i64, i64, i64, i64, i64, i64, i64, i64, i64, i64): WebAssembly 'tail-call' feature not en

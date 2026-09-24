@@ -1,0 +1,214 @@
+; paths_test.l0 -- tests of paths.l0.
+;
+;   tools/l0 test programs/paths/paths.l0 programs/paths/paths_test.l0
+
+; ------------------------------------------------------------------ IntMap
+
+(def test_intmap_basics () int
+  (let m (im_set (im_set (im_set (IEmpty) 0 10) 5 50) 1024 7)
+    (add (check_int "0" (im_get m 0 -1) 10)
+         (add (check_int "5" (im_get m 5 -1) 50)
+              (add (check_int "1024" (im_get m 1024 -1) 7)
+                   (check_int "absent" (im_get m 4 -1) -1))))))
+
+(def test_intmap_overwrite () int
+  (check_int "latest" (im_get (im_set (im_set (IEmpty) 3 1) 3 2) 3 -1) 2))
+
+(def test_intmap_persistent () int
+  (let a (im_set (IEmpty) 9 1)
+    (let b (im_set a 9 2)
+      (add (check_int "old" (im_get a 9 -1) 1)
+           (check_int "new" (im_get b 9 -1) 2)))))
+
+; Every key 0..n-1 set to a function of itself reads back, so no two keys
+; share a path.
+(def fill ((m IntMap) (i int) (n int)) IntMap
+  (if (ge i n) m (fill (im_set m i (mul i 3)) (add i 1) n)))
+
+(def read_back ((m IntMap) (i int) (n int)) int
+  (if (ge i n)
+      0
+      (if (eq (im_get m i -1) (mul i 3))
+          (read_back m (add i 1) n)
+          (check_int "key" (im_get m i -1) (mul i 3)))))
+
+(def test_intmap_dense_keys () int
+  (read_back (fill (IEmpty) 0 5000) 0 5000))
+
+; ---------------------------------------------------------------- NameMap
+
+(def test_name_bucket_collision () int
+  (let m (nm_add (nm_add (NEmpty) 7 (Named "x" 1)) 7 (Named "y" 2))
+    (add (check_int "x" (nm_get m 7 "x") 1)
+         (add (check_int "y" (nm_get m 7 "y") 2)
+              (check_int "z" (nm_get m 7 "z") -1)))))
+
+(def test_intern_is_stable () int
+  (match (intern (empty_graph 0) "a")
+    ((Interned g1 a)
+      (match (intern g1 "b")
+        ((Interned g2 b)
+          (match (intern g2 "a")
+            ((Interned g3 a2)
+              (add (check_int "a" a 0)
+                   (add (check_int "b" b 1) (check_int "a again" a2 0))))))))))
+
+; ------------------------------------------------------------------- heap
+
+(def pop_all ((h Heap) (last int)) int
+  (match h
+    ((HEmpty) 0)
+    ((HNode r d u l x)
+      (if (lt d last)
+          (check_int "popped in order" d last)
+          (pop_all (merge l x) d)))))
+
+(def push_random ((h Heap) (s int) (n int)) Heap
+  (if (eq n 0)
+      h
+      (push_random (push_heap h (rand_below s 1000) n) (rand_next s) (sub n 1))))
+
+(def heap_size ((h Heap)) int
+  (match h
+    ((HEmpty) 0)
+    ((HNode r d u l x) (add 1 (add (heap_size l) (heap_size x))))))
+
+(def test_heap_order () int
+  (let h (push_random (HEmpty) 5 2000)
+    (add (check_int "size" (heap_size h) 2000)
+         (pop_all h -1))))
+
+; ------------------------------------------------------------------ input
+
+(def test_fields () int
+  (add (check_strs "spaces and tabs" (fields "  a\tb   12 ")
+         (cons "a" (cons "b" (cons "12" (nil (list int))))))
+       (check_strs "blank" (fields " \t\r") (nil (list int)))))
+
+(def test_weight_of () int
+  (add (check_int "plain" (weight_of "250") 250)
+       (add (check_int "negative" (weight_of "-3") -1)
+            (add (check_int "13 digits" (weight_of "1000000000000") -1)
+                 (check_int "letters" (weight_of "7a") -1)))))
+
+; --------------------------------------------------------------- Dijkstra
+
+(def graph_of ((es (list (list int)))) Graph
+  (graph_onto (empty_graph 0) es))
+
+; Each string is "FROM TO WEIGHT".
+(def graph_onto ((g Graph) (es (list (list int)))) Graph
+  (if (is_empty es)
+      g
+      (let fs (fields (head es))
+        (graph_onto (add_edge g (head fs) (head (tail fs))
+                              (weight_of (head (tail (tail fs)))))
+                    (tail es)))))
+
+(def diamond ((ignored int)) Graph
+  (graph_of (cons "a b 4" (cons "a c 1" (cons "c b 2" (cons "b d 5"
+    (cons "c d 9" (nil (list int)))))))))
+
+(def test_shortest_diamond () int
+  (add (check_int "a d" (shortest (diamond 0) "a" "d") 8)
+       (add (check_int "a b" (shortest (diamond 0) "a" "b") 3)
+            (check_int "c d" (shortest (diamond 0) "c" "d") 7))))
+
+(def test_directed () int
+  (check_int "d a" (shortest (diamond 0) "d" "a") -1))
+
+(def test_unknown_and_self () int
+  (add (check_int "unknown" (shortest (diamond 0) "a" "zz") -1)
+       (add (check_int "self" (shortest (diamond 0) "a" "a") 0)
+            (check_int "unknown self" (shortest (diamond 0) "q" "q") 0))))
+
+(def test_zero_weights_and_cycles () int
+  (let g (graph_of (cons "a b 0" (cons "b a 0" (cons "b c 0" (cons "c a 1"
+           (nil (list int)))))))
+    (check_int "a c" (shortest g "a" "c") 0)))
+
+(def test_parallel_edges () int
+  (let g (graph_of (cons "a b 9" (cons "a b 2" (cons "a b 5" (nil (list int))))))
+    (check_int "cheapest" (shortest g "a" "b") 2)))
+
+(def test_answer () int
+  (add (check_str "distance" (answer 12) "12\n")
+       (check_str "none" (answer -1) "unreachable\n")))
+
+; A long chain exercises deep tail recursion in dijkstra and relax.
+(def chain ((g Graph) (i int) (n int)) Graph
+  (if (ge i n)
+      g
+      (chain (add_edge g (digits i) (digits (add i 1)) 1) (add i 1) n)))
+
+(def test_long_chain () int
+  (check_int "0 to 20000" (shortest (chain (empty_graph 0) 0 20000) "0" "20000")
+             20000))
+
+; ------------------------------------------------- against Bellman-Ford
+;
+; Random graphs on 8 nodes named "0".."7": Dijkstra must agree with a
+; Bellman-Ford written separately, over plain edge triples.
+
+(data Tri
+  (Tri int int int))                    ; from, to, weight
+
+(def rand_edges ((s int) (n int) (acc (list Tri))) (list Tri)
+  (if (eq n 0)
+      acc
+      (let s1 (rand_next s)
+        (let s2 (rand_next s1)
+          (let s3 (rand_next s2)
+            (rand_edges s3 (sub n 1)
+              (cons (Tri (rand_below s1 8) (rand_below s2 8) (rand_below s3 20))
+                    acc)))))))
+
+(def tri_graph ((g Graph) (es (list Tri))) Graph
+  (if (is_empty es)
+      g
+      (match (head es)
+        ((Tri a b w) (tri_graph (add_edge g (digits a) (digits b) w) (tail es))))))
+
+; dist[v] for v in 0..7 as an IntMap; -1 is unreached.
+(def bellman_ford ((es (list Tri)) (src int)) IntMap
+  (bf_rounds es (im_set (IEmpty) src 0) 8))
+
+(def bf_rounds ((es (list Tri)) (d IntMap) (rounds int)) IntMap
+  (if (eq rounds 0) d (bf_rounds es (bf_pass es d) (sub rounds 1))))
+
+(def bf_pass ((es (list Tri)) (d IntMap)) IntMap
+  (if (is_empty es)
+      d
+      (match (head es)
+        ((Tri a b w)
+          (let da (im_get d a -1)
+            (let db (im_get d b -1)
+              (if (if (lt da 0) false (if (lt db 0) true (lt (add da w) db)))
+                  (bf_pass (tail es) (im_set d b (add da w)))
+                  (bf_pass (tail es) d))))))))
+
+; Dijkstra answers 0 for a node to itself even when it is not in the graph,
+; and Bellman-Ford does too, since the source starts at 0.
+(def agree_all ((g Graph) (es (list Tri)) (src int) (dst int)) int
+  (if (ge src 8)
+      0
+      (if (ge dst 8)
+          (agree_all g es (add src 1) 0)
+          (let want (im_get (bellman_ford es src) dst -1)
+            (let got (shortest g (digits src) (digits dst))
+              (if (eq got want)
+                  (agree_all g es src (add dst 1))
+                  (check_int (append (digits src) (append " to " (digits dst)))
+                             got want)))))))
+
+(def random_graphs ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let es (rand_edges s (rand_below s 24) (nil Tri))
+        (let bad (agree_all (tri_graph (empty_graph 0) es) es 0 0)
+          (if (gt bad 0)
+              bad
+              (random_graphs (rand_next (rand_next s)) (sub runs 1)))))))
+
+(def test_against_bellman_ford () int
+  (random_graphs 17 150))

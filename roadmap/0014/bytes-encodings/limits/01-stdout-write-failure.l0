@@ -1,0 +1,35 @@
+; 01-stdout-write-failure.l0 -- a program cannot tell that its writes to
+; standard output were lost.
+;
+; write_byte and write_to return 0 because the byte is only buffered. Spec
+; 6.3 says a failure to write is reported by close, but close refuses
+; handles 0, 1, and 2 (it returns -2 and leaves them open), and the runtime
+; flushes standard output only at exit, after main has returned its status.
+; So nothing a program can call ever reports the failure, and a filter that
+; lost all its output exits 0.
+;
+;   tools/l0 build programs/limits/01-stdout-write-failure.l0 -o /tmp/w
+;   /tmp/w >&- ; echo $?                 # stdout closed
+;
+; prints, on standard error:
+;
+;   write results summed: 0
+;   close 1: -2
+;
+; and exits 0. The same with the system base64:
+;
+;   base64 < /some/file >&- ; echo $?
+;   base64: write error
+;   1
+
+(def write_many ((n int) (sum int)) int
+  (if (eq n 0)
+      sum
+      (write_many (sub n 1) (add sum (write_byte 120)))))
+
+(def main () int
+  (let s (write_many 200000 0)
+    (let c (close 1)
+      (let a (write_err (append "write results summed: " (append (digits s) "\n")))
+        (let b (write_err (append "close 1: " (append (digits c) "\n")))
+          0)))))

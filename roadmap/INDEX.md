@@ -4,19 +4,30 @@ Goals: README.md, "What L0 aims to be". Not restated here.
 
 Current focus: the memory-management and I/O goal is met by the language route
 (changelog "The route to memory management and I/O"): streaming and file I/O,
-arguments, and reference counting. What remains of it is 0011, whether tail
-calls are guaranteed. The next goal after that is open.
+arguments, reference counting, and guaranteed tail calls. From 0014's
+evidence, the gaps it left come first, 0018 to 0020, after the tooling items
+0016 and 0017. The next goal is arrays, with compact bytes and in-place
+update, starting from 0021.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0018](0018-write-failures-reported.md) a program can learn that its
+   writes failed — queued, needs 0017
+2. [0019](0019-append-and-rename.md) append to a file, and replace one whole —
+   queued, needs 0018
+3. [0020](0020-in-memory-handles.md) handles that read from and write to
+   memory — queued, needs 0019
 
 ## Other open items
 
-- [0011](0011-tail-calls.md) research: whether L0 guarantees tail calls —
-  active, running as a worker
+- [0016](0016-linux-test-image.md) tooling: a local image for the Linux test
+  runs — queued, next
+- [0017](0017-library-and-tool-fixes.md) tooling: library and tool fixes from
+  0014 — queued
+- [0021](0021-arrays-route.md) research: how L0 gets arrays, compact bytes,
+  and in-place update — proposed, after 0020
 
 ## Done and dropped
 
@@ -47,3 +58,10 @@ Empty.
 - [0013](0013-release-at-last-use.md) release a value at its last use —
   dropped; its blocker was the input list built before `main`, which no
   release rule can reduce
+- [0011](0011-tail-calls.md) research: whether L0 guarantees tail calls —
+  done, all of them, by musttail and padded arities
+- [0015](0015-guarantee-tail-calls.md) guarantee every tail call — done,
+  changelog "A tail call uses no stack"
+- [0014](0014-programs-round-two.md) program: a second round of ordinary
+  programs, to choose the next goal — done; nine programs, the ranking led
+  to 0017 through 0021

@@ -1,0 +1,137 @@
+== self.O0.s
+   1 _l0_f_loop -> _l0_f_loop  bl (call)
+== self.O1.s
+== self.O2.s
+== self.noinl.O2.s
+== self.noinl.apple.O2.s
+== mutual.O0.s
+   1 _l0_f_ping -> _l0_f_pong  bl (call)
+   1 _l0_f_pong -> _l0_f_ping  bl (call)
+== mutual.O1.s
+== mutual.O2.s
+== mutual.noinl.O2.s
+   1 _l0_f_ping -> _l0_f_pong  b (jump)
+   1 _l0_f_pong -> _l0_f_ping  b (jump)
+== mutual.noinl.apple.O2.s
+   1 _l0_f_ping -> _l0_f_pong  b (jump)
+   1 _l0_f_pong -> _l0_f_ping  b (jump)
+== mutual_wide.O0.s
+   1 _l0_f_pong -> _l0_f_wide  bl (call)
+   2 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  bl (call)
+== mutual_wide.O1.s
+== mutual_wide.O2.s
+== mutual_wide.noinl.O2.s
+   1 _l0_f_pong -> _l0_f_wide  bl (call)
+   1 _l0_f_wide -> _l0_f_mix  b (jump)
+   1 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  b (jump)
+== mutual_wide.noinl.apple.O2.s
+   1 _l0_f_pong -> _l0_f_wide  bl (call)
+   1 _l0_f_wide -> _l0_f_mix  b (jump)
+   1 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  b (jump)
+== listloop.O0.s
+   1 _l0_f_spin -> _l0_f_spin  bl (call)
+   1 _l0_f_spin -> _l0_p_length  bl (call)
+== listloop.O1.s
+   1 _l0_f_spin -> _l0_p_length  b (jump)
+== listloop.O2.s
+== listloop.noinl.O2.s
+   1 _l0_f_spin -> _l0_p_length  b (jump)
+== listloop.noinl.apple.O2.s
+   1 _l0_f_spin -> _l0_p_length  b (jump)
+== walk.O0.s
+   1 _l0_f_build -> _l0_f_build  bl (call)
+   1 _l0_f_walk -> _l0_f_walk  bl (call)
+== walk.O1.s
+== walk.O2.s
+== walk.noinl.O2.s
+== walk.noinl.apple.O2.s
+== matchloop.O0.s
+   2 _l0_f_step -> _l0_f_step  bl (call)
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== matchloop.O1.s
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== matchloop.O2.s
+== matchloop.noinl.O2.s
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== matchloop.noinl.apple.O2.s
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== nontail.O0.s
+   1 _l0_f_count -> _l0_f_count  bl (call)
+== nontail.O1.s
+== nontail.O2.s
+== nontail.noinl.O2.s
+== nontail.noinl.apple.O2.s
+== self.ret.O0.s
+   1 _l0_f_loop -> _l0_f_loop  bl (call)
+== mutual.ret.O0.s
+   1 _l0_f_ping -> _l0_f_pong  bl (call)
+   1 _l0_f_pong -> _l0_f_ping  bl (call)
+== mutual_wide.ret.O0.s
+   1 _l0_f_pong -> _l0_f_wide  bl (call)
+   2 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  bl (call)
+== matchloop.ret.O0.s
+   2 _l0_f_step -> _l0_f_step  bl (call)
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== self.tail.O0.s
+   1 _l0_f_loop -> _l0_f_loop  b (jump)
+== mutual.tail.O0.s
+   1 _l0_f_ping -> _l0_f_pong  b (jump)
+   1 _l0_f_pong -> _l0_f_ping  b (jump)
+== mutual_wide.tail.O0.s
+   1 _l0_f_pong -> _l0_f_wide  bl (call)
+   1 _l0_f_wide -> _l0_f_mix  b (jump)
+   1 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  b (jump)
+== matchloop.tail.O0.s
+   2 _l0_f_step -> _l0_f_step  b (jump)
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== self.mustsame.O0.s
+   1 _l0_f_loop -> _l0_f_loop  b (jump)
+== mutual.mustsame.O0.s
+   1 _l0_f_ping -> _l0_f_pong  b (jump)
+   1 _l0_f_pong -> _l0_f_ping  b (jump)
+== mutual_wide.mustsame.O0.s
+   1 _l0_f_pong -> _l0_f_wide  bl (call)
+   1 _l0_f_wide -> _l0_f_mix  b (jump)
+   1 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  b (jump)
+== matchloop.mustsame.O0.s
+   2 _l0_f_step -> _l0_f_step  b (jump)
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== self.tailcc.O0.s
+   1 _l0_f_loop -> _l0_f_loop  b (jump)
+== mutual.tailcc.O0.s
+   1 _l0_f_ping -> _l0_f_pong  b (jump)
+   1 _l0_f_pong -> _l0_f_ping  b (jump)
+== mutual_wide.tailcc.O0.s
+   1 _l0_f_pong -> _l0_f_wide  b (jump)
+   1 _l0_f_wide -> _l0_f_mix  b (jump)
+   1 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  b (jump)
+== matchloop.tailcc.O0.s
+   2 _l0_f_step -> _l0_f_step  b (jump)
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== self.loop.O0.s
+== mutual.loop.O0.s
+   1 _l0_f_ping -> _l0_f_pong  bl (call)
+   1 _l0_f_pong -> _l0_f_ping  bl (call)
+== mutual_wide.loop.O0.s
+   1 _l0_f_pong -> _l0_f_wide  bl (call)
+   2 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  bl (call)
+== matchloop.loop.O0.s
+   1 _l0_f_step -> _l0_p_length  bl (call)
+== self.loopnh.O0.s
+== mutual.loopnh.O0.s
+   1 _l0_f_ping -> _l0_f_pong  bl (call)
+   1 _l0_f_pong -> _l0_f_ping  bl (call)
+== mutual_wide.loopnh.O0.s
+   1 _l0_f_pong -> _l0_f_wide  bl (call)
+   2 _l0_f_wide -> _l0_f_mix  bl (call)
+   1 _l0_f_wide -> _l0_f_pong  bl (call)
+== matchloop.loopnh.O0.s
+   1 _l0_f_step -> _l0_p_length  bl (call)

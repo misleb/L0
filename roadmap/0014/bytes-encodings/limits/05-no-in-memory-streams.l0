@@ -1,0 +1,34 @@
+; 05-no-in-memory-streams.l0 -- code that streams reads a handle, and the
+; only handles are files and the three standard streams, so a test cannot
+; hand such code a string, or read back what it wrote, without the
+; filesystem.
+;
+; The streaming main is what the spec and the skill recommend for large
+; input, and base64's encode and decode are written that way. To test them
+; with a literal input this is what one would write, and it does not check:
+;
+;   $ tools/l0check lib/prelude.l0 lib/io.l0 lib/test.l0 \
+;         programs/base64/base64.l0 programs/limits/05-no-in-memory-streams.l0
+;   programs/limits/05-no-in-memory-streams.l0:33:11: error: argument 1 of
+;     encode must be int, but this is (list int)
+;
+; (on one line). Nor can the test pass a function that yields bytes, since
+; L0 has no function values.
+;
+; Workaround: base64_test.l0 writes each input to /tmp/l0_b64_in, opens it
+; and /tmp/l0_b64_out, runs the code between the two handles, closes both,
+; and reads the output file back: write_file, read_file, handle_of, Ran,
+; run_mode, status_of, and output_of, 42 nonblank lines before the first
+; test. minigrep_test.l0 needs 26 more of the same kind. The tests then need a writable /tmp,
+; use fixed file names so two runs at once would collide, and each input
+; costs two file opens and a close in each direction. The alternative,
+; writing every algorithm twice, once over lists for tests and once over
+; handles for main, would test code that main does not run.
+
+(def test_encode_foo () int
+  (check_str "foo" (encode_to_string "foo") "Zm9v\n"))
+
+; What the test wants: encode reading a string, and its output as one.
+(def encode_to_string ((s (list int))) (list int)
+  (let st (encode s 1 0)
+    (nil int)))

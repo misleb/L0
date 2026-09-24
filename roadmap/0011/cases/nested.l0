@@ -1,0 +1,12 @@
+; Self-recursive loop whose argument contains an if. That inner if is not in
+; tail position, so it keeps its alloca join slot, and the emitter places the
+; alloca where the if appears: inside the tail branch, not in the entry block.
+; If the loop is made a loop, that alloca runs once per iteration.
+(def loop ((n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (loop (sub n 1) (add acc (if (eq (mod n 3) 0) 1 2)))))
+
+(def main () int
+  (let r (write_line (digits (loop (int_prefix (arg 0) 0) 0)))
+    0))

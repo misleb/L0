@@ -1,0 +1,190 @@
+; wordfreq.l0 -- count the distinct words of a text, most frequent first.
+;
+; A word is a maximal run of ASCII letters, ASCII digits, and bytes 128 and
+; above (so UTF-8 text keeps its non-ASCII words whole). ASCII letters are
+; folded to lower case; nothing else is. Every other byte separates words.
+;
+; Counts live in an AVL tree keyed by the word's bytes, since L0 has no hash
+; table and no mutable array. The tree is persistent: an insert rebuilds the
+; path it walked, and reference counting frees the old path.
+
+; ------------------------------------------------------------------ words
+
+(def is_word_byte ((b int)) bool
+  (if (ge b 128)
+      true
+      (if (is_digit b)
+          true
+          (or (and (ge b 97) (le b 122)) (is_upper b)))))
+
+(def fold_case ((b int)) int
+  (if (is_upper b) (add b 32) b))
+
+; Byte-wise comparison: negative, zero, or positive, as a sorts before,
+; equal to, or after b. A proper prefix sorts first.
+(def cmp_str ((a (list int)) (b (list int))) int
+  (if (is_empty a)
+      (if (is_empty b) 0 -1)
+      (if (is_empty b)
+          1
+          (if (lt (head a) (head b))
+              -1
+              (if (gt (head a) (head b))
+                  1
+                  (cmp_str (tail a) (tail b)))))))
+
+; ------------------------------------------------------------ the counts
+
+(data Tree
+  (Tip)
+  (Node Tree (list int) int Tree int))  ; left, word, count, right, height
+
+(def imax ((a int) (b int)) int
+  (if (gt a b) a b))
+
+(def height ((t Tree)) int
+  (match t
+    ((Tip) 0)
+    ((Node l w c r h) h)))
+
+(def node ((l Tree) (w (list int)) (c int) (r Tree)) Tree
+  (Node l w c r (add 1 (imax (height l) (height r)))))
+
+; Rebuilds a node whose subtrees differ in height by at most two, so that
+; they differ by at most one.
+(def balance ((l Tree) (w (list int)) (c int) (r Tree)) Tree
+  (let hl (height l)
+    (let hr (height r)
+      (if (gt hl (add hr 1))
+          (rotate_right l w c r)
+          (if (gt hr (add hl 1))
+              (rotate_left l w c r)
+              (node l w c r))))))
+
+; l is two taller than r, so it is a Node.
+(def rotate_right ((l Tree) (w (list int)) (c int) (r Tree)) Tree
+  (match l
+    ((Tip) (node l w c r))
+    ((Node ll lw lc lr lh)
+      (if (ge (height ll) (height lr))
+          (node ll lw lc (node lr w c r))
+          (match lr
+            ((Tip) (node l w c r))
+            ((Node x xw xc y yh)
+              (node (node ll lw lc x) xw xc (node y w c r))))))))
+
+; r is two taller than l, so it is a Node.
+(def rotate_left ((l Tree) (w (list int)) (c int) (r Tree)) Tree
+  (match r
+    ((Tip) (node l w c r))
+    ((Node rl rw rc rr rh)
+      (if (ge (height rr) (height rl))
+          (node (node l w c rl) rw rc rr)
+          (match rl
+            ((Tip) (node l w c r))
+            ((Node x xw xc y yh)
+              (node (node l w c x) xw xc (node y rw rc rr))))))))
+
+; Counts one more occurrence of w.
+(def insert ((t Tree) (w (list int))) Tree
+  (match t
+    ((Tip) (Node (Tip) w 1 (Tip) 1))
+    ((Node l k c r h)
+      (let o (cmp_str w k)
+        (if (lt o 0)
+            (balance (insert l w) k c r)
+            (if (gt o 0)
+                (balance l k c (insert r w))
+                (Node l k (add c 1) r h)))))))
+
+; The word being read is held reversed; this counts it if there is one.
+(def flush ((t Tree) (cur (list int))) Tree
+  (if (is_empty cur) t (insert t (rev cur))))
+
+; Every word of s counted into t. The streaming reader in main.l0 does the
+; same thing a byte at a time; L0 cannot pass "where the next byte comes
+; from" as an argument, so the two loops are written twice.
+(def count_list ((t Tree) (cur (list int)) (s (list int))) Tree
+  (if (is_empty s)
+      (flush t cur)
+      (let b (head s)
+        (if (is_word_byte b)
+            (count_list t (cons (fold_case b) cur) (tail s))
+            (count_list (flush t cur) (nil int) (tail s))))))
+
+; ------------------------------------------------------------- ordering
+
+(data WC
+  (WC (list int) int))                  ; word, count
+
+; In-order, so alphabetical.
+(def to_list ((t Tree) (acc (list WC))) (list WC)
+  (match t
+    ((Tip) acc)
+    ((Node l w c r h) (to_list l (cons (WC w c) (to_list r acc))))))
+
+; Whether a comes strictly before b: higher count first, then alphabetical.
+(def before ((a WC) (b WC)) bool
+  (match a
+    ((WC aw ac)
+      (match b
+        ((WC bw bc)
+          (if (gt ac bc)
+              true
+              (if (lt ac bc) false (lt (cmp_str aw bw) 0))))))))
+
+(def rev_wc_onto ((xs (list WC)) (acc (list WC))) (list WC)
+  (if (is_empty xs)
+      acc
+      (rev_wc_onto (tail xs) (cons (head xs) acc))))
+
+(data Halves
+  (Halves (list WC) (list WC)))
+
+; Deals xs alternately onto two piles.
+(def deal ((xs (list WC)) (a (list WC)) (b (list WC))) Halves
+  (if (is_empty xs)
+      (Halves a b)
+      (deal (tail xs) (cons (head xs) b) a)))
+
+(def merge ((a (list WC)) (b (list WC)) (acc (list WC))) (list WC)
+  (if (is_empty a)
+      (rev_wc_onto acc b)
+      (if (is_empty b)
+          (rev_wc_onto acc a)
+          (if (before (head a) (head b))
+              (merge (tail a) b (cons (head a) acc))
+              (merge a (tail b) (cons (head b) acc))))))
+
+; Merge sort. before is a total order on distinct words, so stability does
+; not matter.
+(def sort_wc ((xs (list WC))) (list WC)
+  (if (is_empty xs)
+      xs
+      (if (is_empty (tail xs))
+          xs
+          (match (deal xs (nil WC) (nil WC))
+            ((Halves a b) (merge (sort_wc a) (sort_wc b) (nil WC)))))))
+
+(def ranked ((t Tree)) (list WC)
+  (sort_wc (to_list t (nil WC))))
+
+; ------------------------------------------------------------- rendering
+
+; "word count\n"
+(def line_of ((x WC)) (list int)
+  (match x
+    ((WC w c)
+      (let a (push w (nil int))
+        (let b (push " " a)
+          (let d (push (digits c) b)
+            (rev (push "\n" d))))))))
+
+(def render_onto ((xs (list WC)) (acc (list int))) (list int)
+  (if (is_empty xs)
+      (rev acc)
+      (render_onto (tail xs) (push (line_of (head xs)) acc))))
+
+; The whole report for s, for tests.
+(def report ((s (list int))) (list int)
+  (render_onto (ranked (count_list (Tip) (nil int) s)) (nil int)))

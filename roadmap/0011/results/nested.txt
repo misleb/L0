@@ -1,0 +1,8 @@
+nested base    -O0: limit ~6695312 (fail rc=70: l0: runtime error: stack exhausted)
+nested base    -O2: no limit up to 100000000
+nested tail    -O0: no limit up to 100000000
+nested tail    -O2: no limit up to 100000000
+nested loop    -O0: no limit up to 100000000
+nested loop    -O2: no limit up to 100000000
+nested loopnh  -O0: limit ~16767577 (fail rc=138: )
+nested loopnh  -O2: no limit up to 100000000

@@ -20,8 +20,9 @@ tools/bootstrap.sh --refresh-seed   # also install the result as bootstrap/stage
 ```
 
 `LLVM_PREFIX` overrides the LLVM location (default `/opt/homebrew/opt/llvm`).
-`L0_STACK_MB` sets the stack for an L0 program (default 512, good for roughly
-1.5 million recursive frames).
+`L0_STACK_MB` sets the stack for an L0 program, in megabytes (default 512).
+Tail calls use none of it (spec section 8); only nesting of calls that are not
+tail calls does.
 
 **`--bless` overwrites the expectations that define correctness.** Only use it
 after a deliberate behavior or wording change, and always read the resulting
@@ -292,7 +293,11 @@ into two steps.
 
 If a stage builds but crashes with `stack exhausted`, raise `L0_STACK_MB` to
 confirm that depth is the real cause before assuming it is a bug, then consider
-whether the offending function should be tail recursive.
+whether the offending function should be tail recursive. A loop that is
+already tail recursive and still exhausts the stack is a compiler bug: a tail
+call must be emitted as `musttail`, so look for one that is not.
+`tests/io/tail_calls` checks the guarantee at `-O0`, where LLVM eliminates no
+call on its own.
 
 If a stage builds but appears to hang on `compiler.l0` while passing all small
 tests, suspect quadratic output building. See the performance rule in the

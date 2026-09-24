@@ -195,9 +195,10 @@ Accumulator-passing for iteration, since there are no loops:
 ```
 
 Prefer this tail-recursive shape over the non-tail version when the list may be
-long. Both work, but the non-tail version holds one stack frame per element. The
-runtime allows very deep recursion (roughly 1.5 million frames by default, and
-`L0_STACK_MB` raises it), so this is a preference rather than a hard limit.
+long. A tail call uses no stack, whatever the arities and optimization level
+(spec section 8), while the non-tail version holds one stack frame per element.
+The runtime's stack is 512 MB by default, and `L0_STACK_MB` changes it, so deep
+non-tail recursion works too, but only tail calls are unbounded.
 
 Decimal formatting, which L0 has no builtin for, is in
 [tests/lib/assert.l0](../../../tests/lib/assert.l0) as `digits`. Copy it rather

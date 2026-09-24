@@ -1,0 +1,21 @@
+; LIMIT 05: a main that takes its input always exits 0.
+;
+; Costly, a little, in programs/json. A validator is the program the
+; whole-input form of main is for, and it has to report invalid input
+; with a nonzero status, which only the streaming form can return. So json
+; declares the streaming main and reads standard input itself: a four-line
+; read_stdin and a comment explaining why the obvious form was not used.
+;
+; No checker error: this program is valid, and does the wrong thing. It
+; means "exit 1 on invalid input"; the int is printed instead:
+;
+;   $ printf 'x' | tools/l0 run programs/limits/05-whole-input-main-exits-0.l0
+;   1
+;   $ echo $?
+;   0
+
+(def main ((input (list int))) int
+  (if (valid input) 0 1))
+
+(def valid ((s (list int))) bool
+  (if (is_empty s) true (if (is_digit (head s)) (valid (tail s)) false)))

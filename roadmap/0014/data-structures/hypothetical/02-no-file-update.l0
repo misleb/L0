@@ -1,0 +1,40 @@
+; HYPOTHETICAL: this is not L0. It does not check, and is kept to show what
+; programs/kvstore would have been with three more file builtins.
+;
+; Assumed, each returning a negative code on failure as the others do:
+;   (open_append path)     open for writing at the end, creating if absent
+;   (rename from to)       replace to with from in one step
+;   (remove path)          delete a file
+;
+; With these, kv becomes a log: set and del append one record, get reads the
+; log and keeps the last record for its key, and when the log grows past
+; twice the live data a compaction writes the live records to FILE.tmp and
+; renames it over FILE, so a crash leaves either the old store or the new
+; one. set and del cost O(1) instead of O(store); get stays a scan, which a
+; seek builtin plus an index file would fix in turn.
+
+(def cmd_set ((path (list int)) (key (list int)) (value (list int))) int
+  (append_record path (cons 43 (entry_line key value))))       ; "+KEY\tVALUE\n"
+
+(def cmd_del ((path (list int)) (key (list int))) int
+  (append_record path (cons 45 (entry_line key ""))))           ; "-KEY\t\n"
+
+(def append_record ((path (list int)) (record (list int))) int
+  (let h (open_append path)
+    (if (lt h 0)
+        (kv_fail path (io_error h))
+        (let w (write_to_handle h record)
+          (if (lt (close h) 0) (kv_fail path "could not write") 0)))))
+
+; Rewrite the live entries, then swap them in whole.
+(def compact ((path (list int)) (live (list (list int)))) int
+  (let tmp (append path ".tmp")
+    (match (open_out tmp)
+      ((IoFailed why) (kv_fail tmp why))
+      ((IoOpened f)
+        (let w (write_lines f live)
+          (if (lt (file_close f) 0)
+              (kv_fail tmp "could not write")
+              (if (lt (rename tmp path) 0)
+                  (kv_fail path "could not replace")
+                  0)))))))

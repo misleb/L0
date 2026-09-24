@@ -1,0 +1,205 @@
+; linediff.l0 -- a minimal line diff, without main so it can be tested.
+;
+; The diff is a shortest edit script, which keeps a longest common
+; subsequence of lines, found with Myers' O((N+M)D) greedy algorithm
+; ("An O(ND) Difference Algorithm and Its Variations", 1986).
+;
+; Myers indexes a vector of furthest-reaching points by diagonal, and the
+; two files by line number. L0 has neither arrays nor random access, so
+; here each diagonal's point carries the rest of each file from that point
+; on, and the points for one edit distance are a list ordered by diagonal.
+; The next list is built from the previous one in a single pass, because the
+; point on diagonal k depends only on the points on k - 1 and k + 1.
+
+; ------------------------------------------------------------------ editing
+
+(data Edit
+  (Keep (list int))
+  (Del (list int))
+  (Ins (list int)))
+
+; The furthest point reached on one diagonal: x, the lines of a from x on,
+; the lines of b from y on, and the edits that reach it, last first. Dead is
+; a diagonal no path of this length reaches inside the edit graph.
+(data Front
+  (Front int (list (list int)) (list (list int)) (list Edit))
+  (Dead))
+
+(data Found
+  (Found (list Edit))
+  (NotYet))
+
+; Follows a diagonal of equal lines as far as it goes.
+(def snake ((x int) (ra (list (list int))) (rb (list (list int)))
+            (es (list Edit))) Front
+  (if (is_empty ra)
+      (Front x ra rb es)
+      (if (is_empty rb)
+          (Front x ra rb es)
+          (if (list_eq (head ra) (head rb))
+              (snake (add x 1) (tail ra) (tail rb) (cons (Keep (head ra)) es))
+              (Front x ra rb es)))))
+
+; Inserting the next line of b moves down, keeping x.
+(def go_down ((f Front)) Front
+  (match f
+    ((Front x ra rb es)
+      (if (is_empty rb)
+          (Dead)
+          (snake x ra (tail rb) (cons (Ins (head rb)) es))))
+    ((Dead) (Dead))))
+
+; Deleting the next line of a moves right.
+(def go_right ((f Front)) Front
+  (match f
+    ((Front x ra rb es)
+      (if (is_empty ra)
+          (Dead)
+          (snake (add x 1) (tail ra) rb (cons (Del (head ra)) es))))
+    ((Dead) (Dead))))
+
+; The x a move down from f reaches, or -1 if it cannot move down.
+(def down_x ((f Front)) int
+  (match f
+    ((Front x ra rb es) (if (is_empty rb) -1 x))
+    ((Dead) -1)))
+
+; The x a move right from f reaches, or -1 if it cannot move right.
+(def right_x ((f Front)) int
+  (match f
+    ((Front x ra rb es) (if (is_empty ra) -1 (add x 1)))
+    ((Dead) -1)))
+
+; The point on a diagonal between left (diagonal k - 1) and up (k + 1):
+; whichever move gets further. On a tie, move down: up reached its point by
+; deleting sooner, so a changed line shows its old text before its new.
+(def choose ((left Front) (up Front)) Front
+  (let r (right_x left)
+    (let d (down_x up)
+      (if (and (lt r 0) (lt d 0))
+          (Dead)
+          (if (gt r d) (go_right left) (go_down up))))))
+
+(def rev_fronts ((xs (list Front)) (acc (list Front))) (list Front)
+  (if (is_empty xs) acc (rev_fronts (tail xs) (cons (head xs) acc))))
+
+; The points for edit distance d + 1 from those for d, diagonals -d to d in
+; order. The new list covers diagonals -(d + 1) to d + 1.
+(def step ((prev (list Front))) (list Front)
+  (step_mid (head prev) (tail prev) (cons (go_down (head prev)) (nil Front))))
+
+; left is the previous point on the diagonal below; rest starts with the
+; one above.
+(def step_mid ((left Front) (rest (list Front)) (acc (list Front)))
+    (list Front)
+  (if (is_empty rest)
+      (rev_fronts (cons (go_right left) acc) (nil Front))
+      (step_mid (head rest) (tail rest) (cons (choose left (head rest)) acc))))
+
+; A point that has reached the end of both files, if there is one.
+(def finished ((fs (list Front))) Found
+  (if (is_empty fs)
+      (NotYet)
+      (match (head fs)
+        ((Front x ra rb es)
+          (if (and (is_empty ra) (is_empty rb))
+              (Found es)
+              (finished (tail fs))))
+        ((Dead) (finished (tail fs))))))
+
+(def search ((fs (list Front))) (list Edit)
+  (match (finished fs)
+    ((Found es) es)
+    ((NotYet) (search (step fs)))))
+
+(def rev_edits ((xs (list Edit)) (acc (list Edit))) (list Edit)
+  (if (is_empty xs) acc (rev_edits (tail xs) (cons (head xs) acc))))
+
+; A shortest edit script turning a into b, first edit first.
+(def diff ((a (list (list int))) (b (list (list int)))) (list Edit)
+  (let start (snake 0 a b (nil Edit))
+    (rev_edits (search (cons start (nil Front))) (nil Edit))))
+
+; How many edits change something.
+(def distance ((es (list Edit)) (n int)) int
+  (if (is_empty es)
+      n
+      (match (head es)
+        ((Keep s) (distance (tail es) n))
+        ((Del s) (distance (tail es) (add n 1)))
+        ((Ins s) (distance (tail es) (add n 1))))))
+
+; ------------------------------------------------------------------- output
+
+(def edit_prefix ((e Edit)) int
+  (match e
+    ((Keep s) 32)
+    ((Del s) 45)
+    ((Ins s) 43)))
+
+(def edit_line ((e Edit)) (list int)
+  (match e
+    ((Keep s) s)
+    ((Del s) s)
+    ((Ins s) s)))
+
+; The whole script as text, one line per edit. For tests; main writes it
+; as it goes instead.
+(def render ((es (list Edit))) (list int)
+  (rev (render_onto es (nil int))))
+
+(def render_onto ((es (list Edit)) (acc (list int))) (list int)
+  (if (is_empty es)
+      acc
+      (render_onto (tail es)
+        (cons 10 (push (edit_line (head es)) (cons (edit_prefix (head es)) acc))))))
+
+(def write_edits ((es (list Edit))) int
+  (if (is_empty es)
+      0
+      (let p (write_byte (edit_prefix (head es)))
+        (let s (write_str (edit_line (head es)))
+          (let n (write_byte 10)
+            (write_edits (tail es)))))))
+
+; -------------------------------------------------------------------- input
+
+(data Lines
+  (Lines (list (list int)))
+  (LinesFailed (list int)))
+
+; Splits bytes into lines without their newlines. A final line with no
+; newline is a line; a file ending in a newline has no empty last line.
+(def split_lines ((s (list int))) (list (list int))
+  (split_lines_onto s (nil int) (nil (list int))))
+
+(def split_lines_onto ((s (list int)) (cur (list int)) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty s)
+      (rev_strs_onto (if (is_empty cur) acc (cons (rev cur) acc))
+                     (nil (list int)))
+      (if (eq (head s) 10)
+          (split_lines_onto (tail s) (nil int) (cons (rev cur) acc))
+          (split_lines_onto (tail s) (cons (head s) cur) acc))))
+
+; Every line of a file, as split_lines splits them. A read that fails is
+; reported, rather than taken for the end of the file.
+(def read_lines ((path (list int))) Lines
+  (match (open_in path)
+    ((IoFailed why) (LinesFailed (append path (append ": " why))))
+    ((IoOpened f)
+      (let r (read_lines_from path f (nil int) (nil (list int)))
+        (let c (file_close f)
+          r)))))
+
+(def read_lines_from ((path (list int)) (f IoFile) (cur (list int))
+                      (acc (list (list int)))) Lines
+  (let b (file_read_byte f)
+    (if (eq b -1)
+        (Lines (rev_strs_onto (if (is_empty cur) acc (cons (rev cur) acc))
+                              (nil (list int))))
+        (if (lt b 0)
+            (LinesFailed (append path (append ": " (io_error b))))
+            (if (eq b 10)
+                (read_lines_from path f (nil int) (cons (rev cur) acc))
+                (read_lines_from path f (cons b cur) acc))))))

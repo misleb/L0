@@ -1,0 +1,110 @@
+; calc_test.l0 -- run with: tools/l0 test calc.l0 calc_test.l0
+
+(def test_number () int
+  (add (check_str "one" (answer "7") "7\n")
+       (check_str "spaces" (answer "  42  ") "42\n")))
+
+(def test_precedence () int
+  (add (check_str "mul first" (answer "2 + 3 * 4") "14\n")
+       (check_str "task example" (answer "2 * (3 + 4)") "14\n")))
+
+(def test_left_assoc () int
+  (add (check_str "sub" (answer "10 - 3 - 2") "5\n")
+       (add (check_str "div" (answer "100 / 10 / 5") "2\n")
+            (check_str "mixed" (answer "7 % 4 * 3") "9\n"))))
+
+(def test_unary () int
+  (add (check_str "neg" (answer "-3 * -(2 + 1)") "9\n")
+       (add (check_str "double neg" (answer "--5") "5\n")
+            (check_str "plus" (answer "+5 - +2") "3\n"))))
+
+(def test_truncating_division () int
+  (add (check_str "div" (answer "-7 / 2") "-3\n")
+       (check_str "mod" (answer "-7 % 2") "-1\n")))
+
+(def test_nested_parens () int
+  (check_str "deep" (answer "((((1+2))*((3))))") "9\n"))
+
+(def test_no_spaces_needed () int
+  (check_str "tight" (answer "1+2*3-4/2") "5\n"))
+
+(def test_blank_line () int
+  (add (check_str "empty" (answer "") "")
+       (check_str "spaces" (answer "   \t") "")))
+
+(def test_division_by_zero () int
+  (add (check_str "div" (answer "1 / 0") "error: division by zero\n")
+       (check_str "mod" (answer "5 % (2 - 2)") "error: division by zero\n")))
+
+(def test_bad_character () int
+  (check_str "letter" (answer "2 + x") "error: unexpected character 'x'\n"))
+
+(def test_missing_paren () int
+  (add (check_str "unclosed" (answer "(1 + 2") "error: missing )\n")
+       (check_str "extra" (answer "1 + 2)") "error: unexpected )\n")))
+
+(def test_missing_operand () int
+  (add (check_str "trailing" (answer "1 +") "error: expected a number or ( at the end of the line\n")
+       (add (check_str "doubled" (answer "1 * * 2") "error: expected a number or ( before *\n")
+            (check_str "empty parens" (answer "()") "error: expected a number or ( before )\n"))))
+
+(def test_juxtaposed_numbers () int
+  (check_str "two numbers" (answer "1 2") "error: unexpected 2\n"))
+
+(def test_limits () int
+  (add (check_str "max" (answer "9223372036854775807") "9223372036854775807\n")
+       (add (check_str "min" (answer "-9223372036854775807 - 1") "-9223372036854775808\n")
+            (check_str "too large" (answer "9223372036854775808") "error: number too large\n"))))
+
+(def test_overflow () int
+  (add (check_str "add" (answer "9223372036854775807 + 1") "error: overflow\n")
+       (add (check_str "sub" (answer "-9223372036854775807 - 2") "error: overflow\n")
+            (check_str "mul" (answer "3037000500 * 3037000500") "error: overflow\n"))))
+
+(def test_overflow_edges () int
+  (add (check_str "min / -1" (answer "(-9223372036854775807 - 1) / -1") "error: overflow\n")
+       (add (check_str "min * -1" (answer "-1 * (-9223372036854775807 - 1)") "error: overflow\n")
+            (check_str "neg min" (answer "-(-9223372036854775807 - 1)") "error: overflow\n"))))
+
+(def test_no_false_overflow () int
+  (add (check_str "big mul" (answer "3037000499 * 3037000499") "9223372030926249001\n")
+       (add (check_str "min mod -1" (answer "(-9223372036854775807 - 1) % -1") "0\n")
+            (check_str "sub to min" (answer "-1 - 9223372036854775807") "-9223372036854775808\n"))))
+
+; Property: checked_mul agrees with mul, and flags overflow exactly when the
+; product's magnitude exceeds 2^63 - 1. The factors reach 2^42 and 2^22, so
+; the products straddle the limit. rand_below reaches only 2^31, so the large
+; factor is a product of two draws. Magnitudes are compared with division,
+; which cannot overflow.
+(def fits ((a int) (b int)) bool
+  (if (or (eq a 0) (eq b 0))
+      true
+      (le (abs a) (div 9223372036854775807 (abs b)))))
+
+(def abs ((a int)) int
+  (if (lt a 0) (neg a) a))
+
+(def agrees ((a int) (b int)) bool
+  (match (checked_mul a b)
+    ((AOk r) (if (fits a b) (eq r (mul a b)) false))
+    ((AErr why) (not (fits a b)))))
+
+; How many of the products overflowed, or -1 at the first disagreement.
+(def muls_agree ((s int) (runs int) (overflows int)) int
+  (if (eq runs 0)
+      overflows
+      (let s1 (rand_next s)
+        (let s2 (rand_next s1)
+          (let a (mul (sub (rand_below s 8388608) 4194304)
+                      (add 1 (rand_below s1 1048576)))
+            (let b (sub (rand_below s2 8388608) 4194304)
+              (if (agrees a b)
+                  (muls_agree (rand_next s2) (sub runs 1)
+                    (if (fits a b) overflows (add overflows 1)))
+                  (let w (write_line (append (digits a) (append " * " (digits b))))
+                    -1))))))))
+
+(def test_checked_mul_agrees () int
+  (let n (muls_agree 3 1000 0)
+    (add (check_true "no disagreement" (ge n 0))
+         (check_true "some products overflowed" (gt n 5)))))

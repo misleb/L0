@@ -1,0 +1,14 @@
+; Build a list of n cells with a tail-recursive accumulator (the accumulator
+; is used, consumed by cons, and released before the call), then walk it with
+; a tail-recursive loop whose argument is the list's tail (a borrowed read:
+; tail's result is incremented and the argument released, then every binding
+; is released before the call). This is the word counter's shape.
+(def build ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (build (sub n 1) (cons n acc))))
+
+(def walk ((xs (list int)) (acc int)) int
+  (if (is_empty xs) acc (walk (tail xs) (add acc 1))))
+
+(def main () int
+  (let r (write_line (digits (walk (build (int_prefix (arg 0) 0) (nil int)) 0)))
+    0))

@@ -1,0 +1,12 @@
+; minigrep_main.l0 -- the entry point, kept apart from minigrep.l0 because
+; l0 test supplies its own main.
+;
+;   minigrep PATTERN FILE...
+;
+; Prints each line that PATTERN matches as FILE:LINE. Exits 0 if any line
+; matched, 1 if none did, and 2 on an error, as grep does.
+
+(def main () int
+  (if (lt (arg_count) 2)
+      (let w (write_err "usage: minigrep PATTERN FILE...\n") 2)
+      (grep_args (parse_pattern (arg 0)) 1 (arg_count) 1 false false)))

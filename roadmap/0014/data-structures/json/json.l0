@@ -1,0 +1,379 @@
+; json.l0 -- a JSON validator and pretty-printer, as library functions.
+;
+; Numbers are integers only, as the task asks: a fraction or exponent is
+; reported as an error rather than silently truncated. Strings are decoded,
+; \u escapes included, to UTF-8 bytes, and re-escaped canonically on output.
+;
+; A parse error carries the input remaining where it happened, not a position.
+; The byte offset is length(input) - length(rest), computed once when the
+; error is reported, so no parser function has to thread a counter.
+
+(data Json
+  (JNull)
+  (JBool bool)
+  (JNum int)
+  (JStr (list int))
+  (JArr (list Json))
+  (JObj (list Member)))
+
+(data Member
+  (Member (list int) Json))
+
+; A parsed value and the input after it, or where it failed and why.
+(data PJ
+  (PJOk Json (list int))
+  (PJErr (list int) (list int)))
+
+; A parsed string's bytes and the input after its closing quote.
+(data PS
+  (PSOk (list int) (list int))
+  (PSErr (list int) (list int)))
+
+; ------------------------------------------------------------------ parsing
+
+(def parse_json ((s (list int))) PJ
+  (let r (parse_value s)
+    (match r
+      ((PJErr at msg) r)
+      ((PJOk v rest)
+        (let t (skip_ws rest)
+          (if (is_empty t)
+              (PJOk v t)
+              (PJErr t (append "unexpected " (append (show_char (head t))
+                         " after the value")))))))))
+
+(def skip_ws ((s (list int))) (list int)
+  (if (is_empty s)
+      s
+      (if (is_space (head s)) (skip_ws (tail s)) s)))
+
+(def parse_value ((s (list int))) PJ
+  (let t (skip_ws s)
+    (if (is_empty t)
+        (PJErr t "expected a value, found end of input")
+        (parse_value_at t (head t)))))
+
+(def parse_value_at ((s (list int)) (c int)) PJ
+  (if (eq c 123)
+      (parse_object (tail s))
+      (if (eq c 91)
+          (parse_array (tail s))
+          (if (eq c 34)
+              (string_value (parse_str (tail s) (nil int)))
+              (if (or (eq c 45) (is_digit c))
+                  (parse_number s)
+                  (parse_word s))))))
+
+(def string_value ((r PS)) PJ
+  (match r
+    ((PSErr at msg) (PJErr at msg))
+    ((PSOk bytes rest) (PJOk (JStr bytes) rest))))
+
+(def parse_word ((s (list int))) PJ
+  (if (starts_with s "true")
+      (PJOk (JBool true) (drop_n s 4))
+      (if (starts_with s "false")
+          (PJOk (JBool false) (drop_n s 5))
+          (if (starts_with s "null")
+              (PJOk (JNull) (drop_n s 4))
+              (PJErr s (append "expected a value, found "
+                         (show_char (head s))))))))
+
+; A byte as it should appear in a message: 'x' when printable, else its value.
+(def show_char ((c int)) (list int)
+  (if (and (gt c 32) (lt c 127))
+      (cons 39 (cons c (cons 39 (nil int))))
+      (append "byte " (digits c))))
+
+; ------------------------------------------------------------------- arrays
+
+(def parse_array ((s (list int))) PJ
+  (let t (skip_ws s)
+    (if (if (is_empty t) false (eq (head t) 93))
+        (PJOk (JArr (nil Json)) (tail t))
+        (array_items t (nil Json)))))
+
+(def array_items ((s (list int)) (acc (list Json))) PJ
+  (let r (parse_value s)
+    (match r
+      ((PJErr at msg) r)
+      ((PJOk v rest) (array_next (skip_ws rest) (cons v acc))))))
+
+(def array_next ((s (list int)) (acc (list Json))) PJ
+  (if (is_empty s)
+      (PJErr s "expected , or ] in array, found end of input")
+      (if (eq (head s) 44)
+          (array_items (tail s) acc)
+          (if (eq (head s) 93)
+              (PJOk (JArr (rev_json acc (nil Json))) (tail s))
+              (PJErr s (append "expected , or ] in array, found "
+                         (show_char (head s))))))))
+
+(def rev_json ((xs (list Json)) (acc (list Json))) (list Json)
+  (if (is_empty xs) acc (rev_json (tail xs) (cons (head xs) acc))))
+
+; ------------------------------------------------------------------ objects
+
+(def parse_object ((s (list int))) PJ
+  (let t (skip_ws s)
+    (if (if (is_empty t) false (eq (head t) 125))
+        (PJOk (JObj (nil Member)) (tail t))
+        (object_members t (nil Member)))))
+
+(def object_members ((s (list int)) (acc (list Member))) PJ
+  (let t (skip_ws s)
+    (if (if (is_empty t) true (not (eq (head t) 34)))
+        (PJErr t "expected a string key in object")
+        (match (parse_str (tail t) (nil int))
+          ((PSErr at msg) (PJErr at msg))
+          ((PSOk key rest) (object_colon key (skip_ws rest) acc))))))
+
+(def object_colon ((key (list int)) (s (list int)) (acc (list Member))) PJ
+  (if (if (is_empty s) true (not (eq (head s) 58)))
+      (PJErr s "expected : after object key")
+      (let r (parse_value (tail s))
+        (match r
+          ((PJErr at msg) r)
+          ((PJOk v rest)
+            (object_next (skip_ws rest) (cons (Member key v) acc)))))))
+
+(def object_next ((s (list int)) (acc (list Member))) PJ
+  (if (is_empty s)
+      (PJErr s "expected , or } in object, found end of input")
+      (if (eq (head s) 44)
+          (object_members (tail s) acc)
+          (if (eq (head s) 125)
+              (PJOk (JObj (rev_members acc (nil Member))) (tail s))
+              (PJErr s (append "expected , or } in object, found "
+                         (show_char (head s))))))))
+
+(def rev_members ((xs (list Member)) (acc (list Member))) (list Member)
+  (if (is_empty xs) acc (rev_members (tail xs) (cons (head xs) acc))))
+
+; ------------------------------------------------------------------ strings
+
+; s is just after the opening quote; acc holds the decoded bytes reversed.
+(def parse_str ((s (list int)) (acc (list int))) PS
+  (if (is_empty s)
+      (PSErr s "unterminated string")
+      (let c (head s)
+        (if (eq c 34)
+            (PSOk (rev acc) (tail s))
+            (if (eq c 92)
+                (parse_escape (tail s) acc)
+                (if (lt c 32)
+                    (PSErr s "control character in string; use an escape")
+                    (parse_str (tail s) (cons c acc))))))))
+
+; s is just after a backslash.
+(def parse_escape ((s (list int)) (acc (list int))) PS
+  (if (is_empty s)
+      (PSErr s "unterminated string")
+      (let b (simple_escape (head s))
+        (if (ge b 0)
+            (parse_str (tail s) (cons b acc))
+            (if (eq (head s) 117)
+                (parse_unicode (tail s) acc)
+                (PSErr s (append "invalid escape \\"
+                           (cons (head s) (nil int)))))))))
+
+; The byte a one-letter escape stands for, or -1.
+(def simple_escape ((c int)) int
+  (pick (position_of c "\"\\/bfnrt" 0) "\"\\/\x08\x0c\n\r\t"))
+
+(def position_of ((c int) (xs (list int)) (i int)) int
+  (if (is_empty xs)
+      -1
+      (if (eq (head xs) c) i (position_of c (tail xs) (add i 1)))))
+
+(def pick ((i int) (xs (list int))) int
+  (if (lt i 0)
+      -1
+      (if (eq i 0) (head xs) (pick (sub i 1) (tail xs)))))
+
+; s is just after \u.
+(def parse_unicode ((s (list int)) (acc (list int))) PS
+  (let u (hex4 s 4 0)
+    (if (lt u 0)
+        (PSErr s "\\u must be followed by four hex digits")
+        (if (and (ge u 56320) (le u 57343))
+            (PSErr s "\\u escape is a lone low surrogate")
+            (if (and (ge u 55296) (le u 56319))
+                (parse_low_surrogate u (drop_n s 4) acc)
+                (parse_str (drop_n s 4) (utf8_onto u acc)))))))
+
+(def parse_low_surrogate ((hi int) (s (list int)) (acc (list int))) PS
+  (let lo (if (starts_with s "\\u") (hex4 (drop_n s 2) 4 0) -1)
+    (if (if (ge lo 56320) (le lo 57343) false)
+        (parse_str (drop_n s 6)
+          (utf8_onto (add 65536 (add (mul (sub hi 55296) 1024) (sub lo 56320)))
+                     acc))
+        (PSErr s "high surrogate is not followed by a low surrogate"))))
+
+; The value of the next n hex digits, or -1 if there are not n of them.
+(def hex4 ((s (list int)) (n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (if (is_empty s)
+          -1
+          (let v (hex_val (head s))
+            (if (lt v 0)
+                -1
+                (hex4 (tail s) (sub n 1) (add (mul acc 16) v)))))))
+
+; Pushes the UTF-8 encoding of code point cp onto a reversed accumulator.
+(def utf8_onto ((cp int) (acc (list int))) (list int)
+  (if (lt cp 128)
+      (cons cp acc)
+      (if (lt cp 2048)
+          (cons (cont cp 0) (cons (add 192 (div cp 64)) acc))
+          (if (lt cp 65536)
+              (cons (cont cp 0) (cons (cont cp 1)
+                (cons (add 224 (div cp 4096)) acc)))
+              (cons (cont cp 0) (cons (cont cp 1) (cons (cont cp 2)
+                (cons (add 240 (div cp 262144)) acc))))))))
+
+; The k-th continuation byte of cp, counting from the last.
+(def cont ((cp int) (k int)) int
+  (if (eq k 0)
+      (add 128 (mod cp 64))
+      (cont (div cp 64) (sub k 1))))
+
+; ------------------------------------------------------------------ numbers
+;
+; Digits accumulate as a negative number, so the most negative int is
+; representable, and a step that would pass it is caught before it wraps.
+
+(def parse_number ((s (list int))) PJ
+  (let negative (eq (head s) 45)
+    (let d (if negative (tail s) s)
+      (if (if (is_empty d) true (not (is_digit (head d))))
+          (PJErr d "expected a digit after -")
+          (if (eq (head d) 48)
+              (if (if (is_empty (tail d)) false (is_digit (head (tail d))))
+                  (PJErr d "leading zeros are not allowed")
+                  (number_end (tail d) 0 negative s))
+              (number_digits d 0 negative s))))))
+
+(def number_digits ((s (list int)) (acc int) (negative bool) (start (list int)))
+    PJ
+  (if (if (is_empty s) true (not (is_digit (head s))))
+      (number_end s acc negative start)
+      (let d (sub (head s) 48)
+        (if (lt acc (div (add (int_min 0) d) 10))
+            (PJErr start "number does not fit in 64 bits")
+            (number_digits (tail s) (sub (mul acc 10) d) negative start)))))
+
+(def number_end ((s (list int)) (acc int) (negative bool) (start (list int)))
+    PJ
+  (if (if (is_empty s) false (any_byte (head s) ".eE"))
+      (PJErr s "only integers are supported")
+      (if negative
+          (PJOk (JNum acc) s)
+          (if (eq acc (int_min 0))
+              (PJErr start "number does not fit in 64 bits")
+              (PJOk (JNum (neg acc)) s)))))
+
+(def any_byte ((c int) (xs (list int))) bool
+  (ge (position_of c xs 0) 0))
+
+; ------------------------------------------------------------ error position
+
+(data Pos
+  (Pos int int))                        ; line, column, both from 1
+
+(def pos_of ((input (list int)) (at (list int))) Pos
+  (walk_pos input (sub (count input 0) (count at 0)) 1 1))
+
+; The prelude's length is not tail recursive: on a 10 MB input it holds ten
+; million stack frames, about 320 MB.
+(def count ((xs (list int)) (n int)) int
+  (if (is_empty xs) n (count (tail xs) (add n 1))))
+
+(def walk_pos ((s (list int)) (n int) (line int) (col int)) Pos
+  (if (eq n 0)
+      (Pos line col)
+      (if (eq (head s) 10)
+          (walk_pos (tail s) (sub n 1) (add line 1) 1)
+          (walk_pos (tail s) (sub n 1) line (add col 1)))))
+
+; "LINE:COL: error: MSG\n", as the L0 compiler reports its own.
+(def error_text ((input (list int)) (at (list int)) (msg (list int)))
+    (list int)
+  (match (pos_of input at)
+    ((Pos line col)
+      (let a (push (digits line) (nil int))
+        (let b (push (digits col) (cons 58 a))
+          (let c (push " error: " (cons 58 b))
+            (rev (cons 10 (push msg c)))))))))
+
+; ----------------------------------------------------------- pretty-printing
+;
+; Two spaces per level, one member or element per line, and empty containers
+; kept on one line as [] and {}.
+
+(def render ((j Json)) (list int)
+  (rev (cons 10 (pp j 0 (nil int)))))
+
+(def pp ((j Json) (ind int) (acc (list int))) (list int)
+  (match j
+    ((JNull) (push "null" acc))
+    ((JBool b) (push (if b "true" "false") acc))
+    ((JNum n) (push (digits n) acc))
+    ((JStr s) (push_quoted s acc))
+    ((JArr items)
+      (if (is_empty items)
+          (push "[]" acc)
+          (cons 93 (newline ind (pp_items items (add ind 1) true (cons 91 acc))))))
+    ((JObj ms)
+      (if (is_empty ms)
+          (push "{}" acc)
+          (cons 125 (newline ind
+            (pp_members ms (add ind 1) true (cons 123 acc))))))))
+
+(def pp_items ((xs (list Json)) (ind int) (first bool) (acc (list int)))
+    (list int)
+  (if (is_empty xs)
+      acc
+      (pp_items (tail xs) ind false
+        (pp (head xs) ind (newline ind (if first acc (cons 44 acc)))))))
+
+(def pp_members ((ms (list Member)) (ind int) (first bool) (acc (list int)))
+    (list int)
+  (if (is_empty ms)
+      acc
+      (pp_members (tail ms) ind false
+        (pp_member (head ms) ind (newline ind (if first acc (cons 44 acc)))))))
+
+(def pp_member ((m Member) (ind int) (acc (list int))) (list int)
+  (match m
+    ((Member key v) (pp v ind (push ": " (push_quoted key acc))))))
+
+(def newline ((ind int) (acc (list int))) (list int)
+  (spaces (mul 2 ind) (cons 10 acc)))
+
+(def spaces ((n int) (acc (list int))) (list int)
+  (if (le n 0) acc (spaces (sub n 1) (cons 32 acc))))
+
+(def push_quoted ((s (list int)) (acc (list int))) (list int)
+  (cons 34 (quote_onto s (cons 34 acc))))
+
+(def quote_onto ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      acc
+      (quote_onto (tail s) (escape_byte (head s) acc))))
+
+(def escape_byte ((c int) (acc (list int))) (list int)
+  (let i (position_of c "\"\\\x08\x0c\n\r\t" 0)
+    (if (ge i 0)
+        (cons (pick i "\"\\bfnrt") (cons 92 acc))
+        (if (lt c 32)
+            (push (u_escape c) acc)
+            (cons c acc)))))
+
+(def u_escape ((c int)) (list int)
+  (append "\\u00" (cons (hex_char (div c 16))
+                    (cons (hex_char (mod c 16)) (nil int)))))
+
+(def hex_char ((d int)) int
+  (if (lt d 10) (add 48 d) (add 87 d)))

@@ -1,0 +1,43 @@
+; HYPOTHETICAL: this is not L0. It does not check, and is kept to show what
+; programs/paths would have been with an indexed array.
+;
+; Assumed: a type (array T), built with (array_new n x) and read with
+; (array_get a i), and (array_set a i x) returning the updated array. If a is
+; the only reference, array_set updates in place, which reference counting
+; can tell at run time; otherwise it copies. That keeps arrays values, with
+; no mutation visible, and makes the Dijkstra loop below O(1) per update.
+;
+; What it replaces in programs/paths/paths.l0: IntMap and EdgeMap and their
+; four functions (about 50 lines), the O(log n) walk on every lookup, and the
+; two-copies problem of limit 03, since (array int) and (array (list Edge))
+; would be one type constructor.
+
+(data Edge
+  (Edge int int))                       ; to, weight
+
+(def dijkstra ((edges (array (list Edge))) (heap Heap) (dist (array int))
+               (target int)) int
+  (match heap
+    ((HEmpty) -1)
+    ((HNode r d u l x)
+      (if (eq u target)
+          d
+          (if (gt d (array_get dist u))
+              (dijkstra edges (merge l x) dist target)
+              (relax edges (array_get edges u) d (merge l x) dist target))))))
+
+(def relax ((edges (array (list Edge))) (out (list Edge)) (d int) (heap Heap)
+            (dist (array int)) (target int)) int
+  (if (is_empty out)
+      (dijkstra edges heap dist target)
+      (match (head out)
+        ((Edge v w)
+          (let nd (add d w)
+            (if (lt nd (array_get dist v))
+                (relax edges (tail out) d (push_heap heap nd v)
+                       (array_set dist v nd) target)
+                (relax edges (tail out) d heap dist target)))))))
+
+(def shortest_ids ((edges (array (list Edge))) (n int) (a int) (b int)) int
+  (dijkstra edges (push_heap (HEmpty) 0 a)
+            (array_set (array_new n 9223372036854775807) a 0) b))

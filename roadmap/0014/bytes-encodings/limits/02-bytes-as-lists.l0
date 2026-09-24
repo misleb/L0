@@ -1,0 +1,51 @@
+; 02-bytes-as-lists.l0 -- the only string L0 has is a list of ints, one cons
+; cell per byte, so a program that looks at lines pays for building them.
+;
+; Counts the lines of standard input three ways:
+;
+;   (no argument)  one byte at a time, looking at each once, holding nothing
+;   cons           building each line as a reversed list, as read_line does
+;   line           building each line in order (cons, then rev), which is
+;                  what any code that then walks the line needs
+;
+; On a 20 MB text file of 500,708 lines (programs/minigrep/bench.sh makes
+; one), best of three, Apple M4 Pro:
+;
+;   bytes  0.06 s     1.5 MB peak
+;   cons   0.15 s     1.5 MB peak
+;   line   0.43 s     1.5 MB peak
+;
+; Putting a line in order costs twice what building it did: rev calls the
+; runtime for head and tail and counts references on every cell it reads
+; and frees. A cons cell is 3 words with its header, 24 bytes to hold 1.
+; Memory stays flat only because each line is freed before the next; a
+; program that keeps its lines, such as linediff, holds 24 bytes per byte.
+; minigrep spends about 0.43 of its 1.05 s on 'zzz' building lines, where
+; grep takes 0.07 s in all. See programs/hypothetical/02-bytes-as-lists.l0.
+
+(def count_bytes ((n int)) int
+  (let b (read_byte)
+    (if (lt b 0)
+        n
+        (count_bytes (if (eq b 10) (add n 1) n)))))
+
+(def read_rev ((acc (list int))) (list int)
+  (let b (read_byte)
+    (if (lt b 0)
+        acc
+        (if (eq b 10) (cons b acc) (read_rev (cons b acc))))))
+
+(def count_cons ((n int)) int
+  (let l (read_rev (nil int))
+    (if (is_empty l) n (count_cons (add n 1)))))
+
+(def count_lines ((n int)) int
+  (let l (rev (read_rev (nil int)))
+    (if (is_empty l) n (count_lines (add n 1)))))
+
+(def main () int
+  (let n (if (list_eq (arg 0) "cons")
+             (count_cons 0)
+             (if (list_eq (arg 0) "line") (count_lines 0) (count_bytes 0)))
+    (let w (write_line (digits n))
+      0)))

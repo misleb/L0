@@ -1,0 +1,24 @@
+; main.l0 -- json: validate and pretty-print JSON from standard input.
+;
+;   tools/l0 build programs/json/json.l0 programs/json/main.l0 -o json
+;   ./json < file.json
+;
+; Valid input is written back pretty-printed, with exit status 0. Invalid
+; input writes "stdin:LINE:COL: error: MESSAGE" to standard error and exits 1.
+;
+; main streams rather than taking its input, only because a main that takes
+; its input always exits 0; it reads the whole input itself first.
+
+(def main () int
+  (let input (read_stdin (nil int))
+    (match (parse_json input)
+      ((PJErr at msg)
+        (let w (write_err (append "stdin:" (error_text input at msg)))
+          1))
+      ((PJOk v rest)
+        (let w (write_str (render v))
+          0)))))
+
+(def read_stdin ((acc (list int))) (list int)
+  (let b (read_byte)
+    (if (lt b 0) (rev acc) (read_stdin (cons b acc)))))

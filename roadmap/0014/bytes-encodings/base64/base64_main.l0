@@ -1,0 +1,12 @@
+; base64_main.l0 -- the entry point, kept apart from base64.l0 because
+; l0 test supplies its own main.
+;
+;   base64 < in > out       encode
+;   base64 -d < in > out    decode
+
+(def main () int
+  (if (eq (arg_count) 0)
+      (encode 0 1 0)
+      (if (and (eq (arg_count) 1) (list_eq (arg 0) "-d"))
+          (decode 0 1 0 0)
+          (let w (write_err "usage: base64 [-d] < input > output\n") 2))))

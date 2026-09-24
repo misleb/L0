@@ -1,0 +1,10 @@
+; The whole compiler, end to end, on a program whose golden output pins down
+; how tail calls are emitted, spec sections 8, 10.2, and 10.3.
+;
+; Like bundle_prelude this supplies no main of its own and takes the
+; compiler's. In the input, ping and pong tail-call each other, so both take
+; ping's three parameters and every call to pong passes a 0 for the third.
+; open and lone form a second component of one parameter, and open's match
+; returns from each arm. pong's if is a let value, not in tail position, so it
+; still joins through a slot. main's body is a builtin, which is not a tail
+; call, so main is a component by itself.

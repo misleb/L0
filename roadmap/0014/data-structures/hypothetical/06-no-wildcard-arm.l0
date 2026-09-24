@@ -1,0 +1,16 @@
+; HYPOTHETICAL: this is not L0. It does not check, and is kept to show the
+; equality programs/json's round-trip test wanted.
+;
+; Assumed: an arm (_ expr) that matches any constructor not named in an
+; earlier arm. It gives up the compile error at every match when a
+; constructor is added, so it would be worth allowing only as the last arm,
+; and a checker could still warn when it covers exactly one constructor.
+
+(def json_eq ((a Json) (b Json)) bool
+  (match a
+    ((JNull) (match b ((JNull) true) (_ false)))
+    ((JBool x) (match b ((JBool y) (if x y (not y))) (_ false)))
+    ((JNum x) (match b ((JNum y) (eq x y)) (_ false)))
+    ((JStr x) (match b ((JStr y) (list_eq x y)) (_ false)))
+    ((JArr xs) (match b ((JArr ys) (all_eq xs ys)) (_ false)))
+    ((JObj xs) (match b ((JObj ys) (members_eq xs ys)) (_ false)))))

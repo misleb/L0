@@ -1,0 +1,24 @@
+; HYPOTHETICAL -- not valid L0. base64's tests if a handle could be opened
+; over bytes in memory.
+;
+;   (open_bytes s)     a new handle that reads the bytes of s, then -1
+;   (open_buffer)      a new handle that collects what is written to it
+;   (buffer_bytes h)   everything written to h so far, as a list
+;
+; Both close with close, like any handle. The code under test is unchanged:
+; it reads and writes handles, and cannot tell a buffer from a file. No
+; filesystem, no fixed names, no plumbing: this replaces the 42 nonblank
+; lines before the first test in base64_test.l0.
+
+(def run_mode ((mode int) (input (list int))) (list int)
+  (let in (open_bytes input)
+    (let out (open_buffer)
+      (let st (if (eq mode 0) (encode in out 0) (decode in out 0 0))
+        (let got (buffer_bytes out)
+          (let a (close in)
+            (let b (close out)
+              got)))))))
+
+(def test_encode_rfc_vectors () int
+  (add (check_str "f" (run_mode 0 "f") "Zg==\n")
+       (check_str "foo" (run_mode 0 "foo") "Zm9v\n")))

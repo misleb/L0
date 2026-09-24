@@ -1,0 +1,29 @@
+; linediff_main.l0 -- the entry point, kept apart from linediff.l0 because
+; l0 test supplies its own main.
+;
+;   linediff A B
+;
+; Prints every line of the shortest edit script from A to B: "-" before a
+; line only in A, "+" before a line only in B, and " " before a line in
+; both. Exits 0 if the files have the same lines, 1 if they differ, and 2 on
+; trouble, as diff does.
+
+(def main () int
+  (if (eq (arg_count) 2)
+      (diff_files (arg 0) (arg 1))
+      (let w (write_err "usage: linediff A B\n") 2)))
+
+(def diff_files ((pa (list int)) (pb (list int))) int
+  (match (read_lines pa)
+    ((LinesFailed why) (trouble why))
+    ((Lines a)
+      (match (read_lines pb)
+        ((LinesFailed why) (trouble why))
+        ((Lines b)
+          (let es (diff a b)
+            (let w (write_edits es)
+              (if (eq (distance es 0) 0) 0 1))))))))
+
+(def trouble ((why (list int))) int
+  (let w (write_err (append "linediff: " (append why "\n")))
+    2))

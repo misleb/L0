@@ -1,0 +1,39 @@
+; The better workaround for LIMIT 01: 256 counts as a complete binary tree of
+; depth 8, indexed by the bits of the byte, so an update rebuilds 8 nodes
+; rather than up to 256 cells. Measured in 01-no-array.l0.
+
+(data H
+  (HLeaf int)
+  (HNode H H))
+
+(def zeros ((depth int)) H
+  (if (eq depth 0) (HLeaf 0) (HNode (zeros (sub depth 1)) (zeros (sub depth 1)))))
+
+; bit is the weight of the index bit that picks the branch at this level.
+(def bump ((h H) (i int) (bit int)) H
+  (match h
+    ((HLeaf n) (HLeaf (add n 1)))
+    ((HNode l r)
+      (if (lt i bit)
+          (HNode (bump l i (div bit 2)) r)
+          (HNode l (bump r (sub i bit) (div bit 2)))))))
+
+(def count ((h H)) H
+  (let b (read_byte)
+    (if (lt b 0) h (count (bump h b 128)))))
+
+(def show ((h H) (i int)) int
+  (match h
+    ((HLeaf n)
+      (if (gt n 0) (write_line (append (digits i) (append " " (digits n)))) 0))
+    ((HNode l r) 0)))
+
+(def show_all ((h H) (i int) (width int)) int
+  (match h
+    ((HLeaf n) (show h i))
+    ((HNode l r)
+      (let a (show_all l i (div width 2))
+        (show_all r (add i (div width 2)) (div width 2))))))
+
+(def main () int
+  (show_all (count (zeros 8)) 0 256))

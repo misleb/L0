@@ -1,0 +1,15 @@
+; HYPOTHETICAL: this is not L0. It does not check, and is kept to show the
+; json main that the whole-input form would allow if it could fail.
+;
+; Assumed: a whole-input main may return the prelude type IoExit, meaning
+; write the bytes to standard output and exit with the status. The existing
+; int, bool, and (list int) forms keep their meanings.
+;
+;   (data IoExit (IoExit (list int) int))    ; output, exit status
+
+(def main ((input (list int))) IoExit
+  (match (parse_json input)
+    ((PJErr at msg)
+      (let w (write_err (append "stdin:" (error_text input at msg)))
+        (IoExit (nil int) 1)))
+    ((PJOk v rest) (IoExit (render v) 0))))

@@ -1,0 +1,43 @@
+; main.l0 -- paths: shortest distances in a weighted directed graph.
+;
+;   tools/l0 build programs/paths/paths.l0 programs/paths/main.l0 -o paths
+;   ./paths < graph.txt
+;
+; Each input line is an edge "FROM TO WEIGHT" or a query "FROM TO". A query
+; writes the shortest distance from FROM to TO over the edges read so far, or
+; "unreachable". Weights are whole numbers. A malformed line is reported on
+; standard error with its number, and ends the program with status 1.
+
+(def main () int
+  (next (empty_graph 0) 1))
+
+(def next ((g Graph) (lineno int)) int
+  (let line (read_line)
+    (if (is_empty line)
+        0
+        (step g (fields (take_line line)) lineno))))
+
+(def step ((g Graph) (fs (list (list int))) (lineno int)) int
+  (let n (count_fields fs)
+    (if (eq n 0)
+        (next g (add lineno 1))
+        (if (eq n 2)
+            (let w (write_str (answer (shortest g (head fs) (head (tail fs)))))
+              (next g (add lineno 1)))
+            (if (eq n 3)
+                (edge_line g fs lineno)
+                (bad lineno "expected FROM TO WEIGHT or FROM TO"))))))
+
+(def edge_line ((g Graph) (fs (list (list int))) (lineno int)) int
+  (let w (weight_of (head (tail (tail fs))))
+    (if (lt w 0)
+        (bad lineno "weight must be a whole number of at most 12 digits")
+        (next (add_edge g (head fs) (head (tail fs)) w) (add lineno 1)))))
+
+(def bad ((lineno int) (msg (list int))) int
+  (let w (write_err (append "paths: line " (append (digits lineno)
+                      (append ": " (append msg "\n")))))
+    1))
+
+(def count_fields ((fs (list (list int)))) int
+  (if (is_empty fs) 0 (add 1 (count_fields (tail fs)))))

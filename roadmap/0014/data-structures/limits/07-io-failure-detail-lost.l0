@@ -1,0 +1,29 @@
+; LIMIT 07: lib/io.l0 throws away what the builtins say about failure.
+;
+; Costly in programs/kvstore, in two ways:
+;
+; 1. IoFailed carries only words. kv treats a store that does not exist yet
+;    as empty but must report permission denied, so it compares the message
+;    with the text io_error happens to use, "no such file". Rewording that
+;    message in the library would silently turn every first kv set into an
+;    error. One line each in load and cmd_get, but coupled to prose.
+;
+; 2. file_read_line returns what it has read on any negative result, so a
+;    read that fails partway looks like the end of the file. kv rewrites the
+;    store after reading it, and would write back only the entries before
+;    the failure, losing the rest with exit status 0. kv.l0 has its own line
+;    reader over file_read_byte instead: the Line, Lines, and Scan types and
+;    next_line, read_lines, and scan_for, about 40 lines.
+;
+; No checker error; both are library behaviour. This program shows the
+; first: it can tell "missing" from "unreadable" only by the message text.
+
+(def main () int
+  (match (open_in (arg 0))
+    ((IoFailed why)
+      (if (list_eq why "no such file")
+          (let w (write_line "missing, which is fine") 0)
+          (let w (write_line (append "cannot open: " why)) 2)))
+    ((IoOpened f)
+      (let c (file_close f)
+        (let w (write_line "exists") 0)))))

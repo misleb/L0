@@ -1,0 +1,75 @@
+x86_64-apple-macos   mutual.base        -O0  calls=3 jumps=0
+x86_64-apple-macos   mutual.base        -O2  calls=1 jumps=2
+x86_64-apple-macos   mutual.tail        -O0  calls=1 jumps=2
+x86_64-apple-macos   mutual.tail        -O2  calls=1 jumps=2
+x86_64-apple-macos   mutual.tailcc      -O0  calls=1 jumps=2
+x86_64-apple-macos   mutual.tailcc      -O2  calls=1 jumps=2
+x86_64-apple-macos   mutual_wide.base   -O0  calls=3 jumps=0
+x86_64-apple-macos   mutual_wide.base   -O2  calls=2 jumps=1
+x86_64-apple-macos   mutual_wide.tail   -O0  calls=2 jumps=1
+x86_64-apple-macos   mutual_wide.tail   -O2  calls=2 jumps=1
+x86_64-apple-macos   mutual_wide.tailcc -O0  calls=1 jumps=2
+x86_64-apple-macos   mutual_wide.tailcc -O2  calls=1 jumps=2
+x86_64-linux-gnu     mutual.base        -O0  calls=3 jumps=0
+x86_64-linux-gnu     mutual.base        -O2  calls=1 jumps=2
+x86_64-linux-gnu     mutual.tail        -O0  calls=1 jumps=2
+x86_64-linux-gnu     mutual.tail        -O2  calls=1 jumps=2
+x86_64-linux-gnu     mutual.tailcc      -O0  calls=1 jumps=2
+x86_64-linux-gnu     mutual.tailcc      -O2  calls=1 jumps=2
+x86_64-linux-gnu     mutual_wide.base   -O0  calls=3 jumps=0
+x86_64-linux-gnu     mutual_wide.base   -O2  calls=2 jumps=1
+x86_64-linux-gnu     mutual_wide.tail   -O0  calls=2 jumps=1
+x86_64-linux-gnu     mutual_wide.tail   -O2  calls=2 jumps=1
+x86_64-linux-gnu     mutual_wide.tailcc -O0  calls=1 jumps=2
+x86_64-linux-gnu     mutual_wide.tailcc -O2  calls=1 jumps=2
+aarch64-linux-gnu    mutual.base        -O0  calls=3 jumps=0
+aarch64-linux-gnu    mutual.base        -O2  calls=1 jumps=2
+aarch64-linux-gnu    mutual.tail        -O0  calls=1 jumps=2
+aarch64-linux-gnu    mutual.tail        -O2  calls=1 jumps=2
+aarch64-linux-gnu    mutual.tailcc      -O0  calls=1 jumps=2
+aarch64-linux-gnu    mutual.tailcc      -O2  calls=1 jumps=2
+aarch64-linux-gnu    mutual_wide.base   -O0  calls=3 jumps=0
+aarch64-linux-gnu    mutual_wide.base   -O2  calls=2 jumps=1
+aarch64-linux-gnu    mutual_wide.tail   -O0  calls=2 jumps=1
+aarch64-linux-gnu    mutual_wide.tail   -O2  calls=2 jumps=1
+aarch64-linux-gnu    mutual_wide.tailcc -O0  calls=1 jumps=2
+aarch64-linux-gnu    mutual_wide.tailcc -O2  calls=1 jumps=2
+riscv64-linux-gnu    mutual.base        -O0  calls=3 jumps=0
+riscv64-linux-gnu    mutual.base        -O2  calls=1 jumps=2
+riscv64-linux-gnu    mutual.tail        -O0  calls=1 jumps=2
+riscv64-linux-gnu    mutual.tail        -O2  calls=1 jumps=2
+riscv64-linux-gnu    mutual.tailcc      -O0  error: fatal error: error in backend: Unsupported calling convention
+riscv64-linux-gnu    mutual.tailcc      -O2  error: fatal error: error in backend: Unsupported calling convention
+riscv64-linux-gnu    mutual_wide.base   -O0  calls=3 jumps=0
+riscv64-linux-gnu    mutual_wide.base   -O2  calls=1 jumps=2
+riscv64-linux-gnu    mutual_wide.tail   -O0  calls=2 jumps=1
+riscv64-linux-gnu    mutual_wide.tail   -O2  calls=1 jumps=2
+riscv64-linux-gnu    mutual_wide.tailcc -O0  error: fatal error: error in backend: Unsupported calling convention
+riscv64-linux-gnu    mutual_wide.tailcc -O2  error: fatal error: error in backend: Unsupported calling convention
+armv7-linux-gnueabihf mutual.base        -O0  calls=3 jumps=0
+armv7-linux-gnueabihf mutual.base        -O2  calls=1 jumps=2
+armv7-linux-gnueabihf mutual.tail        -O0  calls=2 jumps=1
+armv7-linux-gnueabihf mutual.tail        -O2  calls=1 jumps=2
+armv7-linux-gnueabihf mutual.tailcc      -O0  error: fatal error: error in backend: Unsupported calling convention
+armv7-linux-gnueabihf mutual.tailcc      -O2  calls=1 jumps=2
+armv7-linux-gnueabihf mutual_wide.base   -O0  calls=3 jumps=0
+armv7-linux-gnueabihf mutual_wide.base   -O2  calls=2 jumps=1
+armv7-linux-gnueabihf mutual_wide.tail   -O0  calls=2 jumps=1
+armv7-linux-gnueabihf mutual_wide.tail   -O2  calls=2 jumps=1
+armv7-linux-gnueabihf mutual_wide.tailcc -O0  error: fatal error: error in backend: Unsupported calling convention
+armv7-linux-gnueabihf mutual_wide.tailcc -O2  calls=1 jumps=2
+wasm32-wasi          mutual.base        -O0  calls=3 jumps=0
+wasm32-wasi          mutual.base        -O2  calls=3 jumps=0
+wasm32-wasi          mutual.tail        -O0  calls=3 jumps=0
+wasm32-wasi          mutual.tail        -O2  calls=3 jumps=0
+wasm32-wasi          mutual.tailcc      -O0  error: error: <unknown>:0:0: in function l0_p_rev_onto i64 (i64, i64): WebAssembly doesn't support language-specific or target-specific calling conventions yet
+wasm32-wasi          mutual.tailcc      -O2  error: error: <unknown>:0:0: in function l0_p_int_min void (): WebAssembly doesn't support non-C calling conventions
+wasm32-wasi          mutual_wide.base   -O0  calls=3 jumps=0
+wasm32-wasi          mutual_wide.base   -O2  calls=3 jumps=0
+wasm32-wasi          mutual_wide.tail   -O0  calls=3 jumps=0
+wasm32-wasi          mutual_wide.tail   -O2  calls=3 jumps=0
+wasm32-wasi          mutual_wide.tailcc -O0  error: error: <unknown>:0:0: in function l0_p_rev_onto i64 (i64, i64): WebAssembly doesn't support language-specific or target-specific calling conventions yet
+wasm32-wasi          mutual_wide.tailcc -O2  error: error: <unknown>:0:0: in function l0_p_int_min void (): WebAssembly doesn't support non-C calling conventions
+arm64 -O2 noinline mutual7: no limit up to 1000000000
+mutual7 arm64-apple-macos -O2 noinline: pong->seven b | seven->pong b 
+mutual7 x86_64-apple-macos -O2 noinline: pong->seven callq | seven->pong jmp 

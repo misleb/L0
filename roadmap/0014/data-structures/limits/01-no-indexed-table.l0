@@ -1,0 +1,97 @@
+; LIMIT 01: L0 has no array or other O(1) indexed structure, mutable or not.
+;
+; Blocked: programs/paths. Dijkstra needs dist[node] and edges[node]; the
+; only way to index by node id is a persistent trie with O(log n) get and
+; set, where every set allocates a new path of log2(n) blocks.
+;
+; Checker, for the code in programs/hypothetical/01-no-indexed-table.l0:
+;   18:24: error: expected list after ( in a type        ; (array int)
+; and for a call with no array type in sight, (array_new 10000 0):
+;   error: unknown function array_new
+;
+; This program does 1,000,000 random operations over a 10,000-slot table
+; held in the trie that programs/paths uses:
+;
+;   tools/l0 build programs/limits/01-no-indexed-table.l0 -o t
+;   time ./t none   ; the loop and random numbers alone
+;   time ./t get    ; reads only, on a table filled once
+;   time ./t set    ; read, add one, write back
+;
+; Measured (Apple Silicon, -O2, best of three), each printing 1000000:
+;   none  0.01 s    10 ns per iteration
+;   get   0.15 s   140 ns per read, over the loop
+;   set   0.48 s   470 ns per read-modify-write, over the loop
+; An array index would be a load, a few ns at most.
+;
+; A profile of programs/paths answering queries puts 61% of its time in
+; l0_inc and l0_dec and 12% in l0_data_get: walking a trie increments and
+; decrements every node it passes, even only to read it. programs/paths
+; answers a query on 10,000 nodes and 100,000 edges in 32 ms; the same
+; Dijkstra in CPython, with a dict and heapq, takes 10.7 ms.
+
+(data IntMap
+  (IEmpty)
+  (INode bool int IntMap IntMap))
+
+(def im_get ((m IntMap) (k int) (missing int)) int
+  (match m
+    ((IEmpty) missing)
+    ((INode has v e o)
+      (if (eq k 0)
+          (if has v missing)
+          (if (eq (mod k 2) 0)
+              (im_get e (div k 2) missing)
+              (im_get o (div k 2) missing))))))
+
+(def im_set ((m IntMap) (k int) (x int)) IntMap
+  (match m
+    ((IEmpty) (im_set (INode false 0 (IEmpty) (IEmpty)) k x))
+    ((INode has v e o)
+      (if (eq k 0)
+          (INode true x e o)
+          (if (eq (mod k 2) 0)
+              (INode has v (im_set e (div k 2) x) o)
+              (INode has v e (im_set o (div k 2) x)))))))
+
+(def next_state ((s int)) int
+  (add (mul s 6364136223846793005) 1442695040888963407))
+
+(def slot ((s int)) int
+  (let hi (div s 4294967296)
+    (mod (if (lt hi 0) (neg hi) hi) 10000)))
+
+(def bump ((m IntMap) (s int) (n int)) IntMap
+  (if (eq n 0)
+      m
+      (let s1 (next_state s)
+        (let k (slot s1)
+          (bump (im_set m k (add (im_get m k 0) 1)) s1 (sub n 1))))))
+
+(def read_sum ((m IntMap) (s int) (n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (let s1 (next_state s)
+        (read_sum m s1 (sub n 1) (add acc (im_get m (slot s1) 0))))))
+
+(def ones ((m IntMap) (k int)) IntMap
+  (if (lt k 0) m (ones (im_set m k 1) (sub k 1))))
+
+(def total ((m IntMap) (k int) (acc int)) int
+  (if (lt k 0) acc (total m (sub k 1) (add acc (im_get m k 0)))))
+
+; The loop with no table at all, to subtract its cost.
+(def loop_only ((s int) (n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (let s1 (next_state s)
+        (loop_only s1 (sub n 1) (add acc (if (ge (slot s1) 0) 1 0))))))
+
+(def main () int
+  (let mode (arg 0)
+    (let n (if (list_eq mode "set")
+               (total (bump (IEmpty) 1 1000000) 9999 0)
+               (if (list_eq mode "get")
+                   (read_sum (ones (IEmpty) 9999) 1 1000000 0)
+                   (loop_only 1 1000000 0)))
+      (let w (write_line (digits n))
+        0))))

@@ -1,0 +1,55 @@
+; csvcol written directly against the file: one function per mode, each
+; reading its own next byte. No state block per byte, but untestable on a
+; string without a second copy.
+
+(def d_emit ((col int) (n int) (field (list int))) int
+  (if (eq col n) (write_str (rev field)) 0))
+
+(def d_keep ((col int) (n int) (b int) (field (list int))) (list int)
+  (if (eq col n) (cons b field) field))
+
+(def d_record ((f IoFile) (n int)) int
+  (let b (file_read_byte f)
+    (if (eq b -1) 0 (d_field_with f 1 n (nil int) b))))
+
+(def d_field_with ((f IoFile) (col int) (n int) (field (list int)) (b int)) int
+  (if (eq b 34)
+      (d_quoted f col n field)
+      (d_bare_with f col n field b)))
+
+(def d_bare ((f IoFile) (col int) (n int) (field (list int))) int
+  (d_bare_with f col n field (file_read_byte f)))
+
+(def d_bare_with ((f IoFile) (col int) (n int) (field (list int)) (b int)) int
+  (if (lt b 0)
+      (let w (d_emit col n field) (write_byte 10))
+      (if (eq b 44)
+          (let w (d_emit col n field)
+            (d_field_with f (add col 1) n (nil int) (file_read_byte f)))
+          (if (eq b 10)
+              (let w (d_emit col n field)
+                (let v (write_byte 10) (d_record f n)))
+              (if (eq b 13)
+                  (d_bare f col n field)
+                  (d_bare f col n (d_keep col n b field)))))))
+
+(def d_quoted ((f IoFile) (col int) (n int) (field (list int))) int
+  (let b (file_read_byte f)
+    (if (lt b 0)
+        1
+        (if (eq b 34)
+            (d_after f col n field)
+            (d_quoted f col n (d_keep col n b field))))))
+
+(def d_after ((f IoFile) (col int) (n int) (field (list int))) int
+  (let b (file_read_byte f)
+    (if (eq b 34)
+        (d_quoted f col n (d_keep col n b field))
+        (if (eq b 13)
+            (d_after f col n field)
+            (d_bare_with f col n field b)))))
+
+(def main () int
+  (match (open_in (arg 0))
+    ((IoFailed why) 1)
+    ((IoOpened f) (d_record f (int_prefix (arg 1) 0)))))

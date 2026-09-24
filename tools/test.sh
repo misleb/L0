@@ -23,9 +23,10 @@
 #   <stem>.exit    expected exit status; if absent, 0
 #   <stem>.in      stdin; if absent, empty
 #   <stem>.extra   additional source files to pass, one per line
-#   <stem>.sh      tests/io only: run as `sh <stem>.sh EXE` instead of
-#                  comparing output, for behavior that is about timing;
-#                  exit status 0 is a pass
+#   <stem>.sh      tests/io only: run as `sh <stem>.sh EXE IR` instead of
+#                  comparing output, for behavior that is about timing or
+#                  about how the program is built, where IR is the file EXE
+#                  was linked from; exit status 0 is a pass
 #
 # tests/io has no oracle, since stage 0 cannot run it, so its expectations
 # are written by hand and never blessed: --bless skips the suite, and it is
@@ -333,7 +334,8 @@ if [ "$COMPILED" = 1 ]; then
             1) continue ;;
         esac
         if [ -f "$stem.sh" ]; then
-            if sh "$stem.sh" "$TMP/$name.exe" > "$TMP/$name.shout" 2>&1; then
+            if sh "$stem.sh" "$TMP/$name.exe" "$TMP/$name.ll" \
+                > "$TMP/$name.shout" 2>&1; then
                 npass=$((npass + 1))
             else
                 nfail=$((nfail + 1))

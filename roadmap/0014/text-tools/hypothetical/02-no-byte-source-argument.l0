@@ -1,0 +1,44 @@
+; HYPOTHETICAL -- this is not L0. It does not type check today.
+;
+; Two ways LIMIT 02 could go, from smallest change to largest.
+;
+; ------------------------------------ option A: a handle over a string
+;
+; No new types or syntax: two builtins beside open_read, and handles are
+; already how the program reads files.
+;
+;   (open_bytes s)     (list int) -> int   a handle reading the bytes of s
+;   (open_capture)     -> int              a handle collecting what is written
+;   (captured h)       int -> (list int)   everything written to h so far
+;
+; Then csvcol is written once, directly, one function per state, as
+; limits/02-no-byte-source-argument-direct.l0 is, but writing to a file it is
+; given rather than to standard output. The program passes the CSV file and
+; (IoFile 1), and a test passes these:
+
+(def col ((csv (list int)) (n int)) (list int)
+  (let out (open_capture)
+    (let status (d_record (IoFile (open_bytes csv)) (IoFile out) n)
+      (captured out))))
+
+(def test_quoted_comma () int
+  (check_str "comma" (col "x,\"Smith, John\",y\n" 2) "Smith, John\n"))
+
+; ------------------------------------------ option B: function values
+;
+; A function type, written (fn (T...) R), whose values are top-level
+; functions named in expression position. No closures are needed for this.
+
+(def from_stdin () int
+  (read_byte))
+
+(def count_newlines ((next (fn () int)) (n int)) int
+  (let b (next)
+    (if (lt b 0) n (count_newlines next (if (eq b 10) (add n 1) n)))))
+
+(def main () int
+  (count_newlines from_stdin 0))
+
+; A string source still needs somewhere to keep its position, which a
+; function without a closure has not got, so option B alone does not cover
+; the test's case; option A does. Option B is what LIMIT 03's sort needs.

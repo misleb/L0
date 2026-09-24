@@ -1,0 +1,15 @@
+; HYPOTHETICAL -- not valid L0. What base64's main would be if standard
+; output could report a failed write.
+;
+; One way: a builtin (flush h) that delivers any bytes held back for h,
+; standard output included, and returns 0, or -5 if they could not be
+; written, as close does for a file. The program flushes once, at the end,
+; and turns a failure into an exit status, as every Unix filter does.
+
+(def main () int
+  (let st (if (eq (arg_count) 0)
+              (encode 0 1 0)
+              (decode 0 1 0 0))
+    (if (lt (flush 1) 0)
+        (let w (write_err "base64: write error\n") 1)
+        st)))

@@ -1,0 +1,32 @@
+; 04-no-generic-functions.l0 -- a function works on one list type only, so
+; rev and length are rewritten for every element type a program uses.
+;
+; The builtins cons, head, tail, and is_empty work on any list, but a def
+; names its parameter types exactly, so the prelude's rev is only for
+; (list int). This file does not check:
+;
+;   $ tools/l0check lib/prelude.l0 programs/limits/04-no-generic-functions.l0
+;   programs/limits/04-no-generic-functions.l0:32:3: error: argument 1 of
+;     rev must be (list int), but this is (list Tok)
+;
+; (on one line). Copies written in these programs, each the same two lines
+; with a different type:
+;
+;   linediff.l0       rev_fronts (list Front), rev_edits (list Edit)
+;   linediff_test.l0  length_strs (list (list int))
+;   minigrep.l0       rev_toks (list Tok)
+;   minigrep_test.l0  length_toks (list Tok)
+;
+; and the prelude itself has rev_strs_onto for (list (list int)) next to
+; rev_onto. Five copies, 10 lines: cheap each time, but the cost recurs in
+; every program with a data type, and each copy is a place a typo could
+; hide. linediff_test.l0's old_side and new_side are one function written
+; twice, differing only in which edits they keep, because there is no
+; filter either, which needs function values rather than generics.
+
+(data Tok
+  (A)
+  (B))
+
+(def backwards ((ts (list Tok))) (list Tok)
+  (rev ts))

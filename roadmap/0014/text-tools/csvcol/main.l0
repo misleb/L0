@@ -1,0 +1,37 @@
+; main.l0 -- csvcol's entry point: csvcol FILE N
+;
+; Exit status 0 on success, 1 if the file cannot be read or is malformed,
+; and 2 for a usage error.
+
+(def fail_with ((status int) (msg (list int))) int
+  (let w (write_err (append "csvcol: " (append msg "\n")))
+    status))
+
+(def run ((f IoFile) (path (list int)) (s Csv) (n int)) int
+  (let b (file_read_byte f)
+    (if (lt b -1)
+        (fail_with 1 (append path (append ": " (io_error b))))
+        (let s2 (step s b n)
+          (match s2
+            ((Go mode col rec field out)
+              (let w (write_str out)
+                (run f path s2 n)))
+            ((Stop out) (write_str out))
+            ((Bad why) (fail_with 1 (append path (append ": " why)))))))))
+
+(def column_of ((path (list int)) (n int)) int
+  (match (open_in path)
+    ((IoFailed why) (fail_with 1 (append path (append ": " why))))
+    ((IoOpened f)
+      (let status (run f path (start 0) n)
+        (let c (file_close f)
+          status)))))
+
+(def main () int
+  (if (not (eq (arg_count) 2))
+      (fail_with 2 "usage: csvcol FILE N")
+      (match (parse_column (arg 1))
+        ((NoColumn why)
+          (fail_with 2 (append "bad column number \""
+                         (append (arg 1) (append "\": " why)))))
+        ((Column n) (column_of (arg 0) n)))))

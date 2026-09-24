@@ -1,0 +1,177 @@
+; base64.l0 -- streaming base64 (RFC 4648), without main so it can be tested.
+;
+; encode reads bytes from one handle and writes base64 to another, 76
+; characters to a line. decode does the reverse, ignoring whitespace.
+; Both read and write a byte at a time, so they run in constant memory.
+; Both return an exit status: 0 on success, 1 on bad input or a failed read.
+
+; ------------------------------------------------------------- the alphabet
+
+; The character for a 6-bit value.
+(def b64_char ((v int)) int
+  (if (lt v 26)
+      (add 65 v)
+      (if (lt v 52)
+          (add 71 v)
+          (if (lt v 62)
+              (sub v 4)
+              (if (eq v 62) 43 47)))))
+
+; The 6-bit value of a character, or -1 for whitespace, -2 for the padding
+; character, and -3 for anything else.
+(def b64_value ((c int)) int
+  (if (is_upper c)
+      (sub c 65)
+      (if (and (ge c 97) (le c 122))
+          (sub c 71)
+          (if (is_digit c)
+              (add c 4)
+              (b64_value_rest c)))))
+
+(def b64_value_rest ((c int)) int
+  (if (eq c 43)
+      62
+      (if (eq c 47)
+          63
+          (if (is_space c)
+              -1
+              (if (eq c 61) -2 -3)))))
+
+; ------------------------------------------------------------------ encoding
+
+(def line_width () int 76)
+
+; Writes one group of four characters, then a newline if the line is full.
+; Returns the column after it.
+(def put_group ((out int) (col int) (c0 int) (c1 int) (c2 int) (c3 int)) int
+  (let a (write_to out c0)
+    (let b (write_to out c1)
+      (let c (write_to out c2)
+        (let d (write_to out c3)
+          (if (ge (add col 4) (line_width))
+              (let n (write_to out 10) 0)
+              (add col 4)))))))
+
+(def encode ((in int) (out int) (col int)) int
+  (let b0 (read_from in)
+    (if (lt b0 0)
+        (encode_end out col b0)
+        (let b1 (read_from in)
+          (if (lt b1 0)
+              (encode_one in out col b0 b1)
+              (let b2 (read_from in)
+                (if (lt b2 0)
+                    (encode_two in out col b0 b1 b2)
+                    (encode in out
+                      (put_group out col
+                        (b64_char (div b0 4))
+                        (b64_char (add (mul (mod b0 4) 16) (div b1 16)))
+                        (b64_char (add (mul (mod b1 16) 4) (div b2 64)))
+                        (b64_char (mod b2 64)))))))))))
+
+; Input ended, or failed, one byte into a group.
+(def encode_one ((in int) (out int) (col int) (b0 int) (code int)) int
+  (if (lt code -1)
+      (read_failed code)
+      (encode_end out
+        (put_group out col
+          (b64_char (div b0 4))
+          (b64_char (mul (mod b0 4) 16))
+          61 61)
+        code)))
+
+; Input ended, or failed, two bytes into a group.
+(def encode_two ((in int) (out int) (col int) (b0 int) (b1 int) (code int)) int
+  (if (lt code -1)
+      (read_failed code)
+      (encode_end out
+        (put_group out col
+          (b64_char (div b0 4))
+          (b64_char (add (mul (mod b0 4) 16) (div b1 16)))
+          (b64_char (mul (mod b1 16) 4))
+          61)
+        code)))
+
+(def encode_end ((out int) (col int) (code int)) int
+  (if (lt code -1)
+      (read_failed code)
+      (if (gt col 0)
+          (let n (write_to out 10) 0)
+          0)))
+
+; ------------------------------------------------------------------ decoding
+
+; Writes the three bytes of a 24-bit group.
+(def put3 ((out int) (g int)) int
+  (let a (write_to out (div g 65536))
+    (let b (write_to out (mod (div g 256) 256))
+      (write_to out (mod g 256)))))
+
+; acc holds the 6-bit values of the n characters of the current group.
+(def decode ((in int) (out int) (acc int) (n int)) int
+  (let c (read_from in)
+    (if (lt c 0)
+        (decode_end out acc n c)
+        (let v (b64_value c)
+          (if (ge v 0)
+              (if (eq n 3)
+                  (let w (put3 out (add (mul acc 64) v))
+                    (decode in out 0 0))
+                  (decode in out (add (mul acc 64) v) (add n 1)))
+              (if (eq v -1)
+                  (decode in out acc n)
+                  (if (eq v -2)
+                      (decode_pad in out acc n)
+                      (bad_input "invalid character"))))))))
+
+; Writes what a group of n characters holds when it is cut short: nothing
+; for none, one byte for two, two bytes for three. One character is not a
+; whole byte, so it is an error.
+(def put_partial ((out int) (acc int) (n int)) int
+  (if (eq n 2)
+      (write_to out (div acc 16))
+      (if (eq n 3)
+          (let a (write_to out (div acc 1024))
+            (write_to out (mod (div acc 4) 256)))
+          0)))
+
+; Input without padding is accepted, as long as it ends on a whole byte.
+(def decode_end ((out int) (acc int) (n int) (code int)) int
+  (if (lt code -1)
+      (read_failed code)
+      (if (eq n 1)
+          (bad_input "truncated input")
+          (let w (put_partial out acc n) 0))))
+
+; The first padding character of a group. Two characters need two of them
+; and three need one; after that only whitespace may follow.
+(def decode_pad ((in int) (out int) (acc int) (n int)) int
+  (if (lt n 2)
+      (bad_input "misplaced padding")
+      (let w (put_partial out acc n)
+        (expect_end in (sub 3 n)))))
+
+; Reads to the end of input, allowing only the remaining padding characters
+; and then whitespace.
+(def expect_end ((in int) (pads int)) int
+  (let c (read_from in)
+    (if (eq c -1)
+        (if (eq pads 0) 0 (bad_input "missing padding"))
+        (if (lt c -1)
+            (read_failed c)
+            (let v (b64_value c)
+              (if (eq v -1)
+                  (expect_end in pads)
+                  (if (and (eq v -2) (gt pads 0))
+                      (expect_end in (sub pads 1))
+                      (bad_input "data after padding"))))))))
+
+; ------------------------------------------------------------------ failures
+
+(def bad_input ((why (list int))) int
+  (let w (write_err (append "base64: " (append why "\n")))
+    1))
+
+(def read_failed ((code int)) int
+  (let w (write_err (append "base64: " (append (io_error code) "\n")))
+    1))

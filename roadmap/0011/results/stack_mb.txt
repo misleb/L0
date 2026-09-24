@@ -1,0 +1,6 @@
+L0_STACK_MB=1      self.O0: limit ~15009 (fail rc=70: l0: runtime error: stack exhausted) | mutual_wide.noinl.O2: limit ~29862 (fail rc=70: l0: runtime error: stack exhausted)
+L0_STACK_MB=8      self.O0: limit ~167675 (fail rc=70: l0: runtime error: stack exhausted) | mutual_wide.noinl.O2: limit ~335546 (fail rc=70: l0: runtime error: stack exhausted)
+L0_STACK_MB=64     self.O0: limit ~1386718 (fail rc=70: l0: runtime error: stack exhausted) | mutual_wide.noinl.O2: limit ~2775390 (fail rc=70: l0: runtime error: stack exhausted)
+L0_STACK_MB=512    self.O0: limit ~11142577 (fail rc=70: l0: runtime error: stack exhausted) | mutual_wide.noinl.O2: limit ~22304687 (fail rc=70: l0: runtime error: stack exhausted)
+L0_STACK_MB=4096   self.O0: limit ~89453125 (fail rc=70: l0: runtime error: stack exhausted) | mutual_wide.noinl.O2: limit ~177343750 (fail rc=70: l0: runtime error: stack exhausted)
+L0_STACK_MB=16384  self.O0: limit ~356640625 (fail rc=70: l0: runtime error: stack exhausted) | mutual_wide.noinl.O2: limit ~711718750 (fail rc=70: l0: runtime error: stack exhausted)

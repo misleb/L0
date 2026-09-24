@@ -1,0 +1,31 @@
+; LIMIT 06: a match has no wildcard or default arm, and data values have no
+; equality, so comparing two values of an N-constructor type takes N * N
+; arms, or a tag function plus one accessor per field type.
+;
+; Sidestepped in programs/json. The round-trip property test wanted
+; parse(render(v)) = v, which is json_eq over 6 constructors: 36 arms, 30 of
+; them "false". It compares the rendered text instead, which allocates two
+; renderings per check and is only sound because render is injective.
+;
+; Checker, for the arm (_ false):
+;   error: a match pattern is (Constructor names...)
+;
+; The smallest program, three constructors and nine arms:
+
+(data Val
+  (VNull)
+  (VNum int)
+  (VStr (list int)))
+
+(def val_eq ((a Val) (b Val)) bool
+  (match a
+    ((VNull)
+      (match b ((VNull) true) ((VNum y) false) ((VStr y) false)))
+    ((VNum x)
+      (match b ((VNull) false) ((VNum y) (eq x y)) ((VStr y) false)))
+    ((VStr x)
+      (match b ((VNull) false) ((VNum y) false) ((VStr y) (list_eq x y))))))
+
+(def main () int
+  (let w (write_line (if (val_eq (VStr "a") (VStr "a")) "equal" "different"))
+    0))

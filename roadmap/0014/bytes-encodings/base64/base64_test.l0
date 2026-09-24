@@ -1,0 +1,171 @@
+; base64_test.l0 -- run with:
+;
+;   tools/l0 test programs/base64/base64.l0 programs/base64/base64_test.l0
+;
+; encode and decode read and write handles, not lists, so these tests go
+; through files in /tmp: write the input, run the code from one file to
+; another, and read back what it wrote.
+
+; ------------------------------------------------------------------ helpers
+
+(def write_file ((path (list int)) (bytes (list int))) int
+  (match (open_out path)
+    ((IoFailed why) (let w (write_err why) -1))
+    ((IoOpened f)
+      (let w (file_write_str f bytes)
+        (file_close f)))))
+
+(def read_file ((path (list int))) (list int)
+  (match (open_in path)
+    ((IoFailed why) "<unreadable>")
+    ((IoOpened f)
+      (let bytes (read_all f (nil int))
+        (let c (file_close f)
+          bytes)))))
+
+(def handle_of ((f IoFile)) int
+  (match f ((IoFile h) h)))
+
+(data Ran
+  (Ran int (list int)))                 ; exit status, output
+
+; Runs encode (mode 0) or decode (mode 1) on input, through files.
+(def run_mode ((mode int) (input (list int))) Ran
+  (let w (write_file "/tmp/l0_b64_in" input)
+    (match (open_in "/tmp/l0_b64_in")
+      ((IoFailed why) (Ran -1 why))
+      ((IoOpened fin)
+        (match (open_out "/tmp/l0_b64_out")
+          ((IoFailed why) (Ran -1 why))
+          ((IoOpened fout)
+            (let st (if (eq mode 0)
+                        (encode (handle_of fin) (handle_of fout) 0)
+                        (decode (handle_of fin) (handle_of fout) 0 0))
+              (let a (file_close fin)
+                (let b (file_close fout)
+                  (Ran st (read_file "/tmp/l0_b64_out")))))))))))
+
+(def status_of ((r Ran)) int
+  (match r ((Ran st out) st)))
+
+(def output_of ((r Ran)) (list int)
+  (match r ((Ran st out) out)))
+
+(def enc ((input (list int))) (list int)
+  (output_of (run_mode 0 input)))
+
+(def dec ((input (list int))) (list int)
+  (output_of (run_mode 1 input)))
+
+(def dec_status ((input (list int))) int
+  (status_of (run_mode 1 input)))
+
+; ----------------------------------------------------------------- alphabet
+
+(def test_alphabet_ends () int
+  (add (check_int "0 is A" (b64_char 0) 65)
+       (add (check_int "63 is /" (b64_char 63) 47)
+            (check_int "52 is 0" (b64_char 52) 48))))
+
+; Every value maps to a character that maps back to it.
+(def alphabet_round_trip ((v int)) int
+  (if (eq v 64)
+      0
+      (if (eq (b64_value (b64_char v)) v)
+          (alphabet_round_trip (add v 1))
+          (check_int "value round trip" (b64_value (b64_char v)) v))))
+
+(def test_alphabet_round_trip () int
+  (alphabet_round_trip 0))
+
+(def test_value_classes () int
+  (add (check_int "newline is whitespace" (b64_value 10) -1)
+       (add (check_int "= is padding" (b64_value 61) -2)
+            (check_int "* is invalid" (b64_value 42) -3))))
+
+; --------------------------------------------------------------- encoding
+;
+; Expected outputs are from RFC 4648 section 10, plus the newline encode
+; ends a nonempty output with.
+
+(def test_encode_empty () int
+  (check_str "empty" (enc "") ""))
+
+(def test_encode_rfc_vectors () int
+  (add (check_str "f" (enc "f") "Zg==\n")
+       (add (check_str "fo" (enc "fo") "Zm8=\n")
+            (check_str "foo" (enc "foo") "Zm9v\n"))))
+
+(def test_encode_rfc_vectors_long () int
+  (add (check_str "foob" (enc "foob") "Zm9vYg==\n")
+       (add (check_str "fooba" (enc "fooba") "Zm9vYmE=\n")
+            (check_str "foobar" (enc "foobar") "Zm9vYmFy\n"))))
+
+(def test_encode_high_bytes () int
+  (check_str "ff fe fd" (enc "\xff\xfe\xfd") "//79\n"))
+
+; 57 bytes fill exactly one 76-character line; 58 spill onto a second.
+(def test_encode_wraps_at_76 () int
+  (let one (enc (rand_bytes 7 57))
+    (let two (enc (rand_bytes 7 58))
+      (add (check_int "57 bytes: one line" (length one) 77)
+           (check_int "58 bytes: two lines" (length two) 82)))))
+
+; ---------------------------------------------------------------- decoding
+
+(def test_decode_rfc_vectors () int
+  (add (check_str "Zg==" (dec "Zg==") "f")
+       (add (check_str "Zm8=" (dec "Zm8=") "fo")
+            (check_str "Zm9vYmFy" (dec "Zm9vYmFy") "foobar"))))
+
+(def test_decode_ignores_whitespace () int
+  (check_str "spread out" (dec " Zm9v\r\nYm\tFy \n") "foobar"))
+
+(def test_decode_unpadded () int
+  (add (check_str "Zg" (dec "Zg") "f")
+       (check_str "Zm8" (dec "Zm8") "fo")))
+
+(def test_decode_rejects_bad_char () int
+  (check_int "status" (dec_status "Zm9v*") 1))
+
+(def test_decode_rejects_one_char_group () int
+  (check_int "status" (dec_status "Zm9vY") 1))
+
+(def test_decode_rejects_data_after_padding () int
+  (check_int "status" (dec_status "Zg==Zg==") 1))
+
+(def test_decode_rejects_missing_second_pad () int
+  (check_int "status" (dec_status "Zg=") 1))
+
+(def test_decode_rejects_early_padding () int
+  (check_int "status" (dec_status "Z===") 1))
+
+; -------------------------------------------------------------- properties
+
+; Random binary of random length survives a round trip exactly.
+(def round_trips ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let xs (rand_bytes s (rand_below s 300))
+        (let back (dec (enc xs))
+          (if (list_eq back xs)
+              (round_trips (rand_next (rand_next s)) (sub runs 1))
+              (check_str "round trip" back xs))))))
+
+(def test_round_trip_random () int
+  (round_trips 42 100))
+
+; Encoded output is only alphabet characters, padding, and newlines, and no
+; line is longer than 76.
+(def well_formed ((s (list int)) (col int)) bool
+  (if (is_empty s)
+      true
+      (if (eq (head s) 10)
+          (well_formed (tail s) 0)
+          (if (and (lt col 76)
+                   (or (ge (b64_value (head s)) 0) (eq (head s) 61)))
+              (well_formed (tail s) (add col 1))
+              false))))
+
+(def test_output_well_formed () int
+  (check_true "alphabet and width" (well_formed (enc (rand_bytes 3 1000)) 0)))

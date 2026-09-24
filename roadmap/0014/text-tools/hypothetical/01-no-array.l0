@@ -1,0 +1,70 @@
+; HYPOTHETICAL -- this is not L0. It does not type check today.
+;
+; What LIMIT 01 would be with an array type. The shape assumed here:
+;
+;   (array T)                         a type, like (list T)
+;   (array_new n v)   int, T -> (array T)        n copies of v
+;   (array_len a)     (array T) -> int
+;   (array_get a i)   (array T), int -> T        runtime error out of range
+;   (array_set a i v) (array T), int, T -> (array T)
+;
+; array_set is pure: it returns an array equal to a except at i. Because the
+; runtime already counts references, it can update in place when the count of
+; a is 1, so the histogram costs one store per byte. Only a shared array
+; would be copied. No mutation becomes visible, so the "no cycles" argument
+; that reference counting rests on still holds.
+;
+; The count is 1 only if the binding hands its reference to array_set rather
+; than keeping it until its scope ends. Today's rule (spec 10.3) keeps it,
+; so in count below `counts` would be copied every byte. Roadmap 0013's
+; release-at-last-use rule, dropped because it made nothing possible, is what
+; would make this possible; probe below also needs it to reach through an
+; `if`, which 0013's cheapest version did not.
+
+; ---------------------------------------------------- the byte histogram
+
+(def count ((counts (array int))) (array int)
+  (let b (read_byte)
+    (if (lt b 0)
+        counts
+        (count (array_set counts b (add (array_get counts b) 1))))))
+
+(def show ((counts (array int)) (i int)) int
+  (if (ge i 256)
+      0
+      (let n (array_get counts i)
+        (let w (if (gt n 0)
+                   (write_line (append (digits i) (append " " (digits n))))
+                   0)
+          (show counts (add i 1))))))
+
+(def main () int
+  (show (count (array_new 256 0)) 0))
+
+; ------------------------------------ wordfreq's counts, as a hash table
+;
+; An open-addressing table of words and counts, replacing the 62-line AVL
+; tree and its O(log n) path rebuild per word with one hash and, usually,
+; one comparison. Growing the table is omitted for brevity.
+
+(data Table
+  (Table (array (list int)) (array int) int))   ; keys, counts, size
+
+(def hash ((s (list int)) (h int)) int
+  (if (is_empty s)
+      (if (lt h 0) (neg h) h)
+      (hash (tail s) (add (mul h 31) (head s)))))
+
+(def bump_word ((t Table) (w (list int))) Table
+  (match t
+    ((Table keys counts size)
+      (probe keys counts size w (mod (hash w 7) (array_len keys))))))
+
+(def probe ((keys (array (list int))) (counts (array int)) (size int)
+            (w (list int)) (i int)) Table
+  (let k (array_get keys i)
+    (if (is_empty k)
+        (Table (array_set keys i w) (array_set counts i 1) (add size 1))
+        (if (list_eq k w)
+            (Table keys (array_set counts i (add (array_get counts i) 1)) size)
+            (probe keys counts size w (mod (add i 1) (array_len keys)))))))

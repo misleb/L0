@@ -1,0 +1,67 @@
+; HYPOTHETICAL -- not valid L0. linediff's search if L0 had an array type.
+;
+; Arrays that keep L0 pure: `(array T)` is an immutable value, and
+;
+;   (array_make n v)      n copies of v
+;   (array_len a)         its length
+;   (array_get a i)       element i, a runtime error out of range
+;   (array_set a i v)     a with element i replaced
+;
+; array_set returns a new array, so nothing is mutated as far as a program
+; can tell, but when the runtime sees the array's reference count is one,
+; nothing else can observe the old value and it updates in place. L0 counts
+; references exactly already (spec 10.3), which is what makes this sound.
+; A loop that threads one array through tail calls then does one store per
+; update, as C does, and an array also kept elsewhere is copied first.
+;
+; With it, Myers' algorithm is the paper's: V indexed by diagonal, the files
+; indexed by line, and the trace is the list of V's kept at each step,
+; which array_set copies automatically because the trace shares them.
+
+; x on diagonal k after d edits, from the previous V.
+(def start_x ((v (array int)) (off int) (d int) (k int)) int
+  (if (eq k (neg d))
+      (array_get v (add off (add k 1)))
+      (if (eq k d)
+          (add (array_get v (add off (sub k 1))) 1)
+          (if (lt (array_get v (add off (sub k 1)))
+                  (array_get v (add off (add k 1))))
+              (array_get v (add off (add k 1)))
+              (add (array_get v (add off (sub k 1))) 1)))))
+
+(def slide ((a (array (list int))) (b (array (list int))) (x int) (y int)) int
+  (if (and (lt x (array_len a)) (lt y (array_len b)))
+      (if (list_eq (array_get a x) (array_get b y))
+          (slide a b (add x 1) (add y 1))
+          x)
+      x))
+
+; One pass over diagonals -d to d. Returns V, or -1 in V[off] once a path
+; reaches the corner, since d is then the edit distance.
+(def sweep ((a (array (list int))) (b (array (list int))) (v (array int))
+            (off int) (d int) (k int)) (array int)
+  (if (gt k d)
+      v
+      (let x0 (start_x v off d k)
+        (let x (slide a b x0 (sub x0 k))
+          (let v2 (array_set v (add off k) x)
+            (if (and (ge x (array_len a)) (ge (sub x k) (array_len b)))
+                (array_set v2 off -1)
+                (sweep a b v2 off d (add k 2))))))))
+
+(def search ((a (array (list int))) (b (array (list int))) (v (array int))
+             (off int) (d int) (trace (list (array int)))) (list (array int))
+  (let v2 (sweep a b v off d (neg d))
+    (if (eq (array_get v2 off) -1)
+        (cons v2 trace)
+        (search a b v2 off (add d 1) (cons v2 trace)))))
+
+(def diff ((a (array (list int))) (b (array (list int)))) (list Edit)
+  (let off (add 1 (add (array_len a) (array_len b)))
+    (backtrack a b
+      (search a b (array_make (add 1 (mul 2 off)) 0) off 0 (nil (array int)))
+      off (array_len a) (array_len b) (nil Edit))))
+
+; backtrack walks the trace from the corner to the origin, choosing at each
+; step the diagonal the path came from, as in the paper; it is omitted here
+; because it is the same indexing as start_x.

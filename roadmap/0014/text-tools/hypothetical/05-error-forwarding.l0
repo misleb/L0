@@ -1,0 +1,20 @@
+; HYPOTHETICAL -- this is not L0. It does not type check today.
+;
+; LIMIT 05 with a one-arm match that forwards everything else:
+;
+;   (with (Ctor names...) subject body)
+;
+; Legal only when subject's type is the enclosing function's return type.
+; If subject is built by Ctor, its fields are bound and body is the result;
+; otherwise subject itself is the result. Exhaustiveness is kept: every
+; other constructor is handled, by being returned.
+
+(def two ((s (list int))) R
+  (with (Ok a rest) (digit s)
+    (with (Ok b rest2) (digit rest)
+      (Ok (add (mul a 10) b) rest2))))
+
+; calc's expr, which forwards a failure of term:
+(def expr ((ts (list Tok))) Val
+  (with (Val v rest) (term ts)
+    (expr_more v rest)))

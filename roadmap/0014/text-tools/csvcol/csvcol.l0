@@ -1,0 +1,136 @@
+; csvcol.l0 -- column N of a CSV file, one line per record.
+;
+; The format is RFC 4180's: fields are separated by commas and records by
+; newlines; a field may be quoted, and inside quotes a comma or newline is
+; data and "" is one quote. A carriage return outside quotes is dropped, so
+; CRLF files work. A quote inside an unquoted field is data. A record with
+; fewer than N fields prints an empty line.
+;
+; The parser is a pure function from a state and one byte to the next state,
+; so the program can feed it bytes from a file while tests feed it bytes from
+; a string. L0 cannot pass the byte source itself as an argument.
+
+(data Mode
+  (AtRecord)                            ; nothing of this record read yet
+  (AtField)                             ; just after a comma
+  (InBare)                              ; inside an unquoted field
+  (InQuoted)                            ; inside a quoted field
+  (AfterQuote))                         ; a quote inside a quoted field
+
+; col is the 1-based column being read and rec the 1-based record. field is
+; column N's bytes so far, reversed; other columns are not kept. out is what
+; the step that made this state produced, for the caller to write.
+(data Csv
+  (Go Mode int int (list int) (list int))   ; mode, col, rec, field, out
+  (Stop (list int))                         ; input ended; out
+  (Bad (list int)))                         ; malformed; message
+
+(def start ((ignored int)) Csv
+  (Go (AtRecord) 1 1 (nil int) (nil int)))
+
+; b is a byte, or -1 for end of input. n is the column wanted.
+(def step ((s Csv) (b int) (n int)) Csv
+  (match s
+    ((Go mode col rec field out) (step_in mode col rec field b n))
+    ((Stop out) (Stop (nil int)))
+    ((Bad why) (Bad why))))
+
+(def step_in ((mode Mode) (col int) (rec int) (field (list int)) (b int)
+              (n int)) Csv
+  (match mode
+    ((AtRecord) (if (eq b -1) (Stop (nil int)) (at_field col rec field b n)))
+    ((AtField) (at_field col rec field b n))
+    ((InBare) (in_bare col rec field b n))
+    ((InQuoted) (in_quoted col rec field b n))
+    ((AfterQuote) (after_quote col rec field b n))))
+
+(def at_field ((col int) (rec int) (field (list int)) (b int) (n int)) Csv
+  (if (eq b 34)
+      (Go (InQuoted) col rec field (nil int))
+      (in_bare col rec field b n)))
+
+(def in_bare ((col int) (rec int) (field (list int)) (b int) (n int)) Csv
+  (if (eq b -1)
+      (Stop (record_out col field n))
+      (if (eq b 44)
+          (end_field col rec field n)
+          (if (eq b 10)
+              (end_record col rec field n)
+              (if (eq b 13)
+                  (Go (InBare) col rec field (nil int))
+                  (keep (InBare) col rec field b n))))))
+
+(def in_quoted ((col int) (rec int) (field (list int)) (b int) (n int)) Csv
+  (if (eq b -1)
+      (Bad (append "record " (append (digits rec)
+             ": a quoted field is not closed before the end of the file")))
+      (if (eq b 34)
+          (Go (AfterQuote) col rec field (nil int))
+          (keep (InQuoted) col rec field b n))))
+
+(def after_quote ((col int) (rec int) (field (list int)) (b int) (n int)) Csv
+  (if (eq b 34)
+      (keep (InQuoted) col rec field b n)
+      (if (eq b 13)
+          (Go (AfterQuote) col rec field (nil int))
+          (if (or (eq b 44) (or (eq b 10) (eq b -1)))
+              (in_bare col rec field b n)
+              (Bad (append "record " (append (digits rec)
+                     ": a closing quote is followed by something other than a comma or the end of the record")))))))
+
+(def keep ((mode Mode) (col int) (rec int) (field (list int)) (b int)
+           (n int)) Csv
+  (Go mode col rec (if (eq col n) (cons b field) field) (nil int)))
+
+(def end_field ((col int) (rec int) (field (list int)) (n int)) Csv
+  (Go (AtField) (add col 1) rec (nil int)
+      (if (eq col n) (rev field) (nil int))))
+
+(def end_record ((col int) (rec int) (field (list int)) (n int)) Csv
+  (Go (AtRecord) 1 (add rec 1) (nil int) (record_out col field n)))
+
+; Column N, if this is it, and the newline that ends every output record.
+(def record_out ((col int) (field (list int)) (n int)) (list int)
+  (if (eq col n) (rev (cons 10 field)) "\n"))
+
+; ------------------------------------------------------------ in memory
+
+(data Extracted
+  (Extracted (list int))
+  (NotExtracted (list int)))
+
+; Column n of every record of s, as the program would print it.
+(def extract ((s (list int)) (n int)) Extracted
+  (extract_onto s (start 0) n (nil int)))
+
+(def extract_onto ((xs (list int)) (s Csv) (n int) (acc (list int)))
+    Extracted
+  (let s2 (step s (if (is_empty xs) -1 (head xs)) n)
+    (match s2
+      ((Go mode col rec field out)
+        (extract_onto (tail xs) s2 n (push out acc)))
+      ((Stop out) (Extracted (rev (push out acc))))
+      ((Bad why) (NotExtracted why)))))
+
+; ------------------------------------------------------------ arguments
+
+(data Column
+  (Column int)
+  (NoColumn (list int)))
+
+; A column number: 1 to 999999999999999999, in plain decimal.
+(def parse_column ((s (list int))) Column
+  (if (is_empty s)
+      (NoColumn "it is empty")
+      (if (not (all_digits s))
+          (NoColumn "it is not a positive decimal integer")
+          (if (gt (length s) 18)
+              (NoColumn "it is too large")
+              (if (eq (int_prefix s 0) 0)
+                  (NoColumn "columns are numbered from 1")
+                  (Column (int_prefix s 0)))))))
+
+(def all_digits ((s (list int))) bool
+  (if (is_empty s)
+      true
+      (if (is_digit (head s)) (all_digits (tail s)) false)))

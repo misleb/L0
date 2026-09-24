@@ -1,0 +1,37 @@
+; LIMIT 05 (minor): passing a failure up is a match arm at every call.
+;
+; A function that can fail returns a data type with a failure case, which is
+; right: match makes the caller handle it. But most callers handle it by
+; returning it unchanged, and each such caller spells that out. calc's
+; parser has 8 arms that only forward an error, in 7 of its 13 parser
+; functions, each nesting the success path one level deeper:
+;
+;   ((Err why) (Err why))       x 6
+;   ((AErr why) (Err why))      x 2
+;
+; That is 8 of calc.l0's 252 lines, so the cost is nesting more than length.
+; The smallest program: two steps that can fail, in sequence. It type checks
+; and runs; the cost is the shape, not an error.
+
+(data R
+  (Ok int (list int))                   ; value, rest of the input
+  (Fail (list int)))
+
+(def digit ((s (list int))) R
+  (if (if (is_empty s) false (is_digit (head s)))
+      (Ok (sub (head s) 48) (tail s))
+      (Fail "expected a digit")))
+
+; Two digits, as a number.
+(def two ((s (list int))) R
+  (match (digit s)
+    ((Fail why) (Fail why))
+    ((Ok a rest)
+      (match (digit rest)
+        ((Fail why) (Fail why))
+        ((Ok b rest2) (Ok (add (mul a 10) b) rest2))))))
+
+(def main () int
+  (match (two "42")
+    ((Ok v rest) v)
+    ((Fail why) 1)))

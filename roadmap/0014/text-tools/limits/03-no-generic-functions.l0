@@ -1,0 +1,25 @@
+; LIMIT 03: a function works on one list element type, so every list helper
+; and every sort is rewritten for each type that needs it.
+;
+; cons, head, tail, and is_empty work on any list, but a def cannot: its
+; parameter types are fixed. The prelude's rev, push, append, and length are
+; all (list int) only. And a sort cannot take its ordering as an argument
+; (no function values, LIMIT 02), so it is rewritten for each ordering too.
+;
+; What it cost in these programs, all duplicates of code that already exists
+; for (list int) or would be one generic sort:
+;
+;   wordfreq  rev_wc_onto, Halves, deal, merge, sort_wc (33 lines)
+;   calc      rev_toks (4 lines)
+;
+; about 37 of the 485 lines of wordfreq and calc outside their tests, none of
+; it hard, all of it the place a copy drifts from its original. The smallest
+; program, and what tools/l0check says about it:
+;
+;   03-no-generic-functions.l0:24:11: error: argument 1 of rev must be (list int), but this is (list Pair)
+
+(data Pair (Pair (list int) int))
+
+(def main () int
+  (let ps (rev (cons (Pair "a" 1) (cons (Pair "b" 2) (nil Pair))))
+    0))

@@ -1,0 +1,43 @@
+; LIMIT 01: no array, so no O(1) update of the i-th of many values.
+;
+; A byte histogram is counts[b] += 1 per byte in most languages. The nearest
+; L0 has is a list of 256 counts, which an update rebuilds up to index b,
+; allocating b + 1 cells per input byte. (wordfreq uses an AVL tree instead,
+; which is the same problem at O(log n) rather than O(n) per update.)
+;
+; Measured on a 10 MB text (programs/wordfreq/gen.py 10 20000), with
+; programs/measure.sh, Apple M-series, clang -O2:
+;
+;   reading the bytes and counting them in one int      0.04 s    1.5 MB
+;   this program: a list of 256 counts                  13.10 s    1.5 MB
+;   01-no-array-tree.l0: a depth-8 tree of counts        1.77 s    1.5 MB
+;
+; Both print the same as Python's collections.Counter. The best workaround,
+; the tree, still costs 44 times the reading, all of it allocating and
+; freeing 8 nodes per byte to change one number. wordfreq's version of
+; the same limit: 2.13 s in total, of which 0.30 s is reading and splitting
+; words, 0.84 s is searching the tree, and 1.0 s is rebuilding the search
+; path only to add 1 to a count. Python's dict does the whole job in 0.24 s.
+
+(def zeros ((n int)) (list int)
+  (if (eq n 0) (nil int) (cons 0 (zeros (sub n 1)))))
+
+(def bump ((counts (list int)) (i int)) (list int)
+  (if (eq i 0)
+      (cons (add (head counts) 1) (tail counts))
+      (cons (head counts) (bump (tail counts) (sub i 1)))))
+
+(def count ((counts (list int))) (list int)
+  (let b (read_byte)
+    (if (lt b 0) counts (count (bump counts b)))))
+
+(def show ((counts (list int)) (i int)) int
+  (if (is_empty counts)
+      0
+      (let w (if (gt (head counts) 0)
+                 (write_line (append (digits i) (append " " (digits (head counts)))))
+                 0)
+        (show (tail counts) (add i 1)))))
+
+(def main () int
+  (show (count (zeros 256)) 0))

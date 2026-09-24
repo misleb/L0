@@ -1,0 +1,18 @@
+base      musttail=0     tail=0     selfloops=0   
+  -O0: 0.72s, peak RSS 91 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 128
+  -O2: 0.59s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+tailcc    musttail=313   tail=1     selfloops=0   
+  -O0: 0.73s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+  -O2: 0.59s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+ret       musttail=0     tail=0     selfloops=0   
+  -O0: 0.83s, peak RSS 91 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 128
+  -O2: 0.58s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+tail      musttail=0     tail=314   selfloops=0   
+  -O0: 0.64s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+  -O2: 0.54s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+mustsame  musttail=163   tail=151   selfloops=0   
+  -O0: 0.64s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+  -O2: 0.52s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+loop      musttail=0     tail=0     selfloops=200 
+  -O0: 0.70s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1
+  -O2: 0.51s, peak RSS 26 MB, output identical to stage2.ll, smallest working L0_STACK_MB: 1

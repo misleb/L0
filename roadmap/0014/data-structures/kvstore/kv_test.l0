@@ -1,0 +1,217 @@
+; kv_test.l0 -- tests of kv.l0.
+;
+;   tools/l0 test programs/kvstore/kv.l0 programs/kvstore/kv_test.l0
+;
+; The file tests write under /tmp.
+
+; ----------------------------------------------------------------- escaping
+
+(def test_entry_line_plain () int
+  (check_str "plain" (entry_line "k" "v") "k\tv\n"))
+
+(def test_entry_line_escapes () int
+  (check_str "escaped" (entry_line "a\tb" "x\ny\\") "a\\tb\tx\\ny\\\\\n"))
+
+(def test_key_prefix () int
+  (check_str "prefix" (key_prefix "a\\b") "a\\\\b\t"))
+
+(def test_unescape () int
+  (check_str "decoded" (unescape "x\\ny\\\\z\\t\n" (nil int)) "x\ny\\z\t"))
+
+; Every byte string survives escaping and unescaping, and escaping never
+; produces a raw tab or newline, which the format relies on.
+(def escapes_round_trip ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let bytes (rand_bytes s (rand_below s 20))
+        (let esc (rev (escape_onto bytes (nil int)))
+          (if (if (list_eq (unescape esc (nil int)) bytes)
+                  (not (has_tab_or_newline esc))
+                  false)
+              (escapes_round_trip (rand_next (rand_next s)) (sub runs 1))
+              (check_str "round trip" (unescape esc (nil int)) bytes))))))
+
+(def has_tab_or_newline ((s (list int))) bool
+  (if (is_empty s)
+      false
+      (if (or (eq (head s) 9) (eq (head s) 10))
+          true
+          (has_tab_or_newline (tail s)))))
+
+(def test_escape_round_trip () int
+  (escapes_round_trip 3 500))
+
+; ------------------------------------------------------------------ updates
+
+(def sample ((ignored int)) (list (list int))
+  (cons "a\t1\n" (cons "b\t2\n" (cons "c\t3\n" (nil (list int))))))
+
+(def test_put_replaces_in_place () int
+  (match (put_line (sample 0) (key_prefix "b") (entry_line "b" "9")
+                   (nil (list int)))
+    ((Updated lines found)
+      (add (check_true "found" found)
+           (check_strs "lines" lines
+             (cons "a\t1\n" (cons "b\t9\n" (cons "c\t3\n" (nil (list int))))))))))
+
+(def test_put_appends_new () int
+  (match (put_line (sample 0) (key_prefix "d") (entry_line "d" "4")
+                   (nil (list int)))
+    ((Updated lines found)
+      (add (check_bool "found" found false)
+           (check_int "count" (length_strs lines) 4)))))
+
+(def test_put_prefix_is_not_a_match () int
+  (match (put_line (sample 0) (key_prefix "") (entry_line "" "e")
+                   (nil (list int)))
+    ((Updated lines found) (check_bool "empty key is its own" found false))))
+
+(def test_remove () int
+  (match (remove_line (sample 0) (key_prefix "a") (nil (list int)))
+    ((Updated lines found)
+      (add (check_true "found" found)
+           (check_strs "lines" lines
+             (cons "b\t2\n" (cons "c\t3\n" (nil (list int)))))))))
+
+(def test_remove_missing () int
+  (match (remove_line (sample 0) (key_prefix "z") (nil (list int)))
+    ((Updated lines found)
+      (add (check_bool "found" found false)
+           (check_int "count" (length_strs lines) 3)))))
+
+(def test_find () int
+  (add (check_str "c" (lookup_or (sample 0) "c") "3")
+       (check_str "missing" (lookup_or (sample 0) "cc") "<missing>")))
+
+(def lookup_or ((lines (list (list int))) (key (list int))) (list int)
+  (match (find_in lines (key_prefix key))
+    ((Found v) v)
+    ((Missing) "<missing>")))
+
+(def length_strs ((xs (list (list int)))) int
+  (if (is_empty xs) 0 (add 1 (length_strs (tail xs)))))
+
+; ----------------------------------------------------------------- sharding
+
+(def test_bucket_matches_generator () int
+  (add (check_int "key0000000" (bucket_of "key0000000" 256) 177)
+       (add (check_int "key0099999" (bucket_of "key0099999" 256) 31)
+            (check_int "raw hash" (bucket_of "hello world" 1000003) 970516))))
+
+(def test_store_path () int
+  (add (check_str "single" (store_path "db" "key0000000" 0) "db")
+       (check_str "sharded" (store_path "db" "key0000000" 256) "db.177")))
+
+; --------------------------------------------------------------- the model
+;
+; A random run of sets and deletes over a few keys, applied both to the line
+; format and to a list of pairs updated by a different method, must leave
+; every key with the same value in both.
+
+(data Pair
+  (Pair (list int) (list int)))
+
+(def model_set ((m (list Pair)) (k (list int)) (v (list int))) (list Pair)
+  (cons (Pair k v) (model_del m k)))
+
+(def model_del ((m (list Pair)) (k (list int))) (list Pair)
+  (if (is_empty m)
+      m
+      (match (head m)
+        ((Pair k2 v2)
+          (if (list_eq k k2)
+              (model_del (tail m) k)
+              (cons (head m) (model_del (tail m) k)))))))
+
+(def model_get ((m (list Pair)) (k (list int))) (list int)
+  (if (is_empty m)
+      "<missing>"
+      (match (head m)
+        ((Pair k2 v2) (if (list_eq k k2) v2 (model_get (tail m) k))))))
+
+(def key_n ((n int)) (list int)
+  (pick_str n (cons "a" (cons "b\t" (cons "" (cons "a\\" (cons "\n"
+    (nil (list int)))))))))
+
+(def pick_str ((n int) (xs (list (list int)))) (list int)
+  (if (eq n 0) (head xs) (pick_str (sub n 1) (tail xs))))
+
+(def lines_after ((lines (list (list int))) (op int) (k (list int))
+                  (v (list int))) (list (list int))
+  (if (eq op 0)
+      (match (remove_line lines (key_prefix k) (nil (list int)))
+        ((Updated new found) new))
+      (match (put_line lines (key_prefix k) (entry_line k v) (nil (list int)))
+        ((Updated new found) new))))
+
+(def model_after ((m (list Pair)) (op int) (k (list int)) (v (list int)))
+    (list Pair)
+  (if (eq op 0) (model_del m k) (model_set m k v)))
+
+(def agree ((lines (list (list int))) (m (list Pair)) (n int)) int
+  (if (lt n 0)
+      0
+      (if (list_eq (lookup_or lines (key_n n)) (model_get m (key_n n)))
+          (agree lines m (sub n 1))
+          (check_str "value" (lookup_or lines (key_n n)) (model_get m (key_n n))))))
+
+(def run_ops ((s int) (steps int) (lines (list (list int))) (m (list Pair))) int
+  (if (eq steps 0)
+      (agree lines m 4)
+      (let s1 (rand_next s)
+        (let op (rand_below s1 3)
+          (let k (key_n (rand_below (rand_next s1) 5))
+            (let v (rand_bytes s1 (rand_below s1 5))
+              (run_ops (rand_next (rand_next s1)) (sub steps 1)
+                       (lines_after lines op k v) (model_after m op k v))))))))
+
+(def test_model () int
+  (run_ops 11 2000 (nil (list int)) (nil Pair)))
+
+; -------------------------------------------------------------------- files
+
+(def test_store_then_load () int
+  (let path "/tmp/l0_kv_test_roundtrip"
+    (let w (store path (sample 0))
+      (match (load path)
+        ((LinesFailed why) (check_str "load" why ""))
+        ((Lines lines)
+          (add (check_int "store status" w 0)
+               (check_strs "lines" lines (sample 0))))))))
+
+(def test_load_missing_is_empty () int
+  (match (load "/tmp/l0_kv_test_does_not_exist/x")
+    ((LinesFailed why) (check_str "load" why ""))
+    ((Lines lines) (check_int "no lines" (length_strs lines) 0))))
+
+(def test_load_adds_final_newline () int
+  (let path "/tmp/l0_kv_test_nonewline"
+    (match (open_out path)
+      ((IoFailed why) (check_str "open" why ""))
+      ((IoOpened f)
+        (let w (file_write_str f "a\t1\nb\t2")
+          (let c (file_close f)
+            (match (load path)
+              ((LinesFailed why) (check_str "load" why ""))
+              ((Lines lines)
+                (check_strs "lines" lines
+                  (cons "a\t1\n" (cons "b\t2\n" (nil (list int)))))))))))))
+
+(def test_set_then_del_on_disk () int
+  (let path "/tmp/l0_kv_test_ops"
+    (let a (store path (nil (list int)))
+      (let b (cmd_set path "k" "v1")
+        (let c (cmd_set path "k" "v2")
+          (let d (cmd_set path "j" "w")
+            (let e (cmd_del path "k")
+              (match (load path)
+                ((LinesFailed why) (check_str "load" why ""))
+                ((Lines lines)
+                  (add (check_int "statuses" (add b (add c (add d e))) 0)
+                       (check_strs "left" lines
+                         (cons "j\tw\n" (nil (list int))))))))))))))
+
+(def test_del_missing_on_disk () int
+  (let path "/tmp/l0_kv_test_delmissing"
+    (let a (store path (nil (list int)))
+      (check_int "status" (cmd_del path "nothing") 1))))

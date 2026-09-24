@@ -1,0 +1,35 @@
+; HYPOTHETICAL -- this is not L0. It does not type check today.
+;
+; LIMIT 03 with type parameters on functions, written here as a lower name
+; after a quote, 'a, standing for any type, and chosen at each call from the
+; argument types, as cons already is. Data types stay unparameterised. The
+; value representation needs no change: every value is already one i64,
+; though the compiler must still know per call whether an element is a
+; pointer, for the reference counts and the cons cell's layout mask.
+
+(def rev_onto ((xs (list 'a)) (acc (list 'a))) (list 'a)
+  (if (is_empty xs)
+      acc
+      (rev_onto (tail xs) (cons (head xs) acc))))
+
+(def rev ((xs (list 'a))) (list 'a)
+  (rev_onto xs (nil 'a)))
+
+; wordfreq's rev_wc_onto and calc's rev_toks disappear:
+;
+;   (rev (cons (Pair "a" 1) (nil Pair)))       ; (list Pair)
+;   (rev_onto acc (nil Tok))                   ; (list Tok)
+;
+; A generic sort also needs its ordering as an argument, which is LIMIT 02's
+; option B, function values. With both, wordfreq's 33 lines of sorting
+; become one call:
+
+(def before ((a WC) (b WC)) bool
+  (match a
+    ((WC aw ac)
+      (match b
+        ((WC bw bc)
+          (if (gt ac bc) true (if (lt ac bc) false (lt (cmp_str aw bw) 0))))))))
+
+(def ranked ((t Tree)) (list WC)
+  (sort (to_list t (nil WC)) before))       ; sort: (list 'a), (fn ('a 'a) bool)

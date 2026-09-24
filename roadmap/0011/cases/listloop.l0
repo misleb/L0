@@ -1,0 +1,12 @@
+; Self-recursive loop whose tail call passes a list. The old list is a
+; binding in scope, so it is released (l0_dec) after the arguments are
+; evaluated and before the call. Each iteration allocates one cell and frees
+; the previous one, so memory stays constant however deep the loop goes.
+(def spin ((n int) (xs (list int))) int
+  (if (eq n 0)
+      (length xs)
+      (spin (sub n 1) (cons n (nil int)))))
+
+(def main () int
+  (let r (write_line (digits (spin (int_prefix (arg 0) 0) (nil int))))
+    0))
