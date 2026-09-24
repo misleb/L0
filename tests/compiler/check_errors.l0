@@ -49,4 +49,10 @@
   (let ac (push (check_source (m "(write_byte true)")) ab)
   (let ad (push (check_source (m "(read_byte 1)")) ac)
   (let ae (push (check_source "(def main () bool true)") ad)
-    (rev ae))))))))))))))))))))))))))))))))
+  (let af (push (check_source (both "(data IoThing (Thing int))")) ae)
+  (let ag (push (check_source (both "(data Iota (IoB int))")) af)
+  (let ah (push (check_source_pre
+             "(data IoOk (IoYes int)) (def main ((input (list int))) int 0)"
+             true 24) ag)
+  (let ai (push (check_source (m "(open_read 1)")) ah)
+    (rev ai))))))))))))))))))))))))))))))))))))

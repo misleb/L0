@@ -21,8 +21,10 @@ compiler, which is a pure function from bytes to bytes. The aim now is a
 language that can express ordinary programs, so its limits can be pushed from
 inside it. I/O and memory management come first, as safe facilities the
 runtime provides rather than raw memory in L0 code, so that the checker can
-still catch what goes wrong. A program can already read and write as it goes;
-files, arguments, and freeing memory are next. The runtime is LLVM IR, and no
+still catch what goes wrong. A program can already read and write as it goes,
+open files, and read its command-line arguments; freeing memory is next. Opening
+a file returns a data type whose failure case `match` forces the program to
+handle. The runtime is LLVM IR, and no
 C source goes into a compiled program; libc stays, as the interface to the
 operating system, since on macOS it is the only supported one.
 
@@ -198,8 +200,8 @@ names rather than a module system.
 
 ## What L0 cannot do yet
 
-A program reads standard input and writes standard output, and nothing else:
-there are no files, no command-line arguments, no network, no clock, and no
+A program can read and write its standard streams and files, and read its
+command-line arguments, but there is no network, no clock, and no
 environment. Memory is never freed, so it is proportional to total allocation
 rather than to live data. Lists are the only data structure, so indexing is O(n), and
 there are no arrays, maps, floats, modules, or higher-order functions.

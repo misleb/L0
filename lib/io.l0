@@ -1,5 +1,5 @@
-; io.l0 -- line and string I/O over the read_byte and write_byte builtins of
-; spec section 6.2.
+; io.l0 -- lines, strings, arguments, and files, over the I/O builtins of
+; spec sections 6.2 to 6.4.
 ;
 ; tools/l0 links this into every program, in the prelude group alongside
 ; lib/prelude.l0, so a program may define its own read_line and keep calling
@@ -32,3 +32,91 @@
 (def write_line ((s (list int))) int
   (let w (write_str s)
     (write_byte 10)))
+
+; Writes every byte of s to standard error, and returns 0.
+(def write_err ((s (list int))) int
+  (write_to_handle 2 s))
+
+(def write_to_handle ((h int) (s (list int))) int
+  (if (is_empty s)
+      0
+      (let w (write_to h (head s))
+        (write_to_handle h (tail s)))))
+
+; ------------------------------------------------------------------ arguments
+
+; Every command-line argument, in order, not counting the program's name.
+(def args () (list (list int))
+  (args_from 0 (arg_count)))
+
+(def args_from ((i int) (n int)) (list (list int))
+  (if (ge i n)
+      (nil (list int))
+      (cons (arg i) (args_from (add i 1) n))))
+
+; ---------------------------------------------------------------------- files
+;
+; A file is an IoFile rather than a bare handle, so the checker can tell one
+; from any other int. Opening returns IoOpened, whose IoFailed case a match
+; has to handle, so a program cannot forget that opening can fail. Names
+; beginning with Io are reserved for this library; spec section 7.1.
+
+(data IoFile
+  (IoFile int))
+
+(data IoOpened
+  (IoOpened IoFile)
+  (IoFailed (list int)))
+
+; Opens a file for reading.
+(def open_in ((path (list int))) IoOpened
+  (opened (open_read path)))
+
+; Creates a file, or empties it if it exists, and opens it for writing.
+(def open_out ((path (list int))) IoOpened
+  (opened (open_write path)))
+
+(def opened ((h int)) IoOpened
+  (if (lt h 0)
+      (IoFailed (io_error h))
+      (IoOpened (IoFile h))))
+
+; What a negative result from an I/O builtin means. Spec section 6.3.
+(def io_error ((code int)) (list int)
+  (if (eq code -1)
+      "end of input"
+      (if (eq code -2)
+          "not open in that direction"
+          (if (eq code -3)
+              "no such file"
+              (if (eq code -4)
+                  "permission denied"
+                  "input or output failed")))))
+
+; The next byte of f, or -1 at end of input, or another negative code.
+(def file_read_byte ((f IoFile)) int
+  (match f ((IoFile h) (read_from h))))
+
+; Writes one byte to f, and returns 0, or a negative code.
+(def file_write_byte ((f IoFile) (b int)) int
+  (match f ((IoFile h) (write_to h b))))
+
+; Writes every byte of s to f, and returns 0.
+(def file_write_str ((f IoFile) (s (list int))) int
+  (match f ((IoFile h) (write_to_handle h s))))
+
+; The next line of f, as read_line reads standard input.
+(def file_read_line ((f IoFile)) (list int)
+  (match f ((IoFile h) (rev (read_line_from h (nil int))))))
+
+(def read_line_from ((h int) (acc (list int))) (list int)
+  (let b (read_from h)
+    (if (lt b 0)
+        acc
+        (if (eq b 10)
+            (cons b acc)
+            (read_line_from h (cons b acc))))))
+
+; Closes f. Returns 0, or a negative code if bytes written to it were lost.
+(def file_close ((f IoFile)) int
+  (match f ((IoFile h) (close h))))

@@ -1,0 +1,7 @@
+write_to 0: -2
+read_from 1: -2
+close 1: -2
+close 7: -2
+write_to 99: -2
+read_from -1: -2
+open_read missing: -3

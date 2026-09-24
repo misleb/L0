@@ -1,0 +1,42 @@
+; filecopy FROM TO: copies a file named on the command line to another. Every
+; failure is reported on standard error with status 1, and a wrong number of
+; arguments with status 2. Opening returns IoOpened, so a version that forgot
+; the IoFailed case would not type check.
+
+(def complain ((path (list int)) (why (list int))) int
+  (let w (write_err (append "filecopy: " (append path (append ": "
+           (append why "\n")))))
+    1))
+
+; 0 at the end of src, or the negative code a read failed with.
+(def copy_bytes ((src IoFile) (dst IoFile)) int
+  (let b (file_read_byte src)
+    (if (eq b -1)
+        0
+        (if (lt b 0)
+            b
+            (let w (file_write_byte dst b)
+              (copy_bytes src dst))))))
+
+(def copy_to ((src IoFile) (from (list int)) (to (list int))) int
+  (match (open_out to)
+    ((IoFailed why) (complain to why))
+    ((IoOpened dst)
+      (let status (copy_bytes src dst)
+        (let closed (file_close dst)
+          (if (lt status 0)
+              (complain from (io_error status))
+              (if (lt closed 0) (complain to (io_error closed)) 0)))))))
+
+(def copy ((from (list int)) (to (list int))) int
+  (match (open_in from)
+    ((IoFailed why) (complain from why))
+    ((IoOpened src)
+      (let status (copy_to src from to)
+        (let closed (file_close src)
+          status)))))
+
+(def main () int
+  (if (eq (arg_count) 2)
+      (copy (arg 0) (arg 1))
+      (let w (write_err "usage: filecopy FROM TO\n") 2)))

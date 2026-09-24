@@ -24,6 +24,10 @@ declare i32 @pthread_attr_init(ptr)
 declare i32 @pthread_attr_setstacksize(ptr, i64)
 declare i32 @pthread_create(ptr, ptr, ptr, ptr)
 declare i32 @pthread_join(i64, ptr)
+declare i32 @open(ptr, i32, ...)
+declare i32 @creat(ptr, i32)
+declare i32 @close(i32)
+declare i32 @access(ptr, i32)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 
@@ -37,14 +41,25 @@ declare i64 @l0_f_main(i64)
 @stack_bytes = internal global i64 0
 @exit_status = internal global i64 0
 
-; Buffers for read_byte and write_byte. Spec section 6.2 allows output to be
-; held back only until a read has to wait, or the program ends.
+@argc = internal global i64 0
+@argv = internal global ptr null
+
+; The handle table of spec section 6.3. A handle is an index into it. mode is
+; 0 for closed, 1 for reading, and 2 for writing; state is 0 when all is well,
+; 1 once end of input is seen, 2 after a read failed, and 3 after a write
+; failed, and it sticks, so a terminal is not asked for a second end of file.
+; For reading, pos and len delimit the unread bytes in buf; for writing, len
+; is how many bytes are held back. Handles 0, 1, and 2 use the static buffers
+; below and are never closed; the rest get a buffer from malloc when opened.
+@h_fd = internal global [64 x i64] zeroinitializer
+@h_mode = internal global [64 x i64] zeroinitializer
+@h_state = internal global [64 x i64] zeroinitializer
+@h_buf = internal global [64 x ptr] zeroinitializer
+@h_pos = internal global [64 x i64] zeroinitializer
+@h_len = internal global [64 x i64] zeroinitializer
 @in_buf = internal global [65536 x i8] zeroinitializer
-@in_pos = internal global i64 0
-@in_len = internal global i64 0
-@in_eof = internal global i64 0
 @out_buf = internal global [65536 x i8] zeroinitializer
-@out_len = internal global i64 0
+@err_buf = internal global [65536 x i8] zeroinitializer
 
 @pfx = private constant [19 x i8] c"l0: runtime error: "
 @nl = private constant [1 x i8] c"\0A"
@@ -60,40 +75,41 @@ declare i64 @l0_f_main(i64)
 
 ; ------------------------------------------------------------------ errors
 
-define internal void @write_all(i32 %fd, ptr %p, i64 %n) {
+; Returns 0 if every byte was written, -1 if the descriptor refused some.
+define internal i64 @write_all_rc(i32 %fd, ptr %p, i64 %n) {
 entry:
   br label %loop
 loop:
   %cp = phi ptr [ %p, %entry ], [ %np, %more ]
   %cn = phi i64 [ %n, %entry ], [ %nn, %more ]
   %done = icmp sle i64 %cn, 0
-  br i1 %done, label %out, label %body
+  br i1 %done, label %ok, label %body
 body:
   %w = call i64 @write(i32 %fd, ptr %cp, i64 %cn)
   %bad = icmp sle i64 %w, 0
-  br i1 %bad, label %out, label %more
+  br i1 %bad, label %fail, label %more
 more:
   %np = getelementptr i8, ptr %cp, i64 %w
   %nn = sub i64 %cn, %w
   br label %loop
-out:
-  ret void
+ok:
+  ret i64 0
+fail:
+  ret i64 -1
 }
 
-define internal void @flush_out() {
+define internal void @write_all(i32 %fd, ptr %p, i64 %n) {
 entry:
-  %n = load i64, ptr @out_len
-  call void @write_all(i32 1, ptr @out_buf, i64 %n)
-  store i64 0, ptr @out_len
+  %r = call i64 @write_all_rc(i32 %fd, ptr %p, i64 %n)
   ret void
 }
 
-; Bytes the program wrote are delivered before the diagnostic, and a main
-; that takes its input never has its result written, as spec section 8
-; requires. _exit skips atexit handlers.
+; Bytes the program wrote, to any handle, are delivered before the
+; diagnostic, and a main that takes its input never has its result written,
+; as spec section 8 requires. _exit skips atexit handlers.
 define internal void @rt_error(ptr %m, i64 %n) noreturn noinline {
 entry:
-  call void @flush_out()
+  call void @flush_every()
   call void @write_all(i32 2, ptr @pfx, i64 19)
   call void @write_all(i32 2, ptr %m, i64 %n)
   call void @write_all(i32 2, ptr @nl, i64 1)
@@ -259,64 +275,426 @@ do:
   ret i64 %r
 }
 
-; ------------------------------------------------------------- read_byte
+; ----------------------------------------------------------------- handles
 
-; Output is flushed before every read of the file descriptor, since that read
-; may wait, and spec section 6.2 lets output be held back only until then.
-; Once end of input is seen it is remembered, so a terminal is not asked for
-; a second end of file.
-define i64 @l0_read_byte() {
+; Whether h names a handle open in mode.
+define internal i1 @h_is(i64 %h, i64 %mode) {
 entry:
-  %eof = load i64, ptr @in_eof
-  %done = icmp ne i64 %eof, 0
-  br i1 %done, label %none, label %chk
+  %lo = icmp sge i64 %h, 0
+  %hi = icmp slt i64 %h, 64
+  %in = and i1 %lo, %hi
+  br i1 %in, label %chk, label %no
 chk:
-  %pos = load i64, ptr @in_pos
-  %len = load i64, ptr @in_len
+  %mp = getelementptr [64 x i64], ptr @h_mode, i64 0, i64 %h
+  %m = load i64, ptr %mp
+  %eq = icmp eq i64 %m, %mode
+  ret i1 %eq
+no:
+  ret i1 false
+}
+
+define internal void @h_set(i64 %h, i64 %fd, i64 %mode, ptr %buf) {
+entry:
+  %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
+  store i64 %fd, ptr %fp
+  %mp = getelementptr [64 x i64], ptr @h_mode, i64 0, i64 %h
+  store i64 %mode, ptr %mp
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
+  store i64 0, ptr %sp
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  store ptr %buf, ptr %bp
+  %pp = getelementptr [64 x i64], ptr @h_pos, i64 0, i64 %h
+  store i64 0, ptr %pp
+  %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
+  store i64 0, ptr %lp
+  ret void
+}
+
+define internal void @std_handles() {
+entry:
+  call void @h_set(i64 0, i64 0, i64 1, ptr @in_buf)
+  call void @h_set(i64 1, i64 1, i64 2, ptr @out_buf)
+  call void @h_set(i64 2, i64 2, i64 2, ptr @err_buf)
+  ret void
+}
+
+; Delivers what a writing handle holds back. Returns 0, or -5 if this or an
+; earlier write to the handle failed.
+define internal i64 @h_flush(i64 %h) {
+entry:
+  %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
+  %n = load i64, ptr %lp
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
+  %any = icmp sgt i64 %n, 0
+  br i1 %any, label %write, label %done
+write:
+  %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
+  %fd = load i64, ptr %fp
+  %fd32 = trunc i64 %fd to i32
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %buf = load ptr, ptr %bp
+  %rc = call i64 @write_all_rc(i32 %fd32, ptr %buf, i64 %n)
+  store i64 0, ptr %lp
+  %bad = icmp ne i64 %rc, 0
+  br i1 %bad, label %failed, label %done
+failed:
+  store i64 3, ptr %sp
+  br label %done
+done:
+  %st = load i64, ptr %sp
+  %err = icmp eq i64 %st, 3
+  %r = select i1 %err, i64 -5, i64 0
+  ret i64 %r
+}
+
+; Standard output and standard error, before a read that may wait. Spec
+; section 6.3.
+define internal void @flush_std() {
+entry:
+  %a = call i64 @h_flush(i64 1)
+  %b = call i64 @h_flush(i64 2)
+  ret void
+}
+
+; Every writing handle, when the program ends.
+define internal void @flush_every() {
+entry:
+  br label %loop
+loop:
+  %h = phi i64 [ 0, %entry ], [ %h1, %next ]
+  %end = icmp eq i64 %h, 64
+  br i1 %end, label %done, label %body
+body:
+  %w = call i1 @h_is(i64 %h, i64 2)
+  br i1 %w, label %flush, label %next
+flush:
+  %r = call i64 @h_flush(i64 %h)
+  br label %next
+next:
+  %h1 = add i64 %h, 1
+  br label %loop
+done:
+  ret void
+}
+
+; Standard output and error are flushed before every read of a descriptor,
+; since that read may wait.
+define i64 @l0_read_from(i64 %h) {
+entry:
+  %ok = call i1 @h_is(i64 %h, i64 1)
+  br i1 %ok, label %state, label %bad
+bad:
+  ret i64 -2
+state:
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
+  %st = load i64, ptr %sp
+  %eof = icmp eq i64 %st, 1
+  br i1 %eof, label %ended, label %chkerr
+chkerr:
+  %err = icmp eq i64 %st, 2
+  br i1 %err, label %failed, label %chk
+chk:
+  %pp = getelementptr [64 x i64], ptr @h_pos, i64 0, i64 %h
+  %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %buf = load ptr, ptr %bp
+  %pos = load i64, ptr %pp
+  %len = load i64, ptr %lp
   %have = icmp slt i64 %pos, %len
   br i1 %have, label %take, label %fill
 fill:
-  call void @flush_out()
-  %n = call i64 @read(i32 0, ptr @in_buf, i64 65536)
+  call void @flush_std()
+  %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
+  %fd = load i64, ptr %fp
+  %fd32 = trunc i64 %fd to i32
+  %n = call i64 @read(i32 %fd32, ptr %buf, i64 65536)
   %got = icmp sgt i64 %n, 0
-  br i1 %got, label %filled, label %ended
-ended:
-  store i64 1, ptr @in_eof
-  br label %none
+  br i1 %got, label %filled, label %nothing
+nothing:
+  %zero = icmp eq i64 %n, 0
+  %ns = select i1 %zero, i64 1, i64 2
+  store i64 %ns, ptr %sp
+  br i1 %zero, label %ended, label %failed
 filled:
-  store i64 %n, ptr @in_len
-  store i64 0, ptr @in_pos
+  store i64 %n, ptr %lp
+  store i64 0, ptr %pp
   br label %take
 take:
   %p = phi i64 [ %pos, %chk ], [ 0, %filled ]
-  %bp = getelementptr i8, ptr @in_buf, i64 %p
-  %b = load i8, ptr %bp
+  %cp = getelementptr i8, ptr %buf, i64 %p
+  %b = load i8, ptr %cp
   %v = zext i8 %b to i64
   %p1 = add i64 %p, 1
-  store i64 %p1, ptr @in_pos
+  store i64 %p1, ptr %pp
   ret i64 %v
+ended:
+  ret i64 -1
+failed:
+  ret i64 -5
+}
+
+define i64 @l0_write_to(i64 %h, i64 %v) {
+entry:
+  %ok = call i1 @h_is(i64 %h, i64 2)
+  br i1 %ok, label %go, label %bad
+bad:
+  ret i64 -2
+go:
+  %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
+  %n = load i64, ptr %lp
+  %full = icmp eq i64 %n, 65536
+  br i1 %full, label %flush, label %put
+flush:
+  %r = call i64 @h_flush(i64 %h)
+  br label %put
+put:
+  %n1 = phi i64 [ %n, %go ], [ 0, %flush ]
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %buf = load ptr, ptr %bp
+  %cp = getelementptr i8, ptr %buf, i64 %n1
+  %b = trunc i64 %v to i8
+  store i8 %b, ptr %cp
+  %n2 = add i64 %n1, 1
+  store i64 %n2, ptr %lp
+  ret i64 0
+}
+
+define i64 @l0_read_byte() {
+entry:
+  %r = call i64 @l0_read_from(i64 0)
+  ret i64 %r
+}
+
+define i64 @l0_write_byte(i64 %v) {
+entry:
+  %r = call i64 @l0_write_to(i64 1, i64 %v)
+  ret i64 %r
+}
+
+define i64 @l0_close(i64 %h) {
+entry:
+  %std = icmp slt i64 %h, 3
+  br i1 %std, label %bad, label %chk
+chk:
+  %r = call i1 @h_is(i64 %h, i64 1)
+  %w = call i1 @h_is(i64 %h, i64 2)
+  %open = or i1 %r, %w
+  br i1 %open, label %go, label %bad
+bad:
+  ret i64 -2
+go:
+  br i1 %w, label %flush, label %shut
+flush:
+  %fr = call i64 @h_flush(i64 %h)
+  br label %shut
+shut:
+  %res = phi i64 [ 0, %go ], [ %fr, %flush ]
+  %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
+  %fd = load i64, ptr %fp
+  %fd32 = trunc i64 %fd to i32
+  %c = call i32 @close(i32 %fd32)
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %buf = load ptr, ptr %bp
+  call void @free(ptr %buf)
+  %mp = getelementptr [64 x i64], ptr @h_mode, i64 0, i64 %h
+  store i64 0, ptr %mp
+  %cfail = icmp ne i32 %c, 0
+  %final = select i1 %cfail, i64 -5, i64 %res
+  ret i64 %final
+}
+
+; ------------------------------------------------------------------- files
+
+; An L0 list as a NUL-terminated C string from malloc, or null if it holds a
+; zero byte or memory ran out.
+define internal ptr @to_cstr(i64 %l) {
+entry:
+  br label %count
+count:
+  %c = phi i64 [ %l, %entry ], [ %cn, %cstep ]
+  %n = phi i64 [ 0, %entry ], [ %n1, %cstep ]
+  %cend = icmp eq i64 %c, 0
+  br i1 %cend, label %alloc, label %cstep
+cstep:
+  %cq = inttoptr i64 %c to ptr
+  %cnp = getelementptr i64, ptr %cq, i64 1
+  %cn = load i64, ptr %cnp
+  %n1 = add i64 %n, 1
+  br label %count
+alloc:
+  %sz = add i64 %n, 1
+  %s = call ptr @malloc(i64 %sz)
+  %null = icmp eq ptr %s, null
+  br i1 %null, label %fail, label %copy
+copy:
+  %d = phi i64 [ %l, %alloc ], [ %dn, %store ]
+  %i = phi i64 [ 0, %alloc ], [ %i1, %store ]
+  %dend = icmp eq i64 %d, 0
+  br i1 %dend, label %term, label %elem
+elem:
+  %dq = inttoptr i64 %d to ptr
+  %v = load i64, ptr %dq
+  %b = trunc i64 %v to i8
+  %zb = icmp eq i8 %b, 0
+  br i1 %zb, label %zero, label %store
+store:
+  %sp = getelementptr i8, ptr %s, i64 %i
+  store i8 %b, ptr %sp
+  %i1 = add i64 %i, 1
+  %dnp = getelementptr i64, ptr %dq, i64 1
+  %dn = load i64, ptr %dnp
+  br label %copy
+zero:
+  call void @free(ptr %s)
+  br label %fail
+term:
+  %tp = getelementptr i8, ptr %s, i64 %i
+  store i8 0, ptr %tp
+  ret ptr %s
+fail:
+  ret ptr null
+}
+
+define internal i64 @free_handle() {
+entry:
+  br label %loop
+loop:
+  %h = phi i64 [ 3, %entry ], [ %h1, %next ]
+  %end = icmp eq i64 %h, 64
+  br i1 %end, label %none, label %body
+body:
+  %mp = getelementptr [64 x i64], ptr @h_mode, i64 0, i64 %h
+  %m = load i64, ptr %mp
+  %free = icmp eq i64 %m, 0
+  br i1 %free, label %found, label %next
+next:
+  %h1 = add i64 %h, 1
+  br label %loop
+found:
+  ret i64 %h
 none:
   ret i64 -1
 }
 
-; ------------------------------------------------------------ write_byte
-
-define i64 @l0_write_byte(i64 %v) {
+; mode 1 opens for reading and mode 2 creates or empties for writing. The
+; results are spec section 6.3's. Reading only opens with flags 0 and writing
+; uses creat, because O_CREAT and O_TRUNC differ between macOS and Linux; and
+; errno is not reachable portably, so access() tells why an open failed.
+define internal i64 @open_handle(i64 %path, i64 %mode) {
 entry:
-  %n = load i64, ptr @out_len
-  %full = icmp eq i64 %n, 65536
-  br i1 %full, label %flush, label %put
-flush:
-  call void @flush_out()
-  br label %put
-put:
-  %n1 = phi i64 [ %n, %entry ], [ 0, %flush ]
-  %bp = getelementptr i8, ptr @out_buf, i64 %n1
-  %b = trunc i64 %v to i8
-  store i8 %b, ptr %bp
-  %n2 = add i64 %n1, 1
-  store i64 %n2, ptr @out_len
+  %rd = icmp eq i64 %mode, 1
+  %s = call ptr @to_cstr(i64 %path)
+  %nos = icmp eq ptr %s, null
+  br i1 %nos, label %other, label %slot
+slot:
+  %h = call i64 @free_handle()
+  %noh = icmp slt i64 %h, 0
+  br i1 %noh, label %other_free, label %buf
+buf:
+  %b = call ptr @malloc(i64 65536)
+  %nob = icmp eq ptr %b, null
+  br i1 %nob, label %other_free, label %which
+which:
+  br i1 %rd, label %openr, label %openw
+openr:
+  %fr = call i32 (ptr, i32, ...) @open(ptr %s, i32 0)
+  br label %opened
+openw:
+  %fw = call i32 @creat(ptr %s, i32 420)
+  br label %opened
+opened:
+  %fd = phi i32 [ %fr, %openr ], [ %fw, %openw ]
+  %failed = icmp slt i32 %fd, 0
+  br i1 %failed, label %why, label %ok
+ok:
+  %fd64 = sext i32 %fd to i64
+  call void @h_set(i64 %h, i64 %fd64, i64 %mode, ptr %b)
+  call void @free(ptr %s)
+  ret i64 %h
+why:
+  call void @free(ptr %b)
+  %exists = call i32 @access(ptr %s, i32 0)
+  %missing = icmp ne i32 %exists, 0
+  %want = select i1 %rd, i32 4, i32 2
+  %may = call i32 @access(ptr %s, i32 %want)
+  %denied = icmp ne i32 %may, 0
+  call void @free(ptr %s)
+  br i1 %missing, label %gone, label %present
+gone:
+  %g = select i1 %rd, i64 -3, i64 -5
+  ret i64 %g
+present:
+  %p = select i1 %denied, i64 -4, i64 -5
+  ret i64 %p
+other_free:
+  call void @free(ptr %s)
+  br label %other
+other:
+  ret i64 -5
+}
+
+define i64 @l0_open_read(i64 %path) {
+entry:
+  %h = call i64 @open_handle(i64 %path, i64 1)
+  ret i64 %h
+}
+
+define i64 @l0_open_write(i64 %path) {
+entry:
+  %h = call i64 @open_handle(i64 %path, i64 2)
+  ret i64 %h
+}
+
+; --------------------------------------------------------------- arguments
+
+define i64 @l0_arg_count() {
+entry:
+  %c = load i64, ptr @argc
+  %n = sub i64 %c, 1
+  %neg = icmp slt i64 %n, 0
+  %r = select i1 %neg, i64 0, i64 %n
+  ret i64 %r
+}
+
+; argv[0] is the program's own name, so argument i is argv[i + 1].
+define i64 @l0_arg(i64 %i) {
+entry:
+  %count = call i64 @l0_arg_count()
+  %lo = icmp sge i64 %i, 0
+  %hi = icmp slt i64 %i, %count
+  %in = and i1 %lo, %hi
+  br i1 %in, label %get, label %none
+none:
   ret i64 0
+get:
+  %av = load ptr, ptr @argv
+  %i1 = add i64 %i, 1
+  %ap = getelementptr ptr, ptr %av, i64 %i1
+  %s = load ptr, ptr %ap
+  br label %len
+len:
+  %n = phi i64 [ 0, %get ], [ %n1, %lstep ]
+  %cp = getelementptr i8, ptr %s, i64 %n
+  %c = load i8, ptr %cp
+  %z = icmp eq i8 %c, 0
+  br i1 %z, label %bl, label %lstep
+lstep:
+  %n1 = add i64 %n, 1
+  br label %len
+bl:
+  %k = phi i64 [ %n, %len ], [ %k1, %bstep ]
+  %acc = phi i64 [ 0, %len ], [ %acc1, %bstep ]
+  %more = icmp sgt i64 %k, 0
+  br i1 %more, label %bstep, label %done
+bstep:
+  %k1 = sub i64 %k, 1
+  %bp = getelementptr i8, ptr %s, i64 %k1
+  %b = load i8, ptr %bp
+  %bv = zext i8 %b to i64
+  %acc1 = call i64 @l0_cons(i64 %bv, i64 %acc)
+  br label %bl
+done:
+  ret i64 %acc
 }
 
 ; ------------------------------------------------------------------- input
@@ -513,8 +891,9 @@ ok:
 ; size below the frame where the program starts.
 ;
 ; Kind 3 is a main that streams: nothing is read for it, and its result is
-; the exit status. The other kinds take the whole input, so read_byte is told
-; the input has already ended. Spec section 9.
+; the exit status. The other kinds take the whole input, so standard input is
+; marked as already ended. Spec section 9. Either way every handle is flushed
+; at the end, as if closed. Spec section 6.3.
 define internal ptr @run(ptr %unused) noinline {
 entry:
   %fp = call ptr @llvm.frameaddress.p0(i32 0)
@@ -523,20 +902,22 @@ entry:
   %base = sub i64 %f, %sz
   %lim = add i64 %base, 262144
   store i64 %lim, ptr @stack_limit
+  call void @std_handles()
   %k = load i64, ptr @l0_main_ret_kind
   %streams = icmp eq i64 %k, 3
   br i1 %streams, label %stream, label %whole
 stream:
   %s = call i64 @l0_f_main(i64 0)
-  call void @flush_out()
+  call void @flush_every()
   %st = and i64 %s, 255
   store i64 %st, ptr @exit_status
   ret ptr null
 whole:
   %in = call i64 @read_stdin()
-  store i64 1, ptr @in_eof
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 0
+  store i64 1, ptr %sp
   %r = call i64 @l0_f_main(i64 %in)
-  call void @flush_out()
+  call void @flush_every()
   call void @write_result(i64 %r, i64 %k)
   ret ptr null
 }
@@ -559,8 +940,11 @@ entry:
 }
 
 ; The stack size comes from L0_STACK_MB, default 512.
-define i32 @main() {
+define i32 @main(i32 %argc, ptr %argv) {
 entry:
+  %argc64 = sext i32 %argc to i64
+  store i64 %argc64, ptr @argc
+  store ptr %argv, ptr @argv
   %attr = alloca [128 x i8], align 16
   %tid = alloca i64
   %env = call ptr @getenv(ptr @env_name)

@@ -190,7 +190,25 @@ keeps the line's newline, so strip it with `take_line`.
 Output written before a read that has to wait is always shown first, so a
 prompt appears before the program waits for its answer.
 
-There are no files, command-line arguments, clock, or network yet.
+**Files and arguments.** Use the `l0/io.l0` wrappers, not the raw builtins.
+`(open_in path)` and `(open_out path)` return `IoOpened`, and `match` makes you
+handle its `IoFailed` case, whose field says why in words. Then
+`file_read_byte`, `file_read_line`, `file_write_str`, and `file_close` work on
+the `IoFile` inside. `(arg_count)` and `(arg i)` are the command-line
+arguments, not counting the program's name. `write_err` writes to standard
+error. Report failure by returning a nonzero exit status from `main`.
+
+A file read returns -1 at end of input and another negative number if the
+read failed, so test for -1 and for other negatives separately, or a failed
+read looks like a short file. `file_close` on a file you wrote returns a
+negative number if its bytes could not be written, which is the only place a
+write failure shows up; check it.
+
+Type and constructor names beginning with `Io` and an uppercase letter, such
+as `IoFile`, are reserved for the standard library, so name your own types
+something else.
+
+There is no clock, network, or environment yet, and memory is never freed.
 
 ## Testing
 

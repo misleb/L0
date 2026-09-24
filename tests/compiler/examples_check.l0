@@ -1,6 +1,19 @@
 ; The examples shipped to new projects must keep compiling. This checks the
 ; very file `l0 init` copies, so it cannot rot into something that no longer
 ; works for the first person who reads it.
+;
+; The input is lib/prelude.l0, lib/io.l0, and lib/examples.l0, concatenated.
+; The first two are checked as the prelude group, as tools/l0 links them,
+; since only the prelude may declare the Io names spec section 7.1 reserves.
+; The examples begin at their header line.
+
+(def offset_of ((s (list int)) (marker (list int)) (i int)) int
+  (if (is_empty s)
+      -1
+      (if (starts_with s marker)
+          i
+          (offset_of (tail s) marker (add i 1)))))
 
 (def main ((input (list int))) (list int)
-  (check_source_lib input))
+  (check_source_pre input false
+    (offset_of input "; examples.l0 -- worked L0 programs" 0)))

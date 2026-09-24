@@ -48,8 +48,8 @@ narrowed contract, passes and is still wrong.
 Anything a ten-line function solves is not a language limitation. A prompt, a
 confirmation, or progress during a run is not one either: write it with a
 `main` that takes no parameters and reads and writes as it goes, as the
-`l0-code` skill shows. Files, command-line arguments, and freeing memory do
-not exist yet.
+`l0-code` skill shows, and so are files and command-line arguments. Freeing
+memory, a clock, a network, and the environment do not exist yet.
 
 ## Two traps specific to L0
 

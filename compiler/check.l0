@@ -115,8 +115,11 @@
 (def bi_bool_bool ((i int)) (list (list int)) (split_spaces "and or"))
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
 
-; The effects of spec 6.2. Both are int-typed, so need_all checks them.
-(def bi_io ((i int)) (list (list int)) (split_spaces "read_byte write_byte"))
+; The effects of spec 6.2 to 6.4. Those in bi_io take and return only ints,
+; so need_all checks them; bi_path take a path and return an int.
+(def bi_io ((i int)) (list (list int))
+  (split_spaces "read_byte write_byte read_from write_to close arg_count"))
+(def bi_path ((i int)) (list (list int)) (split_spaces "open_read open_write"))
 
 (def is_builtin ((n (list int))) bool
   (or (any_eq n (bi_int_int_int 0))
@@ -124,12 +127,14 @@
           (or (any_eq n (bi_bool_bool 0))
               (or (any_eq n (bi_list_ops 0))
                   (or (any_eq n (bi_io 0))
-                      (or (list_eq n "neg") (list_eq n "not"))))))))
+                      (or (any_eq n (bi_path 0))
+                          (any_eq n (split_spaces "neg not arg")))))))))
 
 (def builtin_arity ((n (list int))) int
-  (if (list_eq n "read_byte")
+  (if (any_eq n (split_spaces "read_byte arg_count"))
       0
-      (if (any_eq n (split_spaces "neg not head tail is_empty write_byte"))
+      (if (any_eq n (split_spaces
+            "neg not head tail is_empty write_byte read_from close arg open_read open_write"))
           1
           2)))
 
@@ -164,7 +169,14 @@
                       (need_all n ats o (TyInt) (TyInt))
                       (if (list_eq n "not")
                           (need_all n ats o (TyBool) (TyBool))
-                          (check_list_builtin n ats o))))))))
+                          (check_other_builtin n ats o))))))))
+
+(def check_other_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
+  (if (any_eq n (bi_path 0))
+      (need_all n ats o (TyList (TyInt)) (TyInt))
+      (if (list_eq n "arg")
+          (need_all n ats o (TyInt) (TyList (TyInt)))
+          (check_list_builtin n ats o))))
 
 (def need_all ((n (list int)) (ats (list Ty)) (o int) (want Ty) (res Ty)) CTy
   (if (is_empty ats)
@@ -794,6 +806,43 @@
   (let uds (program_decls ds pre (nil Decl))
     (rev_diags_onto
       (check_decls ds (prelude_view ds pre) (program_view ds pre) pre
-        (check_dups ds pre (nil (list int)) (nil (list int))
-                    (nil (list int)) (nil (list int)) (nil Diag)))
+        (check_reserved uds
+          (check_dups ds pre (nil (list int)) (nil (list int))
+                      (nil (list int)) (nil (list int)) (nil Diag))))
       (check_main uds want_main))))
+
+; ------------------------------------------------ names reserved for the prelude
+;
+; Upper names beginning with Io and an uppercase letter belong to the prelude,
+; so that it can gain types without breaking programs that already used the
+; name. Only program declarations are checked. Spec 7.1.
+
+(def is_reserved_upper ((n (list int))) bool
+  (if (starts_with n "Io")
+      (let r (drop_n n 2)
+        (if (is_empty r) false (is_upper (head r))))
+      false))
+
+(def check_reserved ((ds (list Decl)) (acc (list Diag))) (list Diag)
+  (if (is_empty ds)
+      acc
+      (check_reserved (tail ds) (prepend_diags (reserved_in (head ds)) acc))))
+
+(def reserved_in ((d Decl)) (list Diag)
+  (match d
+    ((DDef o n ps ret body) (nil Diag))
+    ((DData o n cs)
+      (if (is_reserved_upper n)
+          (one_diag o (reserved_msg "type" n))
+          (reserved_ctor o cs)))))
+
+(def reserved_ctor ((o int) (cs (list Ctor))) (list Diag)
+  (if (is_empty cs)
+      (nil Diag)
+      (if (is_reserved_upper (ctor_decl_name (head cs)))
+          (one_diag o (reserved_msg "constructor" (ctor_decl_name (head cs))))
+          (reserved_ctor o (tail cs)))))
+
+(def reserved_msg ((what (list int)) (n (list int))) (list int)
+  (append what (append " " (append n
+    " has a name reserved for the standard library"))))

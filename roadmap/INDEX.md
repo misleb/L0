@@ -11,10 +11,8 @@ management and I/O".
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0009](0009-args-files-failure.md) arguments, files, and failure — queued,
-   ready; exit status already landed with 0008
-2. [0010](0010-reference-counting.md) reclaim memory by reference counting —
-   queued, needs 0009
+1. [0010](0010-reference-counting.md) reclaim memory by reference counting —
+   queued, ready
 
 ## Other open items
 
@@ -41,3 +39,5 @@ Changes to the language, strictly in order. At most one is active.
   done, changelog "Checking a fragment still checks its main"
 - [0008](0008-streaming-io.md) streaming standard input and output — done,
   changelog "Reading and writing as a program runs"
+- [0009](0009-args-files-failure.md) arguments, files, and failure — done,
+  changelog "Files, arguments, and names reserved for the standard library"

@@ -117,7 +117,11 @@ its name is unused, so `(let w (write_byte 63) (read_byte))` writes, then reads.
 A `main` that uses them usually takes no parameters and returns the exit
 status; see spec sections 6.2 and 9. **The compiler's own sources must not use
 them**, and nor may `lib/prelude.l0`: stage 0 runs both and does not know
-them. Line helpers belong in `lib/io.l0`, and tests in `tests/io/`.
+them. Line helpers belong in `lib/io.l0`, and tests in `tests/io/`. The same
+goes for the file and argument builtins of spec sections 6.3 and 6.4. When
+`lib/io.l0` is among the files given to `tools/l0check` or `tools/l0c`, it and
+`lib/prelude.l0` are checked as the prelude group, since only the prelude may
+declare the `Io` names spec section 7.1 reserves.
 
 ## The one performance rule
 

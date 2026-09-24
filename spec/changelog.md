@@ -7,6 +7,83 @@ New entries go at the top.
 
 ---
 
+## Files, arguments, and names reserved for the standard library
+
+**L0 can open files and read its command-line arguments.** Seven builtins,
+over integer handles into a runtime table: `read_from`, `write_to`,
+`open_read`, `open_write`, and `close` (section 6.3), and `arg_count` and `arg`
+(section 6.4). Handles 0, 1, and 2 are the standard streams, so `read_byte` is
+exactly `(read_from 0)`. Upper names beginning with `Io` and an uppercase
+letter are now reserved for the prelude (section 7.1), which a program that
+declared one will now fail to compile over.
+
+**The blocker.** Roadmap item 0006 could not write a file copy: there were no
+arguments, no files, and no way to fail but a crash. The checker confirmed
+the missing pieces (`unknown function 'read_file'`, `unknown function
+'write_file'`, `unknown function 'fail'`). `tests/io/filecopy` is now the
+program 0006 said should have been possible. `filecopy.sh` checks a
+byte-exact copy of 300 KB of random data, an existing destination emptied
+first, and the exact message and status for a missing source, an unwritable
+destination, an unreadable source, and a usage error.
+
+**Why failure is a data type, and where the type lives.** "The route to memory
+management and I/O" chose safe facilities partly because an operation that
+can fail can return a data type with a failure case, and exhaustive `match`
+then rejects a program that forgets it. So `lib/io.l0` declares `IoFile` and
+`IoOpened`, with cases `IoOpened` and `IoFailed`, and wraps the builtins in
+`open_in`, `open_out`, and friends. A program that matches on `(open_in path)`
+and leaves out `IoFailed` does not type check.
+
+The builtins themselves return negative codes rather than data types, because
+a builtin's result type would have to be predeclared.
+
+**Why reserve names.** Type and constructor names are one namespace across
+the prelude and the program (section 7.1), for reasons that section records.
+So any type the library declares breaks every program that already declared
+the same name, and each later library type would do it again. Three answers
+were weighed with the user: reserve a prefix for the library; group type and
+constructor names per group, as functions are, which would touch about 44
+resolution sites and override 7.1's stated reasons; or accept collisions.
+Reserving was chosen. It is one checker rule, it can never break a program
+again once made, and a reader can see which types are the library's. The
+prefix is `Io` for what exists now; a later library area that needs types
+gets a prefix of its own, which will itself be a breaking change for any
+program that used it, once.
+
+The rule is `Io` followed by an uppercase letter, so `IoFile` is reserved and
+`Iota` and `Ion` are not. Only program declarations are checked. For that to
+work outside `tools/l0`, `tools/l0c` and `tools/l0check` now put
+`lib/prelude.l0` and `lib/io.l0` in the prelude group whenever `lib/io.l0` is
+among their files, through a shared `tools/bundle.sh`; otherwise they
+compile everything as the program, as before. `examples_check` checks the
+examples the same way.
+
+**What the runtime could and could not do portably.** It stays one text for
+every host, so:
+
+- files open with `open` and flags 0, since read-only is 0 everywhere, and are
+  created with `creat`, since the values of `O_CREAT` and `O_TRUNC` differ
+  between macOS and Linux
+- `errno` is a macro over a function whose name differs between platforms,
+  so the reason an open failed comes from `access()` instead. That is why the
+  codes are few: no such file and permission denied can be told apart
+  reliably, and everything else is -5
+- a write failure can only be reported by `close`, since bytes may be held
+  back until then; section 6.3 says so, and the l0-code skill tells programs
+  to check it
+
+Every handle is buffered. Standard output and error are flushed before any
+read that has to wait, which keeps 6.2's prompt guarantee, and every handle
+is flushed when the program ends, including by a runtime error.
+
+**Verified on Linux too.** Both suites pass in an Ubuntu container, 56 and 62.
+The permission case first failed there, because Docker's bind mount does not
+enforce permission bits; on the container's own filesystem it passes, and
+`filecopy.sh` now checks that case only where a mode-000 file really cannot
+be read.
+
+---
+
 ## Reading and writing as a program runs
 
 **L0 has effects.** Two builtins, `read_byte` and `write_byte` (section 6.2),

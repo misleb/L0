@@ -1,7 +1,7 @@
 # 0009: Arguments, files, and failure
 
 Kind: language
-Status: queued
+Status: done
 Needs: 0008
 
 ## Why
@@ -46,3 +46,36 @@ route: opening a file returns a data type with a failure case, so exhaustive
   style 0008 chose, `read_byte` returning -1 rather than a data type, avoided
   the predeclared-type question for now; file operations that fail will not
   be able to.
+- 2026-09-23: started. The user chose to reserve type and constructor names
+  beginning with `Io` and an uppercase letter for the standard library, over
+  grouping type names (about 44 resolution sites, against 7.1's stated
+  reasons) or accepting collisions. Design:
+  - builtins over integer handles into a runtime table, with 0, 1, and 2 the
+    standard streams, so `read_byte` is `(read_from 0)`: `arg_count`, `arg`,
+    `open_read`, `open_write`, `read_from`, `write_to`, `close`
+  - failures are negative codes, a few of them specified, since a builtin
+    cannot return a data type without predeclaring it
+  - `lib/io.l0` declares `IoFile` and `IoOpened`/`IoFailed` and wraps the
+    builtins, so a `match` on opening a file must handle failure
+  - the runtime stays portable: `open` with read-only, which is 0 on both
+    platforms, and `creat` for writing, since `O_CREAT` and `O_TRUNC` differ
+    between macOS and Linux; `errno` is not reachable portably, so the reason
+    for a failure comes from `access()`
+- 2026-09-23: done; changelog "Files, arguments, and names reserved for the
+  standard library". Filecopy is `tests/io/filecopy`, and `filecopy.sh`
+  checks a byte-exact 300 KB copy and each failure's message and status; it
+  rejects a program that does not really copy. Built with `tools/l0`, it
+  copies, reports a missing file with status 1, and a usage error with 2.
+  Along the way:
+  - `tools/l0check` and `tools/l0c` had to learn the prelude group, or the
+    library's own `IoFile` was rejected as reserved; they now group
+    `lib/prelude.l0` and `lib/io.l0` whenever `lib/io.l0` is given, through
+    a shared `tools/bundle.sh`
+  - `examples_check` now checks the examples with the libraries as the
+    prelude, finding where the examples begin by their header line
+  - on Linux in Docker, the permission case failed because the bind mount
+    ignores permission bits; `filecopy.sh` now checks it only where they are
+    enforced, and both suites pass there off the bind mount
+  Both suites pass (56 interpreted, 62 compiled) on macOS and Linux, the
+  fixpoint holds, the seed is refreshed, and a fresh copy installs and builds
+  filecopy.

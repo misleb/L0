@@ -48,18 +48,8 @@ trap 'rm -f "$IN" "$OUT"' EXIT
 
 # Paths are recorded as given, before changing directory, so diagnostics name
 # files the way the caller named them.
-{
-    echo "#l0bundle"
-    echo "#nomain"
-    offset=0
-    for f in "$@"; do
-        echo "$offset $f"
-        size=$(wc -c < "$f" | tr -d ' ')
-        offset=$((offset + size))
-    done
-    echo "#source"
-    cat "$@"
-} > "$IN"
+. "$ROOT/tools/bundle.sh"
+write_bundle 1 "$@" > "$IN"
 
 if [ -x "$BUILD/l0i" ]; then
     # shellcheck disable=SC2086

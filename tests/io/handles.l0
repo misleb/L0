@@ -1,0 +1,17 @@
+; What the I/O builtins return for handles that are not open in the right
+; direction, for the standard streams that cannot be closed, and for a file
+; that does not exist. Spec section 6.3. Also writes to standard error.
+
+(def show ((label (list int)) (v int)) int
+  (write_line (append label (append " " (digits v)))))
+
+(def main () int
+  (let a (write_err "to standard error\n")
+    (let b (show "write_to 0:" (write_to 0 65))
+      (let c (show "read_from 1:" (read_from 1))
+        (let d (show "close 1:" (close 1))
+          (let e (show "close 7:" (close 7))
+            (let f (show "write_to 99:" (write_to 99 65))
+              (let g (show "read_from -1:" (read_from -1))
+                (show "open_read missing:"
+                  (open_read "/nonexistent/l0/file"))))))))))

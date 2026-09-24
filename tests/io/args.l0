@@ -1,0 +1,14 @@
+; Writes the argument count, then each argument on its own line, then what
+; arg gives for an index out of range, which is the empty list.
+
+(def each ((i int) (n int)) int
+  (if (ge i n)
+      0
+      (let w (write_line (append "[" (append (arg i) "]")))
+        (each (add i 1) n))))
+
+(def main () int
+  (let c (write_line (digits (arg_count)))
+    (let e (each 0 (arg_count))
+      (let a (write_line (append "past the end: [" (append (arg (arg_count)) "]")))
+        (write_line (append "negative: [" (append (arg -1) "]")))))))

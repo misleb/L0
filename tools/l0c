@@ -41,17 +41,8 @@ if [ $# -gt 0 ]; then
 
     # An input bundle: a table of byte offsets and paths, so diagnostics can
     # name the file a problem is in rather than a line in the concatenation.
-    {
-        echo "#l0bundle"
-        offset=0
-        for f in "$@"; do
-            echo "$offset $f"
-            size=$(wc -c < "$f" | tr -d ' ')
-            offset=$((offset + size))
-        done
-        echo "#source"
-        cat "$@"
-    } > "$IN"
+    . "$ROOT/tools/bundle.sh"
+    write_bundle 0 "$@" > "$IN"
 else
     cat > "$IN"
 fi
