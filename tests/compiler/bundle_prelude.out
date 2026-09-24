@@ -13,6 +13,8 @@ declare i64 @l0_data_get(i64, i64)
 declare void @l0_stack_check()
 declare i64 @l0_read_byte()
 declare i64 @l0_write_byte(i64)
+declare void @l0_inc(i64)
+declare void @l0_dec(i64)
 declare i64 @l0_new_cons(i64, i64, i64)
 declare i64 @l0_new_data(i64, i64, i64)
 declare i64 @l0_read_from(i64)
@@ -42,6 +44,7 @@ entry:
 define i64 @l0_f_main(i64 %a0) {
 entry:
   call void @l0_stack_check()
+  call void @l0_dec(i64 %a0)
   %t0 = call i64 @l0_f_h(i64 4)
   ret i64 %t0
 }

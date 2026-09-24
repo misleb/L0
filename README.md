@@ -22,7 +22,8 @@ language that can express ordinary programs, so its limits can be pushed from
 inside it. I/O and memory management come first, as safe facilities the
 runtime provides rather than raw memory in L0 code, so that the checker can
 still catch what goes wrong. A program can already read and write as it goes,
-open files, and read its command-line arguments; freeing memory is next. Opening
+open files, and read its command-line arguments, and memory is reclaimed by
+reference counting, so a program that streams runs in constant memory. Opening
 a file returns a data type whose failure case `match` forces the program to
 handle. The runtime is LLVM IR, and no
 C source goes into a compiled program; libc stays, as the interface to the
@@ -213,12 +214,13 @@ names rather than a module system.
 
 A program can read and write its standard streams and files, and read its
 command-line arguments, but there is no network, no clock, and no
-environment. Memory is never freed, so it is proportional to total allocation
-rather than to live data. Lists are the only data structure, so indexing is O(n), and
+environment. Memory is freed by reference counting when a binding's scope
+ends, not at a value's last use, so a whole-input `main` holds its input for
+as long as it runs. Lists are the only data structure, so indexing is O(n), and
 there are no arrays, maps, floats, modules, or higher-order functions.
 
 None of these was ruled out. Each is absent because self-compilation never
-demanded it, and a general-purpose L0 will. Memory management and I/O come
+demanded it, and a general-purpose L0 will. Memory management and I/O came
 first.
 
 ## How the compiler is tested

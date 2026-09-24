@@ -1,7 +1,7 @@
 # 0010: Reclaim memory by reference counting
 
 Kind: language
-Status: active
+Status: done
 Needs: 0009
 
 ## Why
@@ -128,3 +128,20 @@ heap cannot contain a cycle: there is no mutation, evaluation is strict, and
   output are garbage nothing frees yet. The item's memory target is for
   after change 2, against the 104.8 MB baseline on this source; the old
   74.5 MB figure was on a smaller source.
+- 2026-09-24: **change 2 done, and the item**; changelog "Memory is
+  reclaimed by reference counting". The bootstrap reached a byte-identical
+  fixpoint on the first try with counting emitted. Against the Done when:
+  - `0006/limits/02-no-reclamation.l0` holds 1.5 MB at 100 thousand, 1
+    million, and 10 million iterations, where it reached 9.8 GB
+  - the compiler compiling itself peaks at 26.3 MB, below 104.8 MB, and under
+    `L0_RC_CHECK` leaves nothing live and writes the same bytes
+  - both suites pass on macOS and Linux, 56 and 63, with every compiled
+    program under `L0_RC_CHECK`, which was first shown to fire on a program
+    built by the previous compiler
+  Also measured: a streaming numberer that builds a list per line holds 1.6
+  MB at 10 and 100 MB of input. Two costs recorded: the compiler takes about
+  0.15 s instead of 0.04 s, since every count change is a runtime call; and
+  0006's whole-input line filter still holds 2.7 GB at 100 MB, because its
+  `main` passes `input` to a call not in tail position and so keeps the whole
+  list alive until it returns. Releasing at last use would fix that; opened
+  as [0013](0013-release-at-last-use.md).

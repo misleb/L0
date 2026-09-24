@@ -72,6 +72,9 @@ declare i64 @l0_f_main(i64)
 @s_true = private constant [5 x i8] c"true\0A"
 @s_false = private constant [6 x i8] c"false\0A"
 @env_name = private constant [12 x i8] c"L0_STACK_MB\00"
+@check_name = private constant [12 x i8] c"L0_RC_CHECK\00"
+@m_uaf = private constant [20 x i8] c"use of a freed block"
+@m_live = private constant [23 x i8] c"l0: blocks still live: "
 
 ; ------------------------------------------------------------------ errors
 
@@ -167,8 +170,28 @@ take:
 
 @free_lists = internal global [257 x i64] zeroinitializer
 
+; L0_RC_CHECK set in the environment turns on checking: counted blocks are
+; counted as they are made and freed, and any left at a normal exit are
+; reported; a freed block is poisoned and never reused, so using it again is
+; caught rather than hidden by a new occupant.
+@rc_check = internal global i64 0
+@live = internal global i64 0
+
+; Blocks waiting to be freed, so freeing a long list needs no recursion.
+@wl = internal global ptr null
+@wl_len = internal global i64 0
+@wl_cap = internal global i64 0
+
 define internal i64 @blk_alloc(i64 %words, i64 %mask, i64 %rc) {
 entry:
+  %counted = icmp eq i64 %rc, 1
+  br i1 %counted, label %count, label %sized
+count:
+  %lv = load i64, ptr @live
+  %lv1 = add i64 %lv, 1
+  store i64 %lv1, ptr @live
+  br label %sized
+sized:
   %total = add i64 %words, 1
   %small = icmp ule i64 %total, 256
   br i1 %small, label %try, label %fresh
@@ -217,6 +240,215 @@ entry:
   call void @llvm.memset.p0.i64(ptr %q, i8 0, i64 %bytes, i1 false)
   store i64 %tag, ptr %q
   ret i64 %p
+}
+
+; ---------------------------------------------------------------- counting
+
+define void @l0_inc(i64 %p) {
+entry:
+  %z = icmp eq i64 %p, 0
+  br i1 %z, label %done, label %go
+go:
+  %hp = sub i64 %p, 8
+  %hq = inttoptr i64 %hp to ptr
+  %h = load i64, ptr %hq
+  %rc = lshr i64 %h, 40
+  %never = icmp eq i64 %rc, 16777215
+  br i1 %never, label %done, label %alive
+alive:
+  %freed = icmp eq i64 %rc, 0
+  br i1 %freed, label %uaf, label %bump
+uaf:
+  call void @rt_error(ptr @m_uaf, i64 20)
+  unreachable
+bump:
+  %h1 = add i64 %h, 1099511627776
+  store i64 %h1, ptr %hq
+  br label %done
+done:
+  ret void
+}
+
+define void @l0_dec(i64 %p) {
+entry:
+  %z = icmp eq i64 %p, 0
+  br i1 %z, label %done, label %go
+go:
+  %last = call i1 @dec_ref(i64 %p)
+  br i1 %last, label %free, label %done
+free:
+  call void @free_from(i64 %p)
+  br label %done
+done:
+  ret void
+}
+
+; Drops one reference to the nonzero p, and says whether it was the last. A
+; count that stuck at its maximum is never freed.
+define internal i1 @dec_ref(i64 %p) {
+entry:
+  %hp = sub i64 %p, 8
+  %hq = inttoptr i64 %hp to ptr
+  %h = load i64, ptr %hq
+  %rc = lshr i64 %h, 40
+  %never = icmp eq i64 %rc, 16777215
+  br i1 %never, label %keep, label %alive
+alive:
+  %freed = icmp eq i64 %rc, 0
+  br i1 %freed, label %uaf, label %which
+uaf:
+  call void @rt_error(ptr @m_uaf, i64 20)
+  unreachable
+which:
+  %one = icmp eq i64 %rc, 1
+  br i1 %one, label %gone, label %drop
+drop:
+  %h1 = sub i64 %h, 1099511627776
+  store i64 %h1, ptr %hq
+  br label %keep
+keep:
+  ret i1 false
+gone:
+  ret i1 true
+}
+
+define internal void @wl_push(i64 %p) {
+entry:
+  %n = load i64, ptr @wl_len
+  %cap = load i64, ptr @wl_cap
+  %full = icmp eq i64 %n, %cap
+  br i1 %full, label %grow, label %put
+grow:
+  %none = icmp eq i64 %cap, 0
+  %c2 = mul i64 %cap, 2
+  %c3 = select i1 %none, i64 1024, i64 %c2
+  %bytes = mul i64 %c3, 8
+  %old = load ptr, ptr @wl
+  %new = call ptr @realloc(ptr %old, i64 %bytes)
+  %bad = icmp eq ptr %new, null
+  br i1 %bad, label %oom, label %grown
+oom:
+  call void @rt_error(ptr @m_heap, i64 14)
+  unreachable
+grown:
+  store ptr %new, ptr @wl
+  store i64 %c3, ptr @wl_cap
+  br label %put
+put:
+  %arr = load ptr, ptr @wl
+  %ep = getelementptr i64, ptr %arr, i64 %n
+  store i64 %p, ptr %ep
+  %n1 = add i64 %n, 1
+  store i64 %n1, ptr @wl_len
+  ret void
+}
+
+; Frees p, whose last reference is gone, and every block only it kept alive.
+define internal void @free_from(i64 %p) {
+entry:
+  call void @wl_push(i64 %p)
+  br label %loop
+loop:
+  %n = load i64, ptr @wl_len
+  %empty = icmp eq i64 %n, 0
+  br i1 %empty, label %done, label %pop
+pop:
+  %n1 = sub i64 %n, 1
+  store i64 %n1, ptr @wl_len
+  %arr = load ptr, ptr @wl
+  %ep = getelementptr i64, ptr %arr, i64 %n1
+  %q = load i64, ptr %ep
+  call void @free_block(i64 %q)
+  br label %loop
+done:
+  ret void
+}
+
+; Drops a reference to each block q points to, queueing any whose count
+; reaches zero, then gives q back.
+define internal void @free_block(i64 %q) {
+entry:
+  %hp = sub i64 %q, 8
+  %hq = inttoptr i64 %hp to ptr
+  %h = load i64, ptr %hq
+  %mask = and i64 %h, 4294967295
+  %sh = lshr i64 %h, 32
+  %size = and i64 %sh, 255
+  %qq = inttoptr i64 %q to ptr
+  br label %scan
+scan:
+  %k = phi i64 [ 0, %entry ], [ %k1, %next ]
+  %end = icmp eq i64 %k, %size
+  br i1 %end, label %release, label %bit
+bit:
+  %b = lshr i64 %mask, %k
+  %b1 = and i64 %b, 1
+  %isp = icmp ne i64 %b1, 0
+  br i1 %isp, label %child, label %next
+child:
+  %cp = getelementptr i64, ptr %qq, i64 %k
+  %c = load i64, ptr %cp
+  %cz = icmp eq i64 %c, 0
+  br i1 %cz, label %next, label %cdec
+cdec:
+  %last = call i1 @dec_ref(i64 %c)
+  br i1 %last, label %push, label %next
+push:
+  call void @wl_push(i64 %c)
+  br label %next
+next:
+  %k1 = add i64 %k, 1
+  br label %scan
+release:
+  %lv = load i64, ptr @live
+  %lv1 = sub i64 %lv, 1
+  store i64 %lv1, ptr @live
+  %chk = load i64, ptr @rc_check
+  %checking = icmp ne i64 %chk, 0
+  br i1 %checking, label %poison, label %recycle
+poison:
+  %hkeep = and i64 %h, 1099511627775
+  store i64 %hkeep, ptr %hq
+  br label %ploop
+ploop:
+  %j = phi i64 [ 0, %poison ], [ %j1, %pstep ]
+  %pend = icmp eq i64 %j, %size
+  br i1 %pend, label %out, label %pstep
+pstep:
+  %pp = getelementptr i64, ptr %qq, i64 %j
+  store i64 6510615555426900570, ptr %pp
+  %j1 = add i64 %j, 1
+  br label %ploop
+recycle:
+  %total = add i64 %size, 1
+  %small = icmp ule i64 %total, 256
+  br i1 %small, label %onlist, label %out
+onlist:
+  %fp = getelementptr [257 x i64], ptr @free_lists, i64 0, i64 %total
+  %top = load i64, ptr %fp
+  store i64 %top, ptr %hq
+  store i64 %hp, ptr %fp
+  br label %out
+out:
+  ret void
+}
+
+; Under L0_RC_CHECK, reports counted blocks still live at a normal exit.
+define internal void @check_live() {
+entry:
+  %chk = load i64, ptr @rc_check
+  %on = icmp ne i64 %chk, 0
+  br i1 %on, label %count, label %done
+count:
+  %lv = load i64, ptr @live
+  %any = icmp ne i64 %lv, 0
+  br i1 %any, label %report, label %done
+report:
+  call void @write_all(i32 2, ptr @m_live, i64 23)
+  call void @write_int(i32 2, i64 %lv)
+  br label %done
+done:
+  ret void
 }
 
 ; A counted cons cell. mask is 2 when its head is a plain word and 3 when
@@ -884,7 +1116,7 @@ ret:
 ; Digits are produced from the unsigned magnitude, so the most negative
 ; integer needs no special case: negating it wraps to itself, which read as
 ; unsigned is exactly its magnitude.
-define internal void @write_int(i64 %v) {
+define internal void @write_int(i32 %fd, i64 %v) {
 entry:
   %buf = alloca [24 x i8]
   %neg = icmp slt i64 %v, 0
@@ -916,7 +1148,7 @@ emit:
   %start = phi i64 [ %p1, %sign ], [ %p2, %minus ]
   %sp = getelementptr i8, ptr %buf, i64 %start
   %len = sub i64 24, %start
-  call void @write_all(i32 1, ptr %sp, i64 %len)
+  call void @write_all(i32 %fd, ptr %sp, i64 %len)
   ret void
 }
 
@@ -928,7 +1160,7 @@ entry:
     i64 1, label %bool
   ]
 int:
-  call void @write_int(i64 %v)
+  call void @write_int(i32 1, i64 %v)
   ret void
 bool:
   %t = icmp ne i64 %v, 0
@@ -987,6 +1219,7 @@ stream:
   call void @flush_every()
   %st = and i64 %s, 255
   store i64 %st, ptr @exit_status
+  call void @check_live()
   ret ptr null
 whole:
   %in = call i64 @read_stdin()
@@ -995,6 +1228,13 @@ whole:
   %r = call i64 @l0_f_main(i64 %in)
   call void @flush_every()
   call void @write_result(i64 %r, i64 %k)
+  %islist = icmp eq i64 %k, 2
+  br i1 %islist, label %release, label %checked
+release:
+  call void @l0_dec(i64 %r)
+  br label %checked
+checked:
+  call void @check_live()
   ret ptr null
 }
 
@@ -1023,6 +1263,10 @@ entry:
   store ptr %argv, ptr @argv
   %attr = alloca [128 x i8], align 16
   %tid = alloca i64
+  %chkenv = call ptr @getenv(ptr @check_name)
+  %checking = icmp ne ptr %chkenv, null
+  %chkv = zext i1 %checking to i64
+  store i64 %chkv, ptr @rc_check
   %env = call ptr @getenv(ptr @env_name)
   %hasenv = icmp ne ptr %env, null
   br i1 %hasenv, label %parse, label %go

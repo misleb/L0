@@ -210,6 +210,16 @@ if [ "$COMPILED" = 1 ]; then
     fi
     cp "$BUILD/stage2" "$BUILD/l0c-native"
 
+    # Every compiled program in this suite runs with reference counting
+    # checked: a block still live at a normal exit, or a freed block used
+    # again, is reported on standard error, which fails the test. And
+    # tools/l0, used by the scripted tests, compiles with the compiler just
+    # built rather than the installed one.
+    L0_RC_CHECK=1
+    L0_COMPILER="$BUILD/l0c-native"
+    L0_RUNTIME="$BUILD/l0rt.o"
+    export L0_RC_CHECK L0_COMPILER L0_RUNTIME
+
     nskip=0
 
     # build_exe SUITE NAME SRC STEM -> 0 built, 1 failed, 2 unsupported

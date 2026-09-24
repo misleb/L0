@@ -2,17 +2,18 @@
 
 Goals: README.md, "What L0 aims to be". Not restated here.
 
-Current focus: memory management and I/O, by the language route: safe
-facilities implemented in the runtime, I/O as effects in expression position,
-and no raw memory in L0 code. See the changelog entry "The route to memory
-management and I/O".
+Current focus: the memory-management and I/O goal is met by the language route
+(changelog "The route to memory management and I/O"): streaming and file I/O,
+arguments, and reference counting. What remains of it is refinement: 0013,
+releasing at last use, and 0011, whether tail calls are guaranteed. The next
+goal after that is open.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0010](0010-reference-counting.md) reclaim memory by reference counting —
-   active; design recorded, two bootstrapped changes planned
+1. [0013](0013-release-at-last-use.md) release a value at its last use —
+   proposed; whether it is worth it is part of the question
 
 ## Other open items
 
@@ -43,3 +44,5 @@ Changes to the language, strictly in order. At most one is active.
   changelog "Files, arguments, and names reserved for the standard library"
 - [0012](0012-test-framework.md) tooling: a test framework in the standard
   library — done, changelog "A test framework, and no language change for it"
+- [0010](0010-reference-counting.md) reclaim memory by reference counting —
+  done, changelog "Memory is reclaimed by reference counting"

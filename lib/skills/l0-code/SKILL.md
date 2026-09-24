@@ -208,7 +208,17 @@ Type and constructor names beginning with `Io` and an uppercase letter, such
 as `IoFile`, are reserved for the standard library, so name your own types
 something else.
 
-There is no clock, network, or environment yet, and memory is never freed.
+**Memory is reclaimed by reference counting**, with nothing for you to do, but
+how you write a program decides how much it holds. A value is freed when the
+scope that bound it ends, not at its last use, and a loop in tail position
+frees each iteration's garbage before the next. So:
+
+- to process a large input, use the streaming `main` and read it a line or a
+  byte at a time; that runs in constant memory however long the input is
+- a `main` that takes its input holds all of it until `main` returns
+- write loops as tail calls, so each iteration's values are freed as it goes
+
+There is no clock, network, or environment yet.
 
 ## Testing
 

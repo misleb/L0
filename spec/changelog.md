@@ -7,6 +7,65 @@ New entries go at the top.
 
 ---
 
+## Memory is reclaimed by reference counting
+
+**Programs now free memory.** The compiler emits reference counting, and the
+runtime frees a block when its count reaches zero (section 10.3). Nothing a
+program computes or writes changes. What changes is what it holds: a block is
+freed no later than the end of the scope that bound the last reference to it.
+This is the second of the two changes roadmap item 0010 planned; the first,
+"Blocks describe their own layout" below, gave every block the header this
+one needs.
+
+**The blocker.** From roadmap item 0006, `0006/limits/02-no-reclamation.l0`: a
+loop never holding more than about 1 KB live reached 9.8 GB after 10 million
+iterations. Now:
+
+```
+   100000 iterations: rss 1.5 MB
+  1000000 iterations: rss 1.5 MB
+ 10000000 iterations: rss 1.5 MB
+```
+
+A streaming program that builds a list for every line of its input, the
+`tests/io/lines` numberer, holds 1.6 MB at 10 MB of input and 1.6 MB at 100
+MB. The compiler compiling itself peaks at 26.3 MB, against 104.8 MB before
+this item began on the same source and 179 MB after its first change.
+
+**Why this scheme.** An L0 heap cannot contain a cycle, since there is no
+mutation, evaluation is strict, and `let` cannot define a recursive value, so
+counting reclaims everything with no collector. The emitter needs no analysis
+of later uses: a use of a variable adds a reference, and the variable's own is
+released when its scope ends. The one subtlety is tail position. `if` and
+`match` join through a stack slot, so releasing at the end of a function would
+put a release after every recursive call, and the loops LLVM now turns into
+jumps would recurse instead and exhaust the stack. So in tail position every
+binding in scope is released after the final call's arguments are evaluated
+and before the call. That is also what frees a list as a loop walks it.
+
+**What it costs.** Speed: every change to a count is a call into the runtime,
+and the compiler compiling itself goes from about 0.04 to 0.15 seconds. Speed
+alone does not justify a change here, but it is on record. And precision:
+releasing at the end of a scope rather than at a value's last use means a
+`main` that takes its input holds all of it while it runs. 0006's line filter,
+written that way, still holds 2.7 GB at 100 MB of input, half of what it did.
+Its `main` passes `input` to a call that is not in tail position, so `main`'s
+parameter keeps the head of the list, and with it the whole list, alive.
+Releasing at last use would fix it. That is recorded as its own roadmap item
+rather than folded into this one, since streaming programs, which the l0-code
+skill now recommends for large inputs, do not need it.
+
+**How it was verified.** `L0_RC_CHECK` makes the runtime poison freed blocks
+and never reuse them, so a use after free is a runtime error, and report any
+counted block still live at a normal exit. The check was shown to fire, on a
+program built by the previous compiler, which never releases. `tools/test.sh
+--compiled` now runs every compiled program under it, the compiler included:
+the bootstrap reached a byte-identical fixpoint on the first try, and the
+compiler compiling itself under the check leaves nothing live and writes the
+same bytes.
+
+---
+
 ## Blocks describe their own layout, as the first step to reclaiming memory
 
 **No change to what a program does.** Every block now has a header word in
