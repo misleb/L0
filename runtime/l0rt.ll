@@ -119,12 +119,11 @@ entry:
 
 ; ------------------------------------------------------------------- arena
 
-; Never frees, which spec section 10.3 explains. Chunks come from malloc,
-; which aligns to 16 bytes, and every allocation is rounded up to 16.
+; Chunks come from malloc, and every allocation is a whole number of words.
 define internal i64 @arena_alloc(i64 %bytes) {
 entry:
-  %b1 = add i64 %bytes, 15
-  %b = and i64 %b1, -16
+  %b1 = add i64 %bytes, 7
+  %b = and i64 %b1, -8
   %cur = load i64, ptr @arena_cur
   %end = load i64, ptr @arena_end
   %room = sub i64 %end, %cur
@@ -151,15 +150,97 @@ take:
   ret i64 %p
 }
 
-; ------------------------------------------------------- lists and blocks
+; ------------------------------------------------------------------ blocks
 
-define i64 @l0_cons(i64 %h, i64 %t) {
+; Every block has one header word in front of it, so a value still points at
+; its first word and the offsets of spec section 10.1 hold:
+;
+;   bits  0-31   which of the block's words are pointers, bit k for word k
+;   bits 32-39   the block's size in words, not counting the header
+;   bits 40-63   the reference count
+;
+; A count of all ones means the block is never freed; the allocation calls
+; that predate counting make blocks like that, so programs an older compiler
+; built stay correct. A freed block goes on the free list for its size,
+; threaded through its header word, and allocation takes from there before
+; the arena.
+
+@free_lists = internal global [257 x i64] zeroinitializer
+
+define internal i64 @blk_alloc(i64 %words, i64 %mask, i64 %rc) {
 entry:
-  %p = call i64 @arena_alloc(i64 16)
+  %total = add i64 %words, 1
+  %small = icmp ule i64 %total, 256
+  br i1 %small, label %try, label %fresh
+try:
+  %fp = getelementptr [257 x i64], ptr @free_lists, i64 0, i64 %total
+  %top = load i64, ptr %fp
+  %have = icmp ne i64 %top, 0
+  br i1 %have, label %reuse, label %fresh
+reuse:
+  %tq = inttoptr i64 %top to ptr
+  %next = load i64, ptr %tq
+  store i64 %next, ptr %fp
+  br label %init
+fresh:
+  %bytes = mul i64 %total, 8
+  %new = call i64 @arena_alloc(i64 %bytes)
+  br label %init
+init:
+  %blk = phi i64 [ %top, %reuse ], [ %new, %fresh ]
+  %hq = inttoptr i64 %blk to ptr
+  %rcs = shl i64 %rc, 40
+  %ws = shl i64 %words, 32
+  %h1 = or i64 %rcs, %ws
+  %hdr = or i64 %h1, %mask
+  store i64 %hdr, ptr %hq
+  %p = add i64 %blk, 8
+  ret i64 %p
+}
+
+define internal i64 @cons_with(i64 %h, i64 %t, i64 %mask, i64 %rc) {
+entry:
+  %p = call i64 @blk_alloc(i64 2, i64 %mask, i64 %rc)
   %q = inttoptr i64 %p to ptr
   store i64 %h, ptr %q
   %q1 = getelementptr i64, ptr %q, i64 1
   store i64 %t, ptr %q1
+  ret i64 %p
+}
+
+define internal i64 @data_with(i64 %tag, i64 %n, i64 %mask, i64 %rc) {
+entry:
+  %n1 = add i64 %n, 1
+  %p = call i64 @blk_alloc(i64 %n1, i64 %mask, i64 %rc)
+  %q = inttoptr i64 %p to ptr
+  %bytes = mul i64 %n1, 8
+  call void @llvm.memset.p0.i64(ptr %q, i8 0, i64 %bytes, i1 false)
+  store i64 %tag, ptr %q
+  ret i64 %p
+}
+
+; A counted cons cell. mask is 2 when its head is a plain word and 3 when
+; the head is a pointer too.
+define i64 @l0_new_cons(i64 %h, i64 %t, i64 %mask) {
+entry:
+  %p = call i64 @cons_with(i64 %h, i64 %t, i64 %mask, i64 1)
+  ret i64 %p
+}
+
+; A counted data block for n fields, with mask marking its pointer words.
+define i64 @l0_new_data(i64 %tag, i64 %n, i64 %mask) {
+entry:
+  %p = call i64 @data_with(i64 %tag, i64 %n, i64 %mask, i64 1)
+  ret i64 %p
+}
+
+; ------------------------------------------------------- lists and blocks
+
+; The allocation calls from before counting, for code an older compiler
+; emitted. Their blocks are never freed.
+define i64 @l0_cons(i64 %h, i64 %t) {
+entry:
+  %p = call i64 @cons_with(i64 %h, i64 %t, i64 2, i64 16777215)
   ret i64 %p
 }
 
@@ -199,12 +280,7 @@ entry:
 
 define i64 @l0_data_new(i64 %tag, i64 %n) {
 entry:
-  %n1 = add i64 %n, 1
-  %bytes = mul i64 %n1, 8
-  %p = call i64 @arena_alloc(i64 %bytes)
-  %q = inttoptr i64 %p to ptr
-  call void @llvm.memset.p0.i64(ptr %q, i8 0, i64 %bytes, i1 false)
-  store i64 %tag, ptr %q
+  %p = call i64 @data_with(i64 %tag, i64 %n, i64 0, i64 16777215)
   ret i64 %p
 }
 
@@ -691,7 +767,7 @@ bstep:
   %bp = getelementptr i8, ptr %s, i64 %k1
   %b = load i8, ptr %bp
   %bv = zext i8 %b to i64
-  %acc1 = call i64 @l0_cons(i64 %bv, i64 %acc)
+  %acc1 = call i64 @l0_new_cons(i64 %bv, i64 %acc, i64 2)
   br label %bl
 done:
   ret i64 %acc
@@ -755,7 +831,7 @@ blbody:
   %cp = getelementptr i8, ptr %bb, i64 %i1
   %byte = load i8, ptr %cp
   %bv = zext i8 %byte to i64
-  %acc1 = call i64 @l0_cons(i64 %bv, i64 %acc)
+  %acc1 = call i64 @l0_new_cons(i64 %bv, i64 %acc, i64 2)
   br label %bl
 fin:
   call void @free(ptr %bb)

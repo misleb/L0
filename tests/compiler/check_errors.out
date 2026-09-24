@@ -32,3 +32,4 @@
 0: constructor IoB has a name reserved for the standard library
 ok
 35: an argument of open_read must be (list int), but this is int
+0: constructor W has 32 fields, and at most 31 are allowed

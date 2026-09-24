@@ -33,7 +33,9 @@ heap cannot contain a cycle: there is no mutation, evaluation is strict, and
 - the checklist in the `l0-bootstrap` skill
 - `0006/limits/02-no-reclamation.l0` runs in memory that does not grow with
   its iteration count
-- the compiler compiling itself peaks below its current 74.5 MB
+- the compiler compiling itself peaks below 104.8 MB, its peak on the
+  107 KB source before this item began; the 74.5 MB first recorded here was
+  on a smaller source
 
 ## Log
 
@@ -114,3 +116,15 @@ heap cannot contain a cycle: there is no mutation, evaluation is strict, and
 
   *What 0011 needed to know.* Releases before a tail call keep tail calls
   where they are. Whether L0 should guarantee them is still 0011's question.
+- 2026-09-24: **change 1 done**; changelog "Blocks describe their own
+  layout". The emitter carries types; allocation goes through
+  `l0_new_cons` and `l0_new_data` with masks (checked on lists of ints, lists
+  of lists, and data with list and data fields); every block has a header;
+  the free-list allocator is in place; constructors are limited to 31
+  fields, with a failing case in `check_errors`. Both suites pass (56 and
+  63), the fixpoint holds, and the seed is refreshed. Measured: the compiler
+  on today's 107 KB source went from 104.8 MB to 179 MB resident, more than
+  the header explains, because the emitter's new bookkeeping and longer
+  output are garbage nothing frees yet. The item's memory target is for
+  after change 2, against the 104.8 MB baseline on this source; the old
+  74.5 MB figure was on a smaller source.

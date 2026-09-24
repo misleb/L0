@@ -7,6 +7,49 @@ New entries go at the top.
 
 ---
 
+## Blocks describe their own layout, as the first step to reclaiming memory
+
+**No change to what a program does.** Every block now has a header word in
+front of it, holding a reference count, its size, and a mask of which of its
+words are pointers (section 10.1); allocation goes through two new runtime
+calls that take the mask (section 10.3); and a constructor may have at most
+31 fields, a new compile error (section 4). Nothing is freed yet. This is the
+first of the two changes roadmap item 0010 planned for reference counting,
+and the reasoning for the whole design is recorded there.
+
+**Why the mask comes from the compiler.** Freeing a block means releasing the
+blocks it points to, so the runtime must know which words are pointers. For a
+data block that follows from the constructor's field types. For a cons cell
+it does not: whether the head is a pointer depends on the list's element
+type, which only the checker knew, and at run time every value is one `i64`.
+So the emitter now carries each expression's type as it emits it, computed
+bottom-up exactly as the checker computes it, and passes the mask to
+`l0_new_cons(head, tail, mask)` and `l0_new_data(tag, nfields, mask)`. That
+refactor of the emitter is most of this change's risk, which is why it lands
+before any counting: behavior is unchanged, so the whole differential suite
+checks it against stage 0.
+
+**Why 31 fields.** The mask is 32 bits of a one-word header and word 0 is the
+tag. The widest constructor in the repository has 5 fields. One word keeps a
+cons cell at 24 bytes rather than 32.
+
+**Why the old calls stay.** The runtime interface is append-only, because the
+seed declares its functions by name. `l0_cons` and `l0_data_new` remain, and
+make blocks whose count is at its maximum, which means never freed. A program
+an older seed compiled therefore keeps working unchanged once freeing exists.
+
+**What it costs, measured.** One word per block: a cons cell grows from 16
+bytes to 24, and the arena now rounds to 8 bytes rather than 16. The compiler
+compiling itself, on the same 107 KB of source, goes from 104.8 MB resident
+to 179 MB, which is more than the header alone. The rest is the emitter's own
+new garbage, each value carrying its type and the call-type tables built per
+call, and a 16% longer output, since every cons call now passes its mask.
+Nothing is freed yet, so all of it accumulates. That is accepted as temporary:
+the next change is what reclaims it, and roadmap item 0010's target, the
+compiler below its old peak, is measured after that change and not this one.
+
+---
+
 ## A test framework, and no language change for it
 
 **No change to the language.** `lib/test.l0` and `l0 test` are a library and a

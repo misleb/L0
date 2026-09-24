@@ -806,10 +806,37 @@
   (let uds (program_decls ds pre (nil Decl))
     (rev_diags_onto
       (check_decls ds (prelude_view ds pre) (program_view ds pre) pre
-        (check_reserved uds
-          (check_dups ds pre (nil (list int)) (nil (list int))
-                      (nil (list int)) (nil (list int)) (nil Diag))))
+        (check_widths ds
+          (check_reserved uds
+            (check_dups ds pre (nil (list int)) (nil (list int))
+                        (nil (list int)) (nil (list int)) (nil Diag)))))
       (check_main uds want_main))))
+
+; ------------------------------------------------------ constructor widths
+;
+; A block's header marks which of its words are pointers in a 32-bit mask,
+; and word 0 is the tag, so a constructor has at most 31 fields. Spec 4.
+
+(def check_widths ((ds (list Decl)) (acc (list Diag))) (list Diag)
+  (if (is_empty ds)
+      acc
+      (check_widths (tail ds) (prepend_diags (widths_in (head ds)) acc))))
+
+(def widths_in ((d Decl)) (list Diag)
+  (match d
+    ((DDef o n ps ret body) (nil Diag))
+    ((DData o n cs) (too_wide o cs))))
+
+(def too_wide ((o int) (cs (list Ctor))) (list Diag)
+  (if (is_empty cs)
+      (nil Diag)
+      (match (head cs)
+        ((C co cn fts)
+          (if (gt (length_tys fts) 31)
+              (one_diag o (append "constructor " (append cn (append " has "
+                (append (digits (length_tys fts))
+                  " fields, and at most 31 are allowed")))))
+              (too_wide o (tail cs)))))))
 
 ; ------------------------------------------------ names reserved for the prelude
 ;

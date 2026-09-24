@@ -55,4 +55,12 @@
              "(data IoOk (IoYes int)) (def main ((input (list int))) int 0)"
              true 24) ag)
   (let ai (push (check_source (m "(open_read 1)")) ah)
-    (rev ai))))))))))))))))))))))))))))))))))))
+  (let aj (push (check_source (both (wide_data 32))) ai)
+    (rev aj)))))))))))))))))))))))))))))))))))))
+
+; A data declaration whose one constructor has n int fields.
+(def wide_data ((n int)) (list int)
+  (append "(data Wide (W" (append (int_fields n) "))")))
+
+(def int_fields ((n int)) (list int)
+  (if (le n 0) "" (append " int" (int_fields (sub n 1)))))
