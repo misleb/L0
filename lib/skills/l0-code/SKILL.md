@@ -233,13 +233,40 @@ frees each iteration's garbage before the next. So:
 
 There is no clock, network, or environment yet.
 
+## Laying out a program
+
+A program is one directory holding three kinds of file:
+
+```
+wordfreq/
+  wordfreq.l0        everything the program does, as functions
+  wordfreq_test.l0   its tests
+  main.l0            only main: reads arguments and input, calls in, exits
+```
+
+A tested file's tests sit next to it, named after it with `_test`. A larger
+program splits `wordfreq.l0` into several files, each with its own `_test.l0`
+beside it. There is no tests directory, since `l0 test` runs the files it is
+given rather than searching for any.
+
+**`main` is always in `main.l0`, alone.** `l0 test` supplies its own `main`, so
+a file that defines one cannot be tested. Keep `main.l0` to reading
+arguments, calling one function, and returning the exit status, so that
+nothing worth testing is left in it.
+
+```bash
+l0 build wordfreq.l0 main.l0              # executable ./wordfreq, named after the first file
+l0 run   wordfreq.l0 main.l0 -- in.txt    # build and run with an argument
+l0 test  wordfreq.l0 wordfreq_test.l0     # every file but main.l0
+```
+
 ## Testing
 
 Use `l0 test`. `l0/examples_test.l0` is a worked file of tests; read it first.
 
 ```bash
-l0 test lib_code.l0 lib_code_test.l0             # every test, as TAP
-l0 test lib_code.l0 lib_code_test.l0 --match parse   # only names containing "parse"
+l0 test wordfreq.l0 wordfreq_test.l0                 # every test, as TAP
+l0 test wordfreq.l0 wordfreq_test.l0 --match parse   # only names containing "parse"
 ```
 
 A test is `(def test_NAME () int ...)`, with its name and `()` on the line it
@@ -248,10 +275,6 @@ the files once with `l0/test.l0` linked, and runs each test in its own
 process. It prints `ok N - test_NAME` or `not ok N - test_NAME` with what went
 wrong underneath, and exits nonzero if any failed. `l0 check --test` checks
 test files the same way without running them.
-
-**Keep `main` in a file of its own**, and the code it calls in others. `l0
-test` supplies its own `main`, so a file that defines one cannot be tested:
-pass it the other files and the test file, never the file with `main`.
 
 Every test also runs with the runtime checking reference counts, and a test
 that ends with memory never freed fails. Correct L0 cannot do that, so such a

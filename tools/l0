@@ -386,10 +386,13 @@ Scaffolded an L0 project in $dir:
 The prelude and io libraries are linked automatically, and test.l0 by
 l0 test; the copies in l0/ are there to be read.
 
-  l0 check prog.l0          type check
-  l0 run   prog.l0          build and run, reading stdin
-  l0 build prog.l0          produce an executable
-  l0 test  prog_test.l0     run every (def test_NAME () int ...) in it
+A program is prog.l0 with its tests beside it in prog_test.l0, and main
+alone in main.l0, since l0 test supplies its own main:
+
+  l0 check prog.l0 main.l0          type check
+  l0 run   prog.l0 main.l0 -- ARGS  build and run, reading stdin
+  l0 build prog.l0 main.l0          produce the executable ./prog
+  l0 test  prog.l0 prog_test.l0     run every (def test_NAME () int ...)
 EOF
         ;;
 
