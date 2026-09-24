@@ -1,0 +1,6 @@
+; A main with no parameters exits with its result, reduced modulo 256.
+
+(def main () int
+  (let w (write_byte 98)
+    (let x (write_byte 10)
+      300)))

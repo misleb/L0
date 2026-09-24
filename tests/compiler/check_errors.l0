@@ -46,4 +46,7 @@
              "(def f ((a int)) int a) (def main ((a int) (b int)) int 0)") z)
   (let ab (push (check_source_lib
              "(def main ((input (list int))) (list bool) (nil bool))") aa)
-    (rev ab)))))))))))))))))))))))))))))
+  (let ac (push (check_source (m "(write_byte true)")) ab)
+  (let ad (push (check_source (m "(read_byte 1)")) ac)
+  (let ae (push (check_source "(def main () bool true)") ad)
+    (rev ae))))))))))))))))))))))))))))))))

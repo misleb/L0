@@ -18,10 +18,13 @@
 0: parameter a is declared twice
 24: function f is already defined
 -1: this program has no main function
-0: main must take one parameter of type (list int)
+0: main must take one parameter of type (list int), or none
 0: main declares return type bool, but its body is int
 0: main must return (list int), int, or bool
 21: argument 1 of g must be bool, but this is int
 21: f takes 1 argument, but got 2
-24: main must take one parameter of type (list int)
+24: main must take one parameter of type (list int), or none
 0: main must return (list int), int, or bool
+35: an argument of write_byte must be int, but this is bool
+35: read_byte takes 0 arguments, but got 1
+0: a main with no parameters must return int

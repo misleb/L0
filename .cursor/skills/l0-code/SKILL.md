@@ -111,6 +111,14 @@ written in L0; see `list_eq` in
 a `def`, so a parameter named `f` cannot be called and does not shadow a
 function named `f`. See spec section 7.
 
+**`read_byte` and `write_byte` are effects, sequenced by `let`.** Effects happen
+in evaluation order, and a `let` value is evaluated before its body even when
+its name is unused, so `(let w (write_byte 63) (read_byte))` writes, then reads.
+A `main` that uses them usually takes no parameters and returns the exit
+status; see spec sections 6.2 and 9. **The compiler's own sources must not use
+them**, and nor may `lib/prelude.l0`: stage 0 runs both and does not know
+them. Line helpers belong in `lib/io.l0`, and tests in `tests/io/`.
+
 ## The one performance rule
 
 **Build output as a reversed accumulator and reverse once at the end.**

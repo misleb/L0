@@ -19,12 +19,12 @@ change.
 **General purpose.** L0 was expressive enough for exactly one program: its own
 compiler, which is a pure function from bytes to bytes. The aim now is a
 language that can express ordinary programs, so its limits can be pushed from
-inside it. Memory management and I/O come first. Today memory is never freed,
-and a program's only contact with the world is one read of stdin and one write
-to stdout, both done by a runtime written in LLVM IR. No C source goes into a
-compiled program any more; libc stays, as the interface to the operating
-system, since on macOS it is the only supported one. The direction now is for
-L0 to express allocation and I/O itself.
+inside it. I/O and memory management come first, as safe facilities the
+runtime provides rather than raw memory in L0 code, so that the checker can
+still catch what goes wrong. A program can already read and write as it goes;
+files, arguments, and freeing memory are next. The runtime is LLVM IR, and no
+C source goes into a compiled program; libc stays, as the interface to the
+operating system, since on macOS it is the only supported one.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is
@@ -94,12 +94,14 @@ instruction selection, register allocation, and object-file writing, all in
 L0.
 
 Every compiled L0 program links against the runtime, because L0 has no
-pointers, no allocation, and no I/O of its own: it cannot express `cons`
-allocating a cell, or reading stdin, or running on a large stack and reporting
-exhaustion as an error. The runtime is hand-written IR that calls libc, the
-same text on every host. Self-hosting means the compiler is written in L0; it
-does not mean the system is built from L0 alone. Closing that gap, so that L0
-expresses its own allocation and I/O, is one of the goals above.
+pointers and no raw memory: it cannot express `cons` allocating a cell, or a
+buffered read of stdin, or running on a large stack and reporting exhaustion
+as an error. The runtime is hand-written IR that calls libc, the same text on
+every host. Self-hosting means the compiler is written in L0; it does not mean
+the system is built from L0 alone, and by choice it will not: L0 gains
+facilities the runtime implements safely, rather than the primitives to write
+the runtime itself. `spec/changelog.md` has the reasoning, under "The route to
+memory management and I/O".
 
 ```bash
 l0 check prog.l0          # type check
@@ -196,10 +198,10 @@ names rather than a module system.
 
 ## What L0 cannot do yet
 
-A program is a pure function from stdin bytes to stdout bytes: there are no
-files, no command-line arguments, no network, no clock, and no environment.
-Memory is never freed, so it is proportional to total allocation rather than
-to live data. Lists are the only data structure, so indexing is O(n), and
+A program reads standard input and writes standard output, and nothing else:
+there are no files, no command-line arguments, no network, no clock, and no
+environment. Memory is never freed, so it is proportional to total allocation
+rather than to live data. Lists are the only data structure, so indexing is O(n), and
 there are no arrays, maps, floats, modules, or higher-order functions.
 
 None of these was ruled out. Each is absent because self-compilation never
@@ -240,8 +242,8 @@ build/l0i run hello.l0        # prints: hi
 ## What L0 looks like
 
 Three built-in types (`int`, `bool`, `(list T)`), user-declared tagged unions,
-no loops, no mutation, no I/O, and no function values. Iteration is recursion;
-a program is a single pure expression per function.
+no loops, no mutation, and no function values. Iteration is recursion, and a
+function's body is a single expression.
 
 ```
 (data Tree
@@ -254,15 +256,31 @@ a program is a single pure expression per function.
     ((Branch l r) (add (sum_tree l) (sum_tree r)))))
 ```
 
-A program has no way to observe anything except the value `main` returns. The
-host reads standard input into a list of bytes, applies `main`, and writes the
-result:
+A program can take its whole input at once: the host reads standard input
+into a list of bytes, applies `main`, and writes the result.
 
 ```
 (def main ((input (list int))) (list int))
 ```
 
-This signature is what made self-hosting tractable. A compiler is a function
+Or it can stream, reading and writing as it goes with `read_byte` and
+`write_byte`, and returning its exit status:
+
+```
+(def echo () int
+  (let b (read_byte)
+    (if (lt b 0)
+        0
+        (let w (write_byte b) (echo)))))
+
+(def main () int
+  (echo))
+```
+
+That one copies any amount of input in about a megabyte of memory, and a
+prompt written that way appears before the program waits for the answer.
+
+The first signature is what made self-hosting tractable. A compiler is a function
 from source bytes to output bytes, so **L0 needed no I/O, no strings, and no
 module system to compile itself** — only enough expressiveness to compute one
 byte list from another. The self-hosting compiler emits LLVM IR
@@ -339,7 +357,8 @@ lib/           prelude.l0 (the standard library), examples, and the files
 bootstrap/     stage2.ll, the checked-in seed the compiler is built from
 stage0/        frozen C interpreter, kept only as a differential oracle
 tests/         backend (hand-written IR), lang (must run), check (must fail),
-               compiler (stage tests for the compiler itself)
+               compiler (stage tests for the compiler itself), io (what
+               stage 0 cannot run, with hand-written expectations)
 tools/         l0 (the driver), install.sh, build.sh, test.sh, bootstrap.sh
 seeds/         the original seed spec, superseded by spec/
 roadmap/       plans and status for work in progress; never knowledge about L0

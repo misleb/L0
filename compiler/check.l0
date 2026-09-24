@@ -115,20 +115,23 @@
 (def bi_bool_bool ((i int)) (list (list int)) (split_spaces "and or"))
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
 
+; The effects of spec 6.2. Both are int-typed, so need_all checks them.
+(def bi_io ((i int)) (list (list int)) (split_spaces "read_byte write_byte"))
+
 (def is_builtin ((n (list int))) bool
   (or (any_eq n (bi_int_int_int 0))
       (or (any_eq n (bi_int_int_bool 0))
           (or (any_eq n (bi_bool_bool 0))
               (or (any_eq n (bi_list_ops 0))
-                  (or (list_eq n "neg") (list_eq n "not")))))))
+                  (or (any_eq n (bi_io 0))
+                      (or (list_eq n "neg") (list_eq n "not"))))))))
 
 (def builtin_arity ((n (list int))) int
-  (if (or (list_eq n "neg")
-          (or (list_eq n "not")
-              (or (list_eq n "head")
-                  (or (list_eq n "tail") (list_eq n "is_empty")))))
-      1
-      2))
+  (if (list_eq n "read_byte")
+      0
+      (if (any_eq n (split_spaces "neg not head tail is_empty write_byte"))
+          1
+          2)))
 
 (def plural ((n int) (word (list int))) (list int)
   (if (eq n 1) word (append word "s")))
@@ -157,7 +160,7 @@
               (need_all n ats o (TyInt) (TyBool))
               (if (any_eq n (bi_bool_bool 0))
                   (need_all n ats o (TyBool) (TyBool))
-                  (if (list_eq n "neg")
+                  (if (or (list_eq n "neg") (any_eq n (bi_io 0)))
                       (need_all n ats o (TyInt) (TyInt))
                       (if (list_eq n "not")
                           (need_all n ats o (TyBool) (TyBool))
@@ -697,16 +700,28 @@
           (nil Diag)))
     ((SigFound s) (check_main_sig s (main_offset uds)))))
 
+; The two forms of spec 9: a function of the whole input, or a program that
+; streams and returns its exit status.
 (def check_main_sig ((s Sig) (o int)) (list Diag)
   (match s
     ((S n ps ret)
-      (if (not (eq (length_tys ps) 1))
-          (one_diag o "main must take one parameter of type (list int)")
-          (if (not (ty_eq (head ps) (TyList (TyInt))))
-              (one_diag o "main must take one parameter of type (list int)")
-              (if (main_ret_ok ret)
-                  (nil Diag)
-                  (one_diag o "main must return (list int), int, or bool")))))))
+      (if (is_empty ps)
+          (if (ty_eq ret (TyInt))
+              (nil Diag)
+              (one_diag o "a main with no parameters must return int"))
+          (check_input_main ps ret o)))))
+
+(def check_input_main ((ps (list Ty)) (ret Ty) (o int)) (list Diag)
+  (if (not (eq (length_tys ps) 1))
+      (one_diag o (main_params_msg 0))
+      (if (not (ty_eq (head ps) (TyList (TyInt))))
+          (one_diag o (main_params_msg 0))
+          (if (main_ret_ok ret)
+              (nil Diag)
+              (one_diag o "main must return (list int), int, or bool")))))
+
+(def main_params_msg ((i int)) (list int)
+  "main must take one parameter of type (list int), or none")
 
 (def main_offset ((ds (list Decl))) int
   (if (is_empty ds)

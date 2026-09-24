@@ -1,0 +1,14 @@
+; read_line and write_str from lib/io.l0: numbers each line of input. A blank
+; line is kept, and a last line without a newline stays without one.
+
+(def number ((n int)) int
+  (let line (read_line)
+    (if (is_empty line)
+        0
+        (let a (write_str (digits n))
+          (let b (write_str ": ")
+            (let c (write_str line)
+              (number (add n 1))))))))
+
+(def main () int
+  (number 1))

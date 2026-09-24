@@ -26,8 +26,8 @@ l0 build FILE.l0 -o PROG  produce an executable
 ```
 
 Several files are compiled together, since L0 has no module system. The
-standard library is linked automatically; `l0/prelude.l0` is a readable copy
-and must not be passed on the command line.
+standard library is linked automatically; `l0/prelude.l0` and `l0/io.l0` are
+readable copies and must not be passed on the command line.
 
 **A function you define shadows a prelude function of the same name**, and the
 prelude keeps calling its own, so a name the standard library already took is
@@ -45,10 +45,11 @@ written. Do not ship something that quietly narrows the task: a program that
 does something adjacent to what was asked, with tests written from the same
 narrowed contract, passes and is still wrong.
 
-Anything a ten-line function solves is not a language limitation. Ordering is:
-the host reads stdin to end of file before evaluating `main` and writes nothing
-until it returns, so a prompt, a confirmation, or progress during a run cannot
-be written today, and no output format changes that.
+Anything a ten-line function solves is not a language limitation. A prompt, a
+confirmation, or progress during a run is not one either: write it with a
+`main` that takes no parameters and reads and writes as it goes, as the
+`l0-code` skill shows. Files, command-line arguments, and freeing memory do
+not exist yet.
 
 ## Two traps specific to L0
 

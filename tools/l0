@@ -13,8 +13,8 @@
 #   --no-prelude    do not include the standard library
 #
 # Several files are compiled together, because L0 has no module system.
-# The standard library is included automatically; pass --no-prelude to
-# suppress that, which is what the compiler's own bootstrap does. A function
+# The standard library, lib/prelude.l0 and lib/io.l0, is included
+# automatically; pass --no-prelude to suppress it. A function
 # you define shadows a prelude function of the same name, so the prelude can
 # gain functions without breaking a program that already used the name.
 #
@@ -168,8 +168,8 @@ setup() {
     SOURCES=$FILES
     PRELUDE_END=0
     if [ "$WANT_PRELUDE" = 1 ]; then
-        SOURCES="$LIB/prelude.l0 $FILES"
-        PRELUDE_END=$(wc -c < "$LIB/prelude.l0" | tr -d ' ')
+        SOURCES="$LIB/prelude.l0 $LIB/io.l0 $FILES"
+        PRELUDE_END=$(cat "$LIB/prelude.l0" "$LIB/io.l0" | wc -c | tr -d ' ')
     fi
     TMP=$(mktemp -d "${TMPDIR:-/tmp}/l0.XXXXXX")
     trap 'rm -rf "$TMP"' EXIT
@@ -223,6 +223,7 @@ case "$cmd" in
         cp "$LIB/L0.md" "$dir/l0/L0.md"
         cp "$LIB/examples.l0" "$dir/l0/examples.l0"
         cp "$LIB/prelude.l0" "$dir/l0/prelude.l0"
+        cp "$LIB/io.l0" "$dir/l0/io.l0"
         cat <<EOF
 Scaffolded an L0 project in $dir:
 
@@ -231,8 +232,10 @@ Scaffolded an L0 project in $dir:
   l0/L0.md                            the language specification
   l0/examples.l0                      worked examples, all of them compiling
   l0/prelude.l0                       the standard library, for reference
+  l0/io.l0                            line and string I/O, for reference
 
-The prelude is linked automatically; the copy in l0/ is there to be read.
+Both libraries are linked automatically; the copies in l0/ are there to be
+read.
 
   l0 check prog.l0          type check
   l0 run   prog.l0          build and run, reading stdin

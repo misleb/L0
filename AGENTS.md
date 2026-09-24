@@ -5,8 +5,8 @@ own use. Compiling itself is the goal that shaped it, and it must keep doing
 so: that is the one property no change may cost. That goal has been reached
 and no longer sets the direction. L0 is now being made general purpose:
 compiled to native code through LLVM, with no C in a compiled program, and
-able to manage memory and do I/O itself. It is written for agents to read and
-write, not humans.
+gaining I/O and memory management as safe facilities the runtime provides. It
+is written for agents to read and write, not humans.
 
 Smallness and purity describe L0 as it stands, not promises about what it stays.
 Both are revisable; `spec/L0.md` names what currently rests on purity so the
@@ -78,7 +78,8 @@ compiler/      the L0 compiler, written in L0
 bootstrap/     stage2.ll, the checked-in seed the compiler is built from
 stage0/        frozen C interpreter, kept only as a differential oracle
 tests/         backend (hand-written IR), lang (must run), check (must fail),
-               compiler (stage tests for the compiler itself)
+               compiler (stage tests for the compiler itself), io (what
+               stage 0 cannot run, with hand-written expectations)
 tools/         build.sh, test.sh, bootstrap.sh, l0c, l0check, l0ll
 seeds/         the original seed spec, kept for history, superseded by spec/
 roadmap/       plans and status for work in progress (see l0-roadmap)

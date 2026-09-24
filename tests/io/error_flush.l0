@@ -1,0 +1,6 @@
+; Bytes written before a runtime error are delivered before the diagnostic.
+
+(def main () int
+  (let w (write_byte 111)
+    (let x (write_byte 107)
+      (head (nil int)))))

@@ -1,0 +1,10 @@
+; Asks a question, reads the answer, and greets it. prompt.sh sends the
+; answer only after it has read the question, so this passes only if the
+; question is written before read_line waits for input. Spec section 6.2.
+
+(def main () int
+  (let q (write_str "What is your name? ")
+    (let name (take_line (read_line))
+      (let g (write_str "Hello, ")
+        (let h (write_str name)
+          (write_str "!\n"))))))

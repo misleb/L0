@@ -12,6 +12,8 @@
 #                        down the ABI in spec section 10
 #   tests/lang/*.l0      programs that must type check and run
 #   tests/check/*.l0     programs that must fail to type check
+#   tests/io/*.l0        programs using features stage 0 does not have, such
+#                        as the I/O builtins; run by --compiled only
 #
 # Per-test files, where <stem> is the test path without its extension:
 #   <stem>.out     expected stdout, required, may be empty
@@ -19,6 +21,13 @@
 #   <stem>.exit    expected exit status; if absent, 0
 #   <stem>.in      stdin; if absent, empty
 #   <stem>.extra   additional source files to pass, one per line
+#   <stem>.sh      tests/io only: run as `sh <stem>.sh EXE` instead of
+#                  comparing output, for behavior that is about timing;
+#                  exit status 0 is a pass
+#
+# tests/io has no oracle, since stage 0 cannot run it, so its expectations
+# are written by hand and never blessed: --bless skips the suite, and it is
+# not run at all without --compiled.
 
 set -eu
 
@@ -299,6 +308,32 @@ if [ "$COMPILED" = 1 ]; then
         fi
     done
 
+    # Programs stage 0 cannot run, judged against hand-written expectations,
+    # or by a script when what matters is when output appears.
+    for src in tests/io/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        stem="tests/io/$name"
+        build_exe io "$name" "$src" "$stem"
+        case $? in
+            2) nskip=$((nskip + 1)); continue ;;
+            1) continue ;;
+        esac
+        if [ -f "$stem.sh" ]; then
+            if sh "$stem.sh" "$TMP/$name.exe" > "$TMP/$name.shout" 2>&1; then
+                npass=$((npass + 1))
+            else
+                nfail=$((nfail + 1))
+                failures="$failures io/$name"
+                echo "FAIL io/$name: $stem.sh failed"
+                sed 's/^/    /' "$TMP/$name.shout"
+            fi
+        else
+            run_case io "$name" "$stem" "$TMP/$name.exe"
+        fi
+    done
+
     echo
     echo "compiled suite: $npass passed, $nfail failed, $nskip skipped"
     if [ "$nfail" -ne 0 ]; then
@@ -371,6 +406,8 @@ done
 # ------------------------------------------------------------------ summary
 
 echo
+nio=$(ls tests/io/*.l0 2> /dev/null | wc -l | tr -d ' ')
+[ "$nio" -gt 0 ] && echo "tests/io: $nio programs stage 0 cannot run; tools/test.sh --compiled runs them"
 if [ "$nfail" -eq 0 ]; then
     echo "all $npass tests passed"
     exit 0

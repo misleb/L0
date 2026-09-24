@@ -1,6 +1,7 @@
 ; l0rt.ll -- the runtime linked into every compiled L0 program. Spec section
 ; 10.3 is its interface; section 9 is the host half of the contract it
-; implements: read stdin into a byte list, apply main, write the result.
+; implements, for either form of main; section 6.2 is what read_byte and
+; write_byte promise.
 ;
 ; It carries no target triple, and must stay the same text on every host, so
 ; it avoids everything whose shape differs between operating systems: it
@@ -34,6 +35,16 @@ declare i64 @l0_f_main(i64)
 @arena_end = internal global i64 0
 @stack_limit = internal global i64 0
 @stack_bytes = internal global i64 0
+@exit_status = internal global i64 0
+
+; Buffers for read_byte and write_byte. Spec section 6.2 allows output to be
+; held back only until a read has to wait, or the program ends.
+@in_buf = internal global [65536 x i8] zeroinitializer
+@in_pos = internal global i64 0
+@in_len = internal global i64 0
+@in_eof = internal global i64 0
+@out_buf = internal global [65536 x i8] zeroinitializer
+@out_len = internal global i64 0
 
 @pfx = private constant [19 x i8] c"l0: runtime error: "
 @nl = private constant [1 x i8] c"\0A"
@@ -69,10 +80,20 @@ out:
   ret void
 }
 
-; Standard output is written only after main returns, so a runtime error
-; leaves it empty, as spec section 8 requires. _exit skips atexit handlers.
+define internal void @flush_out() {
+entry:
+  %n = load i64, ptr @out_len
+  call void @write_all(i32 1, ptr @out_buf, i64 %n)
+  store i64 0, ptr @out_len
+  ret void
+}
+
+; Bytes the program wrote are delivered before the diagnostic, and a main
+; that takes its input never has its result written, as spec section 8
+; requires. _exit skips atexit handlers.
 define internal void @rt_error(ptr %m, i64 %n) noreturn noinline {
 entry:
+  call void @flush_out()
   call void @write_all(i32 2, ptr @pfx, i64 19)
   call void @write_all(i32 2, ptr %m, i64 %n)
   call void @write_all(i32 2, ptr @nl, i64 1)
@@ -236,6 +257,66 @@ zero:
 do:
   %r = srem i64 %a, %b
   ret i64 %r
+}
+
+; ------------------------------------------------------------- read_byte
+
+; Output is flushed before every read of the file descriptor, since that read
+; may wait, and spec section 6.2 lets output be held back only until then.
+; Once end of input is seen it is remembered, so a terminal is not asked for
+; a second end of file.
+define i64 @l0_read_byte() {
+entry:
+  %eof = load i64, ptr @in_eof
+  %done = icmp ne i64 %eof, 0
+  br i1 %done, label %none, label %chk
+chk:
+  %pos = load i64, ptr @in_pos
+  %len = load i64, ptr @in_len
+  %have = icmp slt i64 %pos, %len
+  br i1 %have, label %take, label %fill
+fill:
+  call void @flush_out()
+  %n = call i64 @read(i32 0, ptr @in_buf, i64 65536)
+  %got = icmp sgt i64 %n, 0
+  br i1 %got, label %filled, label %ended
+ended:
+  store i64 1, ptr @in_eof
+  br label %none
+filled:
+  store i64 %n, ptr @in_len
+  store i64 0, ptr @in_pos
+  br label %take
+take:
+  %p = phi i64 [ %pos, %chk ], [ 0, %filled ]
+  %bp = getelementptr i8, ptr @in_buf, i64 %p
+  %b = load i8, ptr %bp
+  %v = zext i8 %b to i64
+  %p1 = add i64 %p, 1
+  store i64 %p1, ptr @in_pos
+  ret i64 %v
+none:
+  ret i64 -1
+}
+
+; ------------------------------------------------------------ write_byte
+
+define i64 @l0_write_byte(i64 %v) {
+entry:
+  %n = load i64, ptr @out_len
+  %full = icmp eq i64 %n, 65536
+  br i1 %full, label %flush, label %put
+flush:
+  call void @flush_out()
+  br label %put
+put:
+  %n1 = phi i64 [ %n, %entry ], [ 0, %flush ]
+  %bp = getelementptr i8, ptr @out_buf, i64 %n1
+  %b = trunc i64 %v to i8
+  store i8 %b, ptr %bp
+  %n2 = add i64 %n1, 1
+  store i64 %n2, ptr @out_len
+  ret i64 0
 }
 
 ; ------------------------------------------------------------------- input
@@ -430,6 +511,10 @@ ok:
 
 ; Stacks grow down on every platform L0 runs on, so the limit is the stack's
 ; size below the frame where the program starts.
+;
+; Kind 3 is a main that streams: nothing is read for it, and its result is
+; the exit status. The other kinds take the whole input, so read_byte is told
+; the input has already ended. Spec section 9.
 define internal ptr @run(ptr %unused) noinline {
 entry:
   %fp = call ptr @llvm.frameaddress.p0(i32 0)
@@ -438,9 +523,20 @@ entry:
   %base = sub i64 %f, %sz
   %lim = add i64 %base, 262144
   store i64 %lim, ptr @stack_limit
-  %in = call i64 @read_stdin()
-  %r = call i64 @l0_f_main(i64 %in)
   %k = load i64, ptr @l0_main_ret_kind
+  %streams = icmp eq i64 %k, 3
+  br i1 %streams, label %stream, label %whole
+stream:
+  %s = call i64 @l0_f_main(i64 0)
+  call void @flush_out()
+  %st = and i64 %s, 255
+  store i64 %st, ptr @exit_status
+  ret ptr null
+whole:
+  %in = call i64 @read_stdin()
+  store i64 1, ptr @in_eof
+  %r = call i64 @l0_f_main(i64 %in)
+  call void @flush_out()
   call void @write_result(i64 %r, i64 %k)
   ret ptr null
 }
@@ -487,10 +583,14 @@ go:
 join:
   %t = load i64, ptr %tid
   %j = call i32 @pthread_join(i64 %t, ptr null)
-  ret i32 0
+  br label %exit
 direct:
   %own = call i64 @own_stack_bytes()
   store i64 %own, ptr @stack_bytes
   %x = call ptr @run(ptr null)
-  ret i32 0
+  br label %exit
+exit:
+  %st = load i64, ptr @exit_status
+  %st32 = trunc i64 %st to i32
+  ret i32 %st32
 }

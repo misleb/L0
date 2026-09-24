@@ -40,3 +40,9 @@ route: opening a file returns a data type with a failure case, so exhaustive
 ## Log
 
 - 2026-09-23: opened from 0005's recommendation.
+- 2026-09-23: 0008 settled part of this. A `main` with no parameters returns
+  the exit status, so a program can already fail with a status of its
+  choosing. What remains is arguments, files, and standard error. The builtin
+  style 0008 chose, `read_byte` returning -1 rather than a data type, avoided
+  the predeclared-type question for now; file operations that fail will not
+  be able to.

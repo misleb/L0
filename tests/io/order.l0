@@ -1,0 +1,13 @@
+; Effects happen in evaluation order: arguments left to right, a let value
+; before its body, and every operand of and and or, whether or not the result
+; is used.
+
+(def two ((a int) (b int)) int 0)
+
+(def main () int
+  (let unused (write_byte 97)
+    (let s (add (write_byte 98) (write_byte 99))
+      (let t (two (write_byte 100) (write_byte 101))
+        (let u (and (eq (write_byte 102) 1) (eq (write_byte 103) 0))
+          (let v (or (eq (write_byte 104) 0) (eq (write_byte 105) 0))
+            (write_byte 10)))))))

@@ -10,6 +10,7 @@
 #   <prefix>/lib/l0/l0c          the compiler, built from bootstrap/stage2.ll
 #   <prefix>/lib/l0/libl0rt.a    the runtime
 #   <prefix>/lib/l0/prelude.l0   the standard library
+#   <prefix>/lib/l0/io.l0        line and string I/O, linked like the prelude
 #   <prefix>/lib/l0/L0.md        the specification
 #   <prefix>/lib/l0/examples.l0  worked examples
 #   <prefix>/lib/l0/AGENTS.md    project invariants, copied by `l0 init`
@@ -74,6 +75,7 @@ echo "link compiler from bootstrap/stage2.ll"
 if [ "$(cd "$LIBDIR" && pwd)" != "$(cd "$ROOT/lib" && pwd)" ]; then
     echo "copy library, spec, examples, and agent files"
     cp "$ROOT/lib/prelude.l0" "$LIBDIR/prelude.l0"
+    cp "$ROOT/lib/io.l0" "$LIBDIR/io.l0"
     cp "$ROOT/lib/examples.l0" "$LIBDIR/examples.l0"
     cp "$ROOT/spec/L0.md" "$LIBDIR/L0.md"
     cp "$ROOT/lib/AGENTS.md" "$LIBDIR/AGENTS.md"

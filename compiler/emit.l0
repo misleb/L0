@@ -306,9 +306,10 @@
 (def cmp_names ((i int)) (list (list int)) (split_spaces "lt le gt ge eq"))
 (def cmp_preds ((i int)) (list (list int)) (split_spaces "slt sle sgt sge eq"))
 (def rt_names ((i int)) (list (list int))
-  (split_spaces "div mod cons head tail is_empty"))
+  (split_spaces "div mod cons head tail is_empty read_byte write_byte"))
 (def rt_syms ((i int)) (list (list int))
-  (split_spaces "l0_div l0_mod l0_cons l0_head l0_tail l0_is_empty"))
+  (split_spaces
+    "l0_div l0_mod l0_cons l0_head l0_tail l0_is_empty l0_read_byte l0_write_byte"))
 
 (def nth_str ((xs (list (list int))) (i int)) (list int)
   (if (le i 0) (head xs) (nth_str (tail xs) (sub i 1))))
@@ -374,6 +375,13 @@
           "define i64 @l0_f_"
           "define internal i64 @l0_f_")))
 
+; The runtime calls every main with one argument, so a main that takes none
+; still accepts one and ignores it. Spec 10.2.
+(def fn_params ((n (list int)) (ps (list Param)) (inpre bool)) (list int)
+  (if (is_empty ps)
+      (if inpre "" (if (list_eq n "main") "i64 %unused" ""))
+      (fmt_ir_params ps 0)))
+
 ; Every function checks the stack before doing anything else, since the
 ; runtime cannot portably catch running off the end of it. Spec 10.3.
 (def emit_fn ((d Decl) (sc Scope) (st Emit)) Emit
@@ -383,7 +391,9 @@
       (let st1 (emit_line
                  (append (fn_header n (sc_is_prelude sc))
                    (append n
-                     (append "(" (append (fmt_ir_params ps 0) ") {")))) st)
+                     (append "("
+                       (append (fn_params n ps (sc_is_prelude sc)) ") {"))))
+                 st)
         (let st2 (emit_line "  call void @l0_stack_check()"
                    (emit_line "entry:" st1))
           (match (emit_expr body
@@ -452,7 +462,9 @@
                   (append "declare void @l0_data_set(i64, i64, i64)\n"
                     (append "declare i64 @l0_data_tag(i64)\n"
                       (append "declare i64 @l0_data_get(i64, i64)\n"
-                        "declare void @l0_stack_check()\n\n"))))))))))))
+                        (append "declare void @l0_stack_check()\n"
+                          (append "declare i64 @l0_read_byte()\n"
+                            "declare i64 @l0_write_byte(i64)\n\n"))))))))))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)
@@ -461,7 +473,9 @@
         ((DData o n cs) (ret_kind (tail ds)))
         ((DDef o n ps ret body)
           (if (list_eq n "main")
-              (if (ty_eq ret (TyInt)) 0 (if (ty_eq ret (TyBool)) 1 2))
+              (if (is_empty ps)
+                  3
+                  (if (ty_eq ret (TyInt)) 0 (if (ty_eq ret (TyBool)) 1 2)))
               (ret_kind (tail ds)))))))
 
 ; The return kind is read off the program's main, not the prelude's: a main in

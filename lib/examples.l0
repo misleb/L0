@@ -141,14 +141,37 @@
     ((Ok v rest) v)
     ((Bad msg) 0)))
 
+; ------------------------------------------------ reading and writing as you go
+
+; read_line and write_str are in the standard library (l0/io.l0), built on the
+; read_byte and write_byte builtins. They are effects, and effects happen in
+; evaluation order, so let is how to put one before another: its value is
+; evaluated before its body, even when the name is never used.
+(def ask ((question (list int))) (list int)
+  (let w (write_str question)
+    (take_line (read_line))))
+
+; read_line returns the empty list only at end of input; a blank line is "\n".
+(def count_lines ((n int)) int
+  (if (is_empty (read_line)) n (count_lines (add n 1))))
+
 ; --------------------------------------------------------- the entry point
 
-; A program defines main, which takes stdin as a list of bytes and returns
-; the output. The return type may be (list int) for raw bytes, or int or
-; bool, which are printed as a decimal or as true/false.
+; A program defines main in one of two forms. The first takes stdin as a list
+; of bytes and returns the output. The return type may be (list int) for raw
+; bytes, or int or bool, which are printed as a decimal or as true/false.
 ;
 ;   (def main ((input (list int))) (list int)
 ;     (report (count_vowels input 0) (sum_tail input 0)))
 ;
-; That is commented out because this file is a reference rather than a
+; The second takes nothing, reads and writes as it goes, and returns the exit
+; status. Use it whenever a program must write before its input has ended, or
+; must not hold all of its input at once.
+;
+;   (def main () int
+;     (let name (ask "What is your name? ")
+;       (let w (write_str (append "Hello, " (append name "!\n")))
+;         0)))
+;
+; Both are commented out because this file is a reference rather than a
 ; program, and two definitions of main could not coexist with yours.

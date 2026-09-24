@@ -190,6 +190,40 @@
           (if (and (ge c 65) (le c 70))
               (add 10 (sub c 65))
               -1))))
+; io.l0 -- line and string I/O over the read_byte and write_byte builtins of
+; spec section 6.2.
+;
+; tools/l0 links this into every program, in the prelude group alongside
+; lib/prelude.l0, so a program may define its own read_line and keep calling
+; it. It is a separate file because the compiler is built from
+; lib/prelude.l0, and the stage-0 interpreter that runs the compiler for
+; tools/l0check does not know the I/O builtins.
+
+; The next line of standard input, including its newline if it has one. The
+; empty list means end of input, and nothing else does: a blank line is "\n",
+; and a last line with no newline comes back without one.
+(def read_line () (list int)
+  (rev (read_line_onto (nil int))))
+
+(def read_line_onto ((acc (list int))) (list int)
+  (let b (read_byte)
+    (if (lt b 0)
+        acc
+        (if (eq b 10)
+            (cons b acc)
+            (read_line_onto (cons b acc))))))
+
+; Writes every byte of s, in order, and returns 0.
+(def write_str ((s (list int))) int
+  (if (is_empty s)
+      0
+      (let w (write_byte (head s))
+        (write_str (tail s)))))
+
+; Writes s followed by a newline, and returns 0.
+(def write_line ((s (list int))) int
+  (let w (write_str s)
+    (write_byte 10)))
 ; examples.l0 -- worked L0 programs, for reading.
 ;
 ; Every declaration here compiles. This file is checked by the L0 project's
@@ -333,14 +367,37 @@
     ((Ok v rest) v)
     ((Bad msg) 0)))
 
+; ------------------------------------------------ reading and writing as you go
+
+; read_line and write_str are in the standard library (l0/io.l0), built on the
+; read_byte and write_byte builtins. They are effects, and effects happen in
+; evaluation order, so let is how to put one before another: its value is
+; evaluated before its body, even when the name is never used.
+(def ask ((question (list int))) (list int)
+  (let w (write_str question)
+    (take_line (read_line))))
+
+; read_line returns the empty list only at end of input; a blank line is "\n".
+(def count_lines ((n int)) int
+  (if (is_empty (read_line)) n (count_lines (add n 1))))
+
 ; --------------------------------------------------------- the entry point
 
-; A program defines main, which takes stdin as a list of bytes and returns
-; the output. The return type may be (list int) for raw bytes, or int or
-; bool, which are printed as a decimal or as true/false.
+; A program defines main in one of two forms. The first takes stdin as a list
+; of bytes and returns the output. The return type may be (list int) for raw
+; bytes, or int or bool, which are printed as a decimal or as true/false.
 ;
 ;   (def main ((input (list int))) (list int)
 ;     (report (count_vowels input 0) (sum_tail input 0)))
 ;
-; That is commented out because this file is a reference rather than a
+; The second takes nothing, reads and writes as it goes, and returns the exit
+; status. Use it whenever a program must write before its input has ended, or
+; must not hold all of its input at once.
+;
+;   (def main () int
+;     (let name (ask "What is your name? ")
+;       (let w (write_str (append "Hello, " (append name "!\n")))
+;         0)))
+;
+; Both are commented out because this file is a reference rather than a
 ; program, and two definitions of main could not coexist with yours.

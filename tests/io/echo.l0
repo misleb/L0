@@ -1,0 +1,11 @@
+; Copies standard input to standard output a byte at a time. It allocates
+; nothing, so it runs in constant memory however long its input is.
+
+(def echo () int
+  (let b (read_byte)
+    (if (lt b 0)
+        0
+        (let w (write_byte b) (echo)))))
+
+(def main () int
+  (echo))

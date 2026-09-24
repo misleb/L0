@@ -1,0 +1,4 @@
+; -1 reduced modulo 256 is 255.
+
+(def main () int
+  -1)

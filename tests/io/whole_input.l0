@@ -1,0 +1,9 @@
+; In a main that takes its input, standard input is already consumed, so
+; read_byte returns -1, and bytes written with write_byte come before the
+; result.
+
+(def main ((input (list int))) (list int)
+  (let w (write_byte 62)
+    (if (eq (read_byte) -1)
+        (cons (head input) (cons 10 (nil int)))
+        "read_byte saw input it should not have\n")))

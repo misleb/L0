@@ -7,6 +7,94 @@ New entries go at the top.
 
 ---
 
+## Reading and writing as a program runs
+
+**L0 has effects.** Two builtins, `read_byte` and `write_byte` (section 6.2),
+and a second form of `main`, `(def main () int ...)`, which reads nothing up
+front and returns the exit status (section 9). This is the first change made
+under "The route to memory management and I/O" below, and the one that ends
+L0's purity. Sections 1, 8, and 10.3 change with it.
+
+**The blocker.** Roadmap item 0006 could not write a program that asks for a
+name and then greets it. The nearest L0 program printed its question after its
+answer, measured with the answer sent at t+0 and end of input at t+3:
+
+```
+  t+ 0.00s  stdin  b'Ada\n'
+  t+ 3.01s  eof    b''
+  t+ 3.01s  stdout b'What is your name? Hello, Ada!\n'
+```
+
+Now `tests/io/prompt` holds the program 0006 said should have been possible,
+and `prompt.sh` sends the answer only once it has read the question back. A
+version that reads before it asks fails it after its 5-second watchdog, which
+was checked. The same change removes two of 0006's memory costs, the whole
+input held before `main` runs and the whole output held until it returns. A
+streaming copy of 1, 10, and 100 MB peaks at 1.1 MB each time, where `main`
+returning its input peaks at 18, 173, and 1704 MB.
+
+**Why bytes, and not lines or strings.** The builtins are the smallest pair
+the rest can be written from, so the runtime interface grows by two functions
+and not by a family. `read_line`, `write_str`, and `write_line` are ordinary L0
+in a new `lib/io.l0`, which `tools/l0` links beside `lib/prelude.l0` in the
+prelude group, so a program may define its own. `read_byte` returns -1 at end
+of input rather than a data type with an end case, so it needs no predeclared
+type: a predeclared constructor would break every program that already used
+its name, since section 7.1 does not group constructors. That problem is still
+waiting for 0009, whose file operations can fail.
+
+**Why `lib/io.l0` is not in the prelude.** The stage-0 interpreter runs
+`lib/prelude.l0` and the compiler, both for the compiler's stage tests and for
+`tools/l0check`, and stage 0 is frozen, so it will never know the new
+builtins. The compiler's own source and the prelude therefore must not use
+them.
+
+**Why a second form of `main`, and not only the builtins.** The existing form
+reads all of standard input before `main` runs, so `read_byte` inside it can
+only ever see end of file. A program that streams has to be one the host does
+not read for. Its result became the exit status because nothing else is
+written on its behalf, and a program that streams needs a way to fail other
+than a crash. That is a first installment of 0009's "failure". The runtime
+calls every `main` the same way, so one with no parameters still compiles to
+`@l0_f_main(i64)` and ignores the argument (section 10.2), and
+`@l0_main_ret_kind` gains a kind 3.
+
+The old form keeps working exactly as before, and can use the builtins too:
+`read_byte` returns -1 from the start, and bytes written come before the
+result.
+
+**What the ordering costs, which section 8 had already priced.** Evaluation
+order was specified left to right from v1 "so that even failure is
+deterministic", and its paragraph said an effect would find the order already
+pinned down. It did. What is lost is the implementation's freedom to reorder
+or drop an evaluation that could have an effect, and section 8 now says an
+evaluation may be moved or dropped only if it can neither do I/O nor fail. The
+compiler never used that freedom. LLVM cannot use it either, since the
+builtins are calls into the runtime.
+
+**Output buffering is specified by what it must not hide.** An implementation
+may hold output back, but only until a `read_byte` has to wait, or the program
+ends, including by a runtime error. That is exactly what makes a prompt
+appear, and it lets the runtime buffer 64 KB in each direction. A runtime
+error now delivers what was written before it and then the diagnostic, rather
+than producing no output at all, since output that had already reached a
+terminal could not be taken back.
+
+**Section 10.3's case for the arena is corrected.** It said never freeing was
+correct because a program "runs once and exits", and named a program that runs
+unbounded as the change that would break it. A program that streams is that
+change. The paragraph now says what is true: never freeing is safe, memory is
+total allocation, and a streaming program that allocates per line grows
+without bound while one that does not stays constant. 0010 is the fix.
+
+**Tests without an oracle.** Stage 0 cannot run any of this, so the new
+`tests/io/` suite runs only under `tools/test.sh --compiled`, and its
+expectations are written by hand rather than blessed. Checker errors for the
+new builtins and the new `main` are in `tests/compiler/check_errors`, which
+runs the compiler's checker under stage 0 and so still has both.
+
+---
+
 ## Checking a fragment still checks its main
 
 **A check that used to pass now fails.** With `#nomain`, a program `main` that

@@ -139,8 +139,8 @@ its tail to a helper.
 
 ## The standard library
 
-Linked automatically. Read `l0/prelude.l0` for the full list; the ones you
-will reach for constantly:
+Linked automatically. Read `l0/prelude.l0` and `l0/io.l0` for the full list;
+the ones you will reach for constantly:
 
 - `rev`, `push`, `append`, `length`, `list_eq`, `drop_n`
 - `digits` — an int as decimal bytes, which is the only way to print a number
@@ -156,7 +156,8 @@ program and cannot disturb the prelude's own use of it.
 
 ## The shape of a program
 
-A program defines `main`, which receives stdin as a list of bytes:
+A program defines `main` in one of two forms. The first receives stdin as a
+list of bytes and returns its output:
 
 ```
 (def main ((input (list int))) (list int)
@@ -164,9 +165,32 @@ A program defines `main`, which receives stdin as a list of bytes:
 ```
 
 The return type may be `(list int)` for raw bytes, or `int` or `bool`, which
-are printed as a decimal or as `true`/`false`. There is no other I/O: no
-files, no arguments, no clock, no network. A program is a pure function from
-bytes to bytes.
+are printed as a decimal or as `true`/`false`. Nothing is written until `main`
+returns, and all of stdin is read before it starts.
+
+The second takes nothing, reads and writes as it goes, and returns the exit
+status. Use it when a program must write before its input ends, such as a
+prompt, or must not hold its whole input at once:
+
+```
+(def main () int
+  (let w (write_str "What is your name? ")
+    (let name (take_line (read_line))
+      (let g (write_str (append "Hello, " (append name "!\n")))
+        0))))
+```
+
+`read_byte` and `write_byte` are the builtins; `read_line`, `write_str`, and
+`write_line` are in `l0/io.l0`. They are effects, and **effects happen in
+evaluation order**, so nest `let`s to put one before another. A `let` whose
+name you never use is still evaluated, which is exactly what makes it the way
+to sequence. `read_line` returns the empty list only at end of input, and
+keeps the line's newline, so strip it with `take_line`.
+
+Output written before a read that has to wait is always shown first, so a
+prompt appears before the program waits for its answer.
+
+There are no files, command-line arguments, clock, or network yet.
 
 ## Testing
 

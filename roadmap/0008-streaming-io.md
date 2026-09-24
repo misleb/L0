@@ -1,7 +1,7 @@
 # 0008: Streaming standard input and output
 
 Kind: language
-Status: queued
+Status: done
 Needs: 0007
 
 ## Why
@@ -51,3 +51,22 @@ returns, at 16 bytes per output byte.
 ## Log
 
 - 2026-09-23: opened from 0005's recommendation.
+- 2026-09-23: done; changelog "Reading and writing as a program runs". The
+  open questions were answered as follows:
+  - builtins `read_byte` (-1 at end of input) and `write_byte`, with
+    `read_line`, `write_str`, and `write_line` in L0 in a new `lib/io.l0`,
+    which `tools/l0` links in the prelude group; output is flushed before any
+    read that would wait, and at exit, including from a runtime error
+  - the existing `main` stays; a second form, `(def main () int ...)`, reads
+    nothing up front and returns the exit status
+  - section 8 now lets bytes written before a runtime error through, and
+    says an evaluation may be moved or dropped only if it can neither do I/O
+    nor fail
+  - the new `tests/io/` suite runs under `--compiled` only, with hand-written
+    expectations, and `prompt.sh` tests the timing through named pipes
+  Measured: the prompt built with `l0 build`, answer sent at t+2, shows its
+  question at t+0.01 and its greeting at t+2.00, and exits without waiting
+  for end of input; `prompt.sh` fails a read-first version. A streaming copy
+  of 100 MB peaks at 1.1 MB, against 1704 MB for `main` returning its input.
+  Both suites pass (56 interpreted, 59 compiled), the fixpoint holds, the
+  seed is refreshed, and a fresh copy installs and bootstraps.
