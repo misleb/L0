@@ -73,7 +73,7 @@ that this file deliberately omits.
 
 ```
 spec/          L0.md (the language) and changelog.md (why it is that way)
-runtime/       l0rt.ll, the runtime as LLVM IR; l0core.c, used by stage 0 only
+runtime/       l0rt.ll, the runtime every compiled program links, as LLVM IR
 compiler/      the L0 compiler, written in L0
 bootstrap/     stage2.ll, the checked-in seed the compiler is built from
 stage0/        frozen C interpreter, kept only as a differential oracle

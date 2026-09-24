@@ -1,7 +1,7 @@
 # 0004: Retire the C runtime files
 
 Kind: tooling
-Status: proposed
+Status: done
 Needs: 0003
 
 ## Why
@@ -26,3 +26,9 @@ by stage 0. Leaving them in `runtime/` misstates what compiled programs use.
 ## Log
 
 - 2026-09-23: opened from 0001's answers.
+- 2026-09-23: done. `runtime/` holds only `l0rt.ll`; the only C files are
+  `stage0/l0i.c`, `stage0/l0core.c`, and `stage0/l0core.h`. `l0i.c` was not
+  edited: it finds `l0core.h` beside itself. `l0core.h`'s header comment no
+  longer claims to be shared with compiled programs. Both suites pass, the
+  fixpoint holds, and the seed is current, since nothing it is built from
+  changed.

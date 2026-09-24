@@ -147,3 +147,5 @@ directly as IR. The last four are where the design questions are.
   whether L0 grows those primitives is no longer a question about the runtime.
   It is a question about what the memory-management and I/O goals mean for L0
   programs, and it is the next item's to answer. Done.
+- 2026-09-23: 0004 deleted `0001/`. The prototype and its harness are in git
+  history; `runtime/l0rt.ll` is what they became.

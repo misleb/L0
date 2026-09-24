@@ -4,9 +4,9 @@
 # Usage: tools/build.sh
 #
 # The runtime compiled programs link is LLVM IR, runtime/l0rt.ll, assembled
-# here into build/l0rt.o. The only C is the stage-0 interpreter and the
-# runtime/l0core.c it shares its value representation with, built only if
-# stage0/ is present.
+# here into build/l0rt.o. The only C in the repository is the stage-0
+# interpreter, stage0/l0i.c and stage0/l0core.c, built only if stage0/ is
+# present.
 
 set -eu
 
@@ -21,11 +21,11 @@ echo "ll  runtime/l0rt.ll"
 "$CC" -O2 -Wno-override-module -c "$ROOT/runtime/l0rt.ll" -o "$BUILD/l0rt.o"
 
 if [ -f "$ROOT/stage0/l0i.c" ]; then
-    echo "cc  runtime/l0core.c"
-    "$CC" $CFLAGS -I"$ROOT/runtime" -c "$ROOT/runtime/l0core.c" \
+    echo "cc  stage0/l0core.c"
+    "$CC" $CFLAGS -I"$ROOT/stage0" -c "$ROOT/stage0/l0core.c" \
         -o "$BUILD/l0core.o"
     echo "cc  stage0/l0i.c"
-    "$CC" $CFLAGS -I"$ROOT/runtime" "$ROOT/stage0/l0i.c" "$BUILD/l0core.o" \
+    "$CC" $CFLAGS -I"$ROOT/stage0" "$ROOT/stage0/l0i.c" "$BUILD/l0core.o" \
         -o "$BUILD/l0i"
     echo "ok  build/l0i and the runtime"
 else

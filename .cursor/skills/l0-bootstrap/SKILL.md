@@ -35,8 +35,8 @@ silent and converts a caught bug into a permanent one.
   host I/O, the entry point, and stack checks, as LLVM IR calling libc. It
   must stay the same text on every host; its header says what that rules out.
   See the constraints on the runtime interface below before changing it.
-- `runtime/l0core.c` — C, used only by stage 0 now
-- `runtime/l0rt.c` — linked by nothing; roadmap item 0004 deletes it
+- `stage0/l0core.c`, `stage0/l0core.h` — stage 0's value representation and
+  host I/O, in C. Compiled programs never link them.
 - `compiler/*.l0` — the L0 compiler, written in L0
 - `bootstrap/stage2.ll` — the compiler, compiled. The bootstrap entry point.
 - `stage0/l0i.c` — **frozen.** No longer part of the bootstrap, and never

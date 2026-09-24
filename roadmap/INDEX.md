@@ -2,9 +2,9 @@
 
 Goals: README.md, "What L0 aims to be". Not restated here.
 
-Current focus: the C is gone from compiled programs. What remains of that
-milestone is 0004's cleanup. The next goal is memory management and I/O, and
-the first decision in it is open; see "Next" below.
+Current focus: memory management and I/O. The C is gone from compiled
+programs, and C remains only in `stage0/`. The goal starts by choosing a
+route: 0005, with 0006 as its evidence.
 
 ## Language queue
 
@@ -14,16 +14,12 @@ Empty.
 
 ## Other open items
 
-- [0004](0004-retire-c-runtime.md) tooling: retire the C runtime files —
-  proposed, ready
-
-## Next
-
-0002's limits are the complete list of what L0 would need in order to write
-its own runtime. Now that the runtime is IR, that is one route to the
-memory-management and I/O goals, not the only one. The research item that
-starts the goal has to be opened with the route chosen, or with choosing it
-as its question.
+- [0005](0005-memory-and-io-route.md) research: which route to memory
+  management and I/O — active; questions 1, 2, 3, and 5 answered
+  provisionally, question 4 and the recommendation wait on 0006, and the
+  answer needs the user's agreement
+- [0006](0006-ordinary-programs.md) program: write ordinary programs and
+  record where L0 stops — active, running as a worker
 
 ## Done and dropped
 
@@ -34,3 +30,5 @@ as its question.
 - [0003](0003-ir-runtime.md) link compiled programs against an IR runtime
   instead of C — done, changelog "The runtime is LLVM IR, and stack exhaustion
   is checked rather than caught"
+- [0004](0004-retire-c-runtime.md) tooling: retire the C runtime files — done;
+  C remains only in `stage0/`

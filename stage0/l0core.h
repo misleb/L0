@@ -1,7 +1,9 @@
 /* l0core.h -- L0 value representation, allocation, and host I/O.
  *
- * Shared by the compiled-program runtime (l0rt.c) and the stage-0 interpreter
- * (stage0/l0i.c) so that the two can never disagree about what an L0 value is.
+ * Used only by the stage-0 interpreter (stage0/l0i.c). Compiled programs link
+ * runtime/l0rt.ll instead, which implements the same representation
+ * independently; tools/test.sh --compiled is what holds the two to the same
+ * observable behavior.
  *
  * Representation is defined in spec/L0.md section 10.1: every L0 value is one
  * i64. Lists are cons-cell pointers with 0 as the empty list; data values are
