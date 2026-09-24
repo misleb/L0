@@ -76,3 +76,13 @@ program-writing workers, and projects made by `l0 init`.
   `lib/examples_test.l0`, ten tests covering each idiom. A fresh `l0 init`
   project runs them with the installed `l0 test`. Both suites pass (56 and
   63); the compiler did not change, so the seed is still current.
+- 2026-09-24: the user asked whether existing tests had moved to the
+  framework; they had not. The oracle-checked suites cannot, since stage 0
+  cannot do I/O, and most of `tests/io` checks what a test function cannot:
+  the forms of `main`, exit status, standard input, arguments, timing.
+  `handles` and `order` could, and `lib/io.l0` had no unit tests at all. Now
+  `tests/unit/io_test.l0` (16 tests) and `tests/unit/order_test.l0` replace
+  them, run by `tools/test.sh --compiled` through `l0 test` in a scratch
+  directory, against the fresh compiler through new `L0_COMPILER` and
+  `L0_RUNTIME` overrides in `tools/l0`. A deliberately failing file was
+  checked to fail the suite with its got and want shown.

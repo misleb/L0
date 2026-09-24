@@ -1,0 +1,156 @@
+; Unit tests for lib/io.l0 and the I/O builtins beneath it, spec sections 6.3
+; and 6.4. tools/test.sh --compiled runs this with l0 test, in a scratch
+; directory, so the files these tests write do not land in the repository.
+
+(def contents ((path (list int))) (list int)
+  (match (open_in path)
+    ((IoFailed why) (append "cannot read: " why))
+    ((IoOpened f)
+      (let s (read_all f (nil int))
+        (let c (file_close f)
+          s)))))
+
+; ------------------------------------------------------------ error codes
+
+(def test_io_error_messages () int
+  (add (check_str "-1" (io_error -1) "end of input")
+    (add (check_str "-2" (io_error -2) "not open in that direction")
+      (add (check_str "-3" (io_error -3) "no such file")
+        (add (check_str "-4" (io_error -4) "permission denied")
+             (check_str "-5" (io_error -5) "input or output failed"))))))
+
+(def test_wrong_direction () int
+  (add (check_int "write to standard input" (write_to 0 65) -2)
+    (add (check_int "read from standard output" (read_from 1) -2)
+         (check_int "read from standard error" (read_from 2) -2))))
+
+(def test_not_a_handle () int
+  (add (check_int "write to 99" (write_to 99 65) -2)
+    (add (check_int "read from -1" (read_from -1) -2)
+         (check_int "close 7" (close 7) -2))))
+
+(def test_standard_streams_stay_open () int
+  (add (check_int "close 0" (close 0) -2)
+    (add (check_int "close 1" (close 1) -2)
+         (check_int "close 2" (close 2) -2))))
+
+; ------------------------------------------------------------------ opening
+
+(def test_open_missing_file () int
+  (match (open_in "/nonexistent/l0/file")
+    ((IoFailed why) (check_str "reason" why "no such file"))
+    ((IoOpened f) (check_true "should not have opened" false))))
+
+(def test_open_missing_file_raw () int
+  (check_int "open_read" (open_read "/nonexistent/l0/file") -3))
+
+(def test_create_in_missing_directory () int
+  (match (open_out "no/such/directory/file.txt")
+    ((IoFailed why) (check_str "reason" why "input or output failed"))
+    ((IoOpened f) (check_true "should not have opened" false))))
+
+; A path holding a zero byte cannot name a file.
+(def test_zero_byte_in_path () int
+  (check_int "open_read" (open_read (cons 97 (cons 0 (nil int)))) -5))
+
+; A directory opens, but reading it fails.
+(def test_read_a_directory () int
+  (match (open_in ".")
+    ((IoFailed why) (check_str "a directory should open" why ""))
+    ((IoOpened f)
+      (let b (file_read_byte f)
+        (let c (file_close f)
+          (check_int "read" b -5))))))
+
+; --------------------------------------------------- writing and reading back
+
+(def write_lines_file ((path (list int))) int
+  (match (open_out path)
+    ((IoFailed why) 1)
+    ((IoOpened f)
+      (let w (file_write_str f "one\n\nthree")
+        (file_close f)))))
+
+(def test_write_then_read () int
+  (add (check_int "close after writing" (write_lines_file "lines.txt") 0)
+       (check_str "contents" (contents "lines.txt") "one\n\nthree")))
+
+; file_read_line keeps each newline, returns "\n" for a blank line, a last
+; line without its newline, and the empty list only at the end.
+(def read_four ((f IoFile)) (list (list int))
+  (let a (file_read_line f)
+    (let b (file_read_line f)
+      (let c (file_read_line f)
+        (let d (file_read_line f)
+          (cons a (cons b (cons c (cons d (nil (list int)))))))))))
+
+(def want_lines () (list (list int))
+  (cons "one\n" (cons "\n" (cons "three" (cons "" (nil (list int)))))))
+
+(def test_file_read_line () int
+  (let w (write_lines_file "lines2.txt")
+    (match (open_in "lines2.txt")
+      ((IoFailed why) (check_str "open" why ""))
+      ((IoOpened f)
+        (let lines (read_four f)
+          (let c (file_close f)
+            (check_strs "lines" lines (want_lines))))))))
+
+; End of input is -1 on every read after it, not only the first.
+(def test_end_of_input_sticks () int
+  (let w (write_lines_file "short.txt")
+    (match (open_in "short.txt")
+      ((IoFailed why) (check_str "open" why ""))
+      ((IoOpened f)
+        (let all (read_all f (nil int))
+          (let again (file_read_byte f)
+            (let c (file_close f)
+              (add (check_int "after the end" again -1)
+                   (check_int "length" (length all) 10)))))))))
+
+; Opening for writing empties a file that exists.
+(def test_open_out_truncates () int
+  (let w1 (write_lines_file "trunc.txt")
+    (match (open_out "trunc.txt")
+      ((IoFailed why) (check_str "open" why ""))
+      ((IoOpened f)
+        (let w (file_write_str f "x")
+          (let c (file_close f)
+            (check_str "contents" (contents "trunc.txt") "x")))))))
+
+; A closed handle is closed in both directions, and its number is reused.
+(def test_closed_handle () int
+  (match (open_in ".")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (match f
+        ((IoFile h)
+          (let c (close h)
+            (add (check_int "close" c 0)
+              (add (check_int "read after close" (read_from h) -2)
+                (add (check_int "close again" (close h) -2)
+                     (check_int "number reused" (open_read ".") h))))))))))
+
+; More than a 64 KB buffer, so writing and reading both cross a refill.
+(def write_n ((f IoFile) (n int)) int
+  (if (le n 0)
+      0
+      (let w (file_write_byte f (mod n 251))
+        (write_n f (sub n 1)))))
+
+(def test_large_file () int
+  (match (open_out "large.bin")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let w (write_n f 200000)
+        (let c (file_close f)
+          (check_int "bytes read back" (length (contents "large.bin")) 200000))))))
+
+; ---------------------------------------------------------------- arguments
+
+; Under l0 test, the program's argument is the test's name.
+(def test_args_under_l0_test () int
+  (add (check_int "count" (arg_count) 1)
+    (add (check_strs "args" (args) (cons "test_args_under_l0_test" (nil (list int))))
+      (add (check_str "past the end" (arg 1) "")
+           (check_str "negative" (arg -1) "")))))

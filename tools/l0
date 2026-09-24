@@ -22,6 +22,10 @@
 # gain functions without breaking a program that already used the name.
 #
 # Paths are relative to wherever you are, so this works from anywhere.
+#
+# L0_COMPILER and L0_RUNTIME name a compiler and runtime object to use instead
+# of the installed ones; tools/test.sh --compiled points them at the ones it
+# just built, so it tests the current compiler rather than the seed's.
 
 set -eu
 
@@ -78,7 +82,7 @@ ensure_toolchain() {
 }
 
 usage() {
-    sed -n '2,24p' "$SELF/l0" | sed 's/^# \{0,1\}//'
+    sed -n '2,28p' "$SELF/l0" | sed 's/^# \{0,1\}//'
     exit 2
 }
 
@@ -156,7 +160,7 @@ write_bundle() {
 run_compiler() {
     irout=$1
     write_bundle "$TMP/in"
-    if ! "$LIB/l0c" < "$TMP/in" > "$TMP/out"; then
+    if ! "$COMPILER" < "$TMP/in" > "$TMP/out"; then
         echo "l0: the compiler crashed" >&2
         exit 2
     fi
@@ -175,7 +179,11 @@ run_compiler() {
 
 setup() {
     parse_args "$@"
-    ensure_toolchain
+    if [ -z "${L0_COMPILER:-}" ]; then
+        ensure_toolchain
+    fi
+    COMPILER=${L0_COMPILER:-$LIB/l0c}
+    RUNTIME=${L0_RUNTIME:-$LIB/libl0rt.a}
     SOURCES=$FILES
     PRELUDE_END=0
     if [ "$WANT_PRELUDE" = 1 ]; then
@@ -214,14 +222,14 @@ case "$cmd" in
         setup "$@"
         [ -n "$OUT" ] || OUT=$(default_out)
         run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$LIB/libl0rt.a" \
+        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
             -o "$OUT"
         ;;
 
     run)
         setup "$@"
         run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$LIB/libl0rt.a" \
+        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
             -o "$TMP/prog"
         "$TMP/prog"
         ;;
@@ -269,7 +277,7 @@ case "$cmd" in
         } > "$gen"
         SOURCES="$SOURCES $gen"
         run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$LIB/libl0rt.a" \
+        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
             -o "$TMP/prog"
 
         selected=""

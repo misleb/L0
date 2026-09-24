@@ -1,7 +1,7 @@
 # 0010: Reclaim memory by reference counting
 
 Kind: language
-Status: queued
+Status: active
 Needs: 0009
 
 ## Why
@@ -38,3 +38,79 @@ heap cannot contain a cycle: there is no mutation, evaluation is strict, and
 ## Log
 
 - 2026-09-23: opened from 0005's recommendation.
+- 2026-09-24: **design pass**, from reading `emit.l0` and the runtime.
+
+  *Ownership, without liveness analysis.* Every pointer-typed value an
+  expression produces is an owned reference, and whoever receives it
+  consumes it: an argument to a user function (parameters are owned by the
+  callee), a field stored by `cons` or a constructor, a `let` binding, or the
+  function's result. A use of a pointer-typed variable increments it, since
+  the variable keeps its own reference, and the variable's reference is
+  released when its scope ends. That needs no analysis of later uses, only
+  the types of variables. It releases a value no later than the end of the
+  scope that binds it, not at its last use; tighter release can come later
+  if a measurement asks for it.
+
+  *Releases happen before a tail call.* `if` and `match` join their branches
+  through a stack slot, so releasing at the end of a function would put a
+  decrement after every recursive call and turn loops LLVM now makes into
+  jumps back into real recursion, which would exhaust the stack on long
+  inputs. So the emitter tracks tail position and the variables in scope:
+  in tail position, a branch evaluates its value or its call's arguments,
+  then releases every variable in scope, then makes the call. This is also
+  what frees a list as a loop walks it: `rev_onto` drops its cell before
+  recursing.
+
+  *Borrowing builtins.* `head`, `tail`, `is_empty`, a `match` reading fields,
+  and the I/O builtins taking a path all read their argument without
+  consuming it. The emitter increments what they return when its static type
+  is a pointer, then releases the argument. The runtime needs no new
+  consuming versions of them.
+
+  *Types in the emitter.* The emitter discards types today; an operand is
+  bare text. `EmitVal` gains the value's type, computed bottom-up exactly as
+  the checker computes it, so every expression's type is known when emitted
+  with no second pass and nothing quadratic. Bindings in `Env` gain their
+  type.
+
+  *The runtime.* One header word before every block, so section 10.1's
+  offsets do not move: a 24-bit count, the block's size in words, and a
+  32-bit mask of which words are pointers. A cons cell's head may be an
+  `int` or a pointer, which only the static type knows, so allocation takes
+  the mask: new `l0_new_cons(h, t, headptr)` and
+  `l0_new_data(tag, nfields, mask)`, plus `l0_inc` and `l0_dec`. The mask
+  caps a constructor at 31 fields; the widest in the repository has 5, and
+  section 4 gains the error. A count that reaches its maximum sticks there
+  and the block is never freed, which is safe. Freeing walks the pointer
+  words with an explicit worklist, not recursion, since freeing a long list
+  recursively would exhaust the stack. Freed blocks go onto free lists by
+  size, which allocation takes from before the arena.
+
+  *The seed.* The old `l0_cons` and `l0_data_new` stay, per the append-only
+  rule, and make blocks with a count already at the maximum, so programs the
+  old seed compiled are never freed and never corrupted. Lists the runtime
+  builds, input and arguments, are counted; an old-style program never
+  releases them, which is today's behavior.
+
+  *How it will be verified.* `L0_RC_CHECK=1` makes the runtime count live
+  counted blocks and, at a normal exit, after releasing `main`'s result,
+  report any left over, and fill freed blocks with a poison value so a use
+  after free crashes or shows. `tools/test.sh --compiled` will set it for
+  every run, so any leak or use after free in any compiled test is a
+  failure, judged against stage 0's expectations as always. The targets are
+  this item's: `0006/limits/02-no-reclamation.l0` in memory that does not
+  grow, and the compiler compiling itself below 74.5 MB.
+
+  *Two bootstrapped changes.*
+  1. Types through the emitter, the new allocation calls with their masks,
+     the header, and the free-list allocator, with nothing freed yet.
+     Behavior is unchanged and memory grows by one word per block. The
+     emitter refactor is most of the risk, and lands here, where the
+     differential suite can check it before any counting exists.
+  2. Increments and releases, tail-position releases, `L0_RC_CHECK` in the
+     suite, the spec's memory guarantee, and the measurements.
+  Neither needs the two-step rule, since the compiler's own source uses
+  nothing new; each refreshes the seed in its own commit.
+
+  *What 0011 needed to know.* Releases before a tail call keep tail calls
+  where they are. Whether L0 should guarantee them is still 0011's question.

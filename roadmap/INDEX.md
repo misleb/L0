@@ -12,7 +12,7 @@ management and I/O".
 Changes to the language, strictly in order. At most one is active.
 
 1. [0010](0010-reference-counting.md) reclaim memory by reference counting —
-   queued, ready
+   active; design recorded, two bootstrapped changes planned
 
 ## Other open items
 

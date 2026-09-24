@@ -14,6 +14,8 @@
 #   tests/check/*.l0     programs that must fail to type check
 #   tests/io/*.l0        programs using features stage 0 does not have, such
 #                        as the I/O builtins; run by --compiled only
+#   tests/unit/*_test.l0 tests written with l0 test; run by --compiled only,
+#                        each file counting as one test
 #
 # Per-test files, where <stem> is the test path without its extension:
 #   <stem>.out     expected stdout, required, may be empty
@@ -334,6 +336,29 @@ if [ "$COMPILED" = 1 ]; then
         fi
     done
 
+    # Tests written with l0 test, each file run in a scratch directory so the
+    # files its tests write stay out of the repository, and against the
+    # compiler and runtime just built rather than the installed ones.
+    for src in tests/unit/*_test.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        udir="$TMP/unit-$name"
+        mkdir -p "$udir"
+        # shellcheck disable=SC2046
+        if (cd "$udir" && L0_COMPILER="$BUILD/l0c-native" \
+            L0_RUNTIME="$BUILD/l0rt.o" "$ROOT/tools/l0" test "$ROOT/$src" \
+            $(extra_sources "tests/unit/$name" | sed "s|[^ ]*|$ROOT/&|g")) \
+            > "$udir.tap" 2>&1; then
+            npass=$((npass + 1))
+        else
+            nfail=$((nfail + 1))
+            failures="$failures unit/$name"
+            echo "FAIL unit/$name:"
+            grep -v '^ok ' "$udir.tap" | sed 's/^/    /'
+        fi
+    done
+
     echo
     echo "compiled suite: $npass passed, $nfail failed, $nskip skipped"
     if [ "$nfail" -ne 0 ]; then
@@ -406,8 +431,8 @@ done
 # ------------------------------------------------------------------ summary
 
 echo
-nio=$(ls tests/io/*.l0 2> /dev/null | wc -l | tr -d ' ')
-[ "$nio" -gt 0 ] && echo "tests/io: $nio programs stage 0 cannot run; tools/test.sh --compiled runs them"
+nio=$(ls tests/io/*.l0 tests/unit/*_test.l0 2> /dev/null | wc -l | tr -d ' ')
+[ "$nio" -gt 0 ] && echo "tests/io and tests/unit: $nio files stage 0 cannot run; tools/test.sh --compiled runs them"
 if [ "$nfail" -eq 0 ]; then
     echo "all $npass tests passed"
     exit 0

@@ -50,6 +50,16 @@ and projects made by `l0 init`, which now ships `l0/test.l0` and a worked
 report on a fixture against hand-written expectations, and runs the shipped
 example tests, which must pass.
 
+The repository's own tests of what stage 0 cannot run moved to it where they
+could. `tests/unit/io_test.l0` has sixteen tests of `lib/io.l0` and the
+builtins beneath it, taking over what the old `handles` program printed, and
+`tests/unit/order_test.l0` checks evaluation order through a file instead of
+standard output. `tools/test.sh --compiled` runs each through `l0 test` in a
+scratch directory, and points it at the compiler it just built with the new
+`L0_COMPILER` and `L0_RUNTIME` overrides, since `l0 test` otherwise uses the
+seed's. What stays in `tests/io` is what a test function cannot check: the
+two forms of `main`, exit status, standard input, arguments, and timing.
+
 ---
 
 ## Files, arguments, and names reserved for the standard library

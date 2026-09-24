@@ -1,0 +1,29 @@
+; Effects happen in evaluation order, spec section 8: arguments left to right,
+; a let value before its body, and every operand of and and or, whether or not
+; the result is used. Each write goes to a file, which is read back.
+
+(def two ((a int) (b int)) int 0)
+
+(def write_in_order ((f IoFile)) int
+  (let unused (file_write_byte f 97)
+    (let s (add (file_write_byte f 98) (file_write_byte f 99))
+      (let t (two (file_write_byte f 100) (file_write_byte f 101))
+        (let u (and (eq (file_write_byte f 102) 1) (eq (file_write_byte f 103) 0))
+          (let v (or (eq (file_write_byte f 104) 0) (eq (file_write_byte f 105) 0))
+            0))))))
+
+(def read_back ((path (list int))) (list int)
+  (match (open_in path)
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (let s (read_all f (nil int))
+        (let c (file_close f)
+          s)))))
+
+(def test_evaluation_order () int
+  (match (open_out "order.txt")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let w (write_in_order f)
+        (let c (file_close f)
+          (check_str "bytes" (read_back "order.txt") "abcdefghi"))))))

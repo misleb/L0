@@ -371,7 +371,8 @@ bootstrap/     stage2.ll, the checked-in seed the compiler is built from
 stage0/        frozen C interpreter, kept only as a differential oracle
 tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself), io (what
-               stage 0 cannot run, with hand-written expectations)
+               stage 0 cannot run, with hand-written expectations), unit
+               (tests written with l0 test)
 tools/         l0 (the driver), install.sh, build.sh, test.sh, bootstrap.sh
 seeds/         the original seed spec, superseded by spec/
 roadmap/       plans and status for work in progress; never knowledge about L0
