@@ -214,9 +214,10 @@ names rather than a module system.
 
 A program can read and write its standard streams and files, and read its
 command-line arguments, but there is no network, no clock, and no
-environment. Memory is freed by reference counting when a binding's scope
-ends, not at a value's last use, so a whole-input `main` holds its input for
-as long as it runs. Lists are the only data structure, so indexing is O(n), and
+environment. Memory is freed by reference counting, but a whole-input `main`
+receives its input as a list built in full before it starts, about 24 bytes
+per input byte, so large inputs call for the streaming form. Lists are the
+only data structure, so indexing is O(n), and
 there are no arrays, maps, floats, modules, or higher-order functions.
 
 None of these was ruled out. Each is absent because self-compilation never

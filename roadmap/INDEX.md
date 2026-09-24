@@ -4,21 +4,19 @@ Goals: README.md, "What L0 aims to be". Not restated here.
 
 Current focus: the memory-management and I/O goal is met by the language route
 (changelog "The route to memory management and I/O"): streaming and file I/O,
-arguments, and reference counting. What remains of it is refinement: 0013,
-releasing at last use, and 0011, whether tail calls are guaranteed. The next
-goal after that is open.
+arguments, and reference counting. What remains of it is 0011, whether tail
+calls are guaranteed. The next goal after that is open.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0013](0013-release-at-last-use.md) release a value at its last use —
-   proposed; whether it is worth it is part of the question
+Empty.
 
 ## Other open items
 
 - [0011](0011-tail-calls.md) research: whether L0 guarantees tail calls —
-  proposed, can run at any time; interacts with 0010
+  active, running as a worker
 
 ## Done and dropped
 
@@ -46,3 +44,6 @@ Changes to the language, strictly in order. At most one is active.
   library — done, changelog "A test framework, and no language change for it"
 - [0010](0010-reference-counting.md) reclaim memory by reference counting —
   done, changelog "Memory is reclaimed by reference counting"
+- [0013](0013-release-at-last-use.md) release a value at its last use —
+  dropped; its blocker was the input list built before `main`, which no
+  release rule can reduce

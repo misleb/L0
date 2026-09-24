@@ -145,3 +145,7 @@ heap cannot contain a cycle: there is no mutation, evaluation is strict, and
   `main` passes `input` to a call not in tail position and so keeps the whole
   list alive until it returns. Releasing at last use would fix that; opened
   as [0013](0013-release-at-last-use.md).
+- 2026-09-24: **correction.** The line filter's 2.7 GB is not scope-based
+  release: a `main` that ignores its input peaks at the same 2,504 MB at
+  100 MB, so the cost is the input list the runtime builds before `main`
+  starts. See 0013, dropped on that evidence.

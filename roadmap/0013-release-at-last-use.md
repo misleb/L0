@@ -1,7 +1,7 @@
 # 0013: Release a value at its last use, not at the end of its scope
 
 Kind: language
-Status: proposed
+Status: dropped
 Needs: nothing
 
 ## Why
@@ -14,31 +14,35 @@ From [0010](0010-reference-counting.md)'s measurements. 0006's line filter,
   (rev (filter_onto input (nil int) (nil int))))
 ```
 
-`filter_onto` walks `input` with tail calls, but the call to it is an
-argument to `rev`, not in tail position, so `main`'s parameter holds the head
-of the list until `main` returns, and with it the whole list. At 100 MB of
-input it holds 2.7 GB. Had `input`'s reference been handed to `filter_onto`
-at its last use instead of incremented and released later, each cell would
-be freed as the loop passed it.
-
-## Open questions for this item
-
-- The simplest cases may be enough: a variable used exactly once, or whose
-  last use is the last thing evaluated on every path. How much of the general
-  liveness analysis Perceus does is needed, and what it costs the emitter.
-- Whether it is worth doing at all given the streaming `main`, which the
-  l0-code skill already recommends for large inputs. A measurement on the
-  compiler's own memory and on 0006's programs should decide.
-- It also removes most increment and decrement pairs, which is where the
-  compiler lost speed in 0010: 0.04 s to 0.15 s compiling itself.
-
-## Done when
-
-- the checklist in the `l0-bootstrap` skill, with every compiled program
-  still passing under `L0_RC_CHECK`
-- 0006's line filter holds memory proportional to one line plus its output,
-  not to its input
+At 100 MB of input it held 2.7 GB, and 0010 attributed that to `main`'s
+parameter keeping the whole list alive, since the call is not in tail
+position. That attribution was wrong; see the Log.
 
 ## Log
 
 - 2026-09-24: opened from 0010's measurements.
+- 2026-09-24: **dropped, because its blocker was misdiagnosed.** The cheapest
+  version was built first, to test whether the idea was worth its cost: a
+  list- or data-typed variable used exactly once in its scope, and not inside
+  a branch, hands over its reference at that use instead of adding one and
+  releasing later. It bootstrapped to a fixpoint and left nothing live under
+  `L0_RC_CHECK`, and changed nothing measurable:
+
+  | | before | with the rule |
+  |---|---|---|
+  | 0006 line filter, 100 MB input | 2.7 GB | 2.5 GB |
+  | compiler compiling itself | 26.3 MB, 0.15 s | 26.0 MB, 0.15 s |
+
+  A `main` that takes 100 MB of input and ignores it peaks at 2,504 MB, the
+  same as the line filter with the rule. So the cost is the input list the
+  runtime builds in full before `main` starts, one 24-byte cons cell per
+  byte, and no rule for when to release can reduce it. Only the streaming
+  `main` avoids it, which the l0-code skill already recommends. The rule was
+  reverted, since a change has to be earned by what it makes possible, and
+  this one made nothing possible. The 0010 changelog entry carries a
+  correction.
+
+  If the compiler's speed, 0.15 s against 0.04 s before counting, ever needs
+  recovering, eliding increment and release pairs is the place to look, and
+  this rule is a starting point; on its own it removed about 2% of the
+  compiler's emitted IR and no measurable time.

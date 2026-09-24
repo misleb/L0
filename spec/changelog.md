@@ -55,6 +55,16 @@ Releasing at last use would fix it. That is recorded as its own roadmap item
 rather than folded into this one, since streaming programs, which the l0-code
 skill now recommends for large inputs, do not need it.
 
+*Corrected later, the same day: that diagnosis was wrong.* A `main` that takes
+its input and ignores it peaks at the same 2,504 MB at 100 MB of input as the
+line filter does. The cost is the input list the runtime builds in full before
+`main` starts, one 24-byte cons cell per input byte, and no rule for when to
+release can reduce it; only the streaming form avoids it. A release-at-last-use
+rule was built anyway, for variables used once outside any branch, and changed
+nothing measurable: the line filter at 2.5 GB, the compiler at 26 MB and 0.15
+s. It was reverted and roadmap item 0013 dropped. The paragraph above is left
+as written, since it is the reasoning that opened 0013.
+
 **How it was verified.** `L0_RC_CHECK` makes the runtime poison freed blocks
 and never reuse them, so a use after free is a runtime error, and report any
 counted block still live at a normal exit. The check was shown to fire, on a

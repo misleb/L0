@@ -215,7 +215,9 @@ frees each iteration's garbage before the next. So:
 
 - to process a large input, use the streaming `main` and read it a line or a
   byte at a time; that runs in constant memory however long the input is
-- a `main` that takes its input holds all of it until `main` returns
+- a `main` that takes its input gets it as a list built in full before `main`
+  starts, one cons cell per byte, about 2.4 GB for 100 MB, however little of
+  it `main` then keeps
 - write loops as tail calls, so each iteration's values are freed as it goes
 
 There is no clock, network, or environment yet.

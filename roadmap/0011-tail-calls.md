@@ -1,7 +1,7 @@
 # 0011: Whether L0 guarantees tail calls
 
 Kind: research
-Status: proposed
+Status: active
 Needs: nothing
 
 ## Why
@@ -31,3 +31,7 @@ a general-purpose L0 will have long-running loops.
 
 - 2026-09-23: opened from 0005's recommendation. Can run at any time; it
   interacts with 0010.
+- 2026-09-24: 0010 landed, releasing bindings before a tail call. Launched a
+  `best-of-n-runner` worker to measure what LLVM does today at -O2 and -O0,
+  and to prototype musttail, the tail marker, the emitter turning self tail
+  calls into loops, and returning directly from a branch.
