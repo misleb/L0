@@ -46,8 +46,10 @@ declare i64 @l0_f_main(i64)
 
 ; The handle table of spec section 6.3. A handle is an index into it. mode is
 ; 0 for closed, 1 for reading, and 2 for writing; state is 0 when all is well,
-; 1 once end of input is seen, 2 after a read failed, and 3 after a write
-; failed, and it sticks, so a terminal is not asked for a second end of file.
+; 1 once end of input is seen, 2 after a read failed, 3 after a write failed
+; that no flush or close has reported, and 4 once one has. Every state but 0
+; sticks, so a terminal is not asked for a second end of file, and a lost
+; byte is never forgotten; a new write failure turns 4 back into 3.
 ; For reading, pos and len delimit the unread bytes in buf; for writing, len
 ; is how many bytes are held back. Handles 0, 1, and 2 use the static buffers
 ; below and are never closed; the rest get a buffer from malloc when opened.
@@ -69,6 +71,7 @@ declare i64 @l0_f_main(i64)
 @m_div = private constant [16 x i8] c"division by zero"
 @m_mod = private constant [14 x i8] c"modulo by zero"
 @m_stack = private constant [15 x i8] c"stack exhausted"
+@m_write = private constant [12 x i8] c"write failed"
 @s_true = private constant [5 x i8] c"true\0A"
 @s_false = private constant [6 x i8] c"false\0A"
 @env_name = private constant [12 x i8] c"L0_STACK_MB\00"
@@ -104,6 +107,23 @@ fail:
 define internal void @write_all(i32 %fd, ptr %p, i64 %n) {
 entry:
   %r = call i64 @write_all_rc(i32 %fd, ptr %p, i64 %n)
+  ret void
+}
+
+; As write_all, for output that is the program's own, such as main's result:
+; a failure is recorded against the handle of the same number, unreported,
+; so that the exit check of spec section 6.3 sees it. fd is 1 or 2.
+define internal void @write_mark(i32 %fd, ptr %p, i64 %n) {
+entry:
+  %r = call i64 @write_all_rc(i32 %fd, ptr %p, i64 %n)
+  %bad = icmp ne i64 %r, 0
+  br i1 %bad, label %mark, label %done
+mark:
+  %h = sext i32 %fd to i64
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
+  store i64 3, ptr %sp
+  br label %done
+done:
   ret void
 }
 
@@ -627,7 +647,8 @@ entry:
 }
 
 ; Delivers what a writing handle holds back. Returns 0, or -5 if this or an
-; earlier write to the handle failed.
+; earlier write to the handle failed. It reports nothing; a caller whose
+; result reaches the program marks the failure reported.
 define internal i64 @h_flush(i64 %h) {
 entry:
   %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
@@ -650,9 +671,55 @@ failed:
   br label %done
 done:
   %st = load i64, ptr %sp
-  %err = icmp eq i64 %st, 3
+  %err = icmp uge i64 %st, 3
   %r = select i1 %err, i64 -5, i64 0
   ret i64 %r
+}
+
+define i64 @l0_flush(i64 %h) {
+entry:
+  %ok = call i1 @h_is(i64 %h, i64 2)
+  br i1 %ok, label %go, label %bad
+bad:
+  ret i64 -2
+go:
+  %r = call i64 @h_flush(i64 %h)
+  %failed = icmp ne i64 %r, 0
+  br i1 %failed, label %told, label %done
+told:
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
+  store i64 4, ptr %sp
+  br label %done
+done:
+  ret i64 %r
+}
+
+; After the last flush of a normal exit: a write failure on a handle still
+; open that no flush reported is the runtime error of spec section 6.3. A
+; closed handle has been reported by its close.
+define internal void @report_lost() {
+entry:
+  br label %loop
+loop:
+  %h = phi i64 [ 0, %entry ], [ %h1, %next ]
+  %end = icmp eq i64 %h, 64
+  br i1 %end, label %done, label %body
+body:
+  %w = call i1 @h_is(i64 %h, i64 2)
+  br i1 %w, label %chk, label %next
+chk:
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
+  %st = load i64, ptr %sp
+  %lost = icmp eq i64 %st, 3
+  br i1 %lost, label %fail, label %next
+fail:
+  call void @rt_error(ptr @m_write, i64 12)
+  unreachable
+next:
+  %h1 = add i64 %h, 1
+  br label %loop
+done:
+  ret void
 }
 
 ; Standard output and standard error, before a read that may wait. Spec
@@ -1090,7 +1157,7 @@ body:
   %full = icmp eq i64 %n, 65536
   br i1 %full, label %flush, label %put
 flush:
-  call void @write_all(i32 1, ptr %buf, i64 %n)
+  call void @write_mark(i32 1, ptr %buf, i64 %n)
   br label %put
 put:
   %n1 = phi i64 [ %n, %body ], [ 0, %flush ]
@@ -1107,7 +1174,7 @@ done:
   %any = icmp ugt i64 %n, 0
   br i1 %any, label %last, label %ret
 last:
-  call void @write_all(i32 1, ptr %buf, i64 %n)
+  call void @write_mark(i32 1, ptr %buf, i64 %n)
   br label %ret
 ret:
   ret void
@@ -1148,7 +1215,7 @@ emit:
   %start = phi i64 [ %p1, %sign ], [ %p2, %minus ]
   %sp = getelementptr i8, ptr %buf, i64 %start
   %len = sub i64 24, %start
-  call void @write_all(i32 %fd, ptr %sp, i64 %len)
+  call void @write_mark(i32 %fd, ptr %sp, i64 %len)
   ret void
 }
 
@@ -1166,10 +1233,10 @@ bool:
   %t = icmp ne i64 %v, 0
   br i1 %t, label %yes, label %no
 yes:
-  call void @write_all(i32 1, ptr @s_true, i64 5)
+  call void @write_mark(i32 1, ptr @s_true, i64 5)
   ret void
 no:
-  call void @write_all(i32 1, ptr @s_false, i64 6)
+  call void @write_mark(i32 1, ptr @s_false, i64 6)
   ret void
 list:
   call void @write_list(i64 %v)
@@ -1201,7 +1268,8 @@ ok:
 ; Kind 3 is a main that streams: nothing is read for it, and its result is
 ; the exit status. The other kinds take the whole input, so standard input is
 ; marked as already ended. Spec section 9. Either way every handle is flushed
-; at the end, as if closed. Spec section 6.3.
+; at the end, as if closed, and then a write failure the program was never
+; told of is a runtime error. Spec section 6.3.
 define internal ptr @run(ptr %unused) noinline {
 entry:
   %fp = call ptr @llvm.frameaddress.p0(i32 0)
@@ -1220,6 +1288,7 @@ stream:
   %st = and i64 %s, 255
   store i64 %st, ptr @exit_status
   call void @check_live()
+  call void @report_lost()
   ret ptr null
 whole:
   %in = call i64 @read_stdin()
@@ -1235,6 +1304,7 @@ release:
   br label %checked
 checked:
   call void @check_live()
+  call void @report_lost()
   ret ptr null
 }
 

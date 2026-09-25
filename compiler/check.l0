@@ -118,7 +118,7 @@
 ; The effects of spec 6.2 to 6.4. Those in bi_io take and return only ints,
 ; so need_all checks them; bi_path take a path and return an int.
 (def bi_io ((i int)) (list (list int))
-  (split_spaces "read_byte write_byte read_from write_to close arg_count"))
+  (split_spaces "read_byte write_byte read_from write_to close flush arg_count"))
 (def bi_path ((i int)) (list (list int)) (split_spaces "open_read open_write"))
 
 (def is_builtin ((n (list int))) bool
@@ -134,7 +134,7 @@
   (if (any_eq n (split_spaces "read_byte arg_count"))
       0
       (if (any_eq n (split_spaces
-            "neg not head tail is_empty write_byte read_from close arg open_read open_write"))
+            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write"))
           1
           2)))
 

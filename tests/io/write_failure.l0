@@ -1,0 +1,72 @@
+; write_failure MODE [PATH]: what a program learns when its writes fail, and
+; what the host does about a failure it never looked at. write_failure.sh
+; runs each mode with standard output closed or open.
+
+(def write_many ((n int)) int
+  (if (eq n 0)
+      0
+      (let w (write_byte 120)
+        (write_many (sub n 1)))))
+
+(def code_line ((what (list int)) (c int)) (list int)
+  (append what (append " " (append (digits c) "\n"))))
+
+; More than the runtime holds back, so some writes fail before the flush.
+; Checks once at the end, as a Unix filter does, and chooses its own status.
+(def checked () int
+  (let w (write_many 200000)
+    (if (lt (flush 1) 0)
+        (let e (write_err "write_failure: write error\n") 1)
+        0)))
+
+; Never looks, so a lost write is the host's to report.
+(def unchecked () int
+  (write_many 200000))
+
+; A failure is never forgotten: the second flush fails too, and having been
+; told, the program keeps the status it returns.
+(def sticky () int
+  (let w (write_byte 120)
+    (let a (flush 1)
+      (let x (write_byte 121)
+        (let b (flush 1)
+          (let e (write_err (append (code_line "first" a) (code_line "second" b)))
+            3))))))
+
+; The first line of the file at path, read through a handle of its own.
+(def read_back ((path (list int))) (list int)
+  (match (open_in path)
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (let s (file_read_line f)
+        (let c (file_close f)
+          s)))))
+
+; flush delivers bytes while the file stays open, so another handle reads
+; them before the close; and it refuses what is not open for writing.
+(def file_mode ((path (list int))) int
+  (match (open_out path)
+    ((IoFailed why) (let e (write_err why) 1))
+    ((IoOpened f)
+      (let w (file_write_str f "abc")
+        (let fl (file_flush f)
+          (let seen (read_back path)
+            (let c (file_close f)
+              (let o (write_str (code_line "flush file:" fl))
+                (let p (write_str (append "read back: " (append seen "\n")))
+                  (let q (write_str (code_line "flush 0:" (flush 0)))
+                    (let r (write_str (code_line "flush 42:" (flush 42)))
+                      (let s (write_str (code_line "flush -1:" (flush -1)))
+                        (flush 1)))))))))))))
+
+(def main () int
+  (let mode (arg 0)
+    (if (list_eq mode "checked")
+        (checked)
+        (if (list_eq mode "unchecked")
+            (unchecked)
+            (if (list_eq mode "sticky")
+                (sticky)
+                (if (list_eq mode "file")
+                    (file_mode (arg 1))
+                    (let e (write_err "usage: write_failure MODE [PATH]\n") 2)))))))

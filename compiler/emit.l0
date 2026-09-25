@@ -523,7 +523,7 @@
 ; Spec 10.3.
 (def io_names ((i int)) (list (list int))
   (split_spaces
-    "read_byte write_byte read_from write_to open_read open_write close arg_count arg"))
+    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush"))
 
 (def rt_names ((i int)) (list (list int))
   (append_strs (split_spaces "div mod head tail is_empty") (io_names 0)))
@@ -863,7 +863,8 @@
         (append "declare i64 @l0_open_write(i64)\n"
           (append "declare i64 @l0_close(i64)\n"
             (append "declare i64 @l0_arg_count()\n"
-              "declare i64 @l0_arg(i64)\n\n")))))))
+              (append "declare i64 @l0_arg(i64)\n"
+                "declare i64 @l0_flush(i64)\n\n"))))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

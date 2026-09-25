@@ -7,6 +7,65 @@ New entries go at the top.
 
 ---
 
+## A program can learn that its writes failed
+
+**L0 gains `flush`,** a builtin that delivers what a handle holds back,
+leaves it open, and returns 0, or -5 if any byte written to it was lost, or
+-2 if it is not open for writing (section 6.3). It works on standard output
+and standard error, which `close` refuses. **A write failure no program was
+told of is now a runtime error at exit,** status 70 whatever `main` returned,
+where before it was silently ignored.
+
+**The blocker.** Roadmap item 0014's base64, run with standard output closed,
+wrote nothing, and exited 0: every `write_byte` returned 0 because it only
+buffers, and `(close 1)` returned -2. `write_to` and `write_byte` only buffer,
+`close` was the only thing that reported a write failure, and it refuses
+handles 0 to 2, so no L0 program could find out. The system `base64` in the
+same situation says "write error" and exits 1. `tests/io/write_failure` is
+now that program's check, and it passes on macOS and Linux.
+
+**Why a builtin, and not a result from `write_to`.** When a write fails
+depends on how much the runtime holds back, which section 6.2 leaves to the
+implementation, so a `write_to` that returned -5 would return it at a moment
+the program cannot predict and another implementation would not reproduce.
+`flush` makes the moment of the check the program's own. It is also what
+`close` already did for a file, less the closing, which standard output
+cannot afford: a filter checks once at the end and can still write to it.
+The name is the one every other language uses. Like any new builtin it
+takes the name from programs, since a builtin wins in call position; 0014's
+wordfreq defined a `flush` of its own, which now has to be renamed.
+
+**Why a failure sticks.** A lost byte stays lost, whatever succeeds after it,
+so once a write to a handle fails every later `flush` and `close` of it
+return -5. Otherwise a program would have to flush after every byte to know
+that its output was whole. The runtime already kept this state per handle;
+it only had no way to say so for handles 0 to 2.
+
+**Why the host reports what the program never saw.** A `main` that takes its
+input has its result written after it returns, so it could never check that
+write, and the compiler is such a program: with standard output on a full
+disk it would have left truncated IR and exited 0. Leaving the exit status
+alone would have kept exactly the failure this entry is about for every
+program that does not flush. So a failure is *reported* once a `flush` or
+`close` of its handle returns -5, and one still unreported when the program
+ends, including one the final delivery causes, is the runtime error of
+section 8. It overrides any status, since the status was computed without
+knowing, and a program that was told keeps the status it chose, so base64
+can still exit 1 with its own message. Status 70 and the `l0: runtime error:`
+line are what the runtime errors already use; the message is `write failed`,
+and if standard error is what failed, the status alone says so.
+
+Section 6.3 said nothing about what happens when delivering held-back bytes
+at exit fails; it now does, and sections 6.2, 8, 9, and 10.3 say the same.
+
+**The seed.** `@l0_flush` is appended to the runtime interface, and the
+exit-time check is in the runtime alone, so programs built by an older seed
+get it too. Stage 0 is frozen and does not know `flush`, so the tests are in
+`tests/io`, with hand-written expectations; its own exit status on a lost
+write is unchanged, which no test compares.
+
+---
+
 ## The standard library documents itself
 
 **What an agent reads about L0 now comes from the toolchain, not from

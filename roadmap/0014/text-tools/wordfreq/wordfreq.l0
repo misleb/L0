@@ -98,7 +98,7 @@
                 (Node l k (add c 1) r h)))))))
 
 ; The word being read is held reversed; this counts it if there is one.
-(def flush ((t Tree) (cur (list int))) Tree
+(def flush_word ((t Tree) (cur (list int))) Tree
   (if (is_empty cur) t (insert t (rev cur))))
 
 ; Every word of s counted into t. The streaming reader in main.l0 does the
@@ -106,11 +106,11 @@
 ; from" as an argument, so the two loops are written twice.
 (def count_list ((t Tree) (cur (list int)) (s (list int))) Tree
   (if (is_empty s)
-      (flush t cur)
+      (flush_word t cur)
       (let b (head s)
         (if (is_word_byte b)
             (count_list t (cons (fold_case b) cur) (tail s))
-            (count_list (flush t cur) (nil int) (tail s))))))
+            (count_list (flush_word t cur) (nil int) (tail s))))))
 
 ; ------------------------------------------------------------- ordering
 

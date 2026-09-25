@@ -253,9 +253,25 @@ read failed, so test for -1 and for other negatives separately, or a failed
 read looks like a short file. `read_line` and `file_read_line` do not: a
 failed read ends the line as end of input would. When that matters, use
 `next_line` and `file_next_line`, which return an `IoLine`: `(IoLine s)`,
-`(IoEnd)`, or `(IoError code)`, where `(io_error code)` says why in words. `file_close` on a file you wrote returns a
-negative number if its bytes could not be written, which is the only place a
-write failure shows up; check it.
+`(IoEnd)`, or `(IoError code)`, where `(io_error code)` says why in words.
+
+Writes are held back, so a write failure shows up only later: `file_close`,
+or `file_flush` on a file kept open, returns a negative number if any byte
+written to the file was lost; check it. For standard output, which is never
+closed, call `(flush 1)` once at the end, as a Unix filter does, and turn -5
+into a message and a nonzero status:
+
+```
+(def main () int
+  (let st (copy_input 0)
+    (if (lt (flush 1) 0)
+        (let w (write_err "prog: write error\n") 1)
+        st)))
+```
+
+A write failure the program never checked is not ignored: the program exits
+with status 70 and `l0: runtime error: write failed`. Checking is how you
+choose the message and status instead.
 
 Type and constructor names beginning with `Io` and an uppercase letter, such
 as `IoFile`, are reserved for the standard library, so name your own types

@@ -24,6 +24,7 @@ declare i64 @l0_open_write(i64)
 declare i64 @l0_close(i64)
 declare i64 @l0_arg_count()
 declare i64 @l0_arg(i64)
+declare i64 @l0_flush(i64)
 
 @l0_main_ret_kind = global i64 0
 

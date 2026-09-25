@@ -50,7 +50,9 @@
                 (IoError b)
                 (if (is_empty acc) (IoEnd) (IoLine (rev acc))))))))
 
-;; Writes every byte of s to standard output, in order, and returns 0.
+;; Writes every byte of s to standard output, in order, and returns 0. A
+;; failure to write shows only when (flush 1) returns -5; one never checked
+;; is a runtime error when the program ends.
 (def write_str ((s (list int))) int
   (if (is_empty s)
       0
@@ -162,8 +164,14 @@
 (def file_next_line ((f IoFile)) IoLine
   (match f ((IoFile h) (next_line_from h (nil int)))))
 
-;; Closes f, and returns 0, or a negative code if bytes written to it could
-;; not be written. That is the only place such a failure shows, so check it
-;; after writing.
+;; Delivers the bytes written to f so far, leaving it open, and returns 0, or
+;; a negative code if any byte written to it could not be written. A failure
+;; shows only here and in file_close, since writes are held back.
+(def file_flush ((f IoFile)) int
+  (match f ((IoFile h) (flush h))))
+
+;; Closes f, and returns 0, or a negative code if any byte written to it
+;; could not be written. Check it after writing: with file_flush, it is the
+;; only place such a failure shows.
 (def file_close ((f IoFile)) int
   (match f ((IoFile h) (close h))))

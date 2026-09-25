@@ -1,7 +1,7 @@
 # 0018: A program can learn that its writes failed
 
 Kind: language
-Status: queued
+Status: done, changelog "A program can learn that its writes failed"
 Needs: 0017
 
 ## Why
@@ -26,3 +26,9 @@ the failure reported, on macOS and Linux.
 ## Log
 
 - 2026-09-24: opened from 0014; first of the I/O gaps, by the user's choice.
+- 2026-09-24: done. A `flush` builtin, and a write failure never reported to
+  the program is a runtime error at exit (status 70). The reasoning is in the
+  changelog entry; `tests/io/write_failure` and `tests/io/result_lost` are the
+  checks, green on macOS and Linux. 0014's wordfreq defined its own `flush`
+  and was renamed to `flush_word`. The limit program now exits 70 with
+  `l0: runtime error: write failed`. Next is 0019.

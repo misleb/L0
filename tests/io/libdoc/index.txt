@@ -81,8 +81,10 @@
       The next line of f, as read_line reads standard input, so a failed read looks like end of input; file_next_line tells them apart.
   file_next_line ((f IoFile)) IoLine
       The next line of f as an IoLine, as next_line reads standard input.
+  file_flush ((f IoFile)) int
+      Delivers the bytes written to f so far, leaving it open, and returns 0, or a negative code if any byte written to it could not be written.
   file_close ((f IoFile)) int
-      Closes f, and returns 0, or a negative code if bytes written to it could not be written.
+      Closes f, and returns 0, or a negative code if any byte written to it could not be written.
 
 == test: Assertions, golden files, and pseudo-random inputs for l0 test, which links this file.
   show_str ((s (list int))) (list int)

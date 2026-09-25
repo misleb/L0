@@ -9,12 +9,12 @@
 (def scan ((t Tree) (cur (list int))) Scanned
   (let b (read_byte)
     (if (eq b -1)
-        (Scanned (flush t cur))
+        (Scanned (flush_word t cur))
         (if (lt b 0)
             (ScanFailed b)
             (if (is_word_byte b)
                 (scan t (cons (fold_case b) cur))
-                (scan (flush t cur) (nil int)))))))
+                (scan (flush_word t cur) (nil int)))))))
 
 (def write_all ((xs (list WC))) int
   (if (is_empty xs)

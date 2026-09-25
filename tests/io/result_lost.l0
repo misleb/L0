@@ -1,0 +1,6 @@
+; A main that takes its input has its result written after it returns, so it
+; cannot check that write itself; if it fails, the host reports it as a
+; runtime error. result_lost.sh runs it with standard output closed.
+
+(def main ((input (list int))) (list int)
+  input)

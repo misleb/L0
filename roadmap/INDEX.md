@@ -5,18 +5,16 @@ Goals: README.md, "What L0 aims to be". Not restated here.
 Current focus: the memory-management and I/O goal is met by the language route
 (changelog "The route to memory management and I/O"): streaming and file I/O,
 arguments, reference counting, and guaranteed tail calls. From 0014's
-evidence, the gaps it left come first, 0018 to 0020. The next goal is arrays, with compact bytes and in-place
-update, starting from 0021.
+evidence, the gaps it left come first, 0018 to 0020; 0018 is done. The next
+goal is arrays, with compact bytes and in-place update, starting from 0021.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0018](0018-write-failures-reported.md) a program can learn that its
-   writes failed — queued, next
-2. [0019](0019-append-and-rename.md) append to a file, and replace one whole —
-   queued, needs 0018
-3. [0020](0020-in-memory-handles.md) handles that read from and write to
+1. [0019](0019-append-and-rename.md) append to a file, and replace one whole —
+   queued, next
+2. [0020](0020-in-memory-handles.md) handles that read from and write to
    memory — queued, needs 0019
 
 ## Other open items
@@ -68,3 +66,5 @@ Changes to the language, strictly in order. At most one is active.
 - [0017](0017-library-and-tool-fixes.md) tooling: library and tool fixes from
   0014 — done, changelog "Reading a line can report a failure, and no
   language change for it"
+- [0018](0018-write-failures-reported.md) a program can learn that its writes
+  failed — done, changelog "A program can learn that its writes failed"
