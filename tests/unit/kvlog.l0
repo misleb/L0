@@ -1,0 +1,124 @@
+; kvlog.l0 -- an append-only key-value store in one file: the store roadmap
+; item 0014's kvstore could not write, because L0 could neither append to a
+; file nor replace one whole. kvlog_test.l0 tests it.
+;
+; The file is a log of records, "+KEY\tVALUE\n" to set a key and "-KEY\t\n" to
+; delete one, and the last record for a key wins. Setting or deleting appends
+; one record, so it costs the record rather than the store. Compacting writes
+; the live entries to PATH.tmp and renames that over PATH, so a crash at any
+; point leaves the old store or the new one.
+
+(data Entry
+  (Entry (list int) (list int)))        ; key, value
+
+(data Lookup
+  (Found (list int))
+  (Missing)
+  (Failed (list int)))                  ; why, in words
+
+(data Loaded
+  (Loaded (list Entry))                 ; live entries, oldest write first
+  (LoadFailed (list int)))
+
+(def record ((op int) (key (list int)) (value (list int))) (list int)
+  (cons op (append key (cons 9 (append value "\n")))))
+
+; 0, or 1 if the record could not be written.
+(def kv_append ((path (list int)) (rec (list int))) int
+  (match (open_appending path)
+    ((IoFailed why) 1)
+    ((IoOpened f)
+      (let w (file_write_str f rec)
+        (if (lt (file_close f) 0) 1 0)))))
+
+(def kv_set ((path (list int)) (key (list int)) (value (list int))) int
+  (kv_append path (record 43 key value)))
+
+(def kv_del ((path (list int)) (key (list int))) int
+  (kv_append path (record 45 key "")))
+
+; --------------------------------------------------------------- reading
+
+; A store that was never written is empty.
+(def kv_load ((path (list int))) Loaded
+  (match (open_in path)
+    ((IoFailed why)
+      (if (list_eq why (io_error -3)) (Loaded (nil Entry)) (LoadFailed why)))
+    ((IoOpened f)
+      (let r (load_from f (nil Entry))
+        (let c (file_close f)
+          r)))))
+
+; live is newest first while reading.
+(def load_from ((f IoFile) (live (list Entry))) Loaded
+  (match (file_next_line f)
+    ((IoLine s) (load_from f (apply_record s live)))
+    ((IoEnd) (Loaded (rev_entries live (nil Entry))))
+    ((IoError code) (LoadFailed (io_error code)))))
+
+(def apply_record ((s (list int)) (live (list Entry))) (list Entry)
+  (let key (before_tab (tail s) (nil int))
+    (let rest (remove_key key live (nil Entry))
+      (if (eq (head s) 43)
+          (cons (Entry key (take_line (after_tab (tail s)))) rest)
+          rest))))
+
+(def before_tab ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      (rev acc)
+      (if (eq (head s) 9) (rev acc) (before_tab (tail s) (cons (head s) acc)))))
+
+(def after_tab ((s (list int))) (list int)
+  (if (is_empty s)
+      s
+      (if (eq (head s) 9) (tail s) (after_tab (tail s)))))
+
+(def entry_key ((e Entry)) (list int) (match e ((Entry k v) k)))
+(def entry_value ((e Entry)) (list int) (match e ((Entry k v) v)))
+
+(def remove_key ((key (list int)) (es (list Entry)) (acc (list Entry)))
+    (list Entry)
+  (if (is_empty es)
+      (rev_entries acc (nil Entry))
+      (if (list_eq (entry_key (head es)) key)
+          (remove_key key (tail es) acc)
+          (remove_key key (tail es) (cons (head es) acc)))))
+
+(def rev_entries ((es (list Entry)) (acc (list Entry))) (list Entry)
+  (if (is_empty es) acc (rev_entries (tail es) (cons (head es) acc))))
+
+(def find_key ((key (list int)) (es (list Entry))) Lookup
+  (if (is_empty es)
+      (Missing)
+      (if (list_eq (entry_key (head es)) key)
+          (Found (entry_value (head es)))
+          (find_key key (tail es)))))
+
+(def kv_get ((path (list int)) (key (list int))) Lookup
+  (match (kv_load path)
+    ((Loaded es) (find_key key es))
+    ((LoadFailed why) (Failed why))))
+
+; ------------------------------------------------------------ compacting
+
+; 0, or 1 with the store unchanged.
+(def kv_compact ((path (list int))) int
+  (match (kv_load path)
+    ((LoadFailed why) 1)
+    ((Loaded es) (replace_with path es))))
+
+(def replace_with ((path (list int)) (es (list Entry))) int
+  (let tmp (append path ".tmp")
+    (match (open_out tmp)
+      ((IoFailed why) 1)
+      ((IoOpened f)
+        (let w (write_entries f es)
+          (if (lt (file_close f) 0)
+              1
+              (if (lt (rename_file tmp path) 0) 1 0)))))))
+
+(def write_entries ((f IoFile) (es (list Entry))) int
+  (if (is_empty es)
+      0
+      (let w (file_write_str f (record 43 (entry_key (head es)) (entry_value (head es))))
+        (write_entries f (tail es)))))

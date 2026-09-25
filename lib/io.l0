@@ -114,6 +114,18 @@
 (def open_out ((path (list int))) IoOpened
   (opened (open_write path)))
 
+;; Opens the file at path for writing at its end, creating it if it does not
+;; exist; what it already holds is kept.
+(def open_appending ((path (list int))) IoOpened
+  (opened (open_append path)))
+
+;; Gives the file at from the name to, replacing any file already there in
+;; one step, and returns 0, or a negative code with neither name changed. To
+;; update a file safely, write the new contents under another name, check
+;; file_close, and rename that over the old.
+(def rename_file ((from (list int)) (to (list int))) int
+  (rename from to))
+
 (def opened ((h int)) IoOpened
   (if (lt h 0)
       (IoFailed (io_error h))

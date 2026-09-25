@@ -241,7 +241,8 @@ prompt appears before the program waits for its answer.
 
 **Files and arguments.** Use the wrappers `l0 doc io` lists, not the raw
 builtins.
-`(open_in path)` and `(open_out path)` return `IoOpened`, and `match` makes you
+`(open_in path)`, `(open_out path)`, and `(open_appending path)` return
+`IoOpened`, and `match` makes you
 handle its `IoFailed` case, whose field says why in words. Then
 `file_read_byte`, `file_read_line`, `file_write_str`, and `file_close` work on
 the `IoFile` inside. `(arg_count)` and `(arg i)` are the command-line
@@ -272,6 +273,14 @@ into a message and a nonzero status:
 A write failure the program never checked is not ignored: the program exits
 with status 70 and `l0: runtime error: write failed`. Checking is how you
 choose the message and status instead.
+
+**Updating a file.** `open_out` empties a file before anything is written, so
+never rewrite a file you cannot afford to lose that way. To add to the end,
+use `(open_appending path)`, which keeps what the file holds and costs only
+what you write. To replace it, write the new contents to another name such
+as `path.tmp`, check that `file_close` returned 0, then `(rename_file tmp
+path)`: a crash at any point leaves the old file or the new one, never a
+half-written one.
 
 Type and constructor names beginning with `Io` and an uppercase letter, such
 as `IoFile`, are reserved for the standard library, so name your own types

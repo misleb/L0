@@ -69,6 +69,10 @@
       Opens the file at path for reading.
   open_out ((path (list int))) IoOpened
       Creates the file at path, or empties it if it exists, and opens it for writing.
+  open_appending ((path (list int))) IoOpened
+      Opens the file at path for writing at its end, creating it if it does not exist; what it already holds is kept.
+  rename_file ((from (list int)) (to (list int))) int
+      Gives the file at from the name to, replacing any file already there in one step, and returns 0, or a negative code with neither name changed.
   io_error ((code int)) (list int)
       What a negative result from an I/O builtin means, in words: -1 "end of input", -2 "not open in that direction", -3 "no such file", -4 "permission denied", and anything else "input or output failed".
   file_read_byte ((f IoFile)) int

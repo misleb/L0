@@ -7,9 +7,10 @@
 ; it avoids everything whose shape differs between operating systems: it
 ; calls libc through file descriptors rather than FILE*, uses no varargs, no
 ; signal handling, and no struct whose layout libc defines. pthread_attr_t is
-; an opaque buffer larger than any platform's. The only struct it reads is
-; struct rlimit, two 64-bit words everywhere, with RLIMIT_STACK = 3 on both
-; macOS and Linux.
+; an opaque buffer larger than any platform's, and a FILE or DIR pointer is
+; only handed back to libc, never read. The only struct it reads is struct
+; rlimit, two 64-bit words everywhere, with RLIMIT_STACK = 3 on both macOS
+; and Linux.
 
 declare i64 @read(i32, ptr, i64)
 declare i64 @write(i32, ptr, i64)
@@ -28,6 +29,13 @@ declare i32 @open(ptr, i32, ...)
 declare i32 @creat(ptr, i32)
 declare i32 @close(i32)
 declare i32 @access(ptr, i32)
+declare i32 @rename(ptr, ptr)
+declare i32 @dup(i32)
+declare ptr @fopen(ptr, ptr)
+declare i32 @fileno(ptr)
+declare i32 @fclose(ptr)
+declare ptr @opendir(ptr)
+declare i32 @closedir(ptr)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 
@@ -76,6 +84,7 @@ declare i64 @l0_f_main(i64)
 @s_false = private constant [6 x i8] c"false\0A"
 @env_name = private constant [12 x i8] c"L0_STACK_MB\00"
 @check_name = private constant [12 x i8] c"L0_RC_CHECK\00"
+@mode_a = private constant [2 x i8] c"a\00"
 @m_uaf = private constant [20 x i8] c"use of a freed block"
 @m_live = private constant [23 x i8] c"l0: blocks still live: "
 
@@ -951,10 +960,42 @@ none:
   ret i64 -1
 }
 
-; mode 1 opens for reading and mode 2 creates or empties for writing. The
-; results are spec section 6.3's. Reading only opens with flags 0 and writing
-; uses creat, because O_CREAT and O_TRUNC differ between macOS and Linux; and
-; errno is not reachable portably, so access() tells why an open failed.
+; A descriptor open for writing at the end of the file s, or -1. O_APPEND and
+; O_CREAT differ between macOS and Linux, so append mode comes from fopen,
+; whose descriptor is duplicated before the FILE is closed. A missing file
+; is created first with creat, so that it gets the permissions open_write
+; would give it.
+define internal i32 @open_end(ptr %s) {
+entry:
+  %ex = call i32 @access(ptr %s, i32 0)
+  %missing = icmp ne i32 %ex, 0
+  br i1 %missing, label %create, label %append
+create:
+  %c = call i32 @creat(ptr %s, i32 420)
+  %cfail = icmp slt i32 %c, 0
+  br i1 %cfail, label %fail, label %created
+created:
+  %cc = call i32 @close(i32 %c)
+  br label %append
+append:
+  %fp = call ptr @fopen(ptr %s, ptr @mode_a)
+  %nofp = icmp eq ptr %fp, null
+  br i1 %nofp, label %fail, label %dup
+dup:
+  %fd = call i32 @fileno(ptr %fp)
+  %d = call i32 @dup(i32 %fd)
+  %fc = call i32 @fclose(ptr %fp)
+  ret i32 %d
+fail:
+  ret i32 -1
+}
+
+; mode 1 opens for reading, 2 creates or empties for writing, and 3 opens
+; for writing at the end. The results are spec section 6.3's. Reading only
+; opens with flags 0 and writing uses creat, because O_CREAT and O_TRUNC
+; differ between macOS and Linux; and errno is not reachable portably, so
+; access() tells why an open failed. A directory opens with flags 0 but
+; cannot be read, so opendir tells it apart first.
 define internal i64 @open_handle(i64 %path, i64 %mode) {
 entry:
   %rd = icmp eq i64 %mode, 1
@@ -970,20 +1011,35 @@ buf:
   %nob = icmp eq ptr %b, null
   br i1 %nob, label %other_free, label %which
 which:
-  br i1 %rd, label %openr, label %openw
+  br i1 %rd, label %isdir, label %writing
+isdir:
+  %dp = call ptr @opendir(ptr %s)
+  %dir = icmp ne ptr %dp, null
+  br i1 %dir, label %directory, label %openr
+directory:
+  %cd = call i32 @closedir(ptr %dp)
+  call void @free(ptr %b)
+  br label %other_free
+writing:
+  %ap = icmp eq i64 %mode, 3
+  br i1 %ap, label %opena, label %openw
 openr:
   %fr = call i32 (ptr, i32, ...) @open(ptr %s, i32 0)
   br label %opened
 openw:
   %fw = call i32 @creat(ptr %s, i32 420)
   br label %opened
+opena:
+  %fa = call i32 @open_end(ptr %s)
+  br label %opened
 opened:
-  %fd = phi i32 [ %fr, %openr ], [ %fw, %openw ]
+  %fd = phi i32 [ %fr, %openr ], [ %fw, %openw ], [ %fa, %opena ]
   %failed = icmp slt i32 %fd, 0
   br i1 %failed, label %why, label %ok
 ok:
   %fd64 = sext i32 %fd to i64
-  call void @h_set(i64 %h, i64 %fd64, i64 %mode, ptr %b)
+  %hmode = select i1 %rd, i64 1, i64 2
+  call void @h_set(i64 %h, i64 %fd64, i64 %hmode, ptr %b)
   call void @free(ptr %s)
   ret i64 %h
 why:
@@ -1018,6 +1074,43 @@ define i64 @l0_open_write(i64 %path) {
 entry:
   %h = call i64 @open_handle(i64 %path, i64 2)
   ret i64 %h
+}
+
+define i64 @l0_open_append(i64 %path) {
+entry:
+  %h = call i64 @open_handle(i64 %path, i64 3)
+  ret i64 %h
+}
+
+; POSIX rename replaces to in one step, as spec section 6.3 requires. Only a
+; missing source can be told apart without errno.
+define i64 @l0_rename(i64 %from, i64 %to) {
+entry:
+  %a = call ptr @to_cstr(i64 %from)
+  %b = call ptr @to_cstr(i64 %to)
+  %na = icmp eq ptr %a, null
+  %nb = icmp eq ptr %b, null
+  %either = or i1 %na, %nb
+  br i1 %either, label %bad, label %go
+bad:
+  call void @free(ptr %a)
+  call void @free(ptr %b)
+  ret i64 -5
+go:
+  %r = call i32 @rename(ptr %a, ptr %b)
+  %ok = icmp eq i32 %r, 0
+  br i1 %ok, label %done, label %why
+done:
+  call void @free(ptr %a)
+  call void @free(ptr %b)
+  ret i64 0
+why:
+  %ex = call i32 @access(ptr %a, i32 0)
+  call void @free(ptr %a)
+  call void @free(ptr %b)
+  %missing = icmp ne i32 %ex, 0
+  %c = select i1 %missing, i64 -3, i64 -5
+  ret i64 %c
 }
 
 ; --------------------------------------------------------------- arguments

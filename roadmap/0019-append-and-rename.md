@@ -1,7 +1,7 @@
 # 0019: Append to a file, and replace one whole
 
 Kind: language
-Status: queued
+Status: done, changelog "Appending to a file, and replacing one in a single step"
 Needs: 0018
 
 ## Why
@@ -26,3 +26,11 @@ new builtins as a test.
 ## Log
 
 - 2026-09-24: opened from 0014.
+- 2026-09-24: done. `open_append` and `rename`, with `open_appending` and
+  `rename_file` in `lib/io.l0`; opening a directory for reading is now -5.
+  `remove` from the worker's hypothetical was left out, since the log store
+  needs no cleanup. `tests/unit/kvlog.l0` is the store, and its test and the
+  new cases in `tests/unit/io_test.l0` are green on macOS and Linux. Adding a
+  line is now 7 ms at 200,000 lines, against 266 ms rewriting. Fixed on the
+  way: `tools/test.sh` never passed a `tests/unit/*.extra` file's sources,
+  since it read the file after changing directory. Next is 0020.

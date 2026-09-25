@@ -7,6 +7,72 @@ New entries go at the top.
 
 ---
 
+## Appending to a file, and replacing one in a single step
+
+**L0 gains `open_append` and `rename`** (section 6.3). `open_append` opens a
+file for writing at its end, creating it if it is missing; `rename` gives a
+file another name, replacing whatever had it, in one step. **Opening a
+directory for reading now fails with -5,** where it used to succeed and fail
+on the first read.
+
+**The blocker.** Roadmap item 0014's kvstore could only add a line to its
+store by reading the whole file and writing it back, since `open_write`
+empties a file and nothing appended: 20 ms at 10,000 lines and 235 ms at
+200,000, against 12 ms for `echo >>` at every size. Worse, because
+`open_write` empties the file before anything is written and nothing could
+replace a file whole, a crash while saving lost the store, so crash safety
+could not be written at all. The checker said `unknown function
+open_append` for the program the worker wanted. `tests/unit/kvlog_test.l0`
+is now that program, an append-only store that compacts by writing a new
+file and renaming it over the old one. Adding one line with `open_appending`
+now takes 7 ms at 10,000 lines and at 200,000, where reading and rewriting
+takes 25 ms and 266 ms on the same machine, and `sh -c 'echo >>'` 11 ms.
+
+**Why these two, and not seek or remove.** They are exactly what the
+append-only store needs: appending makes a write cost the record rather than
+the store, and renaming makes compaction safe. The worker's hypothetical
+also listed `remove`, which its bucket workaround wanted for cleaning up;
+the log needs no cleanup, so it waits for a program that does. Seeking
+belongs with the arrays goal, 0021, where in-place update is the question.
+
+**Why rename says so little about why it failed.** `errno` is out of reach
+of the runtime, as "Files, arguments, and names reserved for the standard
+library" records, so the reason comes from `access()`. A missing source can
+be told apart that way, which is -3. Permission to rename depends on the
+directories and not the file, which `access()` on the paths cannot judge
+reliably, so everything else is -5.
+
+**What "one step" promises.** Another program, or this one after it stops
+for any reason, sees the old file or the new one under `to`. That is POSIX's
+`rename`. It does not promise that the new file's bytes survive the machine
+losing power, which would need the operating system told to write them to
+the disk before the rename. That is a separate facility, with a real cost,
+and waits for a program that needs it.
+
+**Why appending goes through `fopen`.** The runtime is one text for every
+host, and `O_APPEND` and `O_CREAT` have different values on macOS and Linux,
+so `open` cannot be given them. `fopen` with mode `"a"` opens for append on
+both, so the runtime takes a duplicate of its descriptor and closes the
+`FILE`, never looking inside it. A missing file is created first with
+`creat`, as `open_write` creates one, so both create files with the same
+permissions. The descriptor is in append mode, so each delivery lands at the
+end of the file as it is then, even with another writer.
+
+**Why a directory now fails to open.** It used to open, on macOS and Linux
+alike, and fail on its first read. `read_line` and `file_read_line` treat a
+failed read as the end of input, so a directory read as an empty file,
+which is the silent failure the library otherwise avoids; and a failed open
+is where every program already handles a path it cannot read. The runtime
+asks `opendir`, which returns an opaque pointer, so no structure whose
+layout differs between hosts is involved.
+
+**Compiling them.** `rename` is the first builtin with two paths. Both are
+borrowed, as a path always was, so the compiler now releases every argument
+of a path builtin rather than the first. Neither name was defined by any
+program in the repository.
+
+---
+
 ## A program can learn that its writes failed
 
 **L0 gains `flush`,** a builtin that delivers what a handle holds back,

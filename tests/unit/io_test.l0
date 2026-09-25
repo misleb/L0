@@ -53,14 +53,19 @@
 (def test_zero_byte_in_path () int
   (check_int "open_read" (open_read (cons 97 (cons 0 (nil int)))) -5))
 
-; A directory opens, but reading it fails.
+; A directory cannot be read, so it does not open, and a program never
+; mistakes it for an empty file.
 (def test_read_a_directory () int
   (match (open_in ".")
-    ((IoFailed why) (check_str "a directory should open" why ""))
+    ((IoFailed why) (check_str "reason" why "input or output failed"))
     ((IoOpened f)
-      (let b (file_read_byte f)
-        (let c (file_close f)
-          (check_int "read" b -5))))))
+      (let c (file_close f)
+        (check_true "a directory should not open" false)))))
+
+(def test_directories_do_not_open () int
+  (add (check_int "open_read" (open_read ".") -5)
+    (add (check_int "open_write" (open_write ".") -5)
+         (check_int "open_append" (open_append ".") -5))))
 
 ; --------------------------------------------------- writing and reading back
 
@@ -123,14 +128,6 @@
                 (cons "<end>" (cons "<end>" (nil (list int))))))))))))))
 
 ; A failed read is IoError, where file_read_line would have seen an end.
-(def test_next_line_of_a_directory () int
-  (match (open_in ".")
-    ((IoFailed why) (check_str "open" why ""))
-    ((IoOpened f)
-      (let l (line_text (file_next_line f))
-        (let c (file_close f)
-          (check_str "line" l "<error -5>"))))))
-
 (def test_next_line_of_a_file_being_written () int
   (match (open_out "written.txt")
     ((IoFailed why) (check_str "open" why ""))
@@ -163,16 +160,17 @@
 
 ; A closed handle is closed in both directions, and its number is reused.
 (def test_closed_handle () int
-  (match (open_in ".")
-    ((IoFailed why) (check_str "open" why ""))
-    ((IoOpened f)
-      (match f
-        ((IoFile h)
-          (let c (close h)
-            (add (check_int "close" c 0)
-              (add (check_int "read after close" (read_from h) -2)
-                (add (check_int "close again" (close h) -2)
-                     (check_int "number reused" (open_read ".") h))))))))))
+  (let w (write_lines_file "closed.txt")
+    (match (open_in "closed.txt")
+      ((IoFailed why) (check_str "open" why ""))
+      ((IoOpened f)
+        (match f
+          ((IoFile h)
+            (let c (close h)
+              (add (check_int "close" c 0)
+                (add (check_int "read after close" (read_from h) -2)
+                  (add (check_int "close again" (close h) -2)
+                       (check_int "number reused" (open_read "closed.txt") h)))))))))))
 
 ; More than a 64 KB buffer, so writing and reading both cross a refill.
 (def write_n ((f IoFile) (n int)) int
@@ -188,6 +186,79 @@
       (let w (write_n f 200000)
         (let c (file_close f)
           (check_int "bytes read back" (length (contents "large.bin")) 200000))))))
+
+; ---------------------------------------------------- appending and renaming
+
+(def append_str ((path (list int)) (s (list int))) int
+  (match (open_appending path)
+    ((IoFailed why) 1)
+    ((IoOpened f)
+      (let w (file_write_str f s)
+        (file_close f)))))
+
+(def test_append_creates () int
+  (add (check_int "close" (append_str "appended.txt" "a") 0)
+       (check_str "contents" (contents "appended.txt") "a")))
+
+(def test_append_keeps_what_was_there () int
+  (let w (write_lines_file "kept.txt")
+    (let a (append_str "kept.txt" "!")
+      (let b (append_str "kept.txt" "?")
+        (check_str "contents" (contents "kept.txt") "one\n\nthree!?")))))
+
+(def test_append_in_missing_directory () int
+  (match (open_appending "no/such/directory/file.txt")
+    ((IoFailed why) (check_str "reason" why "input or output failed"))
+    ((IoOpened f) (check_true "should not have opened" false))))
+
+; Two handles appending to one file: each delivery goes at the end as the
+; file is then, so neither overwrites the other.
+(def test_two_appenders () int
+  (let h1 (open_append "shared.txt")
+    (let h2 (open_append "shared.txt")
+      (let a (write_to h1 65)
+        (let fa (flush h1)
+          (let b (write_to h2 66)
+            (let fb (flush h2)
+              (let c (write_to h1 67)
+                (let x (close h1)
+                  (let y (close h2)
+                    (check_str "contents" (contents "shared.txt") "ABC")))))))))))
+
+(def write_file ((path (list int)) (s (list int))) int
+  (match (open_out path)
+    ((IoFailed why) 1)
+    ((IoOpened f)
+      (let w (file_write_str f s)
+        (file_close f)))))
+
+(def test_rename_replaces () int
+  (let a (write_file "new.txt" "new")
+    (let b (write_file "old.txt" "old")
+      (let r (rename_file "new.txt" "old.txt")
+        (add (check_int "rename" r 0)
+          (add (check_str "contents" (contents "old.txt") "new")
+               (check_int "old name gone" (open_read "new.txt") -3)))))))
+
+(def test_rename_to_a_new_name () int
+  (let a (write_file "before.txt" "x")
+    (let r (rename_file "before.txt" "after.txt")
+      (add (check_int "rename" r 0)
+           (check_str "contents" (contents "after.txt") "x")))))
+
+(def test_rename_missing_source () int
+  (check_int "rename" (rename_file "no_such_source.txt" "target.txt") -3))
+
+; A failed rename changes neither name.
+(def test_rename_into_missing_directory () int
+  (let a (write_file "stays.txt" "here")
+    (let r (rename_file "stays.txt" "no/such/directory/x.txt")
+      (add (check_int "rename" r -5)
+           (check_str "source kept" (contents "stays.txt") "here")))))
+
+(def test_rename_zero_byte_in_path () int
+  (let a (write_file "zero.txt" "z")
+    (check_int "rename" (rename "zero.txt" (cons 97 (cons 0 (nil int)))) -5)))
 
 ; ---------------------------------------------------------------- arguments
 

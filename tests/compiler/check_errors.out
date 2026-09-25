@@ -34,3 +34,6 @@ ok
 35: an argument of open_read must be (list int), but this is int
 0: constructor W has 32 fields, and at most 31 are allowed
 35: an argument of flush must be int, but this is bool
+35: an argument of open_append must be (list int), but this is int
+35: an argument of rename must be (list int), but this is int
+35: rename takes 2 arguments, but got 1

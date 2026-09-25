@@ -57,7 +57,10 @@
   (let ai (push (check_source (m "(open_read 1)")) ah)
   (let aj (push (check_source (both (wide_data 32))) ai)
   (let ak (push (check_source (m "(flush true)")) aj)
-    (rev ak))))))))))))))))))))))))))))))))))))))
+  (let al (push (check_source (m "(open_append 1)")) ak)
+  (let an (push (check_source (m "(rename \"a\" 2)")) al)
+  (let ao (push (check_source (m "(rename \"a\")")) an)
+    (rev ao)))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

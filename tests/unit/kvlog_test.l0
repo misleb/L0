@@ -1,0 +1,87 @@
+; Tests for kvlog.l0, the append-only store written with open_appending and
+; rename_file. Each test uses a store file of its own, in the scratch
+; directory tools/test.sh --compiled runs this in.
+
+(def show ((l Lookup)) (list int)
+  (match l
+    ((Found v) (append "found " v))
+    ((Missing) "missing")
+    ((Failed why) (append "failed: " why))))
+
+(def contents ((path (list int))) (list int)
+  (match (open_in path)
+    ((IoFailed why) (append "cannot read: " why))
+    ((IoOpened f)
+      (let s (bytes_of f (nil int))
+        (let c (file_close f)
+          s)))))
+
+(def bytes_of ((f IoFile) (acc (list int))) (list int)
+  (let b (file_read_byte f)
+    (if (lt b 0) (rev acc) (bytes_of f (cons b acc)))))
+
+(def test_missing_store_is_empty () int
+  (check_str "get" (show (kv_get "none.kv" "a")) "missing"))
+
+(def test_get_after_set () int
+  (let s (kv_set "set.kv" "a" "1")
+    (add (check_int "set" s 0)
+         (check_str "get" (show (kv_get "set.kv" "a")) "found 1"))))
+
+; Each set adds one record after the others, and nothing before it changes.
+(def test_set_appends () int
+  (let a (kv_set "append.kv" "a" "1")
+    (let b (kv_set "append.kv" "b" "2")
+      (check_str "file" (contents "append.kv") "+a\t1\n+b\t2\n"))))
+
+(def test_later_set_wins () int
+  (let a (kv_set "later.kv" "a" "1")
+    (let b (kv_set "later.kv" "a" "2")
+      (check_str "get" (show (kv_get "later.kv" "a")) "found 2"))))
+
+(def test_del () int
+  (let a (kv_set "del.kv" "a" "1")
+    (let b (kv_set "del.kv" "b" "2")
+      (let d (kv_del "del.kv" "a")
+        (add (check_str "deleted" (show (kv_get "del.kv" "a")) "missing")
+             (check_str "kept" (show (kv_get "del.kv" "b")) "found 2"))))))
+
+(def test_set_after_del () int
+  (let a (kv_set "again.kv" "a" "1")
+    (let d (kv_del "again.kv" "a")
+      (let b (kv_set "again.kv" "a" "3")
+        (check_str "get" (show (kv_get "again.kv" "a")) "found 3")))))
+
+; Values may hold spaces and further tabs; only the first tab ends the key.
+(def test_value_with_tab () int
+  (let a (kv_set "tab.kv" "k" "x\ty z")
+    (check_str "get" (show (kv_get "tab.kv" "k")) "found x\ty z")))
+
+(def fill_for_compact ((path (list int))) int
+  (let a (kv_set path "a" "1")
+    (let b (kv_set path "b" "2")
+      (let c (kv_set path "a" "3")
+        (let d (kv_del path "b")
+          (kv_set path "c" "4"))))))
+
+; Compacting leaves one record per live key, in the order of their last
+; writes, under the store's own name, and no temporary file behind.
+(def test_compact () int
+  (let f (fill_for_compact "compact.kv")
+    (let c (kv_compact "compact.kv")
+      (add (check_int "compact" c 0)
+        (add (check_str "file" (contents "compact.kv") "+a\t3\n+c\t4\n")
+          (add (check_int "no temporary" (open_read "compact.kv.tmp") -3)
+            (add (check_str "a" (show (kv_get "compact.kv" "a")) "found 3")
+                 (check_str "b" (show (kv_get "compact.kv" "b")) "missing"))))))))
+
+; Appending continues after a compaction.
+(def test_set_after_compact () int
+  (let f (fill_for_compact "resume.kv")
+    (let c (kv_compact "resume.kv")
+      (let s (kv_set "resume.kv" "d" "5")
+        (check_str "file" (contents "resume.kv") "+a\t3\n+c\t4\n+d\t5\n")))))
+
+; A store that cannot be read is a failure, not an empty store.
+(def test_directory_is_not_a_store () int
+  (check_str "get" (show (kv_get "." "a")) "failed: input or output failed"))

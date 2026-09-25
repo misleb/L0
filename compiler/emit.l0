@@ -321,18 +321,23 @@
           (append (fmt_ops (pad_ops ops (pad_of sym (env_pads env)))) ")"))))
     st))
 
-; head, tail, is_empty, and the builtins taking a path read their list
-; argument without consuming it. Their result gains a reference if it is a
-; pointer, and then the argument's reference is released.
+; head, tail, is_empty, and the builtins taking paths read their list
+; arguments without consuming them. Their result gains a reference if it is
+; a pointer, and then every argument's reference is released, in order.
 (def after_borrow ((n (list int)) (ops (list (list int))) (ts (list Ty))
                    (v EmitVal)) EmitVal
-  (if (any_eq n (split_spaces "head tail is_empty open_read open_write"))
+  (if (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename"))
       (match v
         ((Val r t st)
           (Val r t
-            (emit_dec (head ops)
+            (emit_dec_all ops
               (if (ty_is_ptr t) (emit_inc r st) st)))))
       v))
+
+(def emit_dec_all ((ops (list (list int))) (st Emit)) Emit
+  (if (is_empty ops)
+      st
+      (emit_dec_all (tail ops) (emit_dec (head ops) st))))
 
 ; The type a call returns: fixed for most builtins, following the argument
 ; for cons, head, and tail, and the signature for a function. Spec 6.
@@ -523,7 +528,7 @@
 ; Spec 10.3.
 (def io_names ((i int)) (list (list int))
   (split_spaces
-    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush"))
+    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename"))
 
 (def rt_names ((i int)) (list (list int))
   (append_strs (split_spaces "div mod head tail is_empty") (io_names 0)))
@@ -863,8 +868,12 @@
         (append "declare i64 @l0_open_write(i64)\n"
           (append "declare i64 @l0_close(i64)\n"
             (append "declare i64 @l0_arg_count()\n"
-              (append "declare i64 @l0_arg(i64)\n"
-                "declare i64 @l0_flush(i64)\n\n"))))))))
+              (append "declare i64 @l0_arg(i64)\n" (io_decls_files 0)))))))))
+
+(def io_decls_files ((i int)) (list int)
+  (append "declare i64 @l0_flush(i64)\n"
+    (append "declare i64 @l0_open_append(i64)\n"
+      "declare i64 @l0_rename(i64, i64)\n\n")))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

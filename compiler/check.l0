@@ -116,10 +116,11 @@
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
 
 ; The effects of spec 6.2 to 6.4. Those in bi_io take and return only ints,
-; so need_all checks them; bi_path take a path and return an int.
+; so need_all checks them; bi_path take only paths and return an int.
 (def bi_io ((i int)) (list (list int))
   (split_spaces "read_byte write_byte read_from write_to close flush arg_count"))
-(def bi_path ((i int)) (list (list int)) (split_spaces "open_read open_write"))
+(def bi_path ((i int)) (list (list int))
+  (split_spaces "open_read open_write open_append rename"))
 
 (def is_builtin ((n (list int))) bool
   (or (any_eq n (bi_int_int_int 0))
@@ -134,7 +135,7 @@
   (if (any_eq n (split_spaces "read_byte arg_count"))
       0
       (if (any_eq n (split_spaces
-            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write"))
+            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append"))
           1
           2)))
 

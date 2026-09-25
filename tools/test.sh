@@ -367,7 +367,7 @@ if [ "$COMPILED" = 1 ]; then
         # shellcheck disable=SC2046
         if (cd "$udir" && L0_COMPILER="$BUILD/l0c-native" \
             L0_RUNTIME="$BUILD/l0rt.o" "$ROOT/tools/l0" test "$ROOT/$src" \
-            $(extra_sources "tests/unit/$name" | sed "s|[^ ]*|$ROOT/&|g")) \
+            $(extra_sources "$ROOT/tests/unit/$name" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
             > "$udir.tap" 2>&1; then
             npass=$((npass + 1))
         else
