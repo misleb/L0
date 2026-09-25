@@ -23,25 +23,58 @@ Read the specification before writing L0 for the first time in a session;
 this comes from the installed toolchain, so it describes the compiler you
 are using.
 
-## The loop
+## Every program is three files, and has tests
 
-```bash
-l0 check prog.l0          # type check; prints ok, or diagnostics
-l0 run   prog.l0 < input  # build and run, reading stdin
-l0 run   prog.l0 -- a b   # the same, with arguments a and b
-l0 build prog.l0 -o prog  # produce an executable
+A program is one directory with three kinds of file, and this holds for the
+smallest program too:
+
+```
+hello/
+  hello.l0        what the program does, as functions
+  hello_test.l0   tests of those functions, beside the file they test
+  main.l0         only main: reads arguments and input, calls in, exits
 ```
 
-Diagnostics are `file:line:column: error: message`. Several files are compiled
-together, because L0 has no module system:
+**`main` is always in `main.l0`, alone.** `l0 test` supplies its own `main`,
+so code in a file that defines one cannot be tested. Keep `main.l0` to
+reading arguments and input, calling into the program, and returning the exit
+status, so that nothing worth testing is left in it. A larger program splits
+`hello.l0` into several files, each with its own `_test.l0` beside it. There
+is no tests directory, since `l0 test` runs the files it is given.
 
-```bash
-l0 check util.l0 main.l0
+Hello world, in full:
+
+```
+; hello.l0
+(def greeting () (list int) "Hello, world!")
 ```
 
-The standard library is linked automatically; never pass its files on the
-command line. Defining a function with the same name as one of its functions
-is fine.
+```
+; hello_test.l0
+(def test_greeting () int
+  (check_str "greeting" (greeting) "Hello, world!"))
+```
+
+```
+; main.l0
+(def main () int
+  (write_line (greeting)))
+```
+
+**A program is done when its tests pass,** not when it has run once:
+
+```bash
+l0 check hello.l0 main.l0             # type check; prints ok, or diagnostics
+l0 test  hello.l0 hello_test.l0       # every test: every file but main.l0
+l0 build hello.l0 main.l0             # the executable ./hello, named after the first file
+l0 run   hello.l0 main.l0 < input     # build and run, reading stdin
+l0 run   hello.l0 main.l0 -- a b      # the same, with arguments a and b
+```
+
+Diagnostics are `file:line:column: error: message`. The files given are
+compiled together, because L0 has no module system. The standard library is
+linked automatically; never pass its files on the command line. Defining a
+function with the same name as one of its functions is fine.
 
 ## Syntax you will get wrong if you guess
 
@@ -168,12 +201,14 @@ program and cannot disturb the prelude's own use of it.
 
 ## The shape of a program
 
-A program defines `main` in one of two forms. The first receives stdin as a
-list of bytes and returns its output:
+`main` takes one of two forms. The first receives stdin as a list of bytes and
+returns its output, here computed by `shout`, a function in the program's own
+file and tested there:
 
 ```
+; main.l0
 (def main ((input (list int))) (list int)
-  (rev (push "hello\n" (nil int))))
+  (shout input))
 ```
 
 The return type may be `(list int)` for raw bytes, or `int` or `bool`, which
@@ -182,14 +217,16 @@ returns, and all of stdin is read before it starts.
 
 The second takes nothing, reads and writes as it goes, and returns the exit
 status. Use it when a program must write before its input ends, such as a
-prompt, or must not hold its whole input at once:
+prompt, or must not hold its whole input at once. `main` does the I/O in
+order, and `greet`, in the program's own file, builds the reply, so the part
+worth testing is tested:
 
 ```
+; main.l0
 (def main () int
   (let w (write_str "What is your name? ")
     (let name (take_line (read_line))
-      (let g (write_str (append "Hello, " (append name "!\n")))
-        0))))
+      (write_str (greet name)))))
 ```
 
 `read_byte` and `write_byte` are the builtins; `read_line`, `write_str`, and
@@ -242,33 +279,6 @@ frees each iteration's garbage before the next. So:
   long enough list exhausts the stack
 
 There is no clock, network, or environment yet.
-
-## Laying out a program
-
-A program is one directory holding three kinds of file:
-
-```
-wordfreq/
-  wordfreq.l0        everything the program does, as functions
-  wordfreq_test.l0   its tests
-  main.l0            only main: reads arguments and input, calls in, exits
-```
-
-A tested file's tests sit next to it, named after it with `_test`. A larger
-program splits `wordfreq.l0` into several files, each with its own `_test.l0`
-beside it. There is no tests directory, since `l0 test` runs the files it is
-given rather than searching for any.
-
-**`main` is always in `main.l0`, alone.** `l0 test` supplies its own `main`, so
-a file that defines one cannot be tested. Keep `main.l0` to reading
-arguments, calling one function, and returning the exit status, so that
-nothing worth testing is left in it.
-
-```bash
-l0 build wordfreq.l0 main.l0              # executable ./wordfreq, named after the first file
-l0 run   wordfreq.l0 main.l0 -- in.txt    # build and run with an argument
-l0 test  wordfreq.l0 wordfreq_test.l0     # every file but main.l0
-```
 
 ## Testing
 

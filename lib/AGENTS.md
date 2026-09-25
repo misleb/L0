@@ -15,6 +15,20 @@ looks plausible is routinely invalid, because L0 is not any language you have
 seen. That it type checks says nothing about what it does: write tests, and
 run them with `l0 test`.
 
+**Every program is three files, and is not done until its tests pass.** This
+holds for hello world too:
+
+```
+hello.l0        what the program does, as functions
+hello_test.l0   tests of them: (def test_NAME () int ...), run by l0 test
+main.l0         only main, which calls into hello.l0 and returns the status
+```
+
+`l0 test` supplies its own `main`, so code inside `main` cannot be tested;
+keep `main.l0` to input, one call, and the exit status. Done means
+`l0 test hello.l0 hello_test.l0` passes and `l0 build hello.l0 main.l0`
+builds. The `l0-code` skill has hello world written out this way.
+
 **Run `l0 doc` before writing a helper.** It lists every function and type in
 the standard library, which is linked into every program, and `l0 doc NAME`
 shows one in full. What you would have written may already be there.
@@ -31,12 +45,12 @@ copied here.
 ## Commands
 
 ```bash
-l0 check FILE.l0 ...      type check
-l0 test  FILE.l0 ...      run every (def test_NAME () int ...), as TAP
-l0 run   FILE.l0 ...      build and run, reading stdin
-l0 build FILE.l0 -o PROG  produce an executable
-l0 doc   [NAME | TEXT]    the standard library, or one name, or a search
-l0 spec  --path           where the specification is
+l0 check hello.l0 main.l0         type check
+l0 test  hello.l0 hello_test.l0   run every (def test_NAME () int ...), as TAP
+l0 run   hello.l0 main.l0         build and run, reading stdin; -- ARGS after
+l0 build hello.l0 main.l0         produce the executable ./hello
+l0 doc   [NAME | TEXT]            the standard library, or one name, or a search
+l0 spec  --path                   where the specification is
 ```
 
 Several files are compiled together, since L0 has no module system. The
