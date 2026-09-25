@@ -2,7 +2,7 @@
 ;
 ; Run them with:
 ;
-;   l0 test l0/examples.l0 l0/examples_test.l0
+;   l0 test $(l0 examples --path)
 ;
 ; l0 test runs every (def test_NAME () int ...) in its own process and
 ; reports each as a line of TAP. A test returns how many of its assertions
@@ -58,7 +58,7 @@
   "head of empty list")
 
 ; A property test: the two ways of summing agree on many pseudo-random
-; lists. rand_next and rand_below come from l0/test.l0, and give the same
+; lists. rand_next and rand_below come from l0 doc test, and give the same
 ; sequence on every run, so a failure can be reproduced.
 (def sums_agree ((s int) (runs int)) int
   (if (eq runs 0)

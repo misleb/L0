@@ -8,34 +8,47 @@
 ; 11.1: push chunks onto a backwards list, reverse exactly once at the end.
 ; Using append to build output would make the compiler quadratic in the size of
 ; its own output.
+;
+; A comment starting ;; documents the definition below it, and is what l0 doc
+; shows; a definition without one is internal. ;;; describes the file.
 
+;;; Lists of bytes: reversing, building output, comparing, decimal numbers,
+;;; slicing lines and words, word tables, and character classes. A string is
+;;; a (list int) of byte values, so all of these work on strings.
+
+;; xs reversed, in front of acc: (rev_onto "ab" "cd") is "bacd".
 (def rev_onto ((xs (list int)) (acc (list int))) (list int)
   (if (is_empty xs)
       acc
       (rev_onto (tail xs) (cons (head xs) acc))))
 
+;; xs reversed.
 (def rev ((xs (list int))) (list int)
   (rev_onto xs (nil int)))
 
-; Pushes a chunk onto a reversed accumulator. Costs the length of the chunk,
-; never the length of the accumulator.
+;; Pushes chunk onto a reversed accumulator: acc with chunk's bytes in front,
+;; last byte first. Costs the length of the chunk, never of the accumulator.
+;; Build output by pushing each piece and calling rev once at the end; see
+;; spec section 11.1.
 (def push ((chunk (list int)) (acc (list int))) (list int)
   (if (is_empty chunk)
       acc
       (push (tail chunk) (cons (head chunk) acc))))
 
-; Ordinary concatenation. Only for short strings such as diagnostics, never
-; for building compiler output. It copies xs twice, reversing it and then
-; reversing it onto ys, so that neither pass takes a stack frame per byte.
+;; xs followed by ys. It copies xs, so appending in a loop is quadratic: build
+;; anything long with push and rev instead.
 (def append ((xs (list int)) (ys (list int))) (list int)
   (rev_onto (rev xs) ys))
 
+;; The number of elements of xs.
 (def length ((xs (list int))) int
   (length_onto xs 0))
 
 (def length_onto ((xs (list int)) (n int)) int
   (if (is_empty xs) n (length_onto (tail xs) (add n 1))))
 
+;; Whether xs and ys hold the same bytes in the same order. eq compares only
+;; integers, so this is how two strings are compared.
 (def list_eq ((xs (list int)) (ys (list int))) bool
   (if (is_empty xs)
       (is_empty ys)
@@ -53,8 +66,8 @@
       (cons (add 48 n) acc)
       (digits_onto (div n 10) (cons (add 48 (mod n 10)) acc))))
 
-; Decimal rendering. The most negative integer is special-cased because
-; negating it wraps back to itself, per spec section 6.1.
+;; n in decimal, with a leading - if negative: (digits -42) is "-42". The only
+;; way to print a number.
 (def digits ((n int)) (list int)
   (if (eq n (int_min 0))
       "-9223372036854775808"
@@ -64,11 +77,13 @@
 
 ; ------------------------------------------------------------------ slicing
 
+;; xs without its first n elements, or empty if it has fewer.
 (def drop_n ((xs (list int)) (n int)) (list int)
   (if (le n 0)
       xs
       (if (is_empty xs) xs (drop_n (tail xs) (sub n 1)))))
 
+;; Whether s begins with prefix. Every string starts with "".
 (def starts_with ((s (list int)) (prefix (list int))) bool
   (if (is_empty prefix)
       true
@@ -78,7 +93,6 @@
               (starts_with (tail s) (tail prefix))
               false))))
 
-; Up to but not including the next newline.
 (def take_line_onto ((s (list int)) (acc (list int))) (list int)
   (if (is_empty s)
       (rev acc)
@@ -86,10 +100,12 @@
           (rev acc)
           (take_line_onto (tail s) (cons (head s) acc)))))
 
+;; s up to but not including its first newline, or all of s if it has none.
+;; Strips the newline read_line keeps.
 (def take_line ((s (list int))) (list int)
   (take_line_onto s (nil int)))
 
-; Everything after the next newline.
+;; Everything after the first newline of s, or empty if it has none.
 (def drop_line ((s (list int))) (list int)
   (if (is_empty s)
       s
@@ -97,17 +113,21 @@
           (tail s)
           (drop_line (tail s)))))
 
+;; s without its leading decimal digits.
 (def skip_digits ((s (list int))) (list int)
   (if (is_empty s)
       s
       (if (is_digit (head s)) (skip_digits (tail s)) s)))
 
+;; s without its leading spaces, byte 32 only, not tabs or newlines.
 (def skip_spaces ((s (list int))) (list int)
   (if (is_empty s)
       s
       (if (eq (head s) 32) (skip_spaces (tail s)) s)))
 
-; Leading decimal digits as a number; 0 if there are none.
+;; The number s starts with, in decimal, added to acc times ten per digit, so
+;; (int_prefix "42x" 0) is 42 and (int_prefix "x" 0) is 0. There is no sign:
+;; "-5" gives 0. Pass 0 for acc.
 (def int_prefix ((s (list int)) (acc int)) int
   (if (is_empty s)
       acc
@@ -122,6 +142,8 @@
 ; miscounted parentheses. Splitting one space-separated literal keeps the
 ; table flat and readable.
 
+;; xs reversed, in front of acc, for a list of strings: rev_onto for
+;; (list (list int)).
 (def rev_strs_onto ((xs (list (list int))) (acc (list (list int))))
     (list (list int))
   (if (is_empty xs)
@@ -137,10 +159,14 @@
             (if (is_empty cur) acc (cons (rev cur) acc)))
           (split_spaces_onto (tail s) (cons (head s) cur) acc))))
 
+;; The words of s, split at spaces, in order. Runs of spaces count as one, so
+;; no word is empty. Makes a word table from one literal:
+;; (split_spaces "def data if").
 (def split_spaces ((s (list int))) (list (list int))
   (rev_strs_onto (split_spaces_onto s (nil int) (nil (list int)))
                  (nil (list int))))
 
+;; Whether n is one of candidates.
 (def any_eq ((n (list int)) (candidates (list (list int)))) bool
   (if (is_empty candidates)
       false
@@ -148,7 +174,6 @@
           true
           (any_eq n (tail candidates)))))
 
-; Position of n in candidates, or -1. Used for builtin dispatch tables.
 (def index_of_from ((n (list int)) (candidates (list (list int))) (i int)) int
   (if (is_empty candidates)
       -1
@@ -156,23 +181,31 @@
           i
           (index_of_from n (tail candidates) (add i 1)))))
 
+;; The position of n in candidates, counting from 0, or -1 if it is not
+;; there. With two word tables, maps a name in one to the same position in
+;; the other.
 (def index_of ((n (list int)) (candidates (list (list int)))) int
   (index_of_from n candidates 0))
 
 ; ---------------------------------------------------------------- character
 ; classes, by byte value
 
+;; Whether c is a space, tab, newline, or carriage return.
 (def is_space ((c int)) bool
   (or (eq c 32)
       (or (eq c 9)
           (or (eq c 10) (eq c 13)))))
 
+;; Whether c is one of the digits 0 to 9.
 (def is_digit ((c int)) bool
   (and (ge c 48) (le c 57)))
 
+;; Whether c is a lowercase letter a to z, or _: what may start a lowercase
+;; L0 name.
 (def is_lower ((c int)) bool
   (or (and (ge c 97) (le c 122)) (eq c 95)))
 
+;; Whether c is an uppercase letter A to Z.
 (def is_upper ((c int)) bool
   (and (ge c 65) (le c 90)))
 
@@ -182,6 +215,8 @@
 (def is_name_rest ((c int)) bool
   (or (is_name_start c) (is_digit c)))
 
+;; The value of c as a hexadecimal digit, 0 to 15, in either case, or -1 if it
+;; is not one.
 (def hex_val ((c int)) int
   (if (is_digit c)
       (sub c 48)

@@ -2,26 +2,27 @@
 ;
 ; l0 test finds every (def test_NAME () int ...) in the files it is given,
 ; builds them once with this file, lib/prelude.l0, and lib/io.l0 in the
-; prelude group, and runs each test in its own process. A test returns how
-; many of its assertions failed, so one with several returns their sum, and
-; add evaluates them in order:
-;
-;   (def test_arithmetic () int
-;     (add (check_int "sum" (add 2 3) 5)
-;          (check_int "product" (mul 6 7) 42)))
-;
-; Every assertion writes one line as it runs, "ok NAME" or "not ok NAME",
-; followed on failure by what it got and what it wanted. l0 test shows those
-; lines under a test that fails.
-;
-; Expected runtime errors, golden files and --bless, and --match are
-; described in the l0-code skill.
+; prelude group, and runs each test in its own process. ;; comments are what
+; l0 doc shows, as in lib/prelude.l0.
+
+;;; Assertions, golden files, and pseudo-random inputs for l0 test, which
+;;; links this file. A test is (def test_NAME () int ...) and returns how many
+;;; of its assertions failed, so one with several returns their sum, and add
+;;; evaluates them in order:
+;;;
+;;;   (def test_arithmetic () int
+;;;     (add (check_int "sum" (add 2 3) 5)
+;;;          (check_int "product" (mul 6 7) 42)))
+;;;
+;;; Every assertion writes "ok NAME" or "not ok NAME" as it runs, followed on
+;;; failure by what it got and what it wanted; l0 test shows those lines
+;;; under a test that fails.
 
 ; ---------------------------------------------------------------- rendering
 
-; A string as an L0 string literal, with the escapes of spec section 2.2, so
-; a value shown in a failure can be pasted back into a test. An element that
-; is not a byte is shown as {N}, which is not valid L0 and says so.
+;; s as an L0 string literal, with the escapes of spec section 2.2, so a
+;; value shown in a failure can be pasted back into a test. An element that
+;; is not a byte is shown as {N}, which is not valid L0 and says so.
 (def show_str ((s (list int))) (list int)
   (rev (cons 34 (show_str_onto s (cons 34 (nil int))))))
 
@@ -57,7 +58,7 @@
   (cons 92 (cons 120
     (cons (hex_digit (div b 16)) (cons (hex_digit (mod b 16)) (nil int))))))
 
-; A list of strings as [s1, s2, ...].
+;; A list of strings as [s1, s2, ...], each shown as show_str shows it.
 (def show_strs ((xs (list (list int)))) (list int)
   (rev (cons 93 (show_strs_onto xs true (cons 91 (nil int))))))
 
@@ -84,16 +85,23 @@
 
 ; ---------------------------------------------------------------- reporting
 
+;; Reports the assertion name as passed, and returns 0. For writing an
+;; assertion of your own.
 (def pass ((name (list int))) int
   (let w (write_line (append "ok " name))
     0))
 
+;; Reports the assertion name as failed, showing got and want as given, and
+;; returns 1.
 (def fail ((name (list int)) (got (list int)) (want (list int))) int
   (let a (write_line (append "not ok " name))
     (let b (write_line (append "  got:  " got))
       (let c (write_line (append "  want: " want))
         1))))
 
+;; Reports the assertion name as failed for the reason why, and returns 1.
+;; For a data value, match on it and fail_because in the arm that should not
+;; happen.
 (def fail_because ((name (list int)) (why (list int))) int
   (let a (write_line (append "not ok " name))
     (let b (write_line (append "  " why))
@@ -101,19 +109,24 @@
 
 ; --------------------------------------------------------------- assertions
 
+;; 0 if got equals want, and 1 otherwise, reporting both.
 (def check_int ((name (list int)) (got int) (want int)) int
   (if (eq got want)
       (pass name)
       (fail name (digits got) (digits want))))
 
+;; 0 if got equals want, and 1 otherwise, reporting both.
 (def check_bool ((name (list int)) (got bool) (want bool)) int
   (if (if got want (not want))
       (pass name)
       (fail name (show_bool got) (show_bool want))))
 
+;; 0 if ok is true, and 1 otherwise.
 (def check_true ((name (list int)) (ok bool)) int
   (if ok (pass name) (fail name "false" "true")))
 
+;; 0 if got and want hold the same bytes, and 1 otherwise, showing both as L0
+;; literals and the first byte where they differ.
 (def check_str ((name (list int)) (got (list int)) (want (list int))) int
   (if (list_eq got want)
       (pass name)
@@ -122,6 +135,8 @@
                  (digits (first_diff got want 0))))
           r))))
 
+;; 0 if got and want are the same strings in the same order, and 1
+;; otherwise, showing both.
 (def check_strs ((name (list int)) (got (list (list int)))
                  (want (list (list int)))) int
   (if (strs_eq got want)
@@ -139,10 +154,10 @@
 
 ; ------------------------------------------------------------- golden files
 
-; Compares got with the contents of the file at path, relative to the
-; directory l0 test runs in. Under l0 test --bless it writes got to the file
-; instead, and passes. Read the diff of every blessed file: blessing turns
-; whatever the code does now into what is correct.
+;; Compares got with the contents of the file at path, relative to the
+;; directory l0 test runs in, as check_str does. Under l0 test --bless it
+;; writes got to the file instead, and passes. Read the diff of every blessed
+;; file: blessing turns whatever the code does now into what is correct.
 (def check_file ((name (list int)) (got (list int)) (path (list int))) int
   (if (list_eq (arg 1) "--bless")
       (bless_file name got path)
@@ -178,25 +193,30 @@
 
 ; ------------------------------------------------------------ random inputs
 
-; A pseudo-random sequence for property tests, the same on every run. A state
-; is an int: start from any seed, (rand_next s) is the state after s, and
-; (rand_below s n) is a value from state s in 0 to n - 1, for n above 0.
-; Thread the state through by hand, as with any L0 loop.
+;; The state after s in a pseudo-random sequence that is the same on every
+;; run, so a failing property test fails again. A state is an int: start
+;; from any seed and thread it through by hand, as with any L0 loop.
 (def rand_next ((s int)) int
   (add (mul s 6364136223846793005) 1442695040888963407))
 
 ; The high bits of this generator are far better than the low ones, so the
 ; value comes from the top 32.
+;; A value from state s, in 0 to n - 1, for n above 0. Values come from 32
+;; bits of the state, so for n above about 2 to the 31 not every value in
+;; range can come up: build a larger one from two.
 (def rand_below ((s int) (n int)) int
   (let hi (div s 4294967296)
     (mod (if (lt hi 0) (neg hi) hi) n)))
 
-; n pseudo-random bytes starting from state s.
+;; n pseudo-random bytes, each 0 to 255, starting from state s.
 (def rand_bytes ((s int) (n int)) (list int)
+  (rev (rand_bytes_onto s n (nil int))))
+
+(def rand_bytes_onto ((s int) (n int) (acc (list int))) (list int)
   (if (le n 0)
-      (nil int)
+      acc
       (let s1 (rand_next s)
-        (cons (rand_below s1 256) (rand_bytes s1 (sub n 1))))))
+        (rand_bytes_onto s1 (sub n 1) (cons (rand_below s1 256) acc)))))
 
 ; ---------------------------------------------------- used by the generated main
 

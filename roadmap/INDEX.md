@@ -62,6 +62,9 @@ Changes to the language, strictly in order. At most one is active.
   to 0017 through 0021
 - [0016](0016-linux-test-image.md) tooling: a local image for the Linux test
   runs — done, `tools/linux-test.sh`
+- [0022](0022-library-reference.md) tooling: the standard library documents
+  itself, and l0 init copies no reference — done, changelog "The standard
+  library documents itself"
 - [0017](0017-library-and-tool-fixes.md) tooling: library and tool fixes from
   0014 — done, changelog "Reading a line can report a failure, and no
   language change for it"

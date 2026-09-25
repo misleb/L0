@@ -40,11 +40,6 @@ fi
 grep -q 'first difference at byte 1' got.tap ||
     fail "a changed golden file did not show where it differs"
 
-# The example tests shipped by l0 init must pass, so the first tests a new
-# project reads cannot rot.
-l0 test "$root/lib/examples.l0" "$root/lib/examples_test.l0" > got.tap ||
-    { cat got.tap; fail "lib/examples_test.l0 has failing tests"; }
-
 # A test file may define a name lib/test.l0 defines too, and it checks the
 # way l0 test builds it: through l0 check --test, and through tools/l0check
 # given lib/test.l0.

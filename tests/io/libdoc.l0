@@ -1,0 +1,6 @@
+; The runner for libdoc.sh, which tests l0 doc, l0 spec, l0 examples, and
+; what l0 init copies. This program is only what the suite requires every
+; tests/io entry to build.
+
+(def main () int
+  0)

@@ -22,6 +22,9 @@
 #   <stem>.err     expected stderr; if absent, stderr must be empty
 #   <stem>.exit    expected exit status; if absent, 0
 #   <stem>.in      stdin; if absent, empty
+#   <stem>.cat     instead of .in: files to concatenate as stdin, one per
+#                  line, so a test of repository files reads them as they
+#                  are rather than a copy that can go stale
 #   <stem>.extra   additional source files to pass, one per line
 #   <stem>.sh      tests/io only: run as `sh <stem>.sh EXE IR` instead of
 #                  comparing output, for behavior that is about timing or
@@ -101,7 +104,11 @@ run_case() {
     exit_file="$stem.exit"
     in_file="$stem.in"
 
-    if [ -f "$in_file" ]; then
+    if [ -f "$stem.cat" ]; then
+        # shellcheck disable=SC2046
+        cat $(cat "$stem.cat") > "$TMP/cat.in"
+        stdin_source="$TMP/cat.in"
+    elif [ -f "$in_file" ]; then
         stdin_source="$in_file"
     else
         stdin_source=/dev/null

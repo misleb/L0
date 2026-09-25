@@ -5,12 +5,17 @@
 ; lib/prelude.l0, so a program may define its own read_line and keep calling
 ; it. It is a separate file because the compiler is built from
 ; lib/prelude.l0, and the stage-0 interpreter that runs the compiler for
-; tools/l0check does not know the I/O builtins.
+; tools/l0check does not know the I/O builtins. ;; comments are what l0 doc
+; shows, as in lib/prelude.l0.
 
-; The next line of standard input, including its newline if it has one. The
-; empty list means end of input: a blank line is "\n", and a last line with no
-; newline comes back without one. A failed read also ends the line, and looks
-; like end of input; use next_line when that must be told apart.
+;;; Reading and writing lines and strings, command-line arguments, and files.
+;;; Everything here is built on the I/O builtins of spec sections 6.2 to 6.4,
+;;; and like them happens in evaluation order: sequence it with let.
+
+;; The next line of standard input, including its newline if it has one. The
+;; empty list means end of input: a blank line is "\n", and a last line with
+;; no newline comes back without one. A failed read also ends the line, and
+;; looks like end of input; use next_line when that must be told apart.
 (def read_line () (list int)
   (rev (read_line_onto (nil int))))
 
@@ -22,15 +27,16 @@
             (cons b acc)
             (read_line_onto (cons b acc))))))
 
-; A line read by next_line or file_next_line. IoError carries the negative
-; code of spec section 6.3, which io_error puts into words; the bytes of the
-; line read before the failure are dropped.
+;; A line read by next_line or file_next_line. IoError carries the negative
+;; code of spec section 6.3, which io_error puts into words; the bytes of the
+;; line read before the failure are dropped.
 (data IoLine
   (IoLine (list int))                   ; a line, with its newline if it had one
   (IoEnd)                               ; end of input, before any byte of a line
   (IoError int))
 
-; The next line of standard input, or IoEnd, or IoError if a read failed.
+;; The next line of standard input as an IoLine: (IoLine s) with its newline
+;; if it had one, (IoEnd) at end of input, or (IoError code) if a read failed.
 (def next_line () IoLine
   (next_line_from 0 (nil int)))
 
@@ -44,19 +50,19 @@
                 (IoError b)
                 (if (is_empty acc) (IoEnd) (IoLine (rev acc))))))))
 
-; Writes every byte of s, in order, and returns 0.
+;; Writes every byte of s to standard output, in order, and returns 0.
 (def write_str ((s (list int))) int
   (if (is_empty s)
       0
       (let w (write_byte (head s))
         (write_str (tail s)))))
 
-; Writes s followed by a newline, and returns 0.
+;; Writes s and then a newline to standard output, and returns 0.
 (def write_line ((s (list int))) int
   (let w (write_str s)
     (write_byte 10)))
 
-; Writes every byte of s to standard error, and returns 0.
+;; Writes every byte of s to standard error, and returns 0.
 (def write_err ((s (list int))) int
   (write_to_handle 2 s))
 
@@ -68,7 +74,8 @@
 
 ; ------------------------------------------------------------------ arguments
 
-; Every command-line argument, in order, not counting the program's name.
+;; Every command-line argument, in order, not counting the program's name.
+;; (arg i) and (arg_count) are the builtins beneath it, spec section 6.4.
 (def args () (list (list int))
   (args_before (sub (arg_count) 1) (nil (list int))))
 
@@ -85,18 +92,23 @@
 ; has to handle, so a program cannot forget that opening can fail. Names
 ; beginning with Io are reserved for this library; spec section 7.1.
 
+;; An open file. Get one from open_in or open_out, use it with the file_
+;; functions, and close it with file_close.
 (data IoFile
   (IoFile int))
 
+;; The result of opening a file: (IoOpened f), or (IoFailed why), where why
+;; says in words what went wrong, such as "no such file".
 (data IoOpened
   (IoOpened IoFile)
   (IoFailed (list int)))
 
-; Opens a file for reading.
+;; Opens the file at path for reading.
 (def open_in ((path (list int))) IoOpened
   (opened (open_read path)))
 
-; Creates a file, or empties it if it exists, and opens it for writing.
+;; Creates the file at path, or empties it if it exists, and opens it for
+;; writing.
 (def open_out ((path (list int))) IoOpened
   (opened (open_write path)))
 
@@ -105,7 +117,10 @@
       (IoFailed (io_error h))
       (IoOpened (IoFile h))))
 
-; What a negative result from an I/O builtin means. Spec section 6.3.
+;; What a negative result from an I/O builtin means, in words: -1 "end of
+;; input", -2 "not open in that direction", -3 "no such file", -4
+;; "permission denied", and anything else "input or output failed". Spec
+;; section 6.3.
 (def io_error ((code int)) (list int)
   (if (eq code -1)
       "end of input"
@@ -117,20 +132,21 @@
                   "permission denied"
                   "input or output failed")))))
 
-; The next byte of f, or -1 at end of input, or another negative code.
+;; The next byte of f, or -1 at end of input, or another negative code if the
+;; read failed. Test for -1 and for other negatives separately.
 (def file_read_byte ((f IoFile)) int
   (match f ((IoFile h) (read_from h))))
 
-; Writes one byte to f, and returns 0, or a negative code.
+;; Writes the byte b to f, and returns 0, or a negative code.
 (def file_write_byte ((f IoFile) (b int)) int
   (match f ((IoFile h) (write_to h b))))
 
-; Writes every byte of s to f, and returns 0.
+;; Writes every byte of s to f, and returns 0.
 (def file_write_str ((f IoFile) (s (list int))) int
   (match f ((IoFile h) (write_to_handle h s))))
 
-; The next line of f, as read_line reads standard input, so a failed read
-; looks like end of input; file_next_line tells them apart.
+;; The next line of f, as read_line reads standard input, so a failed read
+;; looks like end of input; file_next_line tells them apart.
 (def file_read_line ((f IoFile)) (list int)
   (match f ((IoFile h) (rev (read_line_from h (nil int))))))
 
@@ -142,10 +158,12 @@
             (cons b acc)
             (read_line_from h (cons b acc))))))
 
-; The next line of f, or IoEnd, or IoError if a read failed.
+;; The next line of f as an IoLine, as next_line reads standard input.
 (def file_next_line ((f IoFile)) IoLine
   (match f ((IoFile h) (next_line_from h (nil int)))))
 
-; Closes f. Returns 0, or a negative code if bytes written to it were lost.
+;; Closes f, and returns 0, or a negative code if bytes written to it could
+;; not be written. That is the only place such a failure shows, so check it
+;; after writing.
 (def file_close ((f IoFile)) int
   (match f ((IoFile h) (close h))))

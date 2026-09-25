@@ -215,14 +215,32 @@ Working examples worth reading before writing anything substantial:
 - [tests/lang/bindings.l0](../../../tests/lang/bindings.l0) — `let`, shadowing,
   and the namespace separation
 
+## Writing the standard library
+
+`lib/prelude.l0`, `lib/io.l0`, and `lib/test.l0` document themselves, and
+`l0 doc` is how every agent outside this repository learns what they offer,
+so their documentation is part of the change, not an afterthought:
+
+- a `;;` block directly above a `def` or `data` is its documentation, and
+  makes it public. Its first sentence is the one-line summary `l0 doc` shows,
+  so make that sentence say what the function returns or does, including how
+  it fails
+- a definition without a `;;` block is internal and never listed, which is
+  right for helpers such as `read_line_onto`
+- `;;;` lines describe the whole file, and their first sentence heads the
+  file in the index
+- `tests/io/libdoc` pins the whole index in `tests/io/libdoc/index.txt`.
+  Adding, removing, or re-documenting a public definition changes it; update
+  it with `tools/l0 doc > tests/io/libdoc/index.txt` and read the diff
+
 ## Writing tests
 
 Anything stage 0 cannot run, including library code in `lib/io.l0` and
 `lib/test.l0` and programs a worker writes, is tested with `tools/l0 test`,
 which `lib/skills/l0-code/SKILL.md` describes. That skill is written for a
-project `l0 init` made, so read its paths as this repository's: `l0/L0.md` is
-`spec/L0.md`, `l0/prelude.l0`, `l0/io.l0`, and `l0/test.l0` are in `lib/`,
-and `l0 check` is `tools/l0 check`. Check a test file with
+project `l0 init` made, where `l0` is on the path; here it is `tools/l0`, and
+`tools/l0 doc`, `tools/l0 spec`, and `tools/l0 examples` read `lib/` and
+`spec/` as they are in the working tree. Check a test file with
 `tools/l0 check --test`, or with `tools/l0check` given `lib/test.l0`, which
 both group it as `l0 test` does. Such tests live in
 `tests/unit/NAME_test.l0`, with a `.extra` file naming companions if needed,

@@ -7,8 +7,8 @@
 ; It is meant to be read rather than linked. The names would collide with
 ; your own, and the standard library it uses is already linked for you.
 ;
-; Nothing here defines main, so it is not a program on its own. Compile it
-; with `l0 check l0/examples.l0` to confirm it still type checks.
+; Nothing here defines main, so it is not a program on its own. Run its tests
+; with `l0 test $(l0 examples --path)`.
 
 ; --------------------------------------------------------------- the basics
 
@@ -143,7 +143,7 @@
 
 ; ------------------------------------------------ reading and writing as you go
 
-; read_line and write_str are in the standard library (l0/io.l0), built on the
+; read_line and write_str are in the standard library (l0 doc io), built on the
 ; read_byte and write_byte builtins. They are effects, and effects happen in
 ; evaluation order, so let is how to put one before another: its value is
 ; evaluated before its body, even when the name is never used.

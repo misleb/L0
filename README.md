@@ -141,18 +141,23 @@ l0 init myproject
 ```
 AGENTS.md                           always-on invariants
 .cursor/skills/l0-code/SKILL.md     how to read, write, and edit L0
-l0/L0.md                            the language specification
-l0/examples.l0                      worked examples, all of them compiling
-l0/examples_test.l0                 tests of them, and how to write tests
-l0/prelude.l0                       the standard library, for reference
-l0/io.l0                            line and string I/O, for reference
-l0/test.l0                          assertions for l0 test, for reference
 ```
 
-The specification and examples are copied in rather than linked, because an
-agent has no L0 in its training data and the specification has to be readable
-in the project itself. `lib/examples.l0` is compiled by this repository's own
-test suite, so the examples a newcomer reads cannot rot.
+Those two are all it copies, because an agent's environment needs them as
+files. Everything else an agent reads comes from the installed toolchain, so
+it always describes the compiler that builds the project, however long ago
+the project was made:
+
+```bash
+l0 spec --path          # the language specification
+l0 doc                  # the standard library: every function and type
+l0 doc next_line        # one of them in full
+l0 examples --path      # worked examples, and tests of them
+```
+
+`l0 doc` reads the library's own documentation comments, so it grows with the
+library and cannot disagree with it. `lib/examples.l0` is compiled by this
+repository's own test suite, so the examples a newcomer reads cannot rot.
 
 ## How L0 grows
 
@@ -368,8 +373,8 @@ will tell you. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 spec/          L0.md (what the language is) and changelog.md (why)
 runtime/       l0rt.ll, the runtime: allocation, host I/O, entry point
 compiler/      the L0 compiler, written in L0
-lib/           prelude.l0 (the standard library), examples, and the files
-               `l0 init` copies into a new project
+lib/           the standard library (prelude.l0, io.l0, test.l0), examples,
+               and the AGENTS.md and skill `l0 init` copies into a project
 bootstrap/     stage2.ll, the checked-in seed the compiler is built from
 stage0/        frozen C interpreter, kept only as a differential oracle
 tests/         backend (hand-written IR), lang (must run), check (must fail),
@@ -384,7 +389,8 @@ roadmap/       plans and status for work in progress; never knowledge about L0
 
 The skills under `.cursor/skills/` are for working *on* L0 and refer to the
 compiler sources and test suite. Those under `lib/skills/`, which `l0 init`
-installs, are for working *in* L0 and refer only to files a project has.
+installs, are for working *in* L0 and refer only to what a project has: its
+own files and the `l0` commands.
 When writing L0 here teaches something about writing L0 anywhere, the shipped
 skill is updated in the same change.
 

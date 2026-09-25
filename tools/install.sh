@@ -9,11 +9,12 @@
 #   <prefix>/bin/l0              the driver
 #   <prefix>/lib/l0/l0c          the compiler, built from bootstrap/stage2.ll
 #   <prefix>/lib/l0/libl0rt.a    the runtime
-#   <prefix>/lib/l0/prelude.l0   the standard library
+#   <prefix>/lib/l0/prelude.l0   the standard library, which l0 doc documents
 #   <prefix>/lib/l0/io.l0        line and string I/O, linked like the prelude
 #   <prefix>/lib/l0/test.l0      assertions, linked by l0 test
-#   <prefix>/lib/l0/L0.md        the specification
-#   <prefix>/lib/l0/examples.l0  worked examples
+#   <prefix>/lib/l0/L0.md        the specification, shown by l0 spec
+#   <prefix>/lib/l0/examples.l0  worked examples, shown by l0 examples, with
+#                                examples_test.l0 beside it
 #   <prefix>/lib/l0/AGENTS.md    project invariants, copied by `l0 init`
 #   <prefix>/lib/l0/skills/      agent skills, copied by `l0 init`
 #

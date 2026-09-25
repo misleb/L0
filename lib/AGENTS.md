@@ -6,18 +6,27 @@ cannot substitute for reading the specification and running the checker.
 
 ## Invariants
 
-**`l0/L0.md` is the only source of truth about L0.** Not this file, not the
-examples. If a construct is not in the specification, it does not exist.
+**The specification is the only source of truth about L0.** Not this file, not
+the examples. If a construct is not in it, it does not exist. `l0 spec --path`
+names the file; read it before writing L0 for the first time in a session.
 
 **Never state that L0 code works without running `l0 check` on it.** Code that
 looks plausible is routinely invalid, because L0 is not any language you have
 seen. That it type checks says nothing about what it does: write tests, and
 run them with `l0 test`.
 
-**Read `l0/examples.l0` before writing anything substantial.** It is a set of
-working programs covering recursion, strings, data types, `match`, returning
-several values, and reporting failure. `l0/examples_test.l0` shows how to
-test them.
+**Run `l0 doc` before writing a helper.** It lists every function and type in
+the standard library, which is linked into every program, and `l0 doc NAME`
+shows one in full. What you would have written may already be there.
+
+**Read the examples before writing anything substantial.** `l0 examples
+--path` names two files: working programs covering recursion, strings, data
+types, `match`, returning several values, and reporting failure, and tests of
+them.
+
+Everything these commands show comes from the installed toolchain, so it
+always describes the compiler that builds this project. Nothing of it is
+copied here.
 
 ## Commands
 
@@ -26,12 +35,13 @@ l0 check FILE.l0 ...      type check
 l0 test  FILE.l0 ...      run every (def test_NAME () int ...), as TAP
 l0 run   FILE.l0 ...      build and run, reading stdin
 l0 build FILE.l0 -o PROG  produce an executable
+l0 doc   [NAME | TEXT]    the standard library, or one name, or a search
+l0 spec  --path           where the specification is
 ```
 
 Several files are compiled together, since L0 has no module system. The
-standard library is linked automatically, and `l0 test` adds the assertions
-of `l0/test.l0`; the copies in `l0/` are for reading and must not be passed on
-the command line.
+standard library is linked automatically, and `l0 test` adds its assertions,
+so never pass library files on the command line.
 
 **A function you define shadows a prelude function of the same name**, and the
 prelude keeps calling its own, so a name the standard library already took is

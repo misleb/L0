@@ -7,6 +7,30 @@ New entries go at the top.
 
 ---
 
+## The standard library documents itself
+
+**What an agent reads about L0 now comes from the toolchain, not from
+copies.** `l0 init` used to copy the specification, the examples, and the
+library into each project, where they stayed as the toolchain moved on. Now
+it copies only `AGENTS.md` and the `l0-code` skill, and `l0 spec`, `l0
+examples`, and `l0 doc` show the installed ones.
+
+**`l0 doc` reads the library's own comments.** A `;;` block directly above a
+`def` or `data` is its documentation and makes it public; one without is
+internal. `l0 doc` lists every public name with its signature and the first
+sentence of its comment, and shows one file, one name, or a search in full.
+
+**Why not skills, or the spec.** A skill describing the library is copied by
+`l0 init` too, so it drifts just as the library copies did, and it is a
+second record of every fact that nothing checks against the first. Library
+details in `spec/L0.md` would make the language's definition grow with every
+helper. Documentation next to the code is reviewed with the code, and a test
+pins the index, so a change to the library's surface cannot go unnoticed.
+
+This is not a language change. `;;` is an ordinary comment to the compiler.
+
+---
+
 ## Reading a line can report a failure, and no language change for it
 
 **`lib/io.l0` gains `next_line` and `file_next_line`,** which return an
