@@ -61,6 +61,14 @@ declare i64 @l0_f_main(i64)
 ; For reading, pos and len delimit the unread bytes in buf; for writing, len
 ; is how many bytes are held back. Handles 0, 1, and 2 use the static buffers
 ; below and are never closed; the rest get a buffer from malloc when opened.
+;
+; kind is 0 for a descriptor, 1 for a handle reading a list, and 2 for a
+; buffer, spec section 6.3. A list handle has no fd or buf: list is the list
+; it holds a reference to, and pos the cell to read next, 0 at the end. A
+; buffer has no fd: buf holds everything written, len bytes of cap.
+@h_kind = internal global [64 x i64] zeroinitializer
+@h_list = internal global [64 x i64] zeroinitializer
+@h_cap = internal global [64 x i64] zeroinitializer
 @h_fd = internal global [64 x i64] zeroinitializer
 @h_mode = internal global [64 x i64] zeroinitializer
 @h_state = internal global [64 x i64] zeroinitializer
@@ -632,6 +640,8 @@ no:
 
 define internal void @h_set(i64 %h, i64 %fd, i64 %mode, ptr %buf) {
 entry:
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  store i64 0, ptr %kp
   %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
   store i64 %fd, ptr %fp
   %mp = getelementptr [64 x i64], ptr @h_mode, i64 0, i64 %h
@@ -660,6 +670,13 @@ entry:
 ; result reaches the program marks the failure reported.
 define internal i64 @h_flush(i64 %h) {
 entry:
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %k = load i64, ptr %kp
+  %buffer = icmp eq i64 %k, 2
+  br i1 %buffer, label %kept, label %descriptor
+kept:
+  ret i64 0
+descriptor:
   %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
   %n = load i64, ptr %lp
   %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
@@ -776,7 +793,28 @@ state:
   br i1 %eof, label %ended, label %chkerr
 chkerr:
   %err = icmp eq i64 %st, 2
-  br i1 %err, label %failed, label %chk
+  br i1 %err, label %failed, label %kind
+kind:
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %k = load i64, ptr %kp
+  %list = icmp eq i64 %k, 1
+  br i1 %list, label %cell, label %chk
+cell:
+  %cp0 = getelementptr [64 x i64], ptr @h_pos, i64 0, i64 %h
+  %cur = load i64, ptr %cp0
+  %last = icmp eq i64 %cur, 0
+  br i1 %last, label %listend, label %elem
+listend:
+  store i64 1, ptr %sp
+  br label %ended
+elem:
+  %cq = inttoptr i64 %cur to ptr
+  %ev = load i64, ptr %cq
+  %np = getelementptr i64, ptr %cq, i64 1
+  %next = load i64, ptr %np
+  store i64 %next, ptr %cp0
+  %eb = and i64 %ev, 255
+  ret i64 %eb
 chk:
   %pp = getelementptr [64 x i64], ptr @h_pos, i64 0, i64 %h
   %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
@@ -826,14 +864,37 @@ bad:
 go:
   %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
   %n = load i64, ptr %lp
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %k = load i64, ptr %kp
+  %buffer = icmp eq i64 %k, 2
+  br i1 %buffer, label %keep, label %descriptor
+descriptor:
   %full = icmp eq i64 %n, 65536
   br i1 %full, label %flush, label %put
 flush:
   %r = call i64 @h_flush(i64 %h)
   br label %put
+keep:
+  %cpp = getelementptr [64 x i64], ptr @h_cap, i64 0, i64 %h
+  %cap = load i64, ptr %cpp
+  %room = icmp slt i64 %n, %cap
+  br i1 %room, label %put, label %grow
+grow:
+  %ncap = shl i64 %cap, 1
+  %ob = load ptr, ptr %bp
+  %nb = call ptr @realloc(ptr %ob, i64 %ncap)
+  %oom = icmp eq ptr %nb, null
+  br i1 %oom, label %exhausted, label %grown
+exhausted:
+  call void @rt_error(ptr @m_heap, i64 14)
+  unreachable
+grown:
+  store ptr %nb, ptr %bp
+  store i64 %ncap, ptr %cpp
+  br label %put
 put:
-  %n1 = phi i64 [ %n, %go ], [ 0, %flush ]
-  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %n1 = phi i64 [ %n, %descriptor ], [ 0, %flush ], [ %n, %keep ], [ %n, %grown ]
   %buf = load ptr, ptr %bp
   %cp = getelementptr i8, ptr %buf, i64 %n1
   %b = trunc i64 %v to i8
@@ -847,6 +908,121 @@ define i64 @l0_read_byte() {
 entry:
   %r = call i64 @l0_read_from(i64 0)
   ret i64 %r
+}
+
+; Releases the list a list handle holds; nothing for any other kind.
+define internal void @h_drop_list(i64 %h) {
+entry:
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %k = load i64, ptr %kp
+  %list = icmp eq i64 %k, 1
+  br i1 %list, label %drop, label %done
+drop:
+  %lp = getelementptr [64 x i64], ptr @h_list, i64 0, i64 %h
+  %l = load i64, ptr %lp
+  store i64 0, ptr %lp
+  call void @l0_dec(i64 %l)
+  br label %done
+done:
+  ret void
+}
+
+; A handle reading the elements of l, spec section 6.3. It keeps a reference
+; to l of its own until closed.
+define i64 @l0_open_bytes(i64 %l) {
+entry:
+  %h = call i64 @free_handle()
+  %none = icmp slt i64 %h, 0
+  br i1 %none, label %fail, label %ok
+fail:
+  ret i64 -5
+ok:
+  call void @h_set(i64 %h, i64 0, i64 1, ptr null)
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  store i64 1, ptr %kp
+  call void @l0_inc(i64 %l)
+  %lp = getelementptr [64 x i64], ptr @h_list, i64 0, i64 %h
+  store i64 %l, ptr %lp
+  %pp = getelementptr [64 x i64], ptr @h_pos, i64 0, i64 %h
+  store i64 %l, ptr %pp
+  ret i64 %h
+}
+
+define i64 @l0_open_buffer() {
+entry:
+  %h = call i64 @free_handle()
+  %none = icmp slt i64 %h, 0
+  br i1 %none, label %fail, label %alloc
+alloc:
+  %b = call ptr @malloc(i64 4096)
+  %nob = icmp eq ptr %b, null
+  br i1 %nob, label %fail, label %ok
+fail:
+  ret i64 -5
+ok:
+  call void @h_set(i64 %h, i64 0, i64 2, ptr %b)
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  store i64 2, ptr %kp
+  %cp = getelementptr [64 x i64], ptr @h_cap, i64 0, i64 %h
+  store i64 4096, ptr %cp
+  ret i64 %h
+}
+
+; Everything written to a buffer, as a new list built from the last byte
+; back, or the empty list for anything else.
+define i64 @l0_buffer_bytes(i64 %h) {
+entry:
+  %w = call i1 @h_is(i64 %h, i64 2)
+  br i1 %w, label %kind, label %empty
+kind:
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %k = load i64, ptr %kp
+  %buffer = icmp eq i64 %k, 2
+  br i1 %buffer, label %build, label %empty
+build:
+  %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
+  %n = load i64, ptr %lp
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %buf = load ptr, ptr %bp
+  br label %loop
+loop:
+  %i = phi i64 [ %n, %build ], [ %i1, %cons ]
+  %acc = phi i64 [ 0, %build ], [ %acc1, %cons ]
+  %done = icmp eq i64 %i, 0
+  br i1 %done, label %out, label %cons
+cons:
+  %i1 = sub i64 %i, 1
+  %cp = getelementptr i8, ptr %buf, i64 %i1
+  %c = load i8, ptr %cp
+  %v = zext i8 %c to i64
+  %acc1 = call i64 @l0_new_cons(i64 %v, i64 %acc, i64 2)
+  br label %loop
+out:
+  ret i64 %acc
+empty:
+  ret i64 0
+}
+
+; At a normal exit, before the counting is checked: the lists that list
+; handles still hold are released, as if every handle were closed.
+define internal void @release_lists() {
+entry:
+  br label %loop
+loop:
+  %h = phi i64 [ 3, %entry ], [ %h1, %next ]
+  %end = icmp eq i64 %h, 64
+  br i1 %end, label %done, label %body
+body:
+  %r = call i1 @h_is(i64 %h, i64 1)
+  br i1 %r, label %drop, label %next
+drop:
+  call void @h_drop_list(i64 %h)
+  br label %next
+next:
+  %h1 = add i64 %h, 1
+  br label %loop
+done:
+  ret void
 }
 
 define i64 @l0_write_byte(i64 %v) {
@@ -873,10 +1049,21 @@ flush:
   br label %shut
 shut:
   %res = phi i64 [ 0, %go ], [ %fr, %flush ]
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %k = load i64, ptr %kp
+  %isfd = icmp eq i64 %k, 0
+  br i1 %isfd, label %shutfd, label %memory
+shutfd:
   %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
   %fd = load i64, ptr %fp
   %fd32 = trunc i64 %fd to i32
-  %c = call i32 @close(i32 %fd32)
+  %cfd = call i32 @close(i32 %fd32)
+  br label %release
+memory:
+  call void @h_drop_list(i64 %h)
+  br label %release
+release:
+  %c = phi i32 [ %cfd, %shutfd ], [ 0, %memory ]
   %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
   %buf = load ptr, ptr %bp
   call void @free(ptr %buf)
@@ -1380,6 +1567,7 @@ stream:
   call void @flush_every()
   %st = and i64 %s, 255
   store i64 %st, ptr @exit_status
+  call void @release_lists()
   call void @check_live()
   call void @report_lost()
   ret ptr null
@@ -1396,6 +1584,7 @@ release:
   call void @l0_dec(i64 %r)
   br label %checked
 checked:
+  call void @release_lists()
   call void @check_live()
   call void @report_lost()
   ret ptr null

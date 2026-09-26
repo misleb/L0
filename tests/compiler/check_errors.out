@@ -37,3 +37,6 @@ ok
 35: an argument of open_append must be (list int), but this is int
 35: an argument of rename must be (list int), but this is int
 35: rename takes 2 arguments, but got 1
+35: an argument of open_bytes must be (list int), but this is int
+35: open_buffer takes 0 arguments, but got 1
+0: main declares return type int, but its body is (list int)

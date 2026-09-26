@@ -260,6 +260,113 @@
   (let a (write_file "zero.txt" "z")
     (check_int "rename" (rename "zero.txt" (cons 97 (cons 0 (nil int)))) -5)))
 
+; ---------------------------------------------------------- handles in memory
+
+(def read_all_of ((h int) (acc (list int))) (list int)
+  (let b (read_from h)
+    (if (lt b 0) (rev acc) (read_all_of h (cons b acc)))))
+
+(def test_bytes_read_then_end () int
+  (let h (open_bytes "abc")
+    (let s (read_all_of h (nil int))
+      (let again (read_from h)
+        (let c (close h)
+          (add (check_str "bytes" s "abc")
+            (add (check_int "end sticks" again -1)
+                 (check_int "close" c 0))))))))
+
+(def test_bytes_of_empty_list () int
+  (let h (open_bytes "")
+    (let b (read_from h)
+      (let c (close h)
+        (check_int "first read" b -1)))))
+
+; Elements are reduced modulo 256, as write_to reduces what it writes.
+(def test_bytes_reduced () int
+  (let h (open_bytes (cons 321 (cons -1 (nil int))))
+    (let a (read_from h)
+      (let b (read_from h)
+        (let c (close h)
+          (add (check_int "321" a 65) (check_int "-1" b 255)))))))
+
+; The handle keeps the list alive after the caller's reference is gone.
+(def fresh_bytes ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (fresh_bytes (sub n 1) (cons (add 96 n) acc))))
+
+(def test_bytes_outlive_their_list () int
+  (let h (open_bytes (fresh_bytes 3 (nil int)))
+    (let s (read_all_of h (nil int))
+      (let c (close h)
+        (check_str "bytes" s "abc")))))
+
+(def test_memory_handles_have_a_direction () int
+  (let r (open_bytes "x")
+    (let w (open_buffer)
+      (add (check_int "write to bytes" (write_to r 65) -2)
+        (add (check_int "read from a buffer" (read_from w) -2)
+          (add (check_int "flush bytes" (flush r) -2)
+            (add (check_int "close bytes" (close r) 0)
+                 (check_int "close buffer" (close w) 0))))))))
+
+(def write_n_to ((h int) (n int)) int
+  (if (le n 0) 0 (let w (write_to h (mod n 251)) (write_n_to h (sub n 1)))))
+
+(def test_buffer_keeps_writes () int
+  (let h (open_buffer)
+    (let a (write_to h 104)
+      (let b (write_to h 105)
+        (let first (buffer_bytes h)
+          (let f (flush h)
+            (let c (write_to h 33)
+              (let second (buffer_bytes h)
+                (let x (close h)
+                  (add (check_str "so far" first "hi")
+                    (add (check_int "flush" f 0)
+                      (add (check_str "after more" second "hi!")
+                           (check_int "close" x 0)))))))))))))
+
+; More than the buffer's first allocation, so it grows.
+(def test_large_buffer () int
+  (let h (open_buffer)
+    (let w (write_n_to h 200000)
+      (let s (buffer_bytes h)
+        (let c (close h)
+          (add (check_int "length" (length s) 200000)
+               (check_int "first" (head s) (mod 200000 251))))))))
+
+(def test_buffer_bytes_of_other_handles () int
+  (let r (open_bytes "x")
+    (let w (open_buffer)
+      (let c (close w)
+        (let s1 (buffer_bytes r)
+          (let s2 (buffer_bytes w)
+            (let x (close r)
+              (add (check_str "bytes handle" s1 "")
+                (add (check_str "closed buffer" s2 "")
+                  (add (check_str "standard output" (buffer_bytes 1) "")
+                       (check_str "not a handle" (buffer_bytes 99) "")))))))))))
+
+; The wrappers, with the file_ functions, as a program's code would use them.
+(def test_file_functions_on_memory () int
+  (match (open_in_bytes "one\ntwo\n")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened in)
+      (match (open_out_buffer)
+        ((IoFailed why) (check_str "open" why ""))
+        ((IoOpened out)
+          (let a (file_write_str out (take_line (file_read_line in)))
+            (let b (file_write_str out (take_line (file_read_line in)))
+              (let s (buffer_contents out)
+                (let c (file_close in)
+                  (let d (file_close out)
+                    (check_str "contents" s "onetwo")))))))))))
+
+; A handle left open at the end is closed then: this test leaves one open
+; over a list, and l0 test would fail it if the list were never released.
+(def test_bytes_left_open () int
+  (let h (open_bytes "left open")
+    (check_int "first byte" (read_from h) 108)))
+
 ; ---------------------------------------------------------------- arguments
 
 ; Under l0 test, the program's argument is the test's name.

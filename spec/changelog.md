@@ -7,6 +7,58 @@ New entries go at the top.
 
 ---
 
+## Handles that read from and write to memory
+
+**L0 gains `open_bytes`, `open_buffer`, and `buffer_bytes`** (section 6.3).
+`(open_bytes s)` is a handle that reads the bytes of a list and then ends;
+`(open_buffer)` is a handle that keeps what is written to it, and
+`(buffer_bytes h)` returns that as a list. Code that reads and writes handles
+cannot tell them from files.
+
+**The blocker.** Two of roadmap item 0014's workers hit the same wall from
+opposite ends. csvcol's parser had to read a file in the program and a string
+in its tests, and L0 has no function values, so a parser cannot take its
+byte source as an argument (`error: from_stdin is a function, and L0 has no
+function values`). The worker turned it inside out into a pure (state,
+byte) step function that each source drives, which allocated a state per
+byte and ran 4 times slower than the direct parser, 1.07 s against 0.27 s on
+14.5 MB. wordfreq wrote its tokenizer twice. base64 and minigrep kept their
+direct code and paid for it in their tests instead: 68 lines of temporary-file
+plumbing, fixed names in `/tmp`, and two opens and a close per input.
+`tests/unit/csvcol_test.l0` now tests the direct parser on strings, with
+csvcol's own test cases. On the same 14.5 MB file, column 5, the direct
+parser takes 0.34 s and the step function 1.00 s on this machine, Python's
+`csv` module 0.18 s, and both L0 versions print exactly what Python does. On the same 14.5 MB file, column 5, the direct
+parser takes 0.34 s and the step function 1.00 s on this machine, Python's
+`csv` module 0.18 s, and both L0 versions print exactly what Python does.
+
+**Why handles, and not function values.** Both workers proposed these
+handles. The one who also sketched function values noted that they would not
+cover this case alone: a string source must keep its position somewhere, and
+a function without a closure has nowhere to keep it. Function values would
+also end one of the properties that keep the checker simple, that name
+resolution is purely syntactic. Handles need no new type or syntax, and the
+code under test is exactly the code the program runs, which a second copy
+over lists would not be.
+
+**What the handles cost.** `open_bytes` keeps a reference to the list it is
+given rather than copying it, so opening costs nothing whatever the length,
+and the runtime releases it at `close` or when the program ends, as if the
+handle were closed then. A buffer keeps one byte per byte in a buffer that
+grows, and builds cons cells only when `buffer_bytes` asks, so collecting a
+large output does not cost 24 bytes per byte until it is read. Neither can
+fail once open, so `flush` and `close` of a buffer return 0, and a read never
+waits, so reading one never delivers output held back for standard output.
+
+`buffer_bytes` of something that is not an open buffer is the empty list,
+since a list result has no room for a negative code; the only way to get
+that wrong is to pass it the wrong handle, which a test of the code would
+show at once. `lib/io.l0` wraps the three in `open_in_bytes`,
+`open_out_buffer`, and `buffer_contents`, with `IoOpened` as the other
+openers have, since opening can fail when every handle is taken.
+
+---
+
 ## Appending to a file, and replacing one in a single step
 
 **L0 gains `open_append` and `rename`** (section 6.3). `open_append` opens a

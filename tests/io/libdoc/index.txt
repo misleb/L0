@@ -73,6 +73,12 @@
       Opens the file at path for writing at its end, creating it if it does not exist; what it already holds is kept.
   rename_file ((from (list int)) (to (list int))) int
       Gives the file at from the name to, replacing any file already there in one step, and returns 0, or a negative code with neither name changed.
+  open_in_bytes ((s (list int))) IoOpened
+      Opens a file that reads the bytes of s and then ends, held in memory.
+  open_out_buffer () IoOpened
+      Opens a file in memory that keeps every byte written to it, for buffer_contents to return.
+  buffer_contents ((f IoFile)) (list int)
+      Every byte written so far to f, a file from open_out_buffer, or the empty list if f is not one.
   io_error ((code int)) (list int)
       What a negative result from an I/O builtin means, in words: -1 "end of input", -2 "not open in that direction", -3 "no such file", -4 "permission denied", and anything else "input or output failed".
   file_read_byte ((f IoFile)) int

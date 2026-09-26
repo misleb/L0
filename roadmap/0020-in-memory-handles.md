@@ -1,7 +1,7 @@
 # 0020: Handles that read from and write to memory
 
 Kind: language
-Status: queued
+Status: done, changelog "Handles that read from and write to memory"
 Needs: 0019
 
 ## Why
@@ -29,3 +29,11 @@ through the new handles.
 ## Log
 
 - 2026-09-24: opened from 0014.
+- 2026-09-25: done. `open_bytes`, `open_buffer`, and `buffer_bytes`, wrapped
+  in `lib/io.l0` as `open_in_bytes`, `open_out_buffer`, and
+  `buffer_contents`. `tests/unit/csvcol.l0` is csvcol's direct parser over
+  handles, and `csvcol_test.l0` runs 0014's cases on it through strings: 0.34
+  s on the 14.5 MB file against the step function's 1.00 s, same output as
+  Python. wordfreq's second tokenizer and base64's file plumbing were not
+  rewritten; they are 0014 evidence, and the tests here show the pattern.
+  The I/O gaps from 0014 are closed; next is 0021.

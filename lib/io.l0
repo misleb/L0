@@ -126,6 +126,23 @@
 (def rename_file ((from (list int)) (to (list int))) int
   (rename from to))
 
+;; Opens a file that reads the bytes of s and then ends, held in memory. Code
+;; that reads an IoFile cannot tell it from a file on disk, which is how to
+;; test such code on a string.
+(def open_in_bytes ((s (list int))) IoOpened
+  (opened (open_bytes s)))
+
+;; Opens a file in memory that keeps every byte written to it, for
+;; buffer_contents to return. Code that writes an IoFile cannot tell it from
+;; a file on disk, which is how to test such code's output as a string.
+(def open_out_buffer () IoOpened
+  (opened (open_buffer)))
+
+;; Every byte written so far to f, a file from open_out_buffer, or the empty
+;; list if f is not one. Close f with file_close when done with it.
+(def buffer_contents ((f IoFile)) (list int)
+  (match f ((IoFile h) (buffer_bytes h))))
+
 (def opened ((h int)) IoOpened
   (if (lt h 0)
       (IoFailed (io_error h))

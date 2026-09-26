@@ -1,0 +1,115 @@
+; Tests for csvcol.l0, 0014's csvcol test cases run on strings: the parser
+; reads the CSV from open_in_bytes and writes to open_out_buffer, the same
+; code a program would run on files.
+
+(data Run
+  (Ran (list int) CsvResult))           ; what was written, and the result
+
+(def run ((s (list int)) (n int)) Run
+  (match (open_in_bytes s)
+    ((IoFailed why) (Ran (nil int) (CsvBad (append "cannot open: " why))))
+    ((IoOpened in)
+      (match (open_out_buffer)
+        ((IoFailed why)
+          (let c (file_close in)
+            (Ran (nil int) (CsvBad (append "cannot open: " why)))))
+        ((IoOpened out) (run_on in out n))))))
+
+(def run_on ((in IoFile) (out IoFile) (n int)) Run
+  (let r (csv_column in out n)
+    (let got (buffer_contents out)
+      (let a (file_close in)
+        (let b (file_close out)
+          (Ran got r))))))
+
+; The output, or FAILED and why.
+(def col ((s (list int)) (n int)) (list int)
+  (match (run s n)
+    ((Ran got r)
+      (match r
+        ((CsvDone) got)
+        ((CsvBad why) (append "FAILED: " why))))))
+
+; Why it failed, or EXTRACTED and the output.
+(def why_not ((s (list int)) (n int)) (list int)
+  (match (run s n)
+    ((Ran got r)
+      (match r
+        ((CsvDone) (append "EXTRACTED: " got))
+        ((CsvBad why) why)))))
+
+(def test_plain () int
+  (add (check_str "first" (col "a,b,c\n1,2,3\n" 1) "a\n1\n")
+       (check_str "last" (col "a,b,c\n1,2,3\n" 3) "c\n3\n")))
+
+(def test_no_final_newline () int
+  (check_str "last record" (col "a,b\nc,d" 2) "b\nd\n"))
+
+(def test_empty_input () int
+  (check_str "nothing" (col "" 1) ""))
+
+(def test_short_record_prints_empty_line () int
+  (check_str "short" (col "a,b,c\nx\ny,z,w\n" 3) "c\n\nw\n"))
+
+(def test_empty_fields () int
+  (add (check_str "middle" (col "a,,c\n" 2) "\n")
+       (check_str "trailing comma" (col "a,b,\n" 3) "\n")))
+
+(def test_blank_line_is_a_record () int
+  (check_str "blank" (col "a\n\nb\n" 1) "a\n\nb\n"))
+
+(def test_quoted_comma () int
+  (check_str "comma" (col "x,\"Smith, John\",y\n" 2) "Smith, John\n"))
+
+(def test_doubled_quote () int
+  (check_str "quote" (col "\"say \"\"hi\"\"\",2\n" 1) "say \"hi\"\n"))
+
+(def test_quoted_newline () int
+  (add (check_str "field" (col "\"one\ntwo\",b\nc,d\n" 1) "one\ntwo\nc\n")
+       (check_str "record count" (col "\"one\ntwo\",b\nc,d\n" 2) "b\nd\n")))
+
+(def test_empty_quoted () int
+  (check_str "empty" (col "\"\",x\n" 1) "\n"))
+
+(def test_only_quotes () int
+  (check_str "one quote" (col "\"\"\"\"\n" 1) "\"\n"))
+
+(def test_crlf () int
+  (add (check_str "bare" (col "a,b\r\nc,d\r\n" 2) "b\nd\n")
+       (check_str "quoted" (col "\"a\",\"b\"\r\n" 2) "b\n")))
+
+(def test_quote_inside_bare_is_data () int
+  (check_str "bare quote" (col "5\" disk,x\n" 1) "5\" disk\n"))
+
+(def test_unterminated_quote () int
+  (check_str "message" (why_not "a\n\"open,b\n" 2)
+    "record 2: a quoted field is not closed before the end of the file"))
+
+(def test_junk_after_quote () int
+  (check_str "message" (why_not "\"a\"x,b\n" 1)
+    "record 1: a closing quote is followed by something other than a comma or the end of the record"))
+
+; Records before a malformed one have already been written.
+(def test_output_before_an_error () int
+  (match (run "a,b\n\"c" 1)
+    ((Ran got r) (check_str "written" got "a\n"))))
+
+; Property: quoting a field, with its quotes doubled, and extracting it gives
+; the field back, whatever bytes it holds.
+(def quote_field ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      (rev (cons 34 acc))
+      (quote_field (tail s)
+        (if (eq (head s) 34) (cons 34 (cons 34 acc)) (cons (head s) acc)))))
+
+(def round_trips ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let field (rand_bytes s (rand_below s 40))
+        (let text (append "x," (append (quote_field field (cons 34 (nil int))) ",y\n"))
+          (if (list_eq (col text 2) (append field "\n"))
+              (round_trips (rand_next (rand_next s)) (sub runs 1))
+              (check_str "round trip" (col text 2) (append field "\n")))))))
+
+(def test_quoting_round_trips () int
+  (round_trips 11 300))

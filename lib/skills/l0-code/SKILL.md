@@ -282,6 +282,14 @@ as `path.tmp`, check that `file_close` returned 0, then `(rename_file tmp
 path)`: a crash at any point leaves the old file or the new one, never a
 half-written one.
 
+**Testing code that reads or writes a file.** Write it against `IoFile`
+arguments, not against standard input and output, and have `main` pass it
+real files or `(IoFile 0)` and `(IoFile 1)`. A test then passes it
+`(open_in_bytes s)` to read the string `s`, and `(open_out_buffer)` to
+collect what it writes, which `buffer_contents` returns as a string. The code
+cannot tell these from files, so the test runs exactly the code the program
+runs, with no temporary files. Close both with `file_close`.
+
 Type and constructor names beginning with `Io` and an uppercase letter, such
 as `IoFile`, are reserved for the standard library, so name your own types
 something else.

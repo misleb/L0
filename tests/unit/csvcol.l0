@@ -1,0 +1,96 @@
+; csvcol.l0 -- column n, counted from 1, of each record of a CSV file, one
+; line per record: roadmap item 0014's csvcol, written directly. Each mode of
+; the parser is a function that reads its own next byte, so nothing is
+; allocated per byte. It reads and writes IoFiles it is given, so a program
+; passes it files and csvcol_test.l0 passes it strings through open_in_bytes
+; and open_out_buffer; 0014 had to turn it inside out for that.
+;
+; The format is RFC 4180's: a quoted field may hold commas, newlines, and ""
+; for a quote; a carriage return outside quotes is dropped; a quote inside
+; an unquoted field is data. A record with fewer than n fields gives an
+; empty line.
+
+(data CsvResult
+  (CsvDone)
+  (CsvBad (list int)))                  ; why, in words
+
+(def csv_column ((in IoFile) (out IoFile) (n int)) CsvResult
+  (c_record in out n 1))
+
+(def c_bad ((rec int) (what (list int))) CsvResult
+  (CsvBad (append "record " (append (digits rec) (append ": " what)))))
+
+; field is reversed, and holds bytes only in column n.
+(def c_emit ((out IoFile) (col int) (n int) (field (list int))) int
+  (if (eq col n) (file_write_str out (rev field)) 0))
+
+(def c_keep ((col int) (n int) (b int) (field (list int))) (list int)
+  (if (eq col n) (cons b field) field))
+
+(def c_record ((in IoFile) (out IoFile) (n int) (rec int)) CsvResult
+  (let b (file_read_byte in)
+    (if (eq b -1)
+        (CsvDone)
+        (c_field_with in out 1 n (nil int) rec b))))
+
+(def c_field_with ((in IoFile) (out IoFile) (col int) (n int)
+                   (field (list int)) (rec int) (b int)) CsvResult
+  (if (eq b 34)
+      (c_quoted in out col n field rec)
+      (c_bare_with in out col n field rec b)))
+
+(def c_bare ((in IoFile) (out IoFile) (col int) (n int) (field (list int))
+             (rec int)) CsvResult
+  (c_bare_with in out col n field rec (file_read_byte in)))
+
+(def c_bare_with ((in IoFile) (out IoFile) (col int) (n int)
+                  (field (list int)) (rec int) (b int)) CsvResult
+  (if (eq b -1)
+      (let w (c_emit out col n field)
+        (let v (file_write_byte out 10)
+          (CsvDone)))
+      (if (lt b 0)
+          (CsvBad (io_error b))
+          (c_bare_byte in out col n field rec b))))
+
+(def c_bare_byte ((in IoFile) (out IoFile) (col int) (n int)
+                  (field (list int)) (rec int) (b int)) CsvResult
+  (if (eq b 44)
+      (let w (c_emit out col n field)
+        (c_field_with in out (add col 1) n (nil int) rec (file_read_byte in)))
+      (if (eq b 10)
+          (let w (c_emit out col n field)
+            (let v (file_write_byte out 10)
+              (c_record in out n (add rec 1))))
+          (if (eq b 13)
+              (c_bare in out col n field rec)
+              (c_bare in out col n (c_keep col n b field) rec)))))
+
+(def c_quoted ((in IoFile) (out IoFile) (col int) (n int) (field (list int))
+               (rec int)) CsvResult
+  (let b (file_read_byte in)
+    (if (eq b -1)
+        (c_bad rec "a quoted field is not closed before the end of the file")
+        (if (lt b 0)
+            (CsvBad (io_error b))
+            (if (eq b 34)
+                (c_after in out col n field rec)
+                (c_quoted in out col n (c_keep col n b field) rec))))))
+
+; Just after a closing quote: a doubled quote is data, and only a comma or
+; the end of the record may follow otherwise.
+(def c_after ((in IoFile) (out IoFile) (col int) (n int) (field (list int))
+              (rec int)) CsvResult
+  (let b (file_read_byte in)
+    (if (eq b 34)
+        (c_quoted in out col n (c_keep col n b field) rec)
+        (if (eq b 13)
+            (c_after in out col n field rec)
+            (if (any_byte b (cons 44 (cons 10 (cons -1 (nil int)))))
+                (c_bare_with in out col n field rec b)
+                (if (lt b 0)
+                    (CsvBad (io_error b))
+                    (c_bad rec "a closing quote is followed by something other than a comma or the end of the record")))))))
+
+(def any_byte ((b int) (bs (list int))) bool
+  (if (is_empty bs) false (if (eq (head bs) b) true (any_byte b (tail bs)))))

@@ -321,12 +321,12 @@
           (append (fmt_ops (pad_ops ops (pad_of sym (env_pads env)))) ")"))))
     st))
 
-; head, tail, is_empty, and the builtins taking paths read their list
-; arguments without consuming them. Their result gains a reference if it is
+; head, tail, is_empty, open_bytes, and the builtins taking paths read their
+; list arguments without consuming them. Their result gains a reference if it is
 ; a pointer, and then every argument's reference is released, in order.
 (def after_borrow ((n (list int)) (ops (list (list int))) (ts (list Ty))
                    (v EmitVal)) EmitVal
-  (if (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename"))
+  (if (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename open_bytes"))
       (match v
         ((Val r t st)
           (Val r t
@@ -353,7 +353,7 @@
                   (call_type_rest n env))))))
 
 (def call_type_rest ((n (list int)) (env Env)) Ty
-  (if (list_eq n "arg")
+  (if (any_eq n (split_spaces "arg buffer_bytes"))
       (TyList (TyInt))
       (if (is_builtin n)
           (TyInt)
@@ -528,7 +528,7 @@
 ; Spec 10.3.
 (def io_names ((i int)) (list (list int))
   (split_spaces
-    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename"))
+    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes"))
 
 (def rt_names ((i int)) (list (list int))
   (append_strs (split_spaces "div mod head tail is_empty") (io_names 0)))
@@ -873,7 +873,10 @@
 (def io_decls_files ((i int)) (list int)
   (append "declare i64 @l0_flush(i64)\n"
     (append "declare i64 @l0_open_append(i64)\n"
-      "declare i64 @l0_rename(i64, i64)\n\n")))
+      (append "declare i64 @l0_rename(i64, i64)\n"
+        (append "declare i64 @l0_open_bytes(i64)\n"
+          (append "declare i64 @l0_open_buffer()\n"
+            "declare i64 @l0_buffer_bytes(i64)\n\n"))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

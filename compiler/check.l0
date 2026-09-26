@@ -116,11 +116,13 @@
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
 
 ; The effects of spec 6.2 to 6.4. Those in bi_io take and return only ints,
-; so need_all checks them; bi_path take only paths and return an int.
+; so need_all checks them; bi_path take only byte lists, paths or bytes to
+; read, and return an int; bi_to_list take an int and return a byte list.
 (def bi_io ((i int)) (list (list int))
-  (split_spaces "read_byte write_byte read_from write_to close flush arg_count"))
+  (split_spaces "read_byte write_byte read_from write_to close flush arg_count open_buffer"))
 (def bi_path ((i int)) (list (list int))
-  (split_spaces "open_read open_write open_append rename"))
+  (split_spaces "open_read open_write open_append rename open_bytes"))
+(def bi_to_list ((i int)) (list (list int)) (split_spaces "arg buffer_bytes"))
 
 (def is_builtin ((n (list int))) bool
   (or (any_eq n (bi_int_int_int 0))
@@ -129,13 +131,14 @@
               (or (any_eq n (bi_list_ops 0))
                   (or (any_eq n (bi_io 0))
                       (or (any_eq n (bi_path 0))
-                          (any_eq n (split_spaces "neg not arg")))))))))
+                          (or (any_eq n (bi_to_list 0))
+                              (any_eq n (split_spaces "neg not"))))))))))
 
 (def builtin_arity ((n (list int))) int
-  (if (any_eq n (split_spaces "read_byte arg_count"))
+  (if (any_eq n (split_spaces "read_byte arg_count open_buffer"))
       0
       (if (any_eq n (split_spaces
-            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append"))
+            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes"))
           1
           2)))
 
@@ -175,7 +178,7 @@
 (def check_other_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
   (if (any_eq n (bi_path 0))
       (need_all n ats o (TyList (TyInt)) (TyInt))
-      (if (list_eq n "arg")
+      (if (any_eq n (bi_to_list 0))
           (need_all n ats o (TyInt) (TyList (TyInt)))
           (check_list_builtin n ats o))))
 
