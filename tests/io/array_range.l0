@@ -1,0 +1,7 @@
+; An index out of range is a runtime error, reported after the bytes already
+; written.
+
+(def main () int
+  (let w (write_byte 111)
+    (let a (array_new 3 0)
+      (array_get a 3))))

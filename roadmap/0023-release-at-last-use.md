@@ -55,3 +55,5 @@ redone spec-first in the main tree.
   running; the prototype branch with the same emitter change passed on
   Linux arm64 and amd64. Run `tools/linux-test.sh` at the next change that
   touches the emitter or runtime. Next is 0024.
+- 2026-09-28: the Linux runs happened with 0024, whose tree includes this
+  emitter: both suites green on arm64 and amd64.

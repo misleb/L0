@@ -204,8 +204,9 @@ what:
   becomes a compile error at every site that must handle it
 - there is no type inference, so every expression's type is determined by itself
   and never by context
-- `list` is the only parametric type constructor, so no unification is needed
-  anywhere
+- `list` and `array` are the only parametric type constructors, and every
+  builtin over them takes its element type from an argument, so no
+  unification is needed anywhere
 - there are no function values, so name resolution is purely syntactic
 
 ### Ambiguities

@@ -123,6 +123,8 @@
 (def bi_path ((i int)) (list (list int))
   (split_spaces "open_read open_write open_append rename open_bytes"))
 (def bi_to_list ((i int)) (list (list int)) (split_spaces "arg buffer_bytes"))
+(def bi_array ((i int)) (list (list int))
+  (split_spaces "array_new array_len array_get array_set"))
 
 (def is_builtin ((n (list int))) bool
   (or (any_eq n (bi_int_int_int 0))
@@ -132,15 +134,16 @@
                   (or (any_eq n (bi_io 0))
                       (or (any_eq n (bi_path 0))
                           (or (any_eq n (bi_to_list 0))
-                              (any_eq n (split_spaces "neg not"))))))))))
+                              (or (any_eq n (bi_array 0))
+                                  (any_eq n (split_spaces "neg not")))))))))))
 
 (def builtin_arity ((n (list int))) int
   (if (any_eq n (split_spaces "read_byte arg_count open_buffer"))
       0
       (if (any_eq n (split_spaces
-            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes"))
+            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len"))
           1
-          2)))
+          (if (list_eq n "array_set") 3 2))))
 
 (def plural ((n int) (word (list int))) (list int)
   (if (eq n 1) word (append word "s")))
@@ -180,7 +183,34 @@
       (need_all n ats o (TyList (TyInt)) (TyInt))
       (if (any_eq n (bi_to_list 0))
           (need_all n ats o (TyInt) (TyList (TyInt)))
-          (check_list_builtin n ats o))))
+          (if (any_eq n (bi_array 0))
+              (check_array_builtin n ats o)
+              (check_list_builtin n ats o)))))
+
+; The array builtins are polymorphic in the element type as the list ones
+; are: array_new's element argument determines it, and every other takes the
+; array first.
+(def check_array_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
+  (if (list_eq n "array_new")
+      (if (ty_eq (head ats) (TyInt))
+          (CTyOk (TyArray (head (tail ats))))
+          (CTyErr o (type_msg "the length given to array_new" "int" (head ats))))
+      (let a (head ats)
+        (if (not (ty_is_array a))
+            (CTyErr o (type_msg (append "the first argument of " n) "an array" a))
+            (if (list_eq n "array_len")
+                (CTyOk (TyInt))
+                (if (not (ty_eq (head (tail ats)) (TyInt)))
+                    (CTyErr o (type_msg (append "the index given to " n) "int"
+                                        (head (tail ats))))
+                    (if (list_eq n "array_get")
+                        (CTyOk (ty_elem a))
+                        (check_array_set a (head (tail (tail ats))) o))))))))
+
+(def check_array_set ((a Ty) (x Ty) (o int)) CTy
+  (if (ty_eq x (ty_elem a))
+      (CTyOk a)
+      (CTyErr o (type_msg "the element stored in an array" (ty_str (ty_elem a)) x))))
 
 (def need_all ((n (list int)) (ats (list Ty)) (o int) (want Ty) (res Ty)) CTy
   (if (is_empty ats)
@@ -231,7 +261,7 @@
 
 ; A type mentioning an undeclared data type, or an empty name if all is well.
 (def unknown_ty ((t Ty) (ds (list DataDef))) (list int)
-  (if (ty_is_list t)
+  (if (or (ty_is_list t) (ty_is_array t))
       (unknown_ty (ty_elem t) ds)
       (if (not (ty_is_data t))
           ""

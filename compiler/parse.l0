@@ -14,7 +14,8 @@
   (TyInt)
   (TyBool)
   (TyList Ty)
-  (TyData (list int)))                  ; declared type name
+  (TyData (list int))                   ; declared type name
+  (TyArray Ty))
 
 (data Expr
   (EInt int int)                        ; offset, value
@@ -51,16 +52,19 @@
     ((TyInt) 0)
     ((TyBool) 1)
     ((TyList e) 2)
-    ((TyData n) 3)))
+    ((TyData n) 3)
+    ((TyArray e) 4)))
 
 (def ty_is_list ((t Ty)) bool (eq (ty_kind t) 2))
 (def ty_is_data ((t Ty)) bool (eq (ty_kind t) 3))
+(def ty_is_array ((t Ty)) bool (eq (ty_kind t) 4))
 
-; The element type of a list. The result is meaningless for non-lists, which
-; callers guard with ty_is_list.
+; The element type of a list or an array. The result is meaningless for
+; anything else, which callers guard with ty_is_list or ty_is_array.
 (def ty_elem ((t Ty)) Ty
   (match t
     ((TyList e) e)
+    ((TyArray e) e)
     ((TyInt) (TyInt))
     ((TyBool) (TyBool))
     ((TyData n) (TyInt))))
@@ -70,12 +74,13 @@
     ((TyData n) n)
     ((TyInt) "")
     ((TyBool) "")
-    ((TyList e) "")))
+    ((TyList e) "")
+    ((TyArray e) "")))
 
 (def ty_eq ((a Ty) (b Ty)) bool
   (if (not (eq (ty_kind a) (ty_kind b)))
       false
-      (if (ty_is_list a)
+      (if (or (ty_is_list a) (ty_is_array a))
           (ty_eq (ty_elem a) (ty_elem b))
           (if (ty_is_data a)
               (list_eq (ty_name a) (ty_name b))
@@ -87,6 +92,7 @@
     ((TyInt) "int")
     ((TyBool) "bool")
     ((TyList e) (append "(list " (append (ty_str e) ")")))
+    ((TyArray e) (append "(array " (append (ty_str e) ")")))
     ((TyData n) n)))
 
 (data PTy
@@ -136,7 +142,7 @@
 ; ------------------------------------------------------------------- names
 
 (def reserved_words ((ignored int)) (list (list int))
-  (split_spaces "def data if let match nil true false int bool list"))
+  (split_spaces "def data if let match nil true false int bool list array"))
 
 (def is_reserved ((n (list int))) bool
   (any_eq n (reserved_words 0)))
@@ -213,19 +219,25 @@
   (if (is_empty ts)
       (PTErr open "unclosed ( in a type")
       (let t (head ts)
-        (if (not (and (tok_is_name t) (list_eq (tok_bytes t) "list")))
-            (PTErr (tok_offset t) "expected list after ( in a type")
+        (if (not (and (tok_is_name t)
+                      (or (list_eq (tok_bytes t) "list")
+                          (list_eq (tok_bytes t) "array"))))
+            (PTErr (tok_offset t) "expected list or array after ( in a type")
             (match (parse_type (tail ts))
               ((PTErr o m) (PTErr o m))
-              ((PTOk elem rest) (close_list_type elem rest open)))))))
+              ((PTOk elem rest)
+                (close_list_type (list_eq (tok_bytes t) "array") elem rest
+                                 open)))))))
 
-(def close_list_type ((elem Ty) (rest (list Token)) (open int)) PTy
+(def close_list_type ((arr bool) (elem Ty) (rest (list Token)) (open int)) PTy
   (if (is_empty rest)
       (PTErr open "unclosed ( in a type")
       (if (tok_is_rparen (head rest))
-          (PTOk (TyList elem) (tail rest))
+          (PTOk (if arr (TyArray elem) (TyList elem)) (tail rest))
           (PTErr (tok_offset (head rest))
-            "(list ...) takes exactly one element type"))))
+            (if arr
+                "(array ...) takes exactly one element type"
+                "(list ...) takes exactly one element type")))))
 
 ; ------------------------------------------------------------- expressions
 

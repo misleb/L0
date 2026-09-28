@@ -1,0 +1,3 @@
+lib/prelude.l0
+lib/io.l0
+tests/io/array_paths/graph.l0

@@ -312,6 +312,30 @@ iteration's garbage before the next. So:
   call, such as `(add 1 (count (tail xs)))`, takes a frame per level, and a
   long enough list exhausts the stack
 
+**Arrays.** For anything indexed — counts by byte, distances by node, a
+table by hash — use `(array T)`, not a list or a tree of your own: `(array_new
+n x)`, `(array_len a)`, `(array_get a i)`, and `(array_set a i x)`, which
+returns the updated array. An index out of range is a runtime error.
+`array_set` updates in place, in constant time, when nothing else holds the
+array, and copies the whole array otherwise. So thread one array through a
+tail-recursive loop, pass the result of `array_set` on, and keep no other
+name, field, or list holding the old one:
+
+```
+(def count ((counts (array int))) (array int)
+  (let b (read_byte)
+    (if (lt b 0)
+        counts
+        (count (array_set counts b (add (array_get counts b) 1))))))
+```
+
+Reading the array in the same expression, as `array_get` does here, is
+fine. What copies: an array still used after the `array_set`, an array kept
+in a list of earlier versions, and an array stored inside another array or
+a data value, whose every update copies it. To check a loop, run the program
+with `L0_ARRAY_STATS=1`: it reports on standard error how many updates
+copied.
+
 There is no clock, network, or environment yet.
 
 ## Testing

@@ -89,7 +89,7 @@
 ; Whether a value of type t is a pointer to a heap block rather than a plain
 ; word. Spec 10.1.
 (def ty_is_ptr ((t Ty)) bool
-  (or (ty_is_list t) (ty_is_data t)))
+  (or (ty_is_list t) (or (ty_is_data t) (ty_is_array t))))
 
 (def val_op ((v EmitVal)) (list int) (match v ((Val o t s) o)))
 (def val_st ((v EmitVal)) Emit (match v ((Val o t s) s)))
@@ -454,7 +454,7 @@
   (fn_sym n (env_prelude env)))
 
 (def is_borrowing ((n (list int))) bool
-  (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename open_bytes")))
+  (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename open_bytes array_len array_get")))
 
 ; A call to a function in tail position is a tail call, spec 8, and nothing
 ; may come between it and the ret. Nothing does: live is empty there, so the
@@ -479,11 +479,11 @@
           (append (fmt_ops (pad_ops ops (pad_of sym (env_pads env)))) ")"))))
     st))
 
-; head, tail, is_empty, open_bytes, and the builtins taking paths read their
-; list arguments without consuming them. Their result gains a reference if it
-; is a pointer, and then each argument that came with a reference is
-; released, in order: every one but a variable still live afterwards, which
-; was read without one.
+; head, tail, is_empty, array_len, array_get, open_bytes, and the builtins
+; taking paths read their list and array arguments without consuming them.
+; Their result gains a reference if it is a pointer, and then each argument
+; that came with a reference is released, in order: every one but a variable
+; still live afterwards, which was read without one.
 (def after_borrow ((n (list int)) (ops (list (list int))) (ts (list Ty))
                    (ws (list bool)) (v EmitVal)) EmitVal
   (if (is_borrowing n)
@@ -508,20 +508,22 @@
       (TyBool)
       (if (list_eq n "cons")
           (head (tail ts))
-          (if (list_eq n "head")
+          (if (any_eq n (split_spaces "head array_get"))
               (ty_elem (head ts))
-              (if (list_eq n "tail")
+              (if (any_eq n (split_spaces "tail array_set"))
                   (head ts)
-                  (call_type_rest n env))))))
+                  (call_type_rest n ts env))))))
 
-(def call_type_rest ((n (list int)) (env Env)) Ty
+(def call_type_rest ((n (list int)) (ts (list Ty)) (env Env)) Ty
   (if (any_eq n (split_spaces "arg buffer_bytes"))
       (TyList (TyInt))
-      (if (is_builtin n)
-          (TyInt)
-          (match (find_sig n (ctx_sigs (env_ctx env)))
-            ((SigFound s) (match s ((S sn ps r) r)))
-            ((SigMissing) (TyInt))))))
+      (if (list_eq n "array_new")
+          (TyArray (head (tail ts)))
+          (if (is_builtin n)
+              (TyInt)
+              (match (find_sig n (ctx_sigs (env_ctx env)))
+                ((SigFound s) (match s ((S sn ps r) r)))
+                ((SigMissing) (TyInt)))))))
 
 ; ------------------------------------------------------------ constructors
 
@@ -716,9 +718,10 @@
     "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes"))
 
 (def rt_names ((i int)) (list (list int))
-  (append_strs (split_spaces "div mod head tail is_empty") (io_names 0)))
+  (append_strs (split_spaces "div mod head tail is_empty array_len array_get array_set")
+               (io_names 0)))
 (def rt_syms ((i int)) (list (list int))
-  (append_strs (split_spaces "l0_div l0_mod l0_head l0_tail l0_is_empty")
+  (append_strs (split_spaces "l0_div l0_mod l0_head l0_tail l0_is_empty l0_array_len l0_array_get l0_array_set")
                (l0_prefixed (io_names 0))))
 
 (def l0_prefixed ((ns (list (list int)))) (list (list int))
@@ -753,9 +756,14 @@
       (emit_binop "sub" "0" (head ops) st)
       (if (list_eq n "not")
           (emit_binop "xor" (head ops) "1" st)
-          (emit_rt_call "l0_new_cons"
-            (append_strs ops (one_op (cons_mask (ty_elem (head (tail ts))))))
-            st))))
+          (if (list_eq n "array_new")
+              (emit_rt_call "l0_array_new"
+                (append_strs ops
+                  (one_op (if (ty_is_ptr (head (tail ts))) "1" "0")))
+                st)
+              (emit_rt_call "l0_new_cons"
+                (append_strs ops (one_op (cons_mask (ty_elem (head (tail ts))))))
+                st)))))
 
 ; ------------------------------------------------------------- tail calls
 ;
@@ -1068,7 +1076,13 @@
       (append "declare i64 @l0_rename(i64, i64)\n"
         (append "declare i64 @l0_open_bytes(i64)\n"
           (append "declare i64 @l0_open_buffer()\n"
-            "declare i64 @l0_buffer_bytes(i64)\n\n"))))))
+            (append "declare i64 @l0_buffer_bytes(i64)\n" (array_decls 0))))))))
+
+(def array_decls ((i int)) (list int)
+  (append "declare i64 @l0_array_new(i64, i64, i64)\n"
+    (append "declare i64 @l0_array_len(i64)\n"
+      (append "declare i64 @l0_array_get(i64, i64)\n"
+        "declare i64 @l0_array_set(i64, i64, i64)\n\n"))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

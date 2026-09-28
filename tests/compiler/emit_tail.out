@@ -30,6 +30,10 @@ declare i64 @l0_rename(i64, i64)
 declare i64 @l0_open_bytes(i64)
 declare i64 @l0_open_buffer()
 declare i64 @l0_buffer_bytes(i64)
+declare i64 @l0_array_new(i64, i64, i64)
+declare i64 @l0_array_len(i64)
+declare i64 @l0_array_get(i64, i64)
+declare i64 @l0_array_set(i64, i64, i64)
 
 @l0_main_ret_kind = global i64 0
 

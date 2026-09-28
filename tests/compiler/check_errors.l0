@@ -63,7 +63,14 @@
   (let ap (push (check_source (m "(open_bytes 1)")) ao)
   (let aq (push (check_source (m "(open_buffer 1)")) ap)
   (let ar (push (check_source (m "(buffer_bytes 1)")) aq)
-    (rev ar))))))))))))))))))))))))))))))))))))))))))))
+  (let as (push (check_source (m "(array_len (array_new true 1))")) ar)
+  (let at (push (check_source (m "(array_get 1 0)")) as)
+  (let au (push (check_source (m "(array_get (array_new 2 0) true)")) at)
+  (let av (push (check_source (m "(array_len (array_set (array_new 2 0) 0 true))")) au)
+  (let aw (push (check_source (m "(array_len (array_new 2 0) 1)")) av)
+  (let ax (push (check_source (m "(let array 1 array)")) aw)
+  (let ay (push (check_source (both "(def f ((a (vec int))) int 0)")) ax)
+    (rev ay)))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

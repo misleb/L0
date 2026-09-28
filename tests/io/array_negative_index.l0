@@ -1,0 +1,4 @@
+; A negative index is out of range, for array_set as for array_get.
+
+(def main () int
+  (array_len (array_set (array_new 2 0) -1 5)))

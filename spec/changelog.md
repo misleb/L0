@@ -7,6 +7,74 @@ New entries go at the top.
 
 ---
 
+## Arrays
+
+**L0 gains `(array T)`,** a second parametric type, and four builtins:
+`array_new`, `array_len`, `array_get`, and `array_set` (sections 3 and 6.5).
+`array_set` returns an array equal to its argument but for one element, and
+updates in place when nothing else holds the array, which the release rule
+of "A value is released at its last use" decides. `array` is a reserved
+word, and section 8 has two more runtime errors, an index out of range and a
+negative length.
+
+**The blocker.** All three of roadmap item 0014's workers needed an indexed
+table and had none, and it cost them more than anything else they hit. The
+checker's answer to the programs they wanted was `expected list after ( in a
+type` and `unknown function array_new`. Their workarounds, measured again
+here against the array versions from roadmap item 0021, which are now
+`tests/io/array_histogram`, `array_myers`, and `array_paths`, each checking
+its answers against an independent computation and that no update copied:
+
+| | list, tree, or trie | array |
+|---|---|---|
+| histogram of 1 MB | 0.97 s list, 0.17 s tree | 0.02 s |
+| Myers' sweep at D = 10,000 | 0.76 s | 0.16 s |
+| Dijkstra per query, 10,000 nodes and 100,000 edges | 22.9 ms | 9.2 ms |
+
+CPython takes 10.7 ms per query on the same graph. The workarounds already
+gained from the last-use rule; before it they took 1.26 s, 1.37 s, and 31.3
+ms.
+
+**Why a parametric type, which costs a listed property.** The l0-bootstrap
+skill lists "`list` is the only parametric type constructor, so no
+unification is needed anywhere". Every hypothetical wanted arrays of lists
+and of data as well as of ints, `(array (list int))` for Myers' lines and
+`(array (list Edge))` for Dijkstra's adjacency, so an int-only array would
+have sent those programs back to tries. What the property bought survives:
+an array's element type is determined by an argument exactly as a list's
+is, `array_new`'s element for a new array and the array itself for every
+other builtin, so the checker still unifies nothing.
+
+**Why values, updated in place.** Every worker's hypothetical asked for the
+same thing: `array_set` returns a new array, so nothing is mutated as far as
+a program can tell, and the runtime stores in place when the array's count
+is 1, since then nothing could see the old value. That keeps the heap free
+of cycles, which is what lets reference counting free everything without a
+collector, and it keeps every existing rule about values true. The count is
+1 in a loop only under the last-use rule, which is why that came first; with
+arrays but the old rule, 0021 measured Myers' diff at 77 s, every update a
+copy.
+
+**What an update inside a structure costs.** An array held in another array
+or in a data value is copied when updated, since `array_get` and `match`
+give it a holder while the outer value keeps its own. Section 6.5 says so,
+and roadmap item 0025 holds the question of a builtin that takes an element
+out, which would need to return two values and so has no type to return
+them in yet.
+
+**The layout.** The header's size field has 8 bits, so an array cannot use
+it; size 0, which no other block has, marks an array instead, with its
+length in word 0. Arrays come from `malloc` and go back to `free`, since the
+free lists stop at 256 words. `L0_ARRAY_STATS` reports how many updates
+copied, as `L0_RC_CHECK` reports what leaked, so a test can hold a loop to
+copying nothing.
+
+**Why `array` is reserved.** `list` is, and an agent reading a type should
+not have to wonder whether `array` might be a variable. No program in the
+repository used the name.
+
+---
+
 ## A value is released at its last use
 
 **A binding's reference now lasts until its last use on each path, not until

@@ -1,0 +1,66 @@
+; Unit tests for the array builtins of spec section 6.5. l0 test runs each
+; under L0_RC_CHECK, so a leak or a use of a freed block fails it.
+
+(data Pt
+  (Pt int (list int)))
+
+(def fill ((a (array int)) (i int)) (array int)
+  (if (ge i (array_len a)) a (fill (array_set a i (mul i i)) (add i 1))))
+
+(def sum ((a (array int)) (i int) (acc int)) int
+  (if (ge i (array_len a)) acc (sum a (add i 1) (add acc (array_get a i)))))
+
+(def test_new_len_get () int
+  (let a (array_new 5 7)
+    (add (check_int "len" (array_len a) 5)
+      (add (check_int "first" (array_get a 0) 7)
+           (check_int "last" (array_get a 4) 7)))))
+
+(def test_empty () int
+  (add (check_int "len" (array_len (array_new 0 1)) 0)
+       (check_int "len of lists" (array_len (array_new 0 "abc")) 0)))
+
+(def test_fill_in_a_loop () int
+  (check_int "sum of squares" (sum (fill (array_new 10 0) 0) 0 0) 285))
+
+; A set never changes an array another binding still holds.
+(def test_set_is_persistent () int
+  (let a (array_new 3 1)
+    (let b (array_set a 1 9)
+      (add (check_int "old" (array_get a 1) 1)
+        (add (check_int "new" (array_get b 1) 9)
+             (check_int "new keeps the rest" (array_get b 2) 1))))))
+
+(def test_list_elements () int
+  (let a (array_new 3 "ab")
+    (let b (array_set a 1 "xyz")
+      (let c (array_set b 0 "q")
+        (add (check_str "a1" (array_get a 1) "ab")
+          (add (check_str "b1" (array_get b 1) "xyz")
+            (add (check_str "c0" (array_get c 0) "q")
+                 (check_str "c1" (array_get c 1) "xyz"))))))))
+
+(def test_data_elements () int
+  (let a (array_set (array_new 2 (Pt 0 "none")) 1 (Pt 5 "five"))
+    (match (array_get a 1)
+      ((Pt n s) (add (check_int "n" n 5) (check_str "s" s "five"))))))
+
+(def test_nested_arrays () int
+  (let row (array_new 3 0)
+    (let grid (array_new 2 row)
+      (let grid2 (array_set grid 1 (array_set (array_get grid 1) 2 8))
+        (add (check_int "changed" (array_get (array_get grid2 1) 2) 8)
+          (add (check_int "other row" (array_get (array_get grid2 0) 2) 0)
+               (check_int "original" (array_get (array_get grid 1) 2) 0)))))))
+
+(def test_array_in_data () int
+  (match (Pt 1 "x")
+    ((Pt n s)
+      (let a (array_new 2 s)
+        (check_str "shared field" (array_get (array_set a 0 "y") 1) "x")))))
+
+; Replacing the only reference to a list frees it, which L0_RC_CHECK checks.
+(def test_replace_releases () int
+  (let a (array_new 2 (cons 1 (cons 2 (nil int))))
+    (let b (array_set (array_set a 0 "z") 1 "w")
+      (check_str "b" (array_get b 1) "w"))))

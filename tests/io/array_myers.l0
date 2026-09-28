@@ -1,0 +1,35 @@
+; The vector sweep at the heart of Myers' diff, over one (array int) updated
+; in place; array_myers.sh checks the answer and that no update copied. For
+; d = 1 to D the vector for d
+; edits comes from the one for d - 1: V[0] stays, V[j] = max(V[j-1] + 1, V[j])
+; for 1 <= j < d, and V[d] = V[d-1] + 1. Sweeping j downwards reads V[j-1]
+; before it is overwritten, so one array serves every d. V starts as zeros,
+; so V[d] = max(V[d-1] + 1, 0) needs no case of its own.
+;
+;   array_myers D        prints V[0]
+;   array_myers D sum    prints the sum of V
+
+(def max2 ((a int) (b int)) int
+  (if (gt a b) a b))
+
+(def sweep ((v (array int)) (j int)) (array int)
+  (if (lt j 1)
+      v
+      (sweep (array_set v j (max2 (add (array_get v (sub j 1)) 1) (array_get v j)))
+             (sub j 1))))
+
+(def run ((d int) (big int) (v (array int))) (array int)
+  (if (gt d big)
+      v
+      (run (add d 1) big (sweep v d))))
+
+(def total ((v (array int)) (i int) (acc int)) int
+  (if (ge i (array_len v)) acc (total v (add i 1) (add acc (array_get v i)))))
+
+(def main () int
+  (let big (int_prefix (arg 0) 0)
+    (let v (run 1 big (array_new (add big 1) 0))
+      (let w (write_line (digits (if (list_eq (arg 1) "sum")
+                                     (total v 0 0)
+                                     (array_get v 0))))
+        0))))

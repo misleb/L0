@@ -40,3 +40,10 @@ ok
 35: an argument of open_bytes must be (list int), but this is int
 35: open_buffer takes 0 arguments, but got 1
 0: main declares return type int, but its body is (list int)
+46: the length given to array_new must be int, but this is bool
+35: the first argument of array_get must be an array, but this is int
+35: the index given to array_get must be int, but this is bool
+46: the element stored in an array must be int, but this is bool
+35: array_len takes 1 argument, but got 2
+parse error at offset 40: a let binding name must be lowercase and not reserved
+parse error at offset 12: expected list or array after ( in a type

@@ -38,6 +38,7 @@ declare ptr @opendir(ptr)
 declare i32 @closedir(ptr)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
+declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
 
 ; Defined by the generated IR. Spec section 10.2.
 declare i64 @l0_f_main(i64)
@@ -95,6 +96,12 @@ declare i64 @l0_f_main(i64)
 @mode_a = private constant [2 x i8] c"a\00"
 @m_uaf = private constant [20 x i8] c"use of a freed block"
 @m_live = private constant [23 x i8] c"l0: blocks still live: "
+@m_range = private constant [24 x i8] c"array index out of range"
+@m_alen = private constant [21 x i8] c"negative array length"
+@stats_name = private constant [15 x i8] c"L0_ARRAY_STATS\00"
+@m_copies = private constant [18 x i8] c"l0: array copies: "
+@m_inplace = private constant [25 x i8] c"l0: array sets in place: "
+@m_words = private constant [24 x i8] c"l0: array words copied: "
 
 ; ------------------------------------------------------------------ errors
 
@@ -412,7 +419,11 @@ entry:
   %sh = lshr i64 %h, 32
   %size = and i64 %sh, 255
   %qq = inttoptr i64 %q to ptr
-  br label %scan
+  %isarr = icmp eq i64 %size, 0
+  br i1 %isarr, label %arr, label %scan
+arr:
+  call void @free_array(i64 %q, i64 %h)
+  ret void
 scan:
   %k = phi i64 [ 0, %entry ], [ %k1, %next ]
   %end = icmp eq i64 %k, %size
@@ -473,6 +484,7 @@ out:
 ; Under L0_RC_CHECK, reports counted blocks still live at a normal exit.
 define internal void @check_live() {
 entry:
+  call void @arr_stats()
   %chk = load i64, ptr @rc_check
   %on = icmp ne i64 %chk, 0
   br i1 %on, label %count, label %done
@@ -576,6 +588,268 @@ entry:
   %f = getelementptr i64, ptr %q, i64 %i1
   %v = load i64, ptr %f
   ret i64 %v
+}
+
+; ------------------------------------------------------------------ arrays
+;
+; An array is a block whose header has size 0, which no other block has: a
+; cons cell is 2 words and a data block at least 1. Word 0 is the length and
+; the elements follow, so element i is word i + 1. Mask bit 0 says whether
+; the elements are pointers. Arrays come from malloc and go back to free,
+; since the free lists are by size and stop at 256 words.
+;
+; array_set consumes its array: when that was the only reference it stores in
+; place, and otherwise it copies. L0_ARRAY_STATS in the environment reports
+; how many of each at a normal exit.
+
+@arr_copies = internal global i64 0
+@arr_inplace = internal global i64 0
+@arr_words = internal global i64 0
+
+define internal i64 @arr_alloc(i64 %n, i64 %p) {
+entry:
+  %huge = icmp ugt i64 %n, 1099511627776
+  br i1 %huge, label %oom, label %try
+try:
+  %w = add i64 %n, 2
+  %bytes = mul i64 %w, 8
+  %m = call ptr @malloc(i64 %bytes)
+  %null = icmp eq ptr %m, null
+  br i1 %null, label %oom, label %ok
+oom:
+  call void @rt_error(ptr @m_heap, i64 14)
+  unreachable
+ok:
+  %lv = load i64, ptr @live
+  %lv1 = add i64 %lv, 1
+  store i64 %lv1, ptr @live
+  %hdr = or i64 1099511627776, %p
+  store i64 %hdr, ptr %m
+  %lp = getelementptr i64, ptr %m, i64 1
+  store i64 %n, ptr %lp
+  %a = ptrtoint ptr %lp to i64
+  ret i64 %a
+}
+
+; Adds k references to the nonzero p at once, stopping at the count that
+; means never freed.
+define internal void @add_refs(i64 %p, i64 %k) {
+entry:
+  %hp = sub i64 %p, 8
+  %hq = inttoptr i64 %hp to ptr
+  %h = load i64, ptr %hq
+  %rc = lshr i64 %h, 40
+  %never = icmp eq i64 %rc, 16777215
+  br i1 %never, label %done, label %go
+go:
+  %sum = add i64 %rc, %k
+  %over = icmp ugt i64 %sum, 16777215
+  %nrc = select i1 %over, i64 16777215, i64 %sum
+  %low = and i64 %h, 1099511627775
+  %sh = shl i64 %nrc, 40
+  %nh = or i64 %low, %sh
+  store i64 %nh, ptr %hq
+  br label %done
+done:
+  ret void
+}
+
+; n copies of x, which comes with one reference; the array keeps n. p is 1
+; when elements are pointers.
+define i64 @l0_array_new(i64 %n, i64 %x, i64 %p) {
+entry:
+  %neg = icmp slt i64 %n, 0
+  br i1 %neg, label %err, label %ok
+err:
+  call void @rt_error(ptr @m_alen, i64 21)
+  unreachable
+ok:
+  %a = call i64 @arr_alloc(i64 %n, i64 %p)
+  %q = inttoptr i64 %a to ptr
+  br label %fill
+fill:
+  %k = phi i64 [ 0, %ok ], [ %k1, %put ]
+  %full = icmp eq i64 %k, %n
+  br i1 %full, label %refs, label %put
+put:
+  %k1 = add i64 %k, 1
+  %ep = getelementptr i64, ptr %q, i64 %k1
+  store i64 %x, ptr %ep
+  br label %fill
+refs:
+  %isp = icmp ne i64 %p, 0
+  %nz = icmp ne i64 %x, 0
+  %counted = and i1 %isp, %nz
+  br i1 %counted, label %adjust, label %done
+adjust:
+  %none = icmp eq i64 %n, 0
+  br i1 %none, label %drop, label %more
+drop:
+  call void @l0_dec(i64 %x)
+  br label %done
+more:
+  %extra = sub i64 %n, 1
+  call void @add_refs(i64 %x, i64 %extra)
+  br label %done
+done:
+  ret i64 %a
+}
+
+define i64 @l0_array_len(i64 %a) {
+entry:
+  %q = inttoptr i64 %a to ptr
+  %n = load i64, ptr %q
+  ret i64 %n
+}
+
+define i64 @l0_array_get(i64 %a, i64 %i) {
+entry:
+  %q = inttoptr i64 %a to ptr
+  %n = load i64, ptr %q
+  %in = icmp ult i64 %i, %n
+  br i1 %in, label %ok, label %err
+err:
+  call void @rt_error(ptr @m_range, i64 24)
+  unreachable
+ok:
+  %i1 = add i64 %i, 1
+  %ep = getelementptr i64, ptr %q, i64 %i1
+  %v = load i64, ptr %ep
+  ret i64 %v
+}
+
+define i64 @l0_array_set(i64 %a, i64 %i, i64 %x) {
+entry:
+  %q = inttoptr i64 %a to ptr
+  %n = load i64, ptr %q
+  %in = icmp ult i64 %i, %n
+  br i1 %in, label %ok, label %err
+err:
+  call void @rt_error(ptr @m_range, i64 24)
+  unreachable
+ok:
+  %hp = getelementptr i64, ptr %q, i64 -1
+  %h = load i64, ptr %hp
+  %rc = lshr i64 %h, 40
+  %p = and i64 %h, 1
+  %isp = icmp ne i64 %p, 0
+  %i1 = add i64 %i, 1
+  %alone = icmp eq i64 %rc, 1
+  br i1 %alone, label %inplace, label %copy
+inplace:
+  %ci = load i64, ptr @arr_inplace
+  %ci1 = add i64 %ci, 1
+  store i64 %ci1, ptr @arr_inplace
+  %ep = getelementptr i64, ptr %q, i64 %i1
+  %old = load i64, ptr %ep
+  store i64 %x, ptr %ep
+  br i1 %isp, label %release, label %same
+release:
+  call void @l0_dec(i64 %old)
+  br label %same
+same:
+  ret i64 %a
+copy:
+  %cc = load i64, ptr @arr_copies
+  %cc1 = add i64 %cc, 1
+  store i64 %cc1, ptr @arr_copies
+  %cw = load i64, ptr @arr_words
+  %cw1 = add i64 %cw, %n
+  store i64 %cw1, ptr @arr_words
+  %b = call i64 @arr_alloc(i64 %n, i64 %p)
+  %bq = inttoptr i64 %b to ptr
+  %src = getelementptr i64, ptr %q, i64 1
+  %dst = getelementptr i64, ptr %bq, i64 1
+  %bytes = mul i64 %n, 8
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 %bytes, i1 false)
+  br i1 %isp, label %share, label %store
+share:
+  %k = phi i64 [ 1, %copy ], [ %k1, %snext ]
+  %end = icmp ugt i64 %k, %n
+  br i1 %end, label %store, label %sbody
+sbody:
+  %skip = icmp eq i64 %k, %i1
+  br i1 %skip, label %snext, label %sinc
+sinc:
+  %sp = getelementptr i64, ptr %bq, i64 %k
+  %sv = load i64, ptr %sp
+  call void @l0_inc(i64 %sv)
+  br label %snext
+snext:
+  %k1 = add i64 %k, 1
+  br label %share
+store:
+  %bp = getelementptr i64, ptr %bq, i64 %i1
+  store i64 %x, ptr %bp
+  call void @l0_dec(i64 %a)
+  ret i64 %b
+}
+
+; Drops a reference to each pointer element of the array q, queueing any
+; whose count reaches zero, then gives q back to malloc. Under L0_RC_CHECK
+; it is kept, with a count of 0 and a length of 0, so a later use is caught.
+define internal void @free_array(i64 %q, i64 %h) {
+entry:
+  %qq = inttoptr i64 %q to ptr
+  %n = load i64, ptr %qq
+  %p = and i64 %h, 1
+  %isp = icmp ne i64 %p, 0
+  br i1 %isp, label %scan, label %release
+scan:
+  %k = phi i64 [ 1, %entry ], [ %k1, %next ]
+  %end = icmp ugt i64 %k, %n
+  br i1 %end, label %release, label %elem
+elem:
+  %cp = getelementptr i64, ptr %qq, i64 %k
+  %c = load i64, ptr %cp
+  %cz = icmp eq i64 %c, 0
+  br i1 %cz, label %next, label %cdec
+cdec:
+  %last = call i1 @dec_ref(i64 %c)
+  br i1 %last, label %push, label %next
+push:
+  call void @wl_push(i64 %c)
+  br label %next
+next:
+  %k1 = add i64 %k, 1
+  br label %scan
+release:
+  %lv = load i64, ptr @live
+  %lv1 = sub i64 %lv, 1
+  store i64 %lv1, ptr @live
+  %hp = sub i64 %q, 8
+  %hq = inttoptr i64 %hp to ptr
+  %chk = load i64, ptr @rc_check
+  %checking = icmp ne i64 %chk, 0
+  br i1 %checking, label %poison, label %give
+poison:
+  %hkeep = and i64 %h, 1099511627775
+  store i64 %hkeep, ptr %hq
+  store i64 0, ptr %qq
+  ret void
+give:
+  call void @free(ptr %hq)
+  ret void
+}
+
+define internal void @arr_stats() {
+entry:
+  %e = call ptr @getenv(ptr @stats_name)
+  %on = icmp ne ptr %e, null
+  br i1 %on, label %report, label %done
+report:
+  %c = load i64, ptr @arr_copies
+  call void @write_all(i32 2, ptr @m_copies, i64 18)
+  call void @write_int(i32 2, i64 %c)
+  %i = load i64, ptr @arr_inplace
+  call void @write_all(i32 2, ptr @m_inplace, i64 25)
+  call void @write_int(i32 2, i64 %i)
+  %w = load i64, ptr @arr_words
+  call void @write_all(i32 2, ptr @m_words, i64 24)
+  call void @write_int(i32 2, i64 %w)
+  br label %done
+done:
+  ret void
 }
 
 ; -------------------------------------------------------------- arithmetic

@@ -1,7 +1,7 @@
 # 0024: Arrays
 
 Kind: language
-Status: queued
+Status: done, changelog "Arrays"
 Needs: 0023
 
 ## Why
@@ -42,3 +42,13 @@ The l0-bootstrap checklist, plus:
 ## Log
 
 - 2026-09-25: opened from 0021's finding.
+- 2026-09-28: done. The prototype's array commit applied with `array`
+  reserved, the type-syntax message naming it, and its negative-length test
+  fixed: it had hit a negative index first and never reached the length.
+  `tests/io/array_histogram`, `array_myers`, and `array_paths` check their
+  answers against awk (od's counts, the same recurrence, Floyd-Warshall) and
+  that `L0_ARRAY_STATS` reports no copies. Measured with the refreshed seed:
+  histogram 0.02 s against 0.97 s list and 0.17 s tree, Myers 0.16 s against
+  0.76 s, Dijkstra 9.2 ms per query against 22.9 ms. The shipped skill
+  explains the loop that updates in place and what copies. 0025 and 0026
+  wait for programs.

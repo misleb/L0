@@ -1,0 +1,4 @@
+; A negative length given to array_new is a runtime error.
+
+(def main () int
+  (array_len (array_new -1 0)))

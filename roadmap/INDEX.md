@@ -5,15 +5,17 @@ Goals: README.md, "What L0 aims to be". Not restated here.
 Current focus: the memory-management and I/O goal is met by the language route
 (changelog "The route to memory management and I/O"): streaming and file I/O,
 arguments, reference counting, and guaranteed tail calls, and the gaps 0014
-found in it are closed by 0018 to 0020. The next goal is arrays, with compact
-bytes and in-place update. 0021's finding splits it into a release rule
-first, then arrays; nested update and packed bytes wait for programs.
+found in it are closed by 0018 to 0020. The arrays goal's release rule
+(0023) and arrays (0024) are done; nested update (0025) and packed bytes
+(0026) wait for programs that need them.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0024](0024-arrays.md) arrays — queued, next
+Empty. The arrays goal's first two items are done; 0025 and 0026 wait for
+programs that need them, which a round of programs written with arrays
+would find.
 
 ## Other open items
 
@@ -77,3 +79,4 @@ Changes to the language, strictly in order. At most one is active.
   (0024)
 - [0023](0023-release-at-last-use.md) release a value at its last use — done,
   changelog "A value is released at its last use"
+- [0024](0024-arrays.md) arrays — done, changelog "Arrays"
