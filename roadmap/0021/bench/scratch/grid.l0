@@ -1,0 +1,29 @@
+; A 100 x 100 grid as an array of rows, with 10,000 updates of one cell
+; each. Counts copies: the row array_get returns is shared with the grid, so
+; the inner array_set copies it every time.
+
+(def bump ((g (array (array int))) (k int)) (array (array int))
+  (if (ge k 10000)
+      g
+      (let r (mod k 100)
+        (let c (mod (mul k 7) 100)
+          (bump (array_set g r (array_set (array_get g r) c (add k 1))) (add k 1))))))
+
+; The same updates, taking the row out first: putting a placeholder in its
+; slot drops the grid's reference, so the row is held once and updates in
+; place. A workaround for the lack of an operation that takes an element.
+(def bump_taken ((g (array (array int))) (k int)) (array (array int))
+  (if (ge k 10000)
+      g
+      (let r (mod k 100)
+        (let c (mod (mul k 7) 100)
+          (let row (array_get g r)
+            (let g2 (array_set g r (array_new 0 0))
+              (bump_taken (array_set g2 r (array_set row c (add k 1))) (add k 1))))))))
+
+(def main () int
+  (let g (if (eq (arg_count) 0)
+             (bump (array_new 100 (array_new 100 0)) 0)
+             (bump_taken (array_new 100 (array_new 100 0)) 0))
+    (let w (write_line (digits (array_get (array_get g 99) (mod (mul 9999 7) 100))))
+      0)))

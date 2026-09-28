@@ -1,0 +1,2 @@
+(data P (P (list int) (list int)))
+(def f ((p P)) (list int) (match p ((P x x) x)))

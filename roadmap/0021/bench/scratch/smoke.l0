@@ -1,0 +1,19 @@
+(data Edge (Edge int int))
+
+(def fill ((a (array int)) (i int)) (array int)
+  (if (ge i (array_len a)) a (fill (array_set a i (mul i i)) (add i 1))))
+
+(def sum ((a (array int)) (i int) (acc int)) int
+  (if (ge i (array_len a)) acc (sum a (add i 1) (add acc (array_get a i)))))
+
+(def main () int
+  (let a (fill (array_new 10 0) 0)
+    (let s (array_new 3 "ab")
+      (let s2 (array_set s 1 "xyz")
+        (let es (array_new 4 (nil Edge))
+          (let es2 (array_set es 2 (cons (Edge 1 2) (nil Edge)))
+            (let w (write_line (digits (sum a 0 0)))
+              (let w2 (write_line (array_get s2 1))
+                (let w3 (write_line (array_get s 1))
+                  (let w4 (write_line (digits (array_len es2)))
+                    0))))))))))

@@ -1,0 +1,202 @@
+; roadmap/0014/data-structures/paths/paths.l0 with arrays, as its
+; hypothetical (data-structures/hypothetical/01-no-indexed-table.l0) has it:
+; distances are an (array int) and adjacency an (array (list Edge)), in place
+; of the IntMap and EdgeMap tries. The name table is still a trie keyed by a
+; hash, since a hash table is not what is being measured. Run with
+; paths_array_main.l0, which is programs/paths/main.l0 unchanged.
+;
+; The graph grows as lines stream in, so the adjacency array has spare
+; capacity and doubles when a new node would not fit.
+
+(data Edge
+  (Edge int int))                       ; to, weight
+
+; -------------------------------------------------------- name -> node id
+
+(data Named
+  (Named (list int) int))
+
+(data NameMap
+  (NEmpty)
+  (NNode (list Named) NameMap NameMap))
+
+(def name_hash ((s (list int)) (h int)) int
+  (if (is_empty s)
+      (mod h 1048573)
+      (name_hash (tail s) (mod (add (mul h 31) (head s)) 1000000007))))
+
+(def nm_get ((m NameMap) (k int) (name (list int))) int
+  (match m
+    ((NEmpty) -1)
+    ((NNode bucket e o)
+      (if (eq k 0)
+          (bucket_find bucket name)
+          (if (eq (mod k 2) 0)
+              (nm_get e (div k 2) name)
+              (nm_get o (div k 2) name))))))
+
+(def bucket_find ((b (list Named)) (name (list int))) int
+  (if (is_empty b)
+      -1
+      (match (head b)
+        ((Named n id) (if (list_eq n name) id (bucket_find (tail b) name))))))
+
+(def nm_add ((m NameMap) (k int) (x Named)) NameMap
+  (match m
+    ((NEmpty) (nm_add (NNode (nil Named) (NEmpty) (NEmpty)) k x))
+    ((NNode bucket e o)
+      (if (eq k 0)
+          (NNode (cons x bucket) e o)
+          (if (eq (mod k 2) 0)
+              (NNode bucket (nm_add e (div k 2) x) o)
+              (NNode bucket e (nm_add o (div k 2) x)))))))
+
+; ------------------------------------------------------------------- graph
+
+(data Graph
+  (Graph NameMap int (array (list Edge))))    ; names, how many nodes, out-edges
+
+(def empty_graph ((ignored int)) Graph
+  (Graph (NEmpty) 0 (array_new 16 (nil Edge))))
+
+(def node_id ((g Graph) (name (list int))) int
+  (match g
+    ((Graph names n edges) (nm_get names (name_hash name 0) name))))
+
+; A graph that has name, and its id there.
+(data Interned
+  (Interned Graph int))
+
+(def intern ((g Graph) (name (list int))) Interned
+  (let id (node_id g name)
+    (if (ge id 0)
+        (Interned g id)
+        (match g
+          ((Graph names n edges)
+            (Interned (Graph (nm_add names (name_hash name 0) (Named name n))
+                             (add n 1) (room edges (add n 1)))
+                      n))))))
+
+; edges, with room for at least n nodes.
+(def room ((edges (array (list Edge))) (n int)) (array (list Edge))
+  (if (le n (array_len edges))
+      edges
+      (copy_into edges (array_new (mul 2 (array_len edges)) (nil Edge)) 0)))
+
+(def copy_into ((src (array (list Edge))) (dst (array (list Edge))) (i int))
+    (array (list Edge))
+  (if (ge i (array_len src))
+      dst
+      (copy_into src (array_set dst i (array_get src i)) (add i 1))))
+
+(def add_edge ((g Graph) (from (list int)) (to (list int)) (w int)) Graph
+  (match (intern g from)
+    ((Interned g1 a)
+      (match (intern g1 to)
+        ((Interned g2 b)
+          (match g2
+            ((Graph names n edges)
+              (Graph names n
+                (array_set edges a (cons (Edge b w) (array_get edges a)))))))))))
+
+; -------------------------------------------------------------- the heap
+
+(data Heap
+  (HEmpty)
+  (HNode int int int Heap Heap))        ; rank, distance, node, left, right
+
+(def rank ((h Heap)) int
+  (match h
+    ((HEmpty) 0)
+    ((HNode r d u l x) r)))
+
+(def make_node ((d int) (u int) (a Heap) (b Heap)) Heap
+  (if (ge (rank a) (rank b))
+      (HNode (add (rank b) 1) d u a b)
+      (HNode (add (rank a) 1) d u b a)))
+
+(def merge ((a Heap) (b Heap)) Heap
+  (match a
+    ((HEmpty) b)
+    ((HNode ra da ua la xa)
+      (match b
+        ((HEmpty) a)
+        ((HNode rb db ub lb xb)
+          (if (le da db)
+              (make_node da ua la (merge xa b))
+              (make_node db ub lb (merge a xb))))))))
+
+(def push_heap ((h Heap) (d int) (u int)) Heap
+  (merge h (HNode 1 d u (HEmpty) (HEmpty))))
+
+; -------------------------------------------------------------- Dijkstra
+
+(def infinity ((ignored int)) int 9223372036854775807)
+
+; The shortest distance from one name to another, or -1 if there is no path.
+(def shortest ((g Graph) (from (list int)) (to (list int))) int
+  (if (list_eq from to)
+      0
+      (let a (node_id g from)
+        (let b (node_id g to)
+          (if (if (lt a 0) true (lt b 0))
+              -1
+              (match g
+                ((Graph names n edges)
+                  (shortest_ids edges n a b))))))))
+
+(def shortest_ids ((edges (array (list Edge))) (n int) (a int) (b int)) int
+  (dijkstra edges (push_heap (HEmpty) 0 a)
+            (array_set (array_new n (infinity 0)) a 0) b))
+
+(def dijkstra ((edges (array (list Edge))) (heap Heap) (dist (array int))
+               (target int)) int
+  (match heap
+    ((HEmpty) -1)
+    ((HNode r d u l x)
+      (if (eq u target)
+          d
+          (if (gt d (array_get dist u))
+              (dijkstra edges (merge l x) dist target)
+              (relax edges (array_get edges u) d (merge l x) dist target))))))
+
+(def relax ((edges (array (list Edge))) (out (list Edge)) (d int) (heap Heap)
+            (dist (array int)) (target int)) int
+  (if (is_empty out)
+      (dijkstra edges heap dist target)
+      (match (head out)
+        ((Edge v w)
+          (let nd (add d w)
+            (if (lt nd (array_get dist v))
+                (relax edges (tail out) d (push_heap heap nd v)
+                       (array_set dist v nd) target)
+                (relax edges (tail out) d heap dist target)))))))
+
+; ----------------------------------------------------------------- input
+
+(def fields ((s (list int))) (list (list int))
+  (rev_strs_onto (fields_onto s (nil int) (nil (list int))) (nil (list int))))
+
+(def fields_onto ((s (list int)) (cur (list int)) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty s)
+      (field_done cur acc)
+      (if (is_space (head s))
+          (fields_onto (tail s) (nil int) (field_done cur acc))
+          (fields_onto (tail s) (cons (head s) cur) acc))))
+
+(def field_done ((cur (list int)) (acc (list (list int)))) (list (list int))
+  (if (is_empty cur) acc (cons (rev cur) acc)))
+
+(def weight_of ((s (list int))) int
+  (if (if (is_empty s) true (gt (length s) 12))
+      -1
+      (if (all_digits s) (int_prefix s 0) -1)))
+
+(def all_digits ((s (list int))) bool
+  (if (is_empty s)
+      true
+      (if (is_digit (head s)) (all_digits (tail s)) false)))
+
+(def answer ((d int)) (list int)
+  (if (lt d 0) "unreachable\n" (append (digits d) "\n")))

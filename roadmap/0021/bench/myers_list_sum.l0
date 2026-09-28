@@ -1,0 +1,29 @@
+; roadmap/0014/bytes-encodings/limits/03-no-arrays.l0, printing the sum of
+; the final vector instead of its head, to check myers_array against.
+
+(def rev_onto_ints ((xs (list int)) (acc (list int))) (list int)
+  (if (is_empty xs) acc (rev_onto_ints (tail xs) (cons (head xs) acc))))
+
+(def max2 ((a int) (b int)) int
+  (if (gt a b) a b))
+
+(def step_mid ((left int) (rest (list int)) (acc (list int))) (list int)
+  (if (is_empty rest)
+      (rev_onto_ints (cons (add left 1) acc) (nil int))
+      (step_mid (head rest) (tail rest)
+        (cons (max2 (add left 1) (head rest)) acc))))
+
+(def step ((v (list int))) (list int)
+  (step_mid (head v) (tail v) (cons (head v) (nil int))))
+
+(def run ((d int) (big int) (v (list int))) (list int)
+  (if (gt d big)
+      v
+      (run (add d 1) big (step v))))
+
+(def sum_onto ((xs (list int)) (acc int)) int
+  (if (is_empty xs) acc (sum_onto (tail xs) (add acc (head xs)))))
+
+(def main () int
+  (let w (write_line (digits (sum_onto (run 1 (int_prefix (arg 0) 0) (cons 0 (nil int))) 0)))
+    0))

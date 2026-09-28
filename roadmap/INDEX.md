@@ -6,18 +6,23 @@ Current focus: the memory-management and I/O goal is met by the language route
 (changelog "The route to memory management and I/O"): streaming and file I/O,
 arguments, reference counting, and guaranteed tail calls, and the gaps 0014
 found in it are closed by 0018 to 0020. The next goal is arrays, with compact
-bytes and in-place update, starting from 0021.
+bytes and in-place update. 0021's finding splits it into a release rule
+first, then arrays; nested update and packed bytes wait for programs.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty. 0021's finding will fill it.
+1. [0023](0023-release-at-last-use.md) release a value at its last use —
+   queued, next
+2. [0024](0024-arrays.md) arrays — queued, needs 0023
 
 ## Other open items
 
-- [0021](0021-arrays-route.md) research: how L0 gets arrays, compact bytes,
-  and in-place update — proposed, next
+- [0025](0025-nested-array-update.md) updating an array held inside another
+  without copying it — proposed, needs 0024 and a program
+- [0026](0026-packed-bytes.md) bytes held one byte per byte — proposed, needs
+  0024 and a program
 
 ## Done and dropped
 
@@ -69,3 +74,6 @@ Empty. 0021's finding will fill it.
   done, changelog "Appending to a file, and replacing one in a single step"
 - [0020](0020-in-memory-handles.md) handles that read from and write to
   memory — done, changelog "Handles that read from and write to memory"
+- [0021](0021-arrays-route.md) research: how L0 gets arrays, compact bytes,
+  and in-place update — done; the release rule first (0023), then arrays
+  (0024)

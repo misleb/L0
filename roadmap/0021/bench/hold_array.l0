@@ -1,0 +1,53 @@
+; Holds 10 MB of input as an (array int), to compare with
+; roadmap/0014/data-structures/limits/04-bytes-are-cons-cells.l0, and writes
+; how long it is.
+;
+;   hold_array < input        reads standard input into a list as 04 does,
+;                             then builds the array from it
+;   hold_array PATH           reads the file twice, once to count and once
+;                             to fill an array of exactly that length, so no
+;                             list is ever held
+
+(def main () int
+  (let n (if (eq (arg_count) 0) (from_stdin 0) (from_file (arg 0)))
+    (let w (write_line (digits n))
+      0)))
+
+(def from_stdin ((ignored int)) int
+  (let bytes (read_stdin (nil int))
+    (let a (fill_from_list (array_new (count bytes 0) 0) bytes 0)
+      (total a 0 0))))
+
+(def from_file ((path (list int))) int
+  (let n (count_handle (open_read path) 0)
+    (let a (fill_from_handle (array_new n 0) (open_read path) 0)
+      (total a 0 0))))
+
+(def count ((xs (list int)) (n int)) int
+  (if (is_empty xs) n (count (tail xs) (add n 1))))
+
+(def read_stdin ((acc (list int))) (list int)
+  (let b (read_byte)
+    (if (lt b 0) (rev acc) (read_stdin (cons b acc)))))
+
+(def fill_from_list ((a (array int)) (xs (list int)) (i int)) (array int)
+  (if (is_empty xs)
+      a
+      (fill_from_list (array_set a i (head xs)) (tail xs) (add i 1))))
+
+(def count_handle ((h int) (n int)) int
+  (let b (read_from h)
+    (if (lt b 0) (let c (close h) n) (count_handle h (add n 1)))))
+
+(def fill_from_handle ((a (array int)) (h int) (i int)) (array int)
+  (let b (read_from h)
+    (if (lt b 0)
+        (let c (close h) a)
+        (fill_from_handle (array_set a i b) h (add i 1)))))
+
+; Every element is read, so nothing can have been dropped; this is the count
+; of elements, and must equal the input's length.
+(def total ((a (array int)) (i int) (n int)) int
+  (if (ge i (array_len a))
+      n
+      (total a (add i 1) (if (ge (array_get a i) 0) (add n 1) n))))

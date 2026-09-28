@@ -1,0 +1,20 @@
+; The byte histogram of roadmap/0014/text-tools/hypothetical/01-no-array.l0,
+; as written there, over (array int). Prints what 01-no-array.l0 prints.
+
+(def count ((counts (array int))) (array int)
+  (let b (read_byte)
+    (if (lt b 0)
+        counts
+        (count (array_set counts b (add (array_get counts b) 1))))))
+
+(def show ((counts (array int)) (i int)) int
+  (if (ge i 256)
+      0
+      (let n (array_get counts i)
+        (let w (if (gt n 0)
+                   (write_line (append (digits i) (append " " (digits n))))
+                   0)
+          (show counts (add i 1))))))
+
+(def main () int
+  (show (count (array_new 256 0)) 0))

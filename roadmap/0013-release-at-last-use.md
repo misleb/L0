@@ -46,3 +46,7 @@ position. That attribution was wrong; see the Log.
   recovering, eliding increment and release pairs is the place to look, and
   this rule is a starting point; on its own it removed about 2% of the
   compiler's emitted IR and no measurable time.
+- 2026-09-25: a stronger rule, releasing at the last use on every path, is
+  now [0023](0023-release-at-last-use.md), earned by arrays updating in
+  place; in 0021's prototype it also cut the compiler's time on itself by
+  42%.
