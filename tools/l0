@@ -75,12 +75,12 @@ find_cc() {
 # clang but no existing L0.
 ensure_toolchain() {
     root=$(cd "$LIB/.." && pwd)
-    if [ -x "$LIB/l0c" ] && [ -f "$LIB/libl0rt.a" ]; then
+    if [ -x "$LIB/l0c" ] && [ -f "$LIB/l0rt.o" ]; then
         if [ ! -f "$root/bootstrap/stage2.ll" ]; then
             return 0
         fi
         if [ ! "$root/bootstrap/stage2.ll" -nt "$LIB/l0c" ] &&
-            [ ! "$root/runtime/l0rt.ll" -nt "$LIB/libl0rt.a" ]; then
+            [ ! "$root/runtime/l0rt.ll" -nt "$LIB/l0rt.o" ]; then
             return 0
         fi
     fi
@@ -196,7 +196,7 @@ setup() {
         ensure_toolchain
     fi
     COMPILER=${L0_COMPILER:-$LIB/l0c}
-    RUNTIME=${L0_RUNTIME:-$LIB/libl0rt.a}
+    RUNTIME=${L0_RUNTIME:-$LIB/l0rt.o}
     SOURCES=$FILES
     PRELUDE_END=0
     if [ "$WANT_TEST" = 1 ]; then
@@ -442,7 +442,7 @@ case "$cmd" in
         setup "$@"
         [ -n "$OUT" ] || OUT=$(default_out)
         run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
+        "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
             -o "$OUT"
         ;;
 
@@ -464,7 +464,7 @@ case "$cmd" in
         # shellcheck disable=SC2086
         setup $own
         run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
+        "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
             -o "$TMP/prog"
         "$TMP/prog" "$@"
         ;;
@@ -509,7 +509,7 @@ case "$cmd" in
         } > "$gen"
         SOURCES="$SOURCES $gen"
         run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
+        "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
             -o "$TMP/prog"
 
         selected=""

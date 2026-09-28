@@ -396,7 +396,7 @@ for src in tests/backend/*.ll; do
     stem="tests/backend/$name"
     exe="$TMP/backend-$name"
 
-    if ! "$CC" -O2 -Wno-override-module "$src" "$BUILD/l0rt.o" \
+    if ! "$CC" -O2 -flto -Wno-override-module "$src" "$BUILD/l0rt.o" \
         -o "$exe" 2> "$TMP/link.err"; then
         nfail=$((nfail + 1))
         failures="$failures backend/$name"

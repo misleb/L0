@@ -83,10 +83,11 @@ existing L0 compiler**, which is the whole point of checking in
 **No C is compiled, at install or ever.** Installing assembles two files of
 LLVM IR text:
 
-- `runtime/l0rt.ll`, the runtime, becomes `lib/l0/libl0rt.a`
+- `runtime/l0rt.ll`, the runtime, becomes `lib/l0/l0rt.o`, as LLVM bitcode
 - `bootstrap/stage2.ll`, the compiler, is linked into `lib/l0/l0c`
 
-`l0 build` links the prebuilt archive into your program. You can delete
+`l0 build` links the prebuilt runtime into your program with link-time
+optimization, so the runtime's small functions are inlined into it. You can delete
 `runtime/`, `compiler/`, and `lib/` from a checkout and an installed `l0`
 keeps working.
 

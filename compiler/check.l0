@@ -24,8 +24,10 @@
   (CI (list int) (list int) int (list Ty)))  ; name, type name, tag, fields
 
 ; Everything global that checking an expression needs.
+; The last field is every builtin's name, split once when the context is
+; built, since a call to any function has to be told apart from a builtin.
 (data Ctx
-  (Cx (list Sig) (list CtorInfo) (list DataDef)))
+  (Cx (list Sig) (list CtorInfo) (list DataDef) (list (list int))))
 
 (data FindSig
   (SigFound Sig)
@@ -62,9 +64,13 @@
       acc
       (rev_tys_onto (tail xs) (cons (head xs) acc))))
 
-(def ctx_sigs ((c Ctx)) (list Sig) (match c ((Cx s ci dd) s)))
-(def ctx_ctors ((c Ctx)) (list CtorInfo) (match c ((Cx s ci dd) ci)))
-(def ctx_datas ((c Ctx)) (list DataDef) (match c ((Cx s ci dd) dd)))
+(def ctx_sigs ((c Ctx)) (list Sig) (match c ((Cx s ci dd bn) s)))
+(def ctx_ctors ((c Ctx)) (list CtorInfo) (match c ((Cx s ci dd bn) ci)))
+(def ctx_datas ((c Ctx)) (list DataDef) (match c ((Cx s ci dd bn) dd)))
+(def ctx_builtins ((c Ctx)) (list (list int)) (match c ((Cx s ci dd bn) bn)))
+
+(def is_builtin_in ((n (list int)) (c Ctx)) bool
+  (any_eq n (ctx_builtins c)))
 
 ; ---------------------------------------------------------------- lookups
 
@@ -126,16 +132,20 @@
 (def bi_array ((i int)) (list (list int))
   (split_spaces "array_new array_len array_get array_set"))
 
-(def is_builtin ((n (list int))) bool
-  (or (any_eq n (bi_int_int_int 0))
-      (or (any_eq n (bi_int_int_bool 0))
-          (or (any_eq n (bi_bool_bool 0))
-              (or (any_eq n (bi_list_ops 0))
-                  (or (any_eq n (bi_io 0))
-                      (or (any_eq n (bi_path 0))
-                          (or (any_eq n (bi_to_list 0))
-                              (or (any_eq n (bi_array 0))
-                                  (any_eq n (split_spaces "neg not")))))))))))
+; Every builtin's name. Built once per context (ctx_builtins), not per call.
+(def builtin_names ((i int)) (list (list int))
+  (names_then (bi_int_int_int 0)
+    (names_then (bi_int_int_bool 0)
+      (names_then (bi_bool_bool 0)
+        (names_then (bi_list_ops 0)
+          (names_then (bi_io 0)
+            (names_then (bi_path 0)
+              (names_then (bi_to_list 0)
+                (names_then (bi_array 0) (split_spaces "neg not"))))))))))
+
+(def names_then ((xs (list (list int))) (ys (list (list int))))
+    (list (list int))
+  (if (is_empty xs) ys (cons (head xs) (names_then (tail xs) ys))))
 
 (def builtin_arity ((n (list int))) int
   (if (any_eq n (split_spaces "read_byte arg_count open_buffer"))
@@ -279,7 +289,7 @@
   (match (find_bind n env)
     ((TyFound t) (CTyOk t))
     ((TyMissing)
-      (if (or (is_builtin n) (sig_exists n (ctx_sigs ctx)))
+      (if (or (is_builtin_in n ctx) (sig_exists n (ctx_sigs ctx)))
           (CTyErr o (append n " is a function, and L0 has no function values"))
           (CTyErr o (append "unknown variable " n))))))
 
@@ -332,7 +342,7 @@
   (match (check_args args env ctx (nil Ty))
     ((CTysErr eo m) (CTyErr eo m))
     ((CTysOk ats)
-      (if (is_builtin n)
+      (if (is_builtin_in n ctx)
           (check_builtin n ats o)
           (match (find_sig n (ctx_sigs ctx))
             ((SigMissing) (check_call_missing o n env))
@@ -786,7 +796,8 @@
 (def build_ctx ((ds (list Decl))) Ctx
   (Cx (collect_sigs ds (nil Sig))
       (collect_ctor_infos ds (nil CtorInfo))
-      (collect_datas ds (nil DataDef))))
+      (collect_datas ds (nil DataDef))
+      (builtin_names 0)))
 
 ; ------------------------------------------------------- the two groups
 ;
@@ -816,7 +827,8 @@
 (def prelude_view ((ds (list Decl)) (pre int)) Ctx
   (Cx (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig))
       (collect_ctor_infos ds (nil CtorInfo))
-      (collect_datas ds (nil DataDef))))
+      (collect_datas ds (nil DataDef))
+      (builtin_names 0)))
 
 ; A program declaration sees both, program first. find_sig takes the first
 ; match, so putting the program's signatures ahead of the prelude's is the
@@ -826,7 +838,8 @@
         (collect_sigs (program_decls ds pre (nil Decl)) (nil Sig))
         (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig)))
       (collect_ctor_infos ds (nil CtorInfo))
-      (collect_datas ds (nil DataDef))))
+      (collect_datas ds (nil DataDef))
+      (builtin_names 0)))
 
 ; want_main is false when checking a fragment rather than a whole program,
 ; such as a library file or a work in progress. Type correctness is still

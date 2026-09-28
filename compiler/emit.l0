@@ -462,13 +462,17 @@
 ; tail call and may release what it read afterwards.
 (def emit_call ((n (list int)) (args (list Expr)) (env Env)
                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
-  (match (emit_args args env live (is_borrowing n) st)
-    ((Ops ops ts ws st1)
-      (let t (call_type n ts env)
-        (emit_ret tl
-          (if (is_builtin n)
-              (after_borrow n ops ts ws (retype (emit_op n ops ts st1) t))
-              (retype (emit_def_call (call_sym n env) ops env tl st1) t)))))))
+  (if (is_builtin_in n (env_ctx env))
+      (match (emit_args args env live (is_borrowing n) st)
+        ((Ops ops ts ws st1)
+          (emit_ret tl
+            (after_borrow n ops ts ws
+              (retype (emit_op n ops ts st1) (builtin_type n ts))))))
+      (match (emit_args args env live false st)
+        ((Ops ops ts ws st1)
+          (emit_ret tl
+            (retype (emit_def_call (call_sym n env) ops env tl st1)
+                    (fn_type n env)))))))
 
 (def emit_def_call ((sym (list int)) (ops (list (list int))) (env Env)
                     (tl bool) (st Emit)) EmitVal
@@ -501,9 +505,9 @@
       (emit_dec_owned (tail ops) (tail ts) (tail ws)
         (if (and (head ws) (ty_is_ptr (head ts))) (emit_dec (head ops) st) st))))
 
-; The type a call returns: fixed for most builtins, following the argument
-; for cons, head, and tail, and the signature for a function. Spec 6.
-(def call_type ((n (list int)) (ts (list Ty)) (env Env)) Ty
+; The type a builtin returns: fixed for most, following the argument for
+; cons, head, tail, and the array builtins. Spec 6.
+(def builtin_type ((n (list int)) (ts (list Ty))) Ty
   (if (any_eq n (split_spaces "lt le gt ge eq and or not is_empty"))
       (TyBool)
       (if (list_eq n "cons")
@@ -512,18 +516,20 @@
               (ty_elem (head ts))
               (if (any_eq n (split_spaces "tail array_set"))
                   (head ts)
-                  (call_type_rest n ts env))))))
+                  (builtin_type_rest n ts))))))
 
-(def call_type_rest ((n (list int)) (ts (list Ty)) (env Env)) Ty
+(def builtin_type_rest ((n (list int)) (ts (list Ty))) Ty
   (if (any_eq n (split_spaces "arg buffer_bytes"))
       (TyList (TyInt))
       (if (list_eq n "array_new")
           (TyArray (head (tail ts)))
-          (if (is_builtin n)
-              (TyInt)
-              (match (find_sig n (ctx_sigs (env_ctx env)))
-                ((SigFound s) (match s ((S sn ps r) r)))
-                ((SigMissing) (TyInt)))))))
+          (TyInt))))
+
+; The type a function returns, from its signature.
+(def fn_type ((n (list int)) (env Env)) Ty
+  (match (find_sig n (ctx_sigs (env_ctx env)))
+    ((SigFound s) (match s ((S sn ps r) r)))
+    ((SigMissing) (TyInt))))
 
 ; ------------------------------------------------------------ constructors
 
@@ -795,28 +801,30 @@
 (def def_sym ((n (list int)) (inpre bool)) (list int)
   (if inpre (append "l0_p_" n) (fn_sym n (nil (list int)))))
 
-(def tail_callees ((e Expr) (pn (list (list int))) (acc (list (list int))))
-    (list (list int))
+; bs is every builtin's name, ctx_builtins.
+(def tail_callees ((e Expr) (pn (list (list int))) (bs (list (list int)))
+                   (acc (list (list int)))) (list (list int))
   (match e
     ((EInt o v) acc)
     ((EBool o v) acc)
     ((EStr o s) acc)
     ((EVar o n) acc)
-    ((EIf o c a b) (tail_callees b pn (tail_callees a pn acc)))
-    ((ELet o n v body) (tail_callees body pn acc))
+    ((EIf o c a b) (tail_callees b pn bs (tail_callees a pn bs acc)))
+    ((ELet o n v body) (tail_callees body pn bs acc))
     ((ENil o t) acc)
     ((ECtor o n args) acc)
-    ((EMatch o s arms) (arm_callees arms pn acc))
+    ((EMatch o s arms) (arm_callees arms pn bs acc))
     ((ECall o n args)
-      (if (is_builtin n) acc (cons (fn_sym n pn) acc)))))
+      (if (any_eq n bs) acc (cons (fn_sym n pn) acc)))))
 
 (def arm_callees ((arms (list Arm)) (pn (list (list int)))
-                  (acc (list (list int)))) (list (list int))
+                  (bs (list (list int))) (acc (list (list int))))
+    (list (list int))
   (if (is_empty arms)
       acc
       (match (head arms)
         ((A o cn names body)
-          (arm_callees (tail arms) pn (tail_callees body pn acc))))))
+          (arm_callees (tail arms) pn bs (tail_callees body pn bs acc))))))
 
 (def length_params ((ps (list Param))) int
   (if (is_empty ps) 0 (add 1 (length_params (tail ps)))))
@@ -824,17 +832,17 @@
 ; Every function of both groups, in declaration order. ppre and pprog are the
 ; prelude names each group's calls reach.
 (def graph_nodes ((ds (list Decl)) (pre int) (ppre (list (list int)))
-                  (pprog (list (list int)))) (list Node)
+                  (pprog (list (list int))) (bs (list (list int)))) (list Node)
   (if (is_empty ds)
       (nil Node)
       (match (head ds)
-        ((DData o n cs) (graph_nodes (tail ds) pre ppre pprog))
+        ((DData o n cs) (graph_nodes (tail ds) pre ppre pprog bs))
         ((DDef o n ps ret body)
           (let inpre (lt o pre)
             (cons (Nd (def_sym n inpre) (length_params ps)
-                      (tail_callees body (if inpre ppre pprog)
+                      (tail_callees body (if inpre ppre pprog) bs
                                     (nil (list int))))
-                  (graph_nodes (tail ds) pre ppre pprog)))))))
+                  (graph_nodes (tail ds) pre ppre pprog bs)))))))
 
 (def node_syms ((ns (list Node))) (list (list int))
   (if (is_empty ns)
@@ -902,7 +910,7 @@
 
 (def module_pads ((ds (list Decl)) (pre int) (ppre (list (list int)))
                   (pprog (list (list int)))) (list Pad)
-  (let ns (graph_nodes ds pre ppre pprog)
+  (let ns (graph_nodes ds pre ppre pprog (builtin_names 0))
     (pad_table ns
       (spread (graph_edges ns (node_syms ns) 0 (nil Edge)) (node_arities ns))
       (nil Pad))))

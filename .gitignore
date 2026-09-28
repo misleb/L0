@@ -3,6 +3,12 @@
 # stages, and scratch files.
 build/
 
+# Scratch space for agents: every temporary file, program, and log goes here,
+# never outside the workspace (.cursor/rules/local-tmp.mdc). The directory is
+# kept; its contents are not.
+tmp/*
+!tmp/.gitkeep
+
 # Compiled artifacts, in case any escape build/.
 *.o
 *.dSYM/
@@ -33,5 +39,6 @@ build/
 
 # Toolchain artifacts produced by tools/install.sh --into lib
 lib/l0c
+lib/l0rt.o
 lib/libl0rt.a
 lib/L0.md

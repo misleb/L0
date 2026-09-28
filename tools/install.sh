@@ -8,7 +8,7 @@
 # Produces:
 #   <prefix>/bin/l0              the driver
 #   <prefix>/lib/l0/l0c          the compiler, built from bootstrap/stage2.ll
-#   <prefix>/lib/l0/libl0rt.a    the runtime
+#   <prefix>/lib/l0/l0rt.o       the runtime, as bitcode for link-time optimization
 #   <prefix>/lib/l0/prelude.l0   the standard library, which l0 doc documents
 #   <prefix>/lib/l0/io.l0        line and string I/O, linked like the prelude
 #   <prefix>/lib/l0/test.l0      assertions, linked by l0 test
@@ -59,17 +59,17 @@ fi
 mkdir -p "$LIBDIR" "$BUILD"
 [ -n "$BINDIR" ] && mkdir -p "$BINDIR"
 
+# The runtime is installed as one bitcode object, not an archive: every link
+# passes -flto to optimize a program and the runtime together, and indexing
+# bitcode in an archive needs an ar that understands it, which not every host
+# has. An archive left by an earlier install is removed.
 echo "ll   runtime/l0rt.ll"
-"$CC" -O2 -Wno-override-module -c "$ROOT/runtime/l0rt.ll" -o "$BUILD/l0rt.o"
-# ar adds to an existing archive rather than replacing it, so an archive left
-# by an earlier install would keep its old members. One built on another
-# platform is worse than stale: macOS ar cannot read a GNU symbol table and
-# leaves an archive with no objects in it at all.
+"$CC" -O2 -flto -Wno-override-module -c "$ROOT/runtime/l0rt.ll" -o "$BUILD/l0rt.o"
 rm -f "$LIBDIR/libl0rt.a"
-ar rcs "$LIBDIR/libl0rt.a" "$BUILD/l0rt.o"
+cp "$BUILD/l0rt.o" "$LIBDIR/l0rt.o"
 
 echo "link compiler from bootstrap/stage2.ll"
-"$CC" -O2 -Wno-override-module "$ROOT/bootstrap/stage2.ll" \
+"$CC" -O2 -flto -Wno-override-module "$ROOT/bootstrap/stage2.ll" \
     "$BUILD/l0rt.o" -o "$LIBDIR/l0c"
 
 # In --into mode the destination is usually the repository's own lib/, where

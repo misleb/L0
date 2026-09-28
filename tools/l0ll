@@ -23,5 +23,6 @@ if [ ! -f "$1" ]; then
 fi
 
 # -Wno-override-module: L0 IR deliberately carries no target triple, so clang
-# supplies the host's. See spec section 10.2.
-exec "$CC" -O2 -Wno-override-module "$1" "$BUILD/l0rt.o" -o "$2"
+# supplies the host's. See spec section 10.2. -flto: the runtime is bitcode,
+# and the program and runtime are optimized together (tools/build.sh).
+exec "$CC" -O2 -flto -Wno-override-module "$1" "$BUILD/l0rt.o" -o "$2"

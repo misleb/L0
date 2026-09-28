@@ -80,3 +80,6 @@ would find.
 - [0023](0023-release-at-last-use.md) release a value at its last use — done,
   changelog "A value is released at its last use"
 - [0024](0024-arrays.md) arrays — done, changelog "Arrays"
+- [0027](0027-faster-compiler.md) tooling: a faster compiler — done, changelog
+  "Programs and the runtime are optimized together, and no language change
+  for it"

@@ -7,6 +7,52 @@ New entries go at the top.
 
 ---
 
+## Programs and the runtime are optimized together, and no language change for it
+
+**Every link now passes `-flto`, and the runtime is built as LLVM bitcode,**
+so a program and the runtime are optimized as one: `head`, `tail`,
+`is_empty`, and the reference counting are inlined into the program rather
+than called. **The compiler also builds its table of builtin names once per
+context** instead of re-splitting it at every call site. Together they take
+the compiler on its own source from 181 ms to 93 ms, with byte-identical
+output, and a program heavy in list work, such as Myers' sweep over an array,
+from 0.17 s to 0.08 s. No rule in `spec/L0.md` changed: how the runtime is
+linked is the host toolchain's business.
+
+**How it was found.** Roadmap item 0027 set out to use arrays in the
+compiler. An instrumented build of the compiler (`-fprofile-generate`)
+suggested the compiled L0 was the cost: a third of its blocks reversing lists
+under `append`, a quarter comparing names, and 16% re-splitting builtin word
+tables, since `is_builtin` split seven tables on every call. Building those
+tables once removed 23% of the L0's blocks and changed the time not at all.
+With the runtime instrumented too, the L0 was 16 million of 334 million
+blocks: the rest was the runtime, 22 million increments, 9 million
+allocations, and 55 million calls to `head`, `tail`, and `is_empty`, each a
+call into a separately compiled object that nothing could inline. Linking
+with `-flto` halved the time, and under it the table change is worth a
+quarter.
+
+**What it costs.** Builds are slower, since the whole program is optimized
+again at link time: a small program from 161 ms to 215 ms, the compiler
+itself from 0.5 s to 2.1 s. The compiled suite, which builds every test,
+took the same 105 s as before, faster runs paying for slower builds. The
+user chose this over applying it to the compiler alone.
+
+**Why arrays were not used after all.** The stage-0 interpreter runs the
+compiler's own source for `tools/l0check` and for the interpreted half of
+`tests/compiler`, and it is frozen without arrays, as it is without I/O. Using
+arrays in `compiler/*.l0` or `lib/prelude.l0` would have meant giving up that
+independent run, and the profile showed the largest costs needed no arrays.
+
+**What else changed.** The installed runtime is `lib/l0/l0rt.o`, a bitcode
+object, rather than `libl0rt.a`, since indexing bitcode in an archive needs
+an `ar` that understands it, which not every host has. `tests/io/tail_calls`
+and `prelude_depth`, which build at `-O0` to show that no optimization is
+needed for their guarantees, compile `runtime/l0rt.ll` directly, so that no
+link-time optimization comes in with a bitcode runtime.
+
+---
+
 ## Arrays
 
 **L0 gains `(array T)`,** a second parametric type, and four builtins:

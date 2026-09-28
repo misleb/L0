@@ -9,7 +9,9 @@ exe=$1
 ir=$2
 ROOT=$(cd "$(dirname "$0")/../.." && pwd)
 . "$ROOT/tools/env.sh"
-"$CC" -O0 -Wno-override-module "$ir" "$BUILD/l0rt.o" -o "$exe.O0"
+# The runtime text itself, not build/l0rt.o, whose bitcode would bring
+# link-time optimization in with it.
+"$CC" -O0 -Wno-override-module "$ir" "$ROOT/runtime/l0rt.ll" -o "$exe.O0"
 want=$(printf '1000000\n1000000\n1000000\n500000\n500000500000')
 for build in "$exe.O0" "$exe"; do
     if ! got=$(L0_STACK_MB=1 "$build" 1000000 2>&1); then
