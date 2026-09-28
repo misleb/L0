@@ -1,7 +1,7 @@
 # 0023: Release a value at its last use
 
 Kind: language
-Status: queued
+Status: done, changelog "A value is released at its last use"
 Needs: 0021
 
 ## Why
@@ -44,3 +44,14 @@ redone spec-first in the main tree.
 ## Log
 
 - 2026-09-25: opened from 0021's finding.
+- 2026-09-28: done. The prototype's emitter commit applied to the main tree
+  with its array names removed; section 10.3 states the rule and the
+  operand order as guarantees, and section 8 points there.
+  `tests/lang/last_use` came with it, and with the branch-start release
+  disabled it fails with 14 blocks live, so it guards the rule. The
+  compiler on its own source: 0.29 s and 28.6 MB before, 0.15 s and 21.3 MB
+  after, IR 15% smaller, nothing live under `L0_RC_CHECK`. Committed
+  without the Linux runs, by the user's choice, since Docker was not
+  running; the prototype branch with the same emitter change passed on
+  Linux arm64 and amd64. Run `tools/linux-test.sh` at the next change that
+  touches the emitter or runtime. Next is 0024.

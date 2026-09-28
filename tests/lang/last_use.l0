@@ -1,0 +1,84 @@
+; Shapes that release at last use must count correctly. Stage 0 gives the
+; answers; the compiled suite runs this under L0_RC_CHECK, so a reference
+; released twice or never fails it even when every answer is right.
+
+(data Pair
+  (Pair (list int) (list int)))
+
+(data Tree
+  (Leaf)
+  (Node Tree (list int) Tree))
+
+; A binding used after an inner binding of the same name ends.
+(def shadow_then_outer ((x (list int))) int
+  (add (let x (tail x) (length x)) (length x)))
+
+; The outer binding's last use is in the value of the let that shadows it.
+(def shadow_in_value ((x (list int))) int
+  (let x (cons 9 x) (length x)))
+
+; A branch that does not use a binding releases it as it starts.
+(def one_branch ((c bool) (a (list int)) (b (list int))) int
+  (if c (length a) (length b)))
+
+; A variable given twice, and in a borrowing builtin while still live.
+(def twice ((a (list int))) int
+  (length (cat a a)))
+
+(def cat ((a (list int)) (b (list int))) (list int)
+  (if (is_empty a) b (cons (head a) (cat (tail a) b))))
+
+(def head_then_use ((a (list int))) int
+  (add (head a) (length a)))
+
+; A subject still live after the match is read without a reference, and one
+; arm drops it while another uses it.
+(def subject_live ((p Pair)) int
+  (add (match p ((Pair x y) (length x))) (pair_len p)))
+
+(def subject_dead_in_arm ((t Tree) (keep bool)) int
+  (match t
+    ((Leaf) 0)
+    ((Node l v r) (if keep (add (length v) (size t)) (length v)))))
+
+(def pair_len ((p Pair)) int
+  (match p ((Pair x y) (add (length x) (length y)))))
+
+(def size ((t Tree)) int
+  (match t
+    ((Leaf) 0)
+    ((Node l v r) (add 1 (add (size l) (size r))))))
+
+; A field an arm never uses is never taken.
+(def left_only ((p Pair)) (list int)
+  (match p ((Pair x y) x)))
+
+; A let whose name is never used releases its value at once.
+(def unused_let ((a (list int))) int
+  (let b (cons 1 a) 5))
+
+; A parameter the body never uses.
+(def unused_param ((a (list int)) (n int)) int
+  (add n 1))
+
+; The last use of a variable operand comes after the others.
+(def rebuild ((a (list int))) (list int)
+  (cons (head a) (tail a)))
+
+(def main ((input (list int))) (list int)
+  (let s "abcde"
+    (let t (Node (Node (Leaf) "x" (Leaf)) "yz" (Leaf))
+      (yn (eq (shadow_then_outer s) 9)
+      (yn (eq (shadow_in_value s) 6)
+      (yn (eq (one_branch true s "q") 5)
+      (yn (eq (one_branch false s "q") 1)
+      (yn (eq (twice s) 10)
+      (yn (eq (head_then_use s) 102)
+      (yn (eq (subject_live (Pair s "zz")) 12)
+      (yn (eq (subject_dead_in_arm t true) 4)
+      (yn (eq (subject_dead_in_arm t false) 2)
+      (yn (list_eq (left_only (Pair "l" s)) "l")
+      (yn (eq (unused_let s) 5)
+      (yn (eq (unused_param s 1) 2)
+      (yn (list_eq (rebuild s) s)
+      "\n"))))))))))))))))

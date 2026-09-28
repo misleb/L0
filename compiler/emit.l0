@@ -34,7 +34,7 @@
   (Val (list int) Ty Emit))             ; operand text, type, new state
 
 (data EmitOps
-  (Ops (list (list int)) (list Ty) Emit))   ; operand texts, types, state
+  (Ops (list (list int)) (list Ty) (list bool) Emit))   ; texts, types, owned, state
 
 (data EBind
   (EB (list int) (list int) Ty))        ; L0 name, operand text, type
@@ -140,15 +140,29 @@
 ;
 ; Every value of list or data type an expression produces is an owned
 ; reference, which whoever receives it consumes: a function's parameter, a
-; field of a new block, a let binding, or the function's result. A binding
-; keeps its own reference, so each use of a pointer-typed variable adds one,
-; and the binding's reference is released when its scope ends.
+; field of a new block, a let binding, or the function's result. A binding's
+; own reference lasts until its last use on each path, not until its scope
+; ends:
 ;
-; tl is true in tail position. There every scope enclosing the expression
-; ends with it, so every binding in the environment is released, and before
-; the final call rather than after it: a release after the call would take
-; it out of tail position, and it could no longer be a tail call. The
-; expression then returns its value itself. Spec 8 and 10.3.
+;   live is the set of names used after the expression being emitted, on the
+;   path it is on, each meaning the binding it means there. A use of a
+;   pointer-typed variable not in live is its last, and hands over the
+;   binding's reference; any other use adds one.
+;
+;   So at the start of every expression, the bindings still holding a
+;   reference are exactly the live ones. A binding that becomes dead without
+;   a use is released where that happens: a let or a parameter whose name
+;   the body never uses, at once; one that a branch of an if or match does
+;   not use, as that branch starts; a field an arm never uses is never taken.
+;
+;   Within a call or construction the variable operands are taken after the
+;   others, as spec 10.3 requires, so that in (f xs (g xs)) the last use of
+;   xs is f's, not g's.
+;
+; tl is true in tail position. live is then empty, so every binding has been
+; used or released by the time the value is ready, nothing is released after
+; a call there, and it can be a tail call. The expression returns its value
+; itself. Spec 8 and 10.3.
 
 (def emit_inc ((op (list int)) (st Emit)) Emit
   (emit_line (append "  call void @l0_inc(i64 " (append op ")")) st))
@@ -156,67 +170,106 @@
 (def emit_dec ((op (list int)) (st Emit)) Emit
   (emit_line (append "  call void @l0_dec(i64 " (append op ")")) st))
 
-(def release_all ((binds (list EBind)) (st Emit)) Emit
-  (if (is_empty binds)
-      st
-      (match (head binds)
-        ((EB n op t)
-          (release_all (tail binds)
-            (if (ty_is_ptr t) (emit_dec op st) st))))))
+; Sets of names are lists without repeats.
+(def set_add ((n (list int)) (s (list (list int)))) (list (list int))
+  (if (any_eq n s) s (cons n s)))
 
-; The first n bindings: those a match arm added in front of the rest.
-(def release_n ((binds (list EBind)) (n int) (st Emit)) Emit
-  (if (le n 0)
-      st
-      (match (head binds)
-        ((EB bn op t)
-          (release_n (tail binds) (sub n 1)
-            (if (ty_is_ptr t) (emit_dec op st) st))))))
+(def set_union ((a (list (list int))) (b (list (list int)))) (list (list int))
+  (if (is_empty a) b (set_union (tail a) (set_add (head a) b))))
 
-; A value computed in tail position is followed by releasing every binding,
-; and is then the function's result.
-(def finish ((tl bool) (env Env) (v EmitVal)) EmitVal
-  (if tl
-      (match v
-        ((Val o t s) (emit_ret true (Val o t (release_all (env_binds env) s)))))
-      v))
+(def set_del ((n (list int)) (s (list (list int)))) (list (list int))
+  (if (is_empty s)
+      s
+      (if (list_eq n (head s)) (tail s) (cons (head s) (set_del n (tail s))))))
+
+(def set_del_all ((ns (list (list int))) (s (list (list int)))) (list (list int))
+  (if (is_empty ns) s (set_del_all (tail ns) (set_del (head ns) s))))
+
+; The names in a that are not in b.
+(def set_minus ((a (list (list int))) (b (list (list int)))) (list (list int))
+  (if (is_empty a)
+      a
+      (if (any_eq (head a) b)
+          (set_minus (tail a) b)
+          (cons (head a) (set_minus (tail a) b)))))
+
+; The variables an expression uses that it does not bind itself.
+(def fv ((e Expr)) (list (list int))
+  (fv_onto e (nil (list int))))
+
+(def fv_onto ((e Expr) (acc (list (list int)))) (list (list int))
+  (match e
+    ((EInt o v) acc)
+    ((EBool o v) acc)
+    ((EStr o s) acc)
+    ((ENil o t) acc)
+    ((EVar o n) (set_add n acc))
+    ((EIf o c a b) (fv_onto c (fv_onto a (fv_onto b acc))))
+    ((ELet o n v body) (fv_onto v (set_union (set_del n (fv body)) acc)))
+    ((ECtor o n args) (fv_list args acc))
+    ((EMatch o s arms) (fv_onto s (fv_arms arms acc)))
+    ((ECall o n args) (fv_list args acc))))
+
+(def fv_list ((es (list Expr)) (acc (list (list int)))) (list (list int))
+  (if (is_empty es) acc (fv_list (tail es) (fv_onto (head es) acc))))
+
+(def fv_arms ((arms (list Arm)) (acc (list (list int)))) (list (list int))
+  (if (is_empty arms)
+      acc
+      (fv_arms (tail arms) (set_union (arm_fv (head arms)) acc))))
+
+(def arm_fv ((a Arm)) (list (list int))
+  (match a ((A o cn names body) (set_del_all names (fv body)))))
+
+; Releases each named binding that is a pointer. The names are ones a branch
+; does not use and nothing after it does either.
+(def release_names ((ns (list (list int))) (env Env) (st Emit)) Emit
+  (if (is_empty ns)
+      st
+      (release_names (tail ns) env
+        (if (ty_is_ptr (lookup_type (head ns) (env_binds env)))
+            (emit_dec (lookup_operand (head ns) (env_binds env)) st)
+            st))))
+
+(def finish ((tl bool) (v EmitVal)) EmitVal
+  (emit_ret tl v))
 
 (def emit_ret ((tl bool) (v EmitVal)) EmitVal
   (if tl
       (match v ((Val o t s) (Val o t (emit_line (append "  ret i64 " o) s))))
       v))
 
-(def emit_use ((n (list int)) (env Env) (st Emit)) EmitVal
+(def emit_use ((n (list int)) (env Env) (live (list (list int))) (st Emit))
+    EmitVal
   (let op (lookup_operand n (env_binds env))
     (let t (lookup_type n (env_binds env))
-      (Val op t (if (ty_is_ptr t) (emit_inc op st) st)))))
+      (Val op t (if (and (ty_is_ptr t) (any_eq n live)) (emit_inc op st) st)))))
 
-(def emit_expr ((e Expr) (env Env) (tl bool) (st Emit)) EmitVal
+(def emit_expr ((e Expr) (env Env) (live (list (list int))) (tl bool)
+                (st Emit)) EmitVal
   (match e
-    ((EInt o v) (finish tl env (Val (digits v) (TyInt) st)))
-    ((EBool o v) (finish tl env (Val (if v "1" "0") (TyBool) st)))
-    ((ENil o t) (finish tl env (Val "0" (TyList t) st)))
-    ((EStr o s) (finish tl env (emit_string (rev s) "0" st)))
-    ((EVar o n) (finish tl env (emit_use n env st)))
-    ((EIf o c a b) (emit_if c a b env tl st))
-    ((ELet o n v body) (emit_let n v body env tl st))
-    ((ECtor o n args) (finish tl env (emit_ctor n args env st)))
-    ((EMatch o subject arms) (emit_match subject arms env tl st))
-    ((ECall o n args) (emit_call n args env tl st))))
+    ((EInt o v) (finish tl (Val (digits v) (TyInt) st)))
+    ((EBool o v) (finish tl (Val (if v "1" "0") (TyBool) st)))
+    ((ENil o t) (finish tl (Val "0" (TyList t) st)))
+    ((EStr o s) (finish tl (emit_string (rev s) "0" st)))
+    ((EVar o n) (finish tl (emit_use n env live st)))
+    ((EIf o c a b) (emit_if c a b env live tl st))
+    ((ELet o n v body) (emit_let n v body env live tl st))
+    ((ECtor o n args) (finish tl (emit_ctor n args env live st)))
+    ((EMatch o subject arms) (emit_match subject arms env live tl st))
+    ((ECall o n args) (emit_call n args env live tl st))))
 
 ; A let binds a name to an operand that already exists, and takes over the
-; reference the value came with. Outside tail position it releases that
-; reference after its body; in tail position the body does.
-(def emit_let ((n (list int)) (v Expr) (body Expr) (env Env) (tl bool)
-               (st Emit)) EmitVal
-  (match (emit_expr v env false st)
-    ((Val vv vt st1)
-      (let env2 (env_bind n vv vt env)
-        (if tl
-            (emit_expr body env2 true st1)
-            (match (emit_expr body env2 false st1)
-              ((Val bv bt st2)
-                (Val bv bt (if (ty_is_ptr vt) (emit_dec vv st2) st2)))))))))
+; reference the value came with, releasing it at once if the body never uses
+; the name. Inside the body the name means the new binding, so an outer one
+; of the same name is not what live means there.
+(def emit_let ((n (list int)) (v Expr) (body Expr) (env Env)
+               (live (list (list int))) (tl bool) (st Emit)) EmitVal
+  (let bfv (fv body)
+    (match (emit_expr v env (set_union (set_del n bfv) live) false st)
+      ((Val vv vt st1)
+        (emit_expr body (env_bind n vv vt env) (set_del n live) tl
+          (if (and (ty_is_ptr vt) (not (any_eq n bfv))) (emit_dec vv st1) st1))))))
 
 ; A cons cell's layout mask marks its tail word as a pointer, and its head
 ; word too when the elements are lists or data. Spec 10.1.
@@ -237,10 +290,11 @@
 ; An arm's value goes to the join slot, or in tail position the arm has
 ; returned it already. The arm reports the value's type, which the checker
 ; has proved is the same for every arm.
-(def emit_arm ((lbl (list int)) (e Expr) (slot (list int))
-               (lend (list int)) (env Env) (tl bool) (st Emit)) EmitVal
-  (let st1 (emit_line (append lbl ":") st)
-    (match (emit_expr e env tl st1)
+(def emit_arm ((lbl (list int)) (e Expr) (dead (list (list int)))
+               (slot (list int)) (lend (list int)) (env Env)
+               (live (list (list int))) (tl bool) (st Emit)) EmitVal
+  (let st1 (release_names dead env (emit_line (append lbl ":") st))
+    (match (emit_expr e env live tl st1)
       ((Val v t st2)
         (Val "" t
           (if tl
@@ -252,16 +306,28 @@
 (def emit_slot ((slot (list int)) (tl bool) (st Emit)) Emit
   (if tl st (emit_line (append "  " (append slot " = alloca i64")) st)))
 
-(def emit_if ((c Expr) (a Expr) (b Expr) (env Env) (tl bool) (st Emit))
-    EmitVal
-  (let id (fresh_id st)
-    (let slot (append "%r" id)
-      (let st1 (emit_slot slot tl (bump st))
-        (match (emit_expr c env false st1)
-          ((Val cv ct st2) (emit_if_arms id slot cv a b env tl st2)))))))
+; The names each branch of an if uses, and those it must release as it
+; starts because only the other branch uses them.
+(data Branches
+  (Br (list (list int)) (list (list int))))   ; released in then, in else
+
+(def emit_if ((c Expr) (a Expr) (b Expr) (env Env) (live (list (list int)))
+              (tl bool) (st Emit)) EmitVal
+  (let fa (fv a)
+    (let fb (fv b)
+      (let id (fresh_id st)
+        (let slot (append "%r" id)
+          (let st1 (emit_slot slot tl (bump st))
+            (match (emit_expr c env (set_union fa (set_union fb live)) false st1)
+              ((Val cv ct st2)
+                (emit_if_arms id slot cv a b
+                  (Br (set_minus fb (set_union fa live))
+                      (set_minus fa (set_union fb live)))
+                  env live tl st2)))))))))
 
 (def emit_if_arms ((id (list int)) (slot (list int)) (cv (list int))
-                   (a Expr) (b Expr) (env Env) (tl bool) (st Emit)) EmitVal
+                   (a Expr) (b Expr) (br Branches) (env Env)
+                   (live (list (list int))) (tl bool) (st Emit)) EmitVal
   (let lthen (append "Lt" id)
     (let lelse (append "Le" id)
       (let lend (append "Lx" id)
@@ -270,47 +336,139 @@
             (let st2 (emit_line (append "  br i1 " (append cb
                         (append ", label %" (append lthen
                           (append ", label %" lelse))))) st1)
-              (match (emit_arm lthen a slot lend env tl st2)
-                ((Val x t st3)
-                  (emit_if_join lelse b slot lend t env tl st3))))))))))
+              (match br
+                ((Br da db)
+                  (match (emit_arm lthen a da slot lend env live tl st2)
+                    ((Val x t st3)
+                      (emit_if_join lelse b db slot lend t env live tl st3))))))))))))
 
-(def emit_if_join ((lelse (list int)) (b Expr) (slot (list int))
-                   (lend (list int)) (t Ty) (env Env) (tl bool) (st Emit))
-    EmitVal
-  (let st4 (val_st (emit_arm lelse b slot lend env tl st))
+(def emit_if_join ((lelse (list int)) (b Expr) (db (list (list int)))
+                   (slot (list int)) (lend (list int)) (t Ty) (env Env)
+                   (live (list (list int))) (tl bool) (st Emit)) EmitVal
+  (let st4 (val_st (emit_arm lelse b db slot lend env live tl st))
     (if tl
         (Val "" t st4)
         (let st5 (emit_line (append lend ":") st4)
           (retype (emit_assign (append "load i64, ptr " slot) st5) t)))))
 
-(def emit_args ((args (list Expr)) (env Env) (st Emit)
-                (acc (list (list int))) (tacc (list Ty))) EmitOps
-  (if (is_empty args)
-      (Ops (rev_strs_onto acc (nil (list int))) (rev_tys tacc (nil Ty)) st)
-      (match (emit_expr (head args) env false st)
-        ((Val v t st1)
-          (emit_args (tail args) env st1 (cons v acc) (cons t tacc))))))
+; One operand: its text, its type, and whether it carries a reference the
+; call consumes. Only a borrowing builtin is given operands without one.
+(data EArg
+  (EA (list int) Ty bool))
 
-(def rev_tys ((ts (list Ty)) (acc (list Ty))) (list Ty)
-  (if (is_empty ts) acc (rev_tys (tail ts) (cons (head ts) acc))))
+(data EArgs
+  (EAs (list EArg) Emit))
+
+(data EArgSt
+  (EAS EArg Emit))
+
+; The name of a variable, or "" for any other expression.
+(def var_name ((e Expr)) (list int)
+  (match e
+    ((EVar o n) n)
+    ((EInt o v) "")
+    ((EBool o v) "")
+    ((EStr o s) "")
+    ((ENil o t) "")
+    ((EIf o c a b) "")
+    ((ELet o n v b) "")
+    ((ECtor o n a) "")
+    ((EMatch o s a) "")
+    ((ECall o n a) "")))
+
+(def var_names ((args (list Expr)) (acc (list (list int)))) (list (list int))
+  (if (is_empty args)
+      acc
+      (let n (var_name (head args))
+        (var_names (tail args) (if (is_empty n) acc (set_add n acc))))))
+
+(def fv_nonvars ((args (list Expr)) (acc (list (list int)))) (list (list int))
+  (if (is_empty args)
+      acc
+      (fv_nonvars (tail args)
+        (if (is_empty (var_name (head args))) (fv_onto (head args) acc) acc))))
+
+; Operands that are not variables are evaluated first, left to right, and
+; the variables are taken after them, so each variable's last use is as late
+; as it can be. borrow says the callee reads its operands without consuming
+; them, so a variable still live afterwards is given without a reference.
+(def emit_args ((args (list Expr)) (env Env) (live (list (list int)))
+                (borrow bool) (st Emit)) EmitOps
+  (match (emit_nonvars args env (var_names args live) st (nil EArg))
+    ((EAs nvs st1)
+      (match (emit_vars args env live borrow st1 (nil EArg))
+        ((EAs vs st2)
+          (ops_of (merge_args args nvs vs (nil EArg)) st2))))))
+
+(def emit_nonvars ((args (list Expr)) (env Env) (vlive (list (list int)))
+                   (st Emit) (acc (list EArg))) EArgs
+  (if (is_empty args)
+      (EAs (rev_eargs acc (nil EArg)) st)
+      (if (is_empty (var_name (head args)))
+          (match (emit_expr (head args) env (fv_nonvars (tail args) vlive) false st)
+            ((Val v t st1)
+              (emit_nonvars (tail args) env vlive st1 (cons (EA v t true) acc))))
+          (emit_nonvars (tail args) env vlive st acc))))
+
+(def emit_vars ((args (list Expr)) (env Env) (live (list (list int)))
+                (borrow bool) (st Emit) (acc (list EArg))) EArgs
+  (if (is_empty args)
+      (EAs (rev_eargs acc (nil EArg)) st)
+      (let n (var_name (head args))
+        (if (is_empty n)
+            (emit_vars (tail args) env live borrow st acc)
+            (match (emit_var_arg n env (any_eq n (var_names (tail args) live))
+                                 borrow st)
+              ((EAS a st1) (emit_vars (tail args) env live borrow st1 (cons a acc))))))))
+
+(def emit_var_arg ((n (list int)) (env Env) (later bool) (borrow bool)
+                   (st Emit)) EArgSt
+  (let op (lookup_operand n (env_binds env))
+    (let t (lookup_type n (env_binds env))
+      (if (not (ty_is_ptr t))
+          (EAS (EA op t false) st)
+          (if borrow
+              (EAS (EA op t (not later)) st)
+              (EAS (EA op t true) (if later (emit_inc op st) st)))))))
+
+(def merge_args ((args (list Expr)) (nvs (list EArg)) (vs (list EArg))
+                 (acc (list EArg))) (list EArg)
+  (if (is_empty args)
+      (rev_eargs acc (nil EArg))
+      (if (is_empty (var_name (head args)))
+          (merge_args (tail args) (tail nvs) vs (cons (head nvs) acc))
+          (merge_args (tail args) nvs (tail vs) (cons (head vs) acc)))))
+
+(def rev_eargs ((xs (list EArg)) (acc (list EArg))) (list EArg)
+  (if (is_empty xs) acc (rev_eargs (tail xs) (cons (head xs) acc))))
+
+(def ops_of ((as (list EArg)) (st Emit)) EmitOps
+  (if (is_empty as)
+      (Ops (nil (list int)) (nil Ty) (nil bool) st)
+      (match (ops_of (tail as) st)
+        ((Ops os ts ws st1)
+          (match (head as)
+            ((EA o t w) (Ops (cons o os) (cons t ts) (cons w ws) st1)))))))
 
 (def call_sym ((n (list int)) (env Env)) (list int)
   (fn_sym n (env_prelude env)))
 
-; In tail position the bindings are released after the arguments are
-; evaluated, which took references of their own, and before the call. A call
-; to a function there is a tail call, spec 8, and nothing may come between
-; it and the ret, which a builtin's borrowing does not need.
-(def emit_call ((n (list int)) (args (list Expr)) (env Env) (tl bool)
-                (st Emit)) EmitVal
-  (match (emit_args args env st (nil (list int)) (nil Ty))
-    ((Ops ops ts st1)
-      (let st2 (if tl (release_all (env_binds env) st1) st1)
-        (let t (call_type n ts env)
-          (emit_ret tl
-            (if (is_builtin n)
-                (after_borrow n ops ts (retype (emit_op n ops ts st2) t))
-                (retype (emit_def_call (call_sym n env) ops env tl st2) t))))))))
+(def is_borrowing ((n (list int))) bool
+  (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename open_bytes")))
+
+; A call to a function in tail position is a tail call, spec 8, and nothing
+; may come between it and the ret. Nothing does: live is empty there, so the
+; operands took every reference still held. A builtin's borrowing is not a
+; tail call and may release what it read afterwards.
+(def emit_call ((n (list int)) (args (list Expr)) (env Env)
+                (live (list (list int))) (tl bool) (st Emit)) EmitVal
+  (match (emit_args args env live (is_borrowing n) st)
+    ((Ops ops ts ws st1)
+      (let t (call_type n ts env)
+        (emit_ret tl
+          (if (is_builtin n)
+              (after_borrow n ops ts ws (retype (emit_op n ops ts st1) t))
+              (retype (emit_def_call (call_sym n env) ops env tl st1) t)))))))
 
 (def emit_def_call ((sym (list int)) (ops (list (list int))) (env Env)
                     (tl bool) (st Emit)) EmitVal
@@ -322,22 +480,26 @@
     st))
 
 ; head, tail, is_empty, open_bytes, and the builtins taking paths read their
-; list arguments without consuming them. Their result gains a reference if it is
-; a pointer, and then every argument's reference is released, in order.
+; list arguments without consuming them. Their result gains a reference if it
+; is a pointer, and then each argument that came with a reference is
+; released, in order: every one but a variable still live afterwards, which
+; was read without one.
 (def after_borrow ((n (list int)) (ops (list (list int))) (ts (list Ty))
-                   (v EmitVal)) EmitVal
-  (if (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename open_bytes"))
+                   (ws (list bool)) (v EmitVal)) EmitVal
+  (if (is_borrowing n)
       (match v
         ((Val r t st)
           (Val r t
-            (emit_dec_all ops
+            (emit_dec_owned ops ts ws
               (if (ty_is_ptr t) (emit_inc r st) st)))))
       v))
 
-(def emit_dec_all ((ops (list (list int))) (st Emit)) Emit
+(def emit_dec_owned ((ops (list (list int))) (ts (list Ty)) (ws (list bool))
+                     (st Emit)) Emit
   (if (is_empty ops)
       st
-      (emit_dec_all (tail ops) (emit_dec (head ops) st))))
+      (emit_dec_owned (tail ops) (tail ts) (tail ws)
+        (if (and (head ws) (ty_is_ptr (head ts))) (emit_dec (head ops) st) st))))
 
 ; The type a call returns: fixed for most builtins, following the argument
 ; for cons, head, and tail, and the signature for a function. Spec 6.
@@ -370,13 +532,13 @@
     ((DataFound dd) (data_max_fields dd))
     ((DataMissing) 0)))
 
-(def emit_ctor ((n (list int)) (args (list Expr)) (env Env) (st Emit))
-    EmitVal
+(def emit_ctor ((n (list int)) (args (list Expr)) (env Env)
+                (live (list (list int))) (st Emit)) EmitVal
   (match (find_ctor n (ctx_ctors (env_ctx env)))
     ((CtorMissing) (Val "0" (TyInt) st))
     ((CtorFound ci)
-      (match (emit_args args env st (nil (list int)) (nil Ty))
-        ((Ops ops ts st1) (emit_ctor_block ci ops (env_ctx env) st1))))))
+      (match (emit_args args env live false st)
+        ((Ops ops ts ws st1) (emit_ctor_block ci ops (env_ctx env) st1))))))
 
 ; A data block's layout mask has bit k set when word k is a pointer. Word 0
 ; is the tag, so field i is word i + 1. Spec 10.1.
@@ -410,22 +572,37 @@
 ; Lowered as a switch on the tag into one block per arm, joined through an
 ; alloca. The default block is unreachable because the checker proved the
 ; match exhaustive.
-(def emit_match ((subject Expr) (arms (list Arm)) (env Env) (tl bool)
-                 (st Emit)) EmitVal
-  (let id (fresh_id st)
-    (let slot (append "%m" id)
-      (let st1 (emit_slot slot tl (bump st))
-        (match (emit_expr subject env false st1)
-          ((Val sv svt st2)
-            (emit_match_dispatch id slot sv arms (Mx env tl) st2)))))))
+; A subject that is a variable still live afterwards is read without a
+; reference, since the binding keeps it alive while the arm takes its fields.
+; Any other subject comes with one, which each arm releases once it has.
+(def emit_match ((subject Expr) (arms (list Arm)) (env Env)
+                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
+  (let farms (fv_arms arms (nil (list int)))
+    (let slive (set_union farms live)
+      (let id (fresh_id st)
+        (let slot (append "%m" id)
+          (let st1 (emit_slot slot tl (bump st))
+            (let sn (var_name subject)
+              (if (and (not (is_empty sn)) (any_eq sn slive))
+                  (emit_match_dispatch id slot
+                    (lookup_operand sn (env_binds env)) arms
+                    (Mx env live tl farms false) st1)
+                  (match (emit_expr subject env slive false st1)
+                    ((Val sv svt st2)
+                      (emit_match_dispatch id slot sv arms
+                        (Mx env live tl farms true) st2)))))))))))
 
-; What every arm of one match shares: the environment and whether the match
-; is in tail position.
+; What every arm of one match shares: the environment, what is live after
+; the match, whether it is in tail position, the names any arm uses, and
+; whether the subject came with a reference.
 (data MatchCx
-  (Mx Env bool))
+  (Mx Env (list (list int)) bool (list (list int)) bool))
 
-(def mx_env ((m MatchCx)) Env (match m ((Mx e t) e)))
-(def mx_tl ((m MatchCx)) bool (match m ((Mx e t) t)))
+(def mx_env ((m MatchCx)) Env (match m ((Mx e l t f o) e)))
+(def mx_live ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o) l)))
+(def mx_tl ((m MatchCx)) bool (match m ((Mx e l t f o) t)))
+(def mx_farms ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o) f)))
+(def mx_owned ((m MatchCx)) bool (match m ((Mx e l t f o) o)))
 
 (def arm_label ((id (list int)) (k int)) (list int)
   (append "A" (append id (append "_" (digits k)))))
@@ -477,47 +654,55 @@
         ((Val x at st1)
           (emit_match_arms (tail arms) mx id (add k 1) slot sv lend at st1)))))
 
-; An arm takes a reference to each pointer field it binds, then releases the
-; subject, which may free it now that its fields are held separately.
+; An arm takes a reference to each pointer field its body uses, then
+; releases the subject if it came with a reference, which may free it now
+; that its fields are held separately, and then the bindings only other arms
+; use. The fields' names mean the fields in the body, not whatever they meant
+; after the match.
 (def emit_match_arm ((a Arm) (mx MatchCx) (lbl (list int)) (slot (list int))
                      (sv (list int)) (lend (list int)) (st Emit)) EmitVal
   (match a
     ((A o cn names body)
-      (let st1 (emit_line (append lbl ":") st)
-        (match (emit_field_loads sv names (arm_field_tys cn (mx_env mx)) 0
-                 (mx_env mx) st1)
-          ((EnvSt env2 st2)
-            (match (emit_arm_body body env2 (length_strs names) (mx_tl mx)
-                     (emit_dec sv st2))
-              ((Val v t st3)
-                (Val "" t
-                  (if (mx_tl mx)
-                      st3
-                      (emit_line (append "  br label %" lend)
-                        (emit_store v slot st3))))))))))))
-
-; Outside tail position an arm releases the fields it bound after its body.
-(def emit_arm_body ((body Expr) (env Env) (nfields int) (tl bool) (st Emit))
-    EmitVal
-  (if tl
-      (emit_expr body env true st)
-      (match (emit_expr body env false st)
-        ((Val v t st1) (Val v t (release_n (env_binds env) nfields st1))))))
+      (let bfv (fv body)
+        (let st1 (emit_line (append lbl ":") st)
+          (match (emit_field_loads sv names (arm_field_tys cn (mx_env mx)) 0 bfv
+                   (mx_env mx) st1)
+            ((EnvSt env2 st2)
+              (let st3 (release_names
+                         (set_minus (mx_farms mx)
+                           (set_union (set_del_all names bfv) (mx_live mx)))
+                         (mx_env mx)
+                         (if (mx_owned mx) (emit_dec sv st2) st2))
+                (match (emit_expr body env2 (set_del_all names (mx_live mx))
+                                  (mx_tl mx) st3)
+                  ((Val v t st4)
+                    (Val "" t
+                      (if (mx_tl mx)
+                          st4
+                          (emit_line (append "  br label %" lend)
+                            (emit_store v slot st4))))))))))))))
 
 (def arm_field_tys ((cn (list int)) (env Env)) (list Ty)
   (match (find_ctor cn (ctx_ctors (env_ctx env)))
     ((CtorFound ci) (ctor_fields ci))
     ((CtorMissing) (nil Ty))))
 
+; A field is taken only if the body uses it, and a later field of the same
+; name does not hide it.
 (def emit_field_loads ((sv (list int)) (names (list (list int)))
-                       (fts (list Ty)) (i int) (env Env) (st Emit)) EnvEmit
+                       (fts (list Ty)) (i int) (used (list (list int)))
+                       (env Env) (st Emit)) EnvEmit
   (if (is_empty names)
       (EnvSt env st)
       (match (emit_rt_call "l0_data_get" (two_ops sv (digits i)) st)
         ((Val f ft st1)
-          (emit_field_loads sv (tail names) (tail fts) (add i 1)
+          (emit_field_loads sv (tail names) (tail fts) (add i 1) used
             (env_bind (head names) f (head fts) env)
-            (if (ty_is_ptr (head fts)) (emit_inc f st1) st1))))))
+            (if (and (ty_is_ptr (head fts))
+                     (and (any_eq (head names) used)
+                          (not (any_eq (head names) (tail names)))))
+                (emit_inc f st1)
+                st1))))))
 
 ; ---------------------------------------------------------------- builtins
 
@@ -773,12 +958,19 @@
                      (emit_entry n ps k sc st))
             (let st2 (emit_line "  call void @l0_stack_check()"
                        (emit_line "entry:" st1))
-              (emit_line ""
-                (emit_line "}"
-                  (val_st (emit_expr body
-                            (Ev (param_binds ps 0 (nil EBind)) (sc_ctx sc)
-                                (sc_prelude_names sc) (sc_pads sc))
-                            true st2)))))))))))
+              (let env (Ev (param_binds ps 0 (nil EBind)) (sc_ctx sc)
+                           (sc_prelude_names sc) (sc_pads sc))
+                (emit_line ""
+                  (emit_line "}"
+                    (val_st (emit_expr body env (nil (list int)) true
+                              (release_names
+                                (set_minus (param_names ps) (fv body))
+                                env st2)))))))))))))
+
+(def param_names ((ps (list Param))) (list (list int))
+  (if (is_empty ps)
+      (nil (list int))
+      (match (head ps) ((P n t) (cons n (param_names (tail ps)))))))
 
 ; The runtime calls every main as @l0_f_main with one argument, whatever the
 ; body's prototype, and a main that takes no parameters ignores it. Prelude

@@ -7,6 +7,58 @@ New entries go at the top.
 
 ---
 
+## A value is released at its last use
+
+**A binding's reference now lasts until its last use on each path, not until
+its scope ends** (section 10.3). The last use hands the reference over
+instead of adding one; a binding a path stops needing without using it is
+released where that happens; a borrowing builtin or a `match` reads a
+variable still used later without any reference; and a call takes its
+variable operands after its other operands. Section 10.3 states all of it as
+guarantees, and section 8 points there. No syntax changed and no program's
+output can differ.
+
+**The blocker.** Roadmap item 0021's prototype of arrays found that under the
+old rule an array threaded through a loop always had a count of 2 when it was
+updated, the loop's binding holding one reference and the update's operand
+the other, so an update that could have been in place copied the whole
+array: Myers' diff at D = 10,000 took 77 s with arrays against 1.37 s with
+lists. Under this rule it takes 0.156 s and copies nothing. Arrays are 0024;
+this goes first because they are not worth having without it.
+
+It also pays for itself now. On the compiler's own source, the previous
+compiler takes 0.29 s and 28.6 MB and this one 0.15 s and 21.3 MB. The IR it
+emits for itself is 15% smaller, 919,626 bytes against 781,034, with 1,157
+increments instead of 3,402 and 1,238 releases instead of 3,751; its 364 tail
+calls are unchanged. Nothing is reported live under `L0_RC_CHECK`.
+
+**Why this is not 0013 again.** 0013 built the cheapest version, a variable
+used once and outside any branch, and measured nothing, since its target was
+the input list a whole-input `main` is given, which no release rule can
+shrink. This rule reaches through `if` and `match`, and borrows without a
+reference, and its target is a count of exactly 1 at the moment of an update,
+which the old rule could never give.
+
+**Why the operand order is part of it.** In `(array_set a i (add (array_get
+a i) 1))`, left to right would make `array_get`'s the last use of `a`, and
+`array_set` would copy. Taking variables after the other operands is
+unobservable, since reading a variable can neither do I/O nor fail, which
+section 8 already allowed an implementation to move; but whether a loop
+runs in constant or linear time per update cannot be left to a freedom, so
+section 10.3 now requires it, as section 8 requires tail calls.
+
+**How the compiler knows a use is the last.** The emitter carries the set of
+names used after the expression it is emitting, on its path, and a use not in
+it is the last. A `let` or an arm removes its own names from that set inside
+its body, which is what keeps shadowing right. Free variables are recomputed
+where they are needed rather than stored in the tree, which costs about 3% of
+the compiler's time and is repaid many times by the compiler's own code
+being compiled under the rule. `release_all`, which released every binding
+before a tail call, is gone: in tail position nothing is used afterwards, so
+everything has already been handed over or released.
+
+---
+
 ## Handles that read from and write to memory
 
 **L0 gains `open_bytes`, `open_buffer`, and `buffer_bytes`** (section 6.3).

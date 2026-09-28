@@ -13,9 +13,7 @@ first, then arrays; nested update and packed bytes wait for programs.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0023](0023-release-at-last-use.md) release a value at its last use —
-   queued, next
-2. [0024](0024-arrays.md) arrays — queued, needs 0023
+1. [0024](0024-arrays.md) arrays — queued, next
 
 ## Other open items
 
@@ -77,3 +75,5 @@ Changes to the language, strictly in order. At most one is active.
 - [0021](0021-arrays-route.md) research: how L0 gets arrays, compact bytes,
   and in-place update — done; the release rule first (0023), then arrays
   (0024)
+- [0023](0023-release-at-last-use.md) release a value at its last use — done,
+  changelog "A value is released at its last use"

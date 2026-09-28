@@ -295,9 +295,10 @@ as `IoFile`, are reserved for the standard library, so name your own types
 something else.
 
 **Memory is reclaimed by reference counting**, with nothing for you to do, but
-how you write a program decides how much it holds. A value is freed when the
-scope that bound it ends, not at its last use, and a loop in tail position
-frees each iteration's garbage before the next. So:
+how you write a program decides how much it holds. A value is freed at the
+last use of the last name that held it, on each path through a function, not
+when that name's scope ends, and a loop in tail position frees each
+iteration's garbage before the next. So:
 
 - to process a large input, use the streaming `main` and read it a line or a
   byte at a time; that runs in constant memory however long the input is
