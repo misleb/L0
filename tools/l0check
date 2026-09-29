@@ -42,8 +42,9 @@ fi
 
 COMPILER_SOURCES="lib/prelude.l0 compiler/lex.l0 compiler/parse.l0 compiler/check.l0 compiler/emit.l0 compiler/main.l0"
 
-IN=$(mktemp "${TMPDIR:-/tmp}/l0check-in.XXXXXX")
-OUT=$(mktemp "${TMPDIR:-/tmp}/l0check-out.XXXXXX")
+mkdir -p "$ROOT/tmp"
+IN=$(mktemp "$ROOT/tmp/l0check-in.XXXXXX")
+OUT=$(mktemp "$ROOT/tmp/l0check-out.XXXXXX")
 trap 'rm -f "$IN" "$OUT"' EXIT
 
 # Paths are recorded as given, before changing directory, so diagnostics name

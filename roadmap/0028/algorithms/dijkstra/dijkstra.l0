@@ -1,0 +1,342 @@
+; dijkstra.l0 -- shortest distances in a weighted directed graph, by
+; Dijkstra's algorithm with a binary heap stored in an array.
+;
+; Input lines are edges "FROM TO WEIGHT" or queries "FROM TO", as in 0014's
+; paths. A query answers over the edges read before it. Names are interned in
+; a hash table in arrays; edges are kept in three growable arrays and turned
+; into compressed rows (CSR) the first time a query needs them after new
+; edges arrive. The heap has no decrease-key: a node is pushed again when its
+; distance improves, and stale entries are skipped as they surface.
+
+; ------------------------------------------------------------ growable arrays
+
+(def push_at ((arr (array int)) (n int) (x int)) (array int)
+  (if (lt n (array_len arr))
+      (array_set arr n x)
+      (array_set (grow arr (add 1 (mul 2 (array_len arr)))) n x)))
+
+; arr copied into a new array of length len, padded with zeros.
+(def grow ((arr (array int)) (len int)) (array int)
+  (copy_ints arr (array_new len 0) 0))
+
+(def copy_ints ((src (array int)) (dst (array int)) (i int)) (array int)
+  (if (ge i (array_len src))
+      dst
+      (copy_ints src (array_set dst i (array_get src i)) (add i 1))))
+
+; ---------------------------------------------------------------- the names
+
+; Open addressing with linear probing: the name in each slot, its node id or
+; -1 for an empty slot, and how many names there are, which is also the
+; number of nodes.
+(data Names
+  (Names (array (list int)) (array int) int))
+
+(def names_new ((cap int)) Names
+  (Names (array_new cap (nil int)) (array_new cap -1) 0))
+
+(def name_hash ((s (list int)) (h int)) int
+  (if (is_empty s)
+      h
+      (name_hash (tail s) (mod (add (mul h 31) (head s)) 1000000007))))
+
+; The slot holding name, or the empty slot where it would go.
+(def slot_of ((keys (array (list int))) (ids (array int)) (name (list int))
+              (i int)) int
+  (if (lt (array_get ids i) 0)
+      i
+      (if (list_eq (array_get keys i) name)
+          i
+          (slot_of keys ids name (mod (add i 1) (array_len ids))))))
+
+(def home ((ids (array int)) (name (list int))) int
+  (mod (name_hash name 0) (array_len ids)))
+
+(def name_id ((t Names) (name (list int))) int
+  (match t
+    ((Names keys ids n) (array_get ids (slot_of keys ids name (home ids name))))))
+
+; t with name added as node n, the next id. name must not be there already.
+(def name_add ((t Names) (name (list int))) Names
+  (match (roomy t)
+    ((Names keys ids n)
+      (let s (slot_of keys ids name (home ids name))
+        (Names (array_set keys s name) (array_set ids s n) (add n 1))))))
+
+; t, doubled and rehashed if it is half full.
+(def roomy ((t Names)) Names
+  (match t
+    ((Names keys ids n)
+      (if (lt (mul 2 (add n 1)) (array_len ids))
+          (Names keys ids n)
+          (rehash keys ids (names_new (mul 2 (array_len ids))) 0 n)))))
+
+(def rehash ((keys (array (list int))) (ids (array int)) (t Names) (i int)
+             (n int)) Names
+  (if (ge i (array_len ids))
+      t
+      (if (lt (array_get ids i) 0)
+          (rehash keys ids t (add i 1) n)
+          (rehash keys ids (put t (array_get keys i) (array_get ids i)) (add i 1) n))))
+
+(def put ((t Names) (name (list int)) (id int)) Names
+  (match t
+    ((Names keys ids n)
+      (let s (slot_of keys ids name (home ids name))
+        (Names (array_set keys s name) (array_set ids s id) (add n 1))))))
+
+(def names_count ((t Names)) int
+  (match t ((Names keys ids n) n)))
+
+; A table that has the name, and its id there.
+(data Interned
+  (Interned Names int))
+
+(def intern ((t Names) (name (list int))) Interned
+  (let id (name_id t name)
+    (if (ge id 0)
+        (Interned t id)
+        (let n (names_count t)
+          (Interned (name_add t name) n)))))
+
+; ---------------------------------------------------------------- the graph
+
+; Compressed rows: node u's edges are targets and weights at start[u] to
+; start[u + 1], built from the first `edges` edges read.
+(data Csr
+  (Csr (array int) (array int) (array int) int))
+
+; The names, each edge's from, to, and weight, how many edges, and the rows.
+(data Graph
+  (Graph Names (array int) (array int) (array int) int Csr))
+
+(def empty_graph () Graph
+  (Graph (names_new 16) (array_new 16 0) (array_new 16 0) (array_new 16 0) 0
+         (Csr (array_new 1 0) (array_new 0 0) (array_new 0 0) 0)))
+
+(def add_edge ((g Graph) (from (list int)) (to (list int)) (w int)) Graph
+  (match g
+    ((Graph names fs ts ws m csr)
+      (match (intern names from)
+        ((Interned t1 a)
+          (match (intern t1 to)
+            ((Interned t2 b)
+              (Graph t2 (push_at fs m a) (push_at ts m b) (push_at ws m w)
+                     (add m 1) csr))))))))
+
+; g with rows covering every edge read.
+(def ready ((g Graph)) Graph
+  (match g
+    ((Graph names fs ts ws m csr)
+      (match csr
+        ((Csr start tos wts edges)
+          (if (eq edges m)
+              (Graph names fs ts ws m (Csr start tos wts edges))
+              (Graph names fs ts ws m
+                     (build_csr fs ts ws m (names_count names)))))))))
+
+; Counting sort of the edges by their from node.
+(def build_csr ((fs (array int)) (ts (array int)) (ws (array int)) (m int)
+                (n int)) Csr
+  (let start (prefix (degrees fs m 0 (array_new (add n 1) 0)) 0 0)
+    (place fs ts ws m 0 (copy_ints start (array_new (add n 1) 0) 0) start
+           (array_new m 0) (array_new m 0))))
+
+; deg[u + 1] is how many edges leave u.
+(def degrees ((fs (array int)) (m int) (i int) (deg (array int))) (array int)
+  (if (ge i m)
+      deg
+      (let k (add (array_get fs i) 1)
+        (degrees fs m (add i 1) (array_set deg k (add (array_get deg k) 1))))))
+
+(def prefix ((a (array int)) (i int) (sum int)) (array int)
+  (if (ge i (array_len a))
+      a
+      (let s (add sum (array_get a i))
+        (prefix (array_set a i s) (add i 1) s))))
+
+; Each edge i goes at next[from], which then moves on.
+(def place ((fs (array int)) (ts (array int)) (ws (array int)) (m int) (i int)
+            (next (array int)) (start (array int)) (tos (array int))
+            (wts (array int))) Csr
+  (if (ge i m)
+      (Csr start tos wts m)
+      (let u (array_get fs i)
+        (let at (array_get next u)
+          (place fs ts ws m (add i 1) (array_set next u (add at 1)) start
+                 (array_set tos at (array_get ts i))
+                 (array_set wts at (array_get ws i)))))))
+
+; ----------------------------------------------------------------- the heap
+
+; A binary min-heap of (distance, node) entries, entry k at 2k and 2k + 1 of
+; one int array, since there is no pair type to make an array of. The size is
+; kept by the caller: push returns the heap one larger, pop one smaller.
+
+(def heap_push ((h (array int)) (size int) (d int) (u int)) (array int)
+  (let room (if (lt (mul 2 size) (array_len h))
+                h
+                (grow h (mul 2 (array_len h))))
+    (sift_up (array_set (array_set room (mul 2 size) d) (add (mul 2 size) 1) u)
+             size)))
+
+(def sift_up ((h (array int)) (i int)) (array int)
+  (if (eq i 0)
+      h
+      (let p (div (sub i 1) 2)
+        (if (le (array_get h (mul 2 p)) (array_get h (mul 2 i)))
+            h
+            (sift_up (swap h i p) p)))))
+
+(def swap ((h (array int)) (i int) (j int)) (array int)
+  (let di (array_get h (mul 2 i))
+    (let ui (array_get h (add (mul 2 i) 1))
+      (let dj (array_get h (mul 2 j))
+        (let uj (array_get h (add (mul 2 j) 1))
+          (array_set (array_set (array_set (array_set h (mul 2 i) dj)
+                                           (add (mul 2 i) 1) uj)
+                                (mul 2 j) di)
+                     (add (mul 2 j) 1) ui))))))
+
+; h without its least entry; size is the size before.
+(def heap_pop ((h (array int)) (size int)) (array int)
+  (let last (sub size 1)
+    (let d (array_get h (mul 2 last))
+      (let u (array_get h (add (mul 2 last) 1))
+        (sift_down (array_set (array_set h 0 d) 1 u) 0 last)))))
+
+(def sift_down ((h (array int)) (i int) (size int)) (array int)
+  (let l (add (mul 2 i) 1)
+    (let r (add l 1)
+      (let a (if (if (lt l size) (lt (array_get h (mul 2 l)) (array_get h (mul 2 i))) false)
+                 l i)
+        (let b (if (if (lt r size) (lt (array_get h (mul 2 r)) (array_get h (mul 2 a))) false)
+                   r a)
+          (if (eq b i)
+              h
+              (sift_down (swap h i b) b size)))))))
+
+; ------------------------------------------------------------------ Dijkstra
+
+(def infinity () int 9223372036854775807)
+
+; The shortest distance from node a to node b over rows c of n nodes, or -1.
+(def shortest_ids ((c Csr) (n int) (a int) (b int)) int
+  (match c
+    ((Csr start tos wts edges)
+      (search start tos wts (array_set (array_new n (infinity)) a 0)
+              (heap_push (array_new 32 0) 0 0 a) 1 b))))
+
+(def search ((start (array int)) (tos (array int)) (wts (array int))
+             (dist (array int)) (h (array int)) (size int) (target int)) int
+  (if (eq size 0)
+      -1
+      (let d (array_get h 0)
+        (let u (array_get h 1)
+          (if (eq u target)
+              d
+              (if (gt d (array_get dist u))
+                  (search start tos wts dist (heap_pop h size) (sub size 1) target)
+                  (relax start tos wts dist (heap_pop h size) (sub size 1) target
+                         d (array_get start u) (array_get start (add u 1)))))))))
+
+; Relaxes edges e to end, which leave a node settled at distance d.
+(def relax ((start (array int)) (tos (array int)) (wts (array int))
+            (dist (array int)) (h (array int)) (size int) (target int)
+            (d int) (e int) (end int)) int
+  (if (ge e end)
+      (search start tos wts dist h size target)
+      (let v (array_get tos e)
+        (let nd (add d (array_get wts e))
+          (if (lt nd (array_get dist v))
+              (relax start tos wts (array_set dist v nd) (heap_push h size nd v)
+                     (add size 1) target d (add e 1) end)
+              (relax start tos wts dist h size target d (add e 1) end))))))
+
+; The shortest distance between two names, or -1. g must be ready.
+(def shortest ((g Graph) (from (list int)) (to (list int))) int
+  (if (list_eq from to)
+      0
+      (match g
+        ((Graph names fs ts ws m csr)
+          (let a (name_id names from)
+            (let b (name_id names to)
+              (if (if (lt a 0) true (lt b 0))
+                  -1
+                  (shortest_ids csr (names_count names) a b))))))))
+
+; ------------------------------------------------------------------- a line
+
+; The graph after one line, and what the line writes; or why it is malformed.
+(data Stepped
+  (Stepped Graph (list int))
+  (Bad (list int)))
+
+(def step ((g Graph) (line (list int))) Stepped
+  (let fs (split_fields line)
+    (let n (count_fields fs 0)
+      (if (eq n 0)
+          (Stepped g (nil int))
+          (if (eq n 2)
+              (let r (ready g)
+                (Stepped r (answer (shortest r (head fs) (head (tail fs))))))
+              (if (eq n 3)
+                  (edge_line g fs)
+                  (Bad "expected FROM TO WEIGHT or FROM TO")))))))
+
+(def edge_line ((g Graph) (fs (list (list int)))) Stepped
+  (let w (weight_of (head (tail (tail fs))))
+    (if (lt w 0)
+        (Bad "weight must be a whole number of at most 12 digits")
+        (Stepped (add_edge g (head fs) (head (tail fs)) w) (nil int)))))
+
+(def answer ((d int)) (list int)
+  (if (lt d 0) "unreachable\n" (append (digits d) "\n")))
+
+(def count_fields ((fs (list (list int))) (n int)) int
+  (if (is_empty fs) n (count_fields (tail fs) (add n 1))))
+
+; The fields of s, separated by spaces, tabs, and carriage returns.
+(def split_fields ((s (list int))) (list (list int))
+  (rev_strs_onto (fields_onto s (nil int) (nil (list int))) (nil (list int))))
+
+(def fields_onto ((s (list int)) (cur (list int)) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty s)
+      (field_done cur acc)
+      (if (is_space (head s))
+          (fields_onto (tail s) (nil int) (field_done cur acc))
+          (fields_onto (tail s) (cons (head s) cur) acc))))
+
+(def field_done ((cur (list int)) (acc (list (list int)))) (list (list int))
+  (if (is_empty cur) acc (cons (rev cur) acc)))
+
+(def weight_of ((s (list int))) int
+  (if (gt (length s) 12)
+      -1
+      (if (all_digits s) (int_prefix s 0) -1)))
+
+(def all_digits ((s (list int))) bool
+  (if (is_empty s)
+      true
+      (if (is_digit (head s)) (all_digits (tail s)) false)))
+
+; ------------------------------------------------------------ whole inputs
+
+; Everything a whole input writes, or the first error with its line number,
+; for tests.
+(def run_text ((text (list int))) (list int)
+  (run_lines (empty_graph) text 1 (nil int)))
+
+(def run_lines ((g Graph) (text (list int)) (lineno int) (acc (list int)))
+    (list int)
+  (if (is_empty text)
+      (rev acc)
+      (match (step g (take_line text))
+        ((Stepped g2 out)
+          (run_lines g2 (drop_line text) (add lineno 1) (push out acc)))
+        ((Bad msg)
+          (rev (push (error_text lineno msg) acc))))))
+
+(def error_text ((lineno int) (msg (list int))) (list int)
+  (append "dijkstra: line " (append (digits lineno) (append ": " (append msg "\n")))))

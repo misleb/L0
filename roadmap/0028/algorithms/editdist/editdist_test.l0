@@ -1,0 +1,109 @@
+; editdist_test.l0 -- tests of editdist.l0: l0 test editdist.l0 editdist_test.l0
+
+(def arr ((s (list int))) (array int) (array_of_list s))
+
+(def dist ((x (list int)) (y (list int))) int (distance (arr x) (arr y)))
+
+(def test_classic () int
+  (add (check_int "kitten sitting" (dist "kitten" "sitting") 3)
+       (check_int "flaw lawn" (dist "flaw" "lawn") 2)))
+
+(def test_empty () int
+  (add (check_int "both" (dist "" "") 0)
+       (add (check_int "first" (dist "" "abc") 3)
+            (check_int "second" (dist "abcd" "") 4))))
+
+(def test_equal_and_disjoint () int
+  (add (check_int "equal" (dist "same text" "same text") 0)
+       (check_int "disjoint" (dist "aaaa" "bbb") 4)))
+
+(def test_align_kitten () int
+  (check_str "ops" (align (arr "kitten") (arr "sitting")) "SMMMSMI"))
+
+(def test_read_all () int
+  (match (open_in_bytes "ab\ncd")
+    ((IoOpened f)
+      (let a (read_all f)
+        (let c (file_close f)
+          (add (check_int "length" (array_len a) 5)
+               (check_int "last" (array_get a 4) 100)))))
+    ((IoFailed why) (fail_because "open" why))))
+
+(def test_report () int
+  (check_str "with ops" (report (arr "ab") (arr "b") true) "distance 1\nDM\n"))
+
+; ------------------------------------------------------------ properties
+
+; b produced by applying ops to a, or "!" if the script is not valid for a
+; and b: an M must pair equal bytes, and every byte of both must be used.
+(def apply ((ops (list int)) (a (array int)) (b (array int)) (i int) (j int)
+            (acc (list int))) (list int)
+  (if (is_empty ops)
+      (if (if (eq i (array_len a)) (eq j (array_len b)) false) (rev acc) "!")
+      (let op (head ops)
+        (if (eq op 68)
+            (if (lt i (array_len a)) (apply (tail ops) a b (add i 1) j acc) "!")
+            (if (ge j (array_len b))
+                "!"
+                (if (eq op 73)
+                    (apply (tail ops) a b i (add j 1) (cons (array_get b j) acc))
+                    (if (ge i (array_len a))
+                        "!"
+                        (if (if (eq op 77) (not (eq (array_get a i) (array_get b j))) false)
+                            "!"
+                            (apply (tail ops) a b (add i 1) (add j 1)
+                                   (cons (array_get b j) acc))))))))))
+
+(def list_of ((a (array int)) (i int) (acc (list int))) (list int)
+  (if (lt i 0) acc (list_of a (sub i 1) (cons (array_get a i) acc))))
+
+(def valid ((ops (list int)) (a (array int)) (b (array int))) bool
+  (list_eq (apply ops a b 0 0 (nil int)) (list_of b (sub (array_len b) 1) (nil int))))
+
+; The distance by the definition, exponentially, for tiny strings.
+(def naive ((x (list int)) (y (list int))) int
+  (if (is_empty x)
+      (length y)
+      (if (is_empty y)
+          (length x)
+          (min_int (add (naive (tail x) (tail y)) (if (eq (head x) (head y)) 0 1))
+                   (min_int (add 1 (naive (tail x) y)) (add 1 (naive x (tail y))))))))
+
+(def small_string ((s int) (n int) (k int)) (list int)
+  (if (eq n 0) (nil int) (cons (add 97 (rand_below s k)) (small_string (rand_next s) (sub n 1) k))))
+
+; Failures over trials random pairs of lengths below len over k letters.
+(def agree ((trials int) (s int) (len int) (k int) (use_naive bool) (fails int)) int
+  (if (eq trials 0)
+      fails
+      (let s1 (rand_next s)
+        (let s2 (rand_next s1)
+          (let x (small_string s1 (rand_below s len) k)
+            (let y (small_string s2 (rand_below s2 len) k)
+              (agree (sub trials 1) (rand_next s2) len k use_naive
+                     (add fails (if (pair_ok x y use_naive) 0 1)))))))))
+
+(def pair_ok ((x (list int)) (y (list int)) (use_naive bool)) bool
+  (let a (arr x)
+    (let b (arr y)
+      (let d (distance a b)
+        (let h (align a b)
+          (let f (align_full a b)
+            (if (not (valid h a b))
+                false
+                (if (not (valid f a b))
+                    false
+                    (if (not (eq (script_cost h 0) d))
+                        false
+                        (if (not (eq (script_cost f 0) d))
+                            false
+                            (if use_naive (eq (naive x y) d) true)))))))))))
+
+(def test_agrees_with_naive () int
+  (check_int "disagreements, 400 pairs up to 7 bytes" (agree 400 5 8 3 true 0) 0))
+
+(def test_hirschberg_and_full_table () int
+  (check_int "disagreements, 200 pairs up to 60 bytes" (agree 200 11 61 4 false 0) 0))
+
+(def test_two_letter_long () int
+  (check_int "disagreements, 30 pairs up to 400 bytes" (agree 30 23 401 2 false 0) 0))

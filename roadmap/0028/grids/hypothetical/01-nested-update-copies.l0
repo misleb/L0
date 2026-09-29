@@ -1,0 +1,37 @@
+; Hypothetical: what maze/maze.l0's rows mode would have been written as if
+; an array held in another array could be updated without copying it. Does
+; not check: array_set2 does not exist.
+;
+; The shape of the builtin is the open question 0025 records. Three that
+; would serve this program, in order of how little they add:
+;
+;   (array_set2 g y x v)      one level deeper than array_set, element type
+;                             (array T) inside (array (array T)); covers
+;                             grids, which is every nested use in this round
+;   (array_take g y r)        g with r in slot y, returning ... what? It must
+;                             return the old element and the new array, and
+;                             without a pair type it cannot
+;   the release rule taking g's hold when (array_get g y) is the argument of
+;                             an array_set whose result goes straight back
+;                             into slot y of g: no new syntax, but a pattern
+;                             the compiler must recognize, which a reader
+;                             cannot see
+;
+; array_set2 is written here.
+
+(def set2 ((g (array (array int))) (w int) (u int) (v int)) (array (array int))
+  (array_set2 g (div u w) (mod u w) v))
+
+(def get2 ((g (array (array int))) (w int) (u int)) int
+  (array_get (array_get g (div u w)) (mod u w)))
+
+(def expand_rows ((cells (array (array int))) (w int) (h int)
+                  (dist (array (array int))) (queue (array int))
+                  (qh int) (qt int) (e int) (u int) (k int)) int
+  (if (eq k 4)
+      (bfs_rows cells w h dist queue (add qh 1) qt e)
+      (let v (neighbour u k w h)
+        (if (if (lt v 0) true (if (eq (get2 cells w v) 1) true (ge (get2 dist w v) 0)))
+            (expand_rows cells w h dist queue qh qt e u (add k 1))
+            (expand_rows cells w h (set2 dist w v (add (get2 dist w u) 1))
+                         (array_set queue qt v) qh (add qt 1) e u (add k 1))))))

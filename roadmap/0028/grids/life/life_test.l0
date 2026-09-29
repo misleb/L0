@@ -1,0 +1,130 @@
+; Tests of life.l0: l0 test life.l0 life_test.l0
+
+(def parse_str ((s (list int))) Parsed
+  (match (open_in_bytes s)
+    ((IoFailed why) (ParseBad why))
+    ((IoOpened f) (let g (read_grid f) (let c (file_close f) g)))))
+
+(def show ((g Grid)) (list int)
+  (match (open_out_buffer)
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (let w (write_grid f g)
+        (let s (buffer_contents f)
+          (let c (file_close f) s))))))
+
+; The board s after n generations in mode, as text, or the parse error.
+(def after ((s (list int)) (n int) (mode (list int))) (list int)
+  (match (parse_str s)
+    ((ParseBad why) why)
+    ((Parsed g) (show (life g n mode)))))
+
+(def blinker () (list int) ".....\n..#..\n..#..\n..#..\n.....\n")
+(def blinker2 () (list int) ".....\n.....\n.###.\n.....\n.....\n")
+(def glider () (list int) ".#....\n..#...\n###...\n......\n......\n......\n")
+
+(def test_parse_size () int
+  (match (parse_str (glider))
+    ((ParseBad why) (fail_because "parse" why))
+    ((Parsed g)
+      (match g
+        ((Grid w h cells)
+          (add (check_int "width" w 6)
+            (add (check_int "height" h 6)
+                 (check_int "population" (population g) 5))))))))
+
+(def test_parse_no_final_newline () int
+  (check_str "last row kept" (after "#.\n.#" 0 "flat") "#.\n.#\n"))
+
+(def test_parse_crlf_and_blank_lines () int
+  (check_str "ignored" (after "\n#.\r\n\n.#\r\n\n" 0 "flat") "#.\n.#\n"))
+
+(def test_parse_ragged () int
+  (check_str "ragged" (after "..\n...\n" 0 "flat") "row 2 has 3 cells, not 2"))
+
+(def test_parse_ragged_last () int
+  (check_str "ragged last" (after "..\n." 0 "flat") "row 2 has 1 cells, not 2"))
+
+(def test_parse_bad_byte () int
+  (check_str "bad byte" (after "..\n.x\n" 0 "flat") "unexpected byte on row 2"))
+
+(def test_parse_empty () int
+  (add (check_str "nothing" (after "" 0 "flat") "empty board")
+       (check_str "blank lines" (after "\n\n" 0 "flat") "empty board")))
+
+; A board longer than read_grid's first 1024 cells, so the room doubles.
+(def test_parse_grows () int
+  (let row (rand_line 7 100)
+    (check_str "2000 cells" (after (repeat_line row 20 (nil int)) 0 "flat")
+               (repeat_line row 20 (nil int)))))
+
+(def rand_line ((s int) (n int)) (list int)
+  (rev (cons 10 (rand_cells s n (nil int)))))
+
+(def rand_cells ((s int) (n int) (acc (list int))) (list int)
+  (if (eq n 0)
+      acc
+      (rand_cells (rand_next s) (sub n 1)
+                  (cons (if (eq (rand_below s 3) 0) 35 46) acc))))
+
+(def repeat_line ((row (list int)) (n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (repeat_line row (sub n 1) (append row acc))))
+
+(def test_blinker_flat () int
+  (add (check_str "1" (after (blinker) 1 "flat") (blinker2))
+       (check_str "2" (after (blinker) 2 "flat") (blinker))))
+
+(def test_blinker_rows () int
+  (add (check_str "1" (after (blinker) 1 "rows") (blinker2))
+       (check_str "2" (after (blinker) 2 "rows") (blinker))))
+
+(def test_blinker_reuse () int
+  (add (check_str "1" (after (blinker) 1 "rows-reuse") (blinker2))
+       (check_str "3" (after (blinker) 3 "rows-reuse") (blinker2))))
+
+(def test_block_still () int
+  (check_str "block" (after "....\n.##.\n.##.\n....\n" 5 "flat")
+             "....\n.##.\n.##.\n....\n"))
+
+; A glider moves one cell diagonally every 4 generations, so on a 6 by 6
+; torus it is back where it started after 24, having crossed every edge.
+(def test_glider_wraps_flat () int
+  (add (check_str "moved" (after (glider) 4 "flat")
+                  "......\n..#...\n...#..\n.###..\n......\n......\n")
+       (check_str "home" (after (glider) 24 "flat") (glider))))
+
+(def test_glider_wraps_rows () int
+  (check_str "home" (after (glider) 24 "rows") (glider)))
+
+(def test_glider_wraps_reuse () int
+  (check_str "home" (after (glider) 24 "rows-reuse") (glider)))
+
+(def test_zero_generations () int
+  (check_str "unchanged" (after (glider) 0 "rows") (glider)))
+
+(def test_one_by_one () int
+  (add (check_str "alone dies" (after "#\n" 1 "flat") ".\n")
+       (check_str "rows too" (after "#\n" 1 "rows") ".\n")))
+
+(def test_parse_count () int
+  (add (check_int "digits" (parse_count "100") 100)
+    (add (check_int "empty" (parse_count "") -1)
+         (check_int "junk" (parse_count "1x") -1))))
+
+; The three modes agree on random boards of random sizes.
+(def modes_agree ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let w (add 1 (rand_below s 20))
+        (let h (add 1 (rand_below (rand_next s) 15))
+          (let b (random_board (rand_next (rand_next s)) w h (nil int))
+            (let flat (after b 17 "flat")
+              (if (if (list_eq flat (after b 17 "rows")) (list_eq flat (after b 17 "rows-reuse")) false)
+                  (modes_agree (rand_next (rand_next (rand_next s))) (sub runs 1))
+                  (check_str "modes agree" (after b 17 "rows") flat))))))))
+
+(def random_board ((s int) (w int) (h int) (acc (list int))) (list int)
+  (if (eq h 0) acc (random_board (rand_next s) w (sub h 1) (append (rand_line s w) acc))))
+
+(def test_modes_agree () int
+  (modes_agree 11 60))

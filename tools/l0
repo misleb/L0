@@ -208,8 +208,20 @@ setup() {
         SOURCES="$LIB/prelude.l0 $LIB/io.l0 $FILES"
         PRELUDE_END=$(cat "$LIB/prelude.l0" "$LIB/io.l0" | wc -c | tr -d ' ')
     fi
-    TMP=$(mktemp -d "${TMPDIR:-/tmp}/l0.XXXXXX")
+    TMP=$(mktemp -d "$(scratch_base)/l0.XXXXXX")
     trap 'rm -rf "$TMP"' EXIT
+}
+
+# Where a build and its program live while the driver runs: in a source
+# checkout its own tmp/, so nothing is built or run outside the checkout;
+# once installed, the system's temporary directory.
+scratch_base() {
+    root=$(cd "$LIB/.." && pwd)
+    if [ -f "$root/bootstrap/stage2.ll" ] && [ -d "$root/tmp" ]; then
+        echo "$root/tmp"
+    else
+        echo "${TMPDIR:-/tmp}"
+    fi
 }
 
 # ---------------------------------------------------------------- reference

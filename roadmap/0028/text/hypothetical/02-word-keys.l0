@@ -1,0 +1,23 @@
+; Hypothetical for limit 02: wordfreq's keys as packed bytes.
+;
+; The scanner still conses a word as it reads it, since its length is not
+; known until it ends, but a new key is stored as (bytes_of w), one byte a
+; byte, and compared with (bytes_eq_list k w). 195,412 keys would take about
+; 1.5 MB of letters plus a header each, rather than 36.8 MB of cons cells.
+;
+; Checker output, today:
+;   hypothetical/02-word-keys.l0:12:17: error: unknown type bytes: a type is
+;   int, bool, (list T), or a data type, whose name starts uppercase
+;   hypothetical/02-word-keys.l0:14:26: error: unknown type bytes: ...
+
+(data Table
+  (Table (array bytes) (array int) int))
+
+(def probe ((keys (array bytes)) (counts (array int)) (size int)
+            (key (list int)) (i int)) Table
+  (let c (array_get counts i)
+    (if (eq c 0)
+        (Table (array_set keys i (bytes_of key)) (array_set counts i 1) (add size 1))
+        (if (bytes_eq_list (array_get keys i) key)
+            (Table keys (array_set counts i (add c 1)) size)
+            (probe keys counts size key (next_slot i (array_len keys)))))))

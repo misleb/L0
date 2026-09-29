@@ -152,7 +152,9 @@ passes every small test and then appears to hang on real input.
 
 `push` costs the length of the chunk, not the length of the accumulator. Call
 `rev` exactly once, at the very end, never per chunk. Use `append` only for
-short strings such as diagnostics.
+short strings such as diagnostics. Nested pushes run innermost first:
+`(push "b" (push "a" acc))` adds `"a"`, then `"b"`, so write the nest with the
+first chunk deepest, or use a chain of `let`s as above.
 
 ## Keep nesting shallow, or you will miscount parentheses
 
@@ -329,12 +331,37 @@ name, field, or list holding the old one:
         (count (array_set counts b (add (array_get counts b) 1))))))
 ```
 
-Reading the array in the same expression, as `array_get` does here, is
-fine. What copies: an array still used after the `array_set`, an array kept
-in a list of earlier versions, and an array stored inside another array or
-a data value, whose every update copies it. To check a loop, run the program
-with `L0_ARRAY_STATS=1`: it reports on standard error how many updates
-copied.
+An `array_get` that is one of the `array_set`'s own operands, as here, is
+fine. What copies, silently, with correct results:
+
+- **a read after an update in the same expression.** In `(array_set
+  (array_set h 0 (array_get h k)) 1 (array_get h (add k 1)))` the second
+  `array_get` still needs `h` when the inner `array_set` runs, so it copies
+  all of `h`, every time. Bind the reads first:
+
+```
+(let a (array_get h k)
+  (let b (array_get h (add k 1))
+    (array_set (array_set h 0 a) 1 b)))
+```
+
+- **an array still used after the `array_set`**, or kept in a list of
+  earlier versions
+- **an array inside another array.** Updating a row of an `(array (array
+  int))` copies the row. For a grid, use one flat `(array int)` indexed by
+  `(add (mul y w) x)`. `(array_new h (array_new w 0))` also makes every row
+  the same array
+- **not** an array in a data value, if you take the value apart with `match`
+  and don't use it again: then the field is the only holder, and the update
+  is in place. Keeping several arrays together in a data type and rebuilding
+  it each step is fine
+
+To check a loop, run the program with `L0_ARRAY_STATS=1`: it reports on
+standard error how many updates copied.
+
+Reading input of unknown length into an array means doubling it as it
+fills, which briefly holds two copies: about as much memory as a list, 25
+bytes per input byte. If you know the length, make the array that size.
 
 There is no clock, network, or environment yet.
 

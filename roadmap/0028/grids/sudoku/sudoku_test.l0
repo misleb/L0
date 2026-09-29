@@ -1,0 +1,107 @@
+; Tests of sudoku.l0: l0 test sudoku.l0 sudoku_test.l0
+
+(def wiki () (list int)
+  "530070000600195000098000060800060003400803001700020006060000280000419005000080079")
+(def wiki_solved () (list int)
+  "534678912672195348198342567859761423426853791713924856961537284287419635345286179")
+
+(def test_wiki_undo () int
+  (check_str "solution" (solve_line (wiki) "undo") (wiki_solved)))
+
+(def test_wiki_copy () int
+  (check_str "solution" (solve_line (wiki) "copy") (wiki_solved)))
+
+(def test_dots_and_line_end () int
+  (check_str "dots, crlf"
+    (solve_line "53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79\r\n" "undo")
+    (wiki_solved)))
+
+(def test_solved_stays () int
+  (check_str "full board" (solve_line (wiki_solved) "copy") (wiki_solved)))
+
+(def test_parse_errors () int
+  (add (check_str "short" (solve_line "123" "undo") "invalid: has 3 cells, not 81")
+    (add (check_str "long" (solve_line (append (wiki) "1") "undo") "invalid: has more than 81 cells")
+         (check_str "bad" (solve_line (append "x" (tail (wiki))) "undo") "invalid: has a bad cell at 1"))))
+
+(def test_conflicting_givens () int
+  (check_str "two 5s in row 1" (solve_line (append "55" (drop_n (wiki) 2)) "undo") "no solution"))
+
+; Row 1 leaves only 9 for its last cell, and column 9 already has a 9.
+(def test_consistent_but_unsolvable () int
+  (let p (append "123456780" (append "000000009" (repeat "0" 63 (nil int))))
+    (add (check_str "undo" (solve_line p "undo") "no solution")
+         (check_str "copy" (solve_line p "copy") "no solution"))))
+
+(def repeat ((s (list int)) (n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (repeat s (sub n 1) (append s acc))))
+
+(def test_empty_board () int
+  (check_true "valid" (valid_solution (repeat "0" 81 (nil int)) (solve_line (repeat "0" 81 (nil int)) "undo"))))
+
+(def test_boxes () int
+  (add (check_int "first" (box_of 0) 0)
+    (add (check_int "middle" (box_of 40) 4)
+      (add (check_int "row 3 col 8" (box_of 35) 5)
+           (check_int "last" (box_of 80) 8)))))
+
+(def run_all ((input (list int)) (mode (list int))) (list int)
+  (match (open_in_bytes input)
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (match (open_out_buffer)
+        ((IoFailed why) why)
+        ((IoOpened out)
+          (let bad (solve_all f out mode 0)
+            (let s (buffer_contents out)
+              (let c (file_close out)
+                (let d (file_close f)
+                  (append (digits bad) (cons 58 s)))))))))))
+
+(def test_solve_all () int
+  (check_str "lines"
+    (run_all (append (wiki) (append "\n\n\r\n12\n" (wiki))) "undo")
+    (append "1:" (append (wiki_solved) (append "\ninvalid: has 2 cells, not 81\n"
+                                                (append (wiki_solved) "\n"))))))
+
+; ------------------------------------------------------------ properties
+
+; Whether got is 81 digits 1 to 9, every row, column, and box holding each
+; once, agreeing with every given of puzzle.
+(def valid_solution ((puzzle (list int)) (got (list int))) bool
+  (match (parse_puzzle got)
+    ((PuzzleBad why) false)
+    ((Puzzle b)
+      (if (keeps_givens puzzle got)
+          (match (start b)
+            ((Stuck s) false)
+            ((Solved s) (eq (pick s) -1)))
+          false))))
+
+(def keeps_givens ((p (list int)) (g (list int))) bool
+  (if (is_empty p)
+      true
+      (if (if (eq (head p) 48) true (eq (head p) (head g)))
+          (keeps_givens (tail p) (tail g))
+          false)))
+
+; wiki_solved with each cell emptied with probability 2 in 3.
+(def random_puzzle ((s int) (cells (list int)) (acc (list int))) (list int)
+  (if (is_empty cells)
+      (rev acc)
+      (random_puzzle (rand_next s) (tail cells)
+                     (cons (if (eq (rand_below s 3) 0) (head cells) 48) acc))))
+
+(def modes_agree ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let p (random_puzzle s (wiki_solved) (nil int))
+        (let u (solve_line p "undo")
+          (if (list_eq u (solve_line p "copy"))
+              (if (valid_solution p u)
+                  (modes_agree (rand_next (rand_next s)) (sub runs 1))
+                  (check_str "valid" u "a valid solution"))
+              (check_str "modes agree" (solve_line p "copy") u))))))
+
+(def test_modes_agree () int
+  (modes_agree 3 40))

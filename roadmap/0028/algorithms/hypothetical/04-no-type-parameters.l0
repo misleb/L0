@@ -1,0 +1,23 @@
+; Hypothetical for limit 04: one grow for every element type, and one hash
+; map for every key and value type.
+;
+; NOT VALID L0. Assumes a def may name type variables, written here as
+; lowercase names after the parameter list in a (for ...) form, and a data
+; type may take them the same way. The checker would still need no
+; inference beyond what spec 6 already does for cons: each type variable is
+; fixed by the first argument whose type mentions it.
+
+(def grow (for t) ((a (array t)) (len int) (fill t)) (array t)
+  (copy a (array_new len fill) 0))
+
+(def copy (for t) ((src (array t)) (dst (array t)) (i int)) (array t)
+  (if (ge i (array_len src)) dst (copy src (array_set dst i (array_get src i)) (add i 1))))
+
+(def length (for t) ((xs (list t))) int
+  (if (is_empty xs) 0 (add 1 (length (tail xs)))))
+
+; dijkstra.l0's Names, for any value type: slots of keys, values, and whether
+; each slot is used. Keys stay (list int), since hashing and comparing them
+; would need function values to be generic too.
+(data Map (for v)
+  (Map (array (list int)) (array v) (array bool) int))

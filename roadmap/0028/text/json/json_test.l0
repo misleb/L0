@@ -1,0 +1,227 @@
+; json_test.l0 -- tests of json.l0.
+
+(def test_scalars () int
+  (add (check_str "int" (pretty_string "42") "42\n")
+       (add (check_str "words" (pretty_string " [true,false,null] ")
+              "[\n  true,\n  false,\n  null\n]\n")
+            (check_str "string" (pretty_string "\"hi\"") "\"hi\"\n"))))
+
+(def test_empty_containers () int
+  (add (check_str "array" (pretty_string "[ ]") "[]\n")
+       (check_str "object" (pretty_string "{\n}") "{}\n")))
+
+(def test_nesting () int
+  (check_str "nested"
+    (pretty_string "{\"a\":[1,{\"b\":[]},{}],\"c\":{\"d\":null}}")
+    "{\n  \"a\": [\n    1,\n    {\n      \"b\": []\n    },\n    {}\n  ],\n  \"c\": {\n    \"d\": null\n  }\n}\n"))
+
+(def test_whitespace_kinds () int
+  (check_str "tab cr lf" (pretty_string "\t[\r\n1 ,\t2\n]\r\n") "[\n  1,\n  2\n]\n"))
+
+(def test_short_escapes () int
+  (check_str "kept" (pretty_string "\"\\\"\\\\\\b\\f\\n\\r\\t\"")
+    "\"\\\"\\\\\\b\\f\\n\\r\\t\"\n"))
+
+(def test_solidus_unescaped () int
+  (check_str "\\/" (pretty_string "\"a\\/b\"") "\"a/b\"\n"))
+
+(def test_u_escapes () int
+  (add (check_str "lower case" (pretty_string "\"\\u00E9\"") "\"\\u00e9\"\n")
+       (add (check_str "printable decoded" (pretty_string "\"\\u0041\\u0022\"")
+              "\"A\\\"\"\n")
+            (check_str "control as short" (pretty_string "\"\\u000a\\u0001\"")
+              "\"\\n\\u0001\"\n"))))
+
+(def test_surrogates_pass_through () int
+  (add (check_str "pair" (pretty_string "\"\\uD83D\\uDE00\"") "\"\\ud83d\\ude00\"\n")
+       (check_str "lone" (pretty_string "\"\\udc00x\"") "\"\\udc00x\"\n")))
+
+(def test_raw_utf8 () int
+  (add (check_str "two" (pretty_string "\"caf\xc3\xa9\"") "\"caf\\u00e9\"\n")
+       (add (check_str "three" (pretty_string "\"\xe2\x98\x83\"") "\"\\u2603\"\n")
+            (check_str "four" (pretty_string "\"\xf0\x9f\x9a\x80\"")
+              "\"\\ud83d\\ude80\"\n"))))
+
+(def test_del_escaped () int
+  (check_str "DEL" (pretty_string "\"\x7f\"") "\"\\u007f\"\n"))
+
+(def test_numbers () int
+  (add (check_str "minus zero" (pretty_string "[-0,0,-0.0,10]") "[\n  0,\n  0,\n  -0.0,\n  10\n]\n")
+       (check_str "as written" (pretty_string "[1.50,2e5,-3E-2,99999999999999999999]")
+         "[\n  1.50,\n  2e5,\n  -3E-2,\n  99999999999999999999\n]\n")))
+
+; -------------------------------------------------------------- errors
+
+(def test_error_positions () int
+  (add (check_str "trailing comma" (pretty_string "[1,\n 2,]")
+         "error: 2:4: error: expected a value, found ']'\n")
+       (check_str "missing colon" (pretty_string "{\"a\" 1}")
+         "error: 1:6: error: expected : after a key, found '1'\n")))
+
+(def test_error_after_value () int
+  (add (check_str "extra" (pretty_string "[1] x")
+         "error: 1:5: error: unexpected 'x' after the value\n")
+       (check_str "leading zero" (pretty_string "01")
+         "error: 1:2: error: unexpected '1' after the value\n")))
+
+(def test_error_empty () int
+  (add (check_str "empty" (pretty_string "")
+         "error: 1:1: error: expected a value, found end of input\n")
+       (check_str "unclosed" (pretty_string "{\"a\":1")
+         "error: 1:7: error: expected , or } in an object, found end of input\n")))
+
+(def test_error_strings () int
+  (add (check_str "unterminated" (pretty_string "\"ab")
+         "error: 1:4: error: unterminated string\n")
+       (add (check_str "control" (pretty_string "\"a\tb\"")
+              "error: 1:3: error: control character in a string; use an escape\n")
+            (check_str "bad escape" (pretty_string "\"\\x\"")
+              "error: 1:3: error: invalid escape 'x'\n"))))
+
+(def test_error_u_escape () int
+  (check_str "short" (pretty_string "\"\\u12g4\"")
+    "error: 1:3: error: \\u must be followed by four hex digits\n"))
+
+(def test_error_utf8 () int
+  (add (check_str "overlong" (pretty_string "\"\xc0\x80\"")
+         "error: 1:2: error: invalid UTF-8\n")
+       (add (check_str "surrogate" (pretty_string "\"\xed\xa0\x80\"")
+              "error: 1:2: error: invalid UTF-8\n")
+            (check_str "truncated" (pretty_string "\"\xe2\x98\"")
+              "error: 1:4: error: invalid UTF-8\n"))))
+
+(def test_error_numbers () int
+  (add (check_str "bare minus" (pretty_string "-")
+         "error: 1:2: error: expected a digit, found end of input\n")
+       (add (check_str "dot" (pretty_string "1.")
+              "error: 1:3: error: expected a digit after ., found end of input\n")
+            (check_str "exponent" (pretty_string "1e+")
+              "error: 1:4: error: expected a digit in the exponent, found end of input\n"))))
+
+(def test_error_word () int
+  (check_str "tru" (pretty_string "[tru]")
+    "error: 1:2: error: expected a value, found 't'\n"))
+
+; An invalid document writes nothing, even where the error is at its end.
+(def test_nothing_written_on_error () int
+  (match (open_out_buffer)
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened out)
+      (let r (pretty (array_of "[1,2,3,}" (array_new 8 0) 0) 8 out)
+        (let got (buffer_contents out)
+          (let c (file_close out)
+            (check_str "written" got "")))))))
+
+(def array_of ((s (list int)) (a (array int)) (i int)) (array int)
+  (if (is_empty s) a (array_of (tail s) (array_set a i (head s)) (add i 1))))
+
+; -------------------------------------------------------------- input
+
+(def test_read_input_grows () int
+  (let text (rev (cons 49 (spaces_onto 200000 (nil int))))
+    (match (open_in_bytes text)
+      ((IoFailed why) (check_str "open" why ""))
+      ((IoOpened f)
+        (let r (read_input f)
+          (let c (file_close f)
+            (match r
+              ((InputFailed code) (check_int "read failed" code 0))
+              ((Input s n)
+                (add (check_int "length" n 200001)
+                     (add (check_int "capacity" (array_len s) 262144)
+                          (check_int "last" (array_get s 200000) 49)))))))))))
+
+(def spaces_onto ((k int) (acc (list int))) (list int)
+  (if (eq k 0) acc (spaces_onto (sub k 1) (cons 32 acc))))
+
+(def test_long_input () int
+  (check_str "padded" (pretty_string (rev (cons 49 (spaces_onto 70000 (nil int)))))
+    "1\n"))
+
+; 100,000 levels of nesting are checked; printing them would be 10 GB of
+; indentation, so only the checking pass runs.
+(def test_deep_nesting () int
+  (let text (brackets 100000 91 (brackets 100000 93 (nil int)))
+    (match (document (array_of text (array_new 200000 0) 0) 200000 -1)
+      ((Bad at msg) (check_str "deep" msg ""))
+      ((Ok k) (check_int "end" k 200000)))))
+
+(def brackets ((k int) (b int) (acc (list int))) (list int)
+  (if (eq k 0) acc (brackets (sub k 1) b (cons b acc))))
+
+(def test_golden_sample () int
+  (match (open_in "testdata/sample.json")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let t (read_all f (nil int))
+        (let c (file_close f)
+          (check_file "sample" (pretty_string t) "testdata/sample.expected"))))))
+
+(def read_all ((f IoFile) (acc (list int))) (list int)
+  (let b (file_read_byte f)
+    (if (lt b 0) (rev acc) (read_all f (cons b acc)))))
+
+; ------------------------------------------------------------ property
+;
+; Random documents, written compactly, print without error, and printing
+; the printed text gives it back unchanged.
+
+(data Gen
+  (Gen int (list int)))                 ; the next seed, text reversed
+
+(def gen_value ((seed int) (depth int) (acc (list int))) Gen
+  (let k (rand_below seed (if (gt depth 3) 5 7))
+    (let s (rand_next seed)
+      (if (eq k 0) (Gen s (push "null" acc))
+      (if (eq k 1) (Gen s (push "true" acc))
+      (if (eq k 2) (Gen (rand_next s) (push (digits (sub (rand_below s 2000) 1000)) acc))
+      (if (eq k 3) (gen_string s (rand_below s 5) (cons 34 acc))
+      (if (eq k 4) (Gen s (push "false" acc))
+      (if (eq k 5) (gen_items (rand_next s) depth (rand_below s 4) true (cons 91 acc))
+          (gen_members (rand_next s) depth (rand_below s 4) true (cons 123 acc)))))))))))
+
+(def gen_string ((seed int) (left int) (acc (list int))) Gen
+  (if (eq left 0)
+      (Gen seed (cons 34 acc))
+      (gen_string (rand_next seed) (sub left 1)
+        (push (piece (rand_below seed 9)) acc))))
+
+(def piece ((k int)) (list int)
+  (if (eq k 0) "a"
+  (if (eq k 1) "\\n"
+  (if (eq k 2) "\\u00E9"
+  (if (eq k 3) "\xc3\xa9"
+  (if (eq k 4) " "
+  (if (eq k 5) "\\\""
+  (if (eq k 6) "\\/"
+  (if (eq k 7) "\xf0\x9f\x98\x80" "\\ud83d\\ude00")))))))))
+
+(def gen_items ((seed int) (depth int) (left int) (first bool) (acc (list int)))
+    Gen
+  (if (eq left 0)
+      (Gen seed (cons 93 acc))
+      (match (gen_value seed (add depth 1) (if first acc (cons 44 acc)))
+        ((Gen s a) (gen_items s depth (sub left 1) false a)))))
+
+(def gen_members ((seed int) (depth int) (left int) (first bool)
+                  (acc (list int))) Gen
+  (if (eq left 0)
+      (Gen seed (cons 125 acc))
+      (match (gen_string seed 2 (cons 34 (if first acc (cons 44 acc))))
+        ((Gen s a)
+          (match (gen_value s (add depth 1) (cons 58 a))
+            ((Gen s2 b) (gen_members s2 depth (sub left 1) false b)))))))
+
+(def round_trips ((seed int) (left int) (bad int)) int
+  (if (eq left 0)
+      bad
+      (match (gen_value seed 0 (nil int))
+        ((Gen s text)
+          (let once (pretty_string (rev text))
+            (round_trips s (sub left 1)
+              (if (if (starts_with once "error") false (list_eq once (pretty_string once)))
+                  bad
+                  (add bad 1))))))))
+
+(def test_round_trip () int
+  (check_int "failures over 300 documents" (round_trips 11 300 0) 0))

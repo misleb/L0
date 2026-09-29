@@ -1,0 +1,21 @@
+; Hypothetical: maze/maze.l0's cells as packed bytes, if 0026 gave L0 a
+; type for them. Does not check: bytes and its builtins do not exist. The
+; distances and queue stay (array int), since they need full ints.
+;
+;   (bytes_new n b) (bytes_len s) (bytes_get s i) (bytes_set s i b)
+;
+; as the array builtins, with elements 0 to 255 stored one byte each. Only
+; the element type changes; every line using the cells reads the same.
+
+(data Maze
+  (Maze int int bytes int int))
+
+(def expand ((cells bytes) (w int) (h int) (dist (array int)) (queue (array int))
+             (qh int) (qt int) (e int) (u int) (k int)) int
+  (if (eq k 4)
+      (bfs cells w h dist queue (add qh 1) qt e)
+      (let v (neighbour u k w h)
+        (if (if (lt v 0) true (if (eq (bytes_get cells v) 35) true (ge (array_get dist v) 0)))
+            (expand cells w h dist queue qh qt e u (add k 1))
+            (expand cells w h (array_set dist v (add (array_get dist u) 1))
+                    (array_set queue qt v) qh (add qt 1) e u (add k 1))))))

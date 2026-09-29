@@ -1,0 +1,15 @@
+; maze FILE [flat|rows|swap]
+(def main () int
+  (if (lt (arg_count) 1)
+      (let w (write_err "usage: maze FILE [flat|rows|swap]\n") 2)
+      (match (open_in (arg 0))
+        ((IoFailed why) (let w (write_err (append (arg 0) (append ": " (append why "\n")))) 1))
+        ((IoOpened f)
+          (match (read_maze f)
+            ((ParseBad why) (let w (write_err (append "maze: " (append why "\n"))) 1))
+            ((Parsed m)
+              (let c (file_close f)
+                (let w (write_line (answer (shortest m (arg 1))))
+                  (if (lt (flush 1) 0)
+                      (let e (write_err "maze: write error\n") 1)
+                      0)))))))))

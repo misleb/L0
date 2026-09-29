@@ -1,5 +1,5 @@
 tests/check/decls.l0:8:1: error: a data type needs at least one constructor
-tests/check/decls.l0:17:25: error: expected a type: int, bool, or (list T)
+tests/check/decls.l0:17:25: error: expected a type: int, bool, (list T), or (array T)
 tests/check/decls.l0:18:22: error: each parameter is (name type)
 tests/check/decls.l0:19:33: error: unexpected ) where an expression was expected
 tests/check/decls.l0:20:32: error: this can only appear at the top level

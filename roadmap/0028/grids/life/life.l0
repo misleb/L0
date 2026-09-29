@@ -1,0 +1,267 @@
+; life.l0 -- Conway's Game of Life on a torus.
+;
+; A board is read from a file of `.` (dead) and `#` (alive), one row per
+; line, every row the same width; blank lines and carriage returns are
+; ignored. Three ways to step a board, chosen by main's mode argument:
+;
+;   flat        one (array int) indexed by y * w + x, and a second one the
+;               same size that each generation writes into, then swaps
+;   rows        an (array (array int)), each generation building fresh rows
+;   rows-reuse  an (array (array int)) double-buffered like flat, writing
+;               each new row into the row of the spare grid
+
+(data Grid
+  (Grid int int (array int)))           ; width, height, cells row by row, 1 alive
+
+(data Parsed
+  (Parsed Grid)
+  (ParseBad (list int)))
+
+; ------------------------------------------------------------------ reading
+
+(def read_grid ((f IoFile)) Parsed
+  (read_cells f (array_new 1024 0) 0 -1 0 0))
+
+; cells holds n cells with spare room after them; w is the width, or -1
+; before the first row ends; col is the position in the current row, and
+; rows how many rows have ended.
+(def read_cells ((f IoFile) (cells (array int)) (n int) (w int) (col int) (rows int))
+    Parsed
+  (let b (file_read_byte f)
+    (if (eq b -1)
+        (end_cells cells n w col rows)
+        (if (lt b 0)
+            (ParseBad (append "cannot read the board: " (io_error b)))
+            (read_byte_into f cells n w col rows b)))))
+
+(def read_byte_into ((f IoFile) (cells (array int)) (n int) (w int) (col int)
+                     (rows int) (b int)) Parsed
+  (if (eq b 10)
+      (if (eq col 0)
+          (read_cells f cells n w 0 rows)
+          (if (if (eq w -1) true (eq w col))
+              (read_cells f cells n col 0 (add rows 1))
+              (bad_width rows col w)))
+      (if (eq b 13)
+          (read_cells f cells n w col rows)
+          (if (eq b 46)
+              (read_cells f (push_cell cells n 0) (add n 1) w (add col 1) rows)
+              (if (eq b 35)
+                  (read_cells f (push_cell cells n 1) (add n 1) w (add col 1) rows)
+                  (ParseBad (append "unexpected byte on row "
+                                    (digits (add rows 1)))))))))
+
+(def end_cells ((cells (array int)) (n int) (w int) (col int) (rows int)) Parsed
+  (if (gt col 0)
+      (if (if (eq w -1) true (eq w col))
+          (Parsed (Grid col (add rows 1) (trim cells n)))
+          (bad_width rows col w))
+      (if (eq rows 0)
+          (ParseBad "empty board")
+          (Parsed (Grid w rows (trim cells n))))))
+
+(def bad_width ((rows int) (col int) (w int)) Parsed
+  (ParseBad (append "row " (append (digits (add rows 1))
+    (append " has " (append (digits col)
+      (append " cells, not " (digits w))))))))
+
+; cells with x stored at n, doubling the room when it is full.
+(def push_cell ((cells (array int)) (n int) (x int)) (array int)
+  (if (lt n (array_len cells))
+      (array_set cells n x)
+      (array_set (copy_prefix cells (array_new (mul 2 (array_len cells)) 0) 0 n) n x)))
+
+(def copy_prefix ((src (array int)) (dst (array int)) (i int) (n int)) (array int)
+  (if (ge i n)
+      dst
+      (copy_prefix src (array_set dst i (array_get src i)) (add i 1) n)))
+
+(def trim ((cells (array int)) (n int)) (array int)
+  (if (eq n (array_len cells))
+      cells
+      (copy_prefix cells (array_new n 0) 0 n)))
+
+; ------------------------------------------------------------- the rule
+
+(def wrap ((i int) (n int)) int
+  (if (lt i 0) (add i n) (if (ge i n) (sub i n) i)))
+
+; 1 if a cell that is alive (1 or 0) with n live neighbours lives on.
+(def rule ((alive int) (n int)) int
+  (if (eq n 3) 1 (if (eq n 2) alive 0)))
+
+; ------------------------------------------------------------------- flat
+
+; cur's next generation, written into nxt, which must be as long as cur.
+(def step_flat ((cur (array int)) (nxt (array int)) (w int) (h int)) (array int)
+  (step_flat_rows cur nxt w h 0))
+
+(def step_flat_rows ((cur (array int)) (nxt (array int)) (w int) (h int) (y int))
+    (array int)
+  (if (ge y h)
+      nxt
+      (step_flat_rows cur
+        (step_flat_cells cur nxt w (mul (wrap (sub y 1) h) w) (mul y w)
+                         (mul (wrap (add y 1) h) w) 0)
+        w h (add y 1))))
+
+; up, mid, and down are the offsets of the rows above, at, and below.
+(def step_flat_cells ((cur (array int)) (nxt (array int)) (w int) (up int)
+                      (mid int) (down int) (x int)) (array int)
+  (if (ge x w)
+      nxt
+      (step_flat_cells cur
+        (array_set nxt (add mid x)
+          (rule (array_get cur (add mid x)) (flat_neighbours cur w up mid down x)))
+        w up mid down (add x 1))))
+
+(def flat_neighbours ((c (array int)) (w int) (up int) (mid int) (down int) (x int))
+    int
+  (let l (wrap (sub x 1) w)
+    (let r (wrap (add x 1) w)
+      (add (add (add (array_get c (add up l)) (array_get c (add up x)))
+                (add (array_get c (add up r)) (array_get c (add mid l))))
+           (add (add (array_get c (add mid r)) (array_get c (add down l)))
+                (add (array_get c (add down x)) (array_get c (add down r))))))))
+
+(def run_flat ((cur (array int)) (spare (array int)) (w int) (h int) (n int))
+    (array int)
+  (if (le n 0)
+      cur
+      (run_flat (step_flat cur spare w h) cur w h (sub n 1))))
+
+; g after n generations.
+(def life_flat ((g Grid) (n int)) Grid
+  (match g
+    ((Grid w h cells)
+      (Grid w h (run_flat cells (array_new (mul w h) 0) w h n)))))
+
+; ------------------------------------------------------------------- rows
+
+(def to_rows ((g Grid)) (array (array int))
+  (match g
+    ((Grid w h cells) (to_rows_from cells w h (array_new h (array_new 0 0)) 0))))
+
+(def to_rows_from ((cells (array int)) (w int) (h int) (out (array (array int)))
+                   (y int)) (array (array int))
+  (if (ge y h)
+      out
+      (to_rows_from cells w h
+        (array_set out y (copy_row cells (mul y w) (array_new w 0) 0))
+        (add y 1))))
+
+(def copy_row ((cells (array int)) (off int) (row (array int)) (x int)) (array int)
+  (if (ge x (array_len row))
+      row
+      (copy_row cells off (array_set row x (array_get cells (add off x))) (add x 1))))
+
+(def from_rows ((rows (array (array int))) (w int) (h int)) Grid
+  (Grid w h (from_rows_at rows w h (array_new (mul w h) 0) 0 0)))
+
+(def from_rows_at ((rows (array (array int))) (w int) (h int) (cells (array int))
+                   (y int) (x int)) (array int)
+  (if (ge y h)
+      cells
+      (if (ge x w)
+          (from_rows_at rows w h cells (add y 1) 0)
+          (from_rows_at rows w h
+            (array_set cells (add (mul y w) x) (array_get (array_get rows y) x))
+            y (add x 1)))))
+
+; The next generation of grid, each row new.
+(def step_rows ((g (array (array int))) (w int) (h int)) (array (array int))
+  (step_rows_from g w h (array_new h (array_new 0 0)) 0))
+
+(def step_rows_from ((g (array (array int))) (w int) (h int)
+                     (out (array (array int))) (y int)) (array (array int))
+  (if (ge y h)
+      out
+      (step_rows_from g w h
+        (array_set out y
+          (fill_row (array_get g (wrap (sub y 1) h)) (array_get g y)
+                    (array_get g (wrap (add y 1) h)) (array_new w 0) w 0))
+        (add y 1))))
+
+; row with each cell x set from the three rows around it.
+(def fill_row ((up (array int)) (mid (array int)) (down (array int))
+               (row (array int)) (w int) (x int)) (array int)
+  (if (ge x w)
+      row
+      (fill_row up mid down
+        (array_set row x (rule (array_get mid x) (row_neighbours up mid down w x)))
+        w (add x 1))))
+
+(def row_neighbours ((up (array int)) (mid (array int)) (down (array int)) (w int)
+                     (x int)) int
+  (let l (wrap (sub x 1) w)
+    (let r (wrap (add x 1) w)
+      (add (add (add (array_get up l) (array_get up x))
+                (add (array_get up r) (array_get mid l)))
+           (add (add (array_get mid r) (array_get down l))
+                (add (array_get down x) (array_get down r)))))))
+
+(def run_rows ((g (array (array int))) (w int) (h int) (n int)) (array (array int))
+  (if (le n 0) g (run_rows (step_rows g w h) w h (sub n 1))))
+
+(def life_rows ((g Grid) (n int)) Grid
+  (match g
+    ((Grid w h cells) (from_rows (run_rows (to_rows g) w h n) w h))))
+
+; ------------------------------------------------------------- rows-reuse
+
+; As step_rows, but writing each new row into the row of spare that is
+; already there: array_get leaves spare holding that row too, so the first
+; array_set of each row copies it.
+(def step_reuse ((g (array (array int))) (spare (array (array int))) (w int) (h int)
+                 (y int)) (array (array int))
+  (if (ge y h)
+      spare
+      (step_reuse g
+        (array_set spare y
+          (fill_row (array_get g (wrap (sub y 1) h)) (array_get g y)
+                    (array_get g (wrap (add y 1) h)) (array_get spare y) w 0))
+        w h (add y 1))))
+
+(def run_reuse ((g (array (array int))) (spare (array (array int))) (w int) (h int)
+                (n int)) (array (array int))
+  (if (le n 0) g (run_reuse (step_reuse g spare w h 0) g w h (sub n 1))))
+
+(def life_reuse ((g Grid) (n int)) Grid
+  (match g
+    ((Grid w h cells)
+      (from_rows (run_reuse (to_rows g) (to_rows g) w h n) w h))))
+
+; ---------------------------------------------------------------- output
+
+(def life ((g Grid) (n int) (mode (list int))) Grid
+  (if (list_eq mode "rows")
+      (life_rows g n)
+      (if (list_eq mode "rows-reuse")
+          (life_reuse g n)
+          (life_flat g n))))
+
+; Writes g to f as rows of . and #, and returns 0.
+(def write_grid ((f IoFile) (g Grid)) int
+  (match g
+    ((Grid w h cells) (write_cells f cells w (mul w h) 0 0))))
+
+(def write_cells ((f IoFile) (cells (array int)) (w int) (n int) (i int) (x int)) int
+  (if (ge i n)
+      0
+      (let c (file_write_byte f (if (eq (array_get cells i) 1) 35 46))
+        (if (eq x (sub w 1))
+            (let nl (file_write_byte f 10) (write_cells f cells w n (add i 1) 0))
+            (write_cells f cells w n (add i 1) (add x 1))))))
+
+(def population ((g Grid)) int
+  (match g ((Grid w h cells) (count_live cells 0 0))))
+
+(def count_live ((cells (array int)) (i int) (acc int)) int
+  (if (ge i (array_len cells)) acc (count_live cells (add i 1) (add acc (array_get cells i)))))
+
+; A generation count: decimal digits only, or -1.
+(def parse_count ((s (list int))) int
+  (if (is_empty s) -1 (if (all_digits s) (int_prefix s 0) -1)))
+
+(def all_digits ((s (list int))) bool
+  (if (is_empty s) true (if (is_digit (head s)) (all_digits (tail s)) false)))

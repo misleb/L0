@@ -1,0 +1,48 @@
+; Limit 03: an array read after an array_set of it, in one expression, copies
+; the whole array, silently.
+;
+; Moving the last heap entry (two words) to the root is naturally
+;
+;   (array_set (array_set h 0 (array_get h k)) 1 (array_get h (add k 1)))
+;
+; and it type checks and gives the right answer. But the inner array_set is
+; evaluated before the outer one's third operand, which reads h again, so h
+; is still held when the inner array_set consumes it (spec 10.3): every such
+; move copies the heap. The skill says "reading the array in the same
+; expression is fine", which is true of an array_get among the array_set's
+; own operands, and false here. Nothing but L0_ARRAY_STATS reveals it; in
+; dijkstra.l0 it made each query O(heap size) per pop, and the program still
+; passed every test.
+;
+; This program does N such two-word moves on an array of LEN, chosen by the
+; first argument:
+;
+;   late   the expression above
+;   early  both reads bound by let before either array_set
+;
+; Run: L0_ARRAY_STATS=1 ./03 late 100000 10000
+
+(def main () int
+  (let n (int_prefix (arg 1) 0)
+    (let len (int_prefix (arg 2) 0)
+      (let a (array_new len 1)
+        (write_line (digits (array_get (if (list_eq (arg 0) "late")
+                                           (late a n)
+                                           (early a n))
+                                       0)))))))
+
+(def late ((h (array int)) (n int)) (array int)
+  (if (eq n 0)
+      h
+      (let k (sub (array_len h) 2)
+        (late (array_set (array_set h 0 (add (array_get h k) 1)) 1
+                         (array_get h (add k 1)))
+              (sub n 1)))))
+
+(def early ((h (array int)) (n int)) (array int)
+  (if (eq n 0)
+      h
+      (let k (sub (array_len h) 2)
+        (let x (array_get h k)
+          (let y (array_get h (add k 1))
+            (early (array_set (array_set h 0 (add x 1)) 1 y) (sub n 1)))))))

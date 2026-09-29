@@ -1,0 +1,23 @@
+; main.l0 -- editdist: the Levenshtein distance between two files.
+;
+;   editdist FILE1 FILE2 [--align]
+;
+; Writes "distance N". With --align, also writes an optimal alignment as one
+; line of ops: M match, S substitute, D delete from FILE1, I insert from FILE2.
+
+(def main () int
+  (if (lt (arg_count) 2)
+      (let w (write_err "usage: editdist FILE1 FILE2 [--align]\n") 2)
+      (match (open_in (arg 0))
+        ((IoFailed why) (fail_open (arg 0) why))
+        ((IoOpened f)
+          (match (open_in (arg 1))
+            ((IoFailed why) (fail_open (arg 1) why))
+            ((IoOpened g)
+              (let a (read_all f)
+                (let b (read_all g)
+                  (write_str (report a b (list_eq (arg 2) "--align")))))))))))
+
+(def fail_open ((path (list int)) (why (list int))) int
+  (let w (write_err (append "editdist: " (append path (append ": " (append why "\n")))))
+    1))

@@ -1,0 +1,263 @@
+; maze.l0 -- the length of a shortest path through a maze, by breadth-first
+; search.
+;
+; A maze is read from a file: `#` a wall, `.` open, `S` the start and `E`
+; the end, each exactly once, one row per line, every row the same width;
+; blank lines and carriage returns are ignored. A path moves up, down, left,
+; or right, never off the edge, and its length is how many moves it makes.
+;
+; Two searches, chosen by main's mode argument:
+;
+;   flat   cells, distances, and the queue are each one (array int) indexed
+;          by y * w + x
+;   rows   cells and distances are (array (array int)), a row per line; the
+;          queue is still flat
+;   swap   rows, taking each distance row out of its grid before updating
+;          it, the workaround for rows' copying
+
+(data Maze
+  (Maze int int (array int) int int))   ; width, height, cells (1 wall), start, end
+
+(data Parsed
+  (Parsed Maze)
+  (ParseBad (list int)))
+
+; ------------------------------------------------------------------ reading
+
+; What reading has found so far: cells, with room after the n read; the
+; width, or -1 before the first row ends; the column in the current row;
+; how many rows have ended; and where S and E are, or -1.
+(data Reading
+  (Reading (array int) int int int int int int))
+
+(def read_maze ((f IoFile)) Parsed
+  (read_cells f (Reading (array_new 1024 0) 0 -1 0 0 -1 -1)))
+
+(def read_cells ((f IoFile) (r Reading)) Parsed
+  (let b (file_read_byte f)
+    (if (eq b -1)
+        (end_cells r)
+        (if (lt b 0)
+            (ParseBad (append "cannot read the maze: " (io_error b)))
+            (match r
+              ((Reading cells n w col rows s e)
+                (read_byte_into f cells n w col rows s e b)))))))
+
+(def read_byte_into ((f IoFile) (cells (array int)) (n int) (w int) (col int)
+                     (rows int) (s int) (e int) (b int)) Parsed
+  (if (eq b 10)
+      (end_row f cells n w col rows s e)
+      (if (eq b 13)
+          (read_cells f (Reading cells n w col rows s e))
+          (let v (cell_value b)
+            (if (lt v 0)
+                (ParseBad (append "unexpected byte on row " (digits (add rows 1))))
+                (read_cell f cells n w col rows (mark s b 83 n) (mark e b 69 n) v))))))
+
+; Where the S or E the byte b may be is: n if b is the letter, else where.
+; A second one is -2, which end_cells reports.
+(def mark ((where int) (b int) (letter int) (n int)) int
+  (if (eq b letter) (if (eq where -1) n -2) where))
+
+(def read_cell ((f IoFile) (cells (array int)) (n int) (w int) (col int) (rows int)
+                (s int) (e int) (v int)) Parsed
+  (read_cells f (Reading (push_cell cells n v) (add n 1) w (add col 1) rows s e)))
+
+(def end_row ((f IoFile) (cells (array int)) (n int) (w int) (col int) (rows int)
+              (s int) (e int)) Parsed
+  (if (eq col 0)
+      (read_cells f (Reading cells n w 0 rows s e))
+      (if (if (eq w -1) true (eq w col))
+          (read_cells f (Reading cells n col 0 (add rows 1) s e))
+          (bad_width rows col w))))
+
+; 1 for a wall, 0 for open, -1 for a byte that is neither.
+(def cell_value ((b int)) int
+  (if (eq b 35) 1 (if (eq b 46) 0 (if (eq b 83) 0 (if (eq b 69) 0 -1)))))
+
+(def end_cells ((r Reading)) Parsed
+  (match r
+    ((Reading cells n w col rows s e)
+      (if (gt col 0)
+          (if (if (eq w -1) true (eq w col))
+              (finish (trim cells n) col (add rows 1) s e)
+              (bad_width rows col w))
+          (if (eq rows 0)
+              (ParseBad "empty maze")
+              (finish (trim cells n) w rows s e))))))
+
+(def finish ((cells (array int)) (w int) (h int) (s int) (e int)) Parsed
+  (if (eq s -1) (ParseBad "no S")
+  (if (eq e -1) (ParseBad "no E")
+  (if (eq s -2) (ParseBad "more than one S")
+  (if (eq e -2) (ParseBad "more than one E")
+      (Parsed (Maze w h cells s e)))))))
+
+(def bad_width ((rows int) (col int) (w int)) Parsed
+  (ParseBad (append "row " (append (digits (add rows 1))
+    (append " has " (append (digits col)
+      (append " cells, not " (digits w))))))))
+
+(def push_cell ((cells (array int)) (n int) (x int)) (array int)
+  (if (lt n (array_len cells))
+      (array_set cells n x)
+      (array_set (copy_prefix cells (array_new (mul 2 (array_len cells)) 0) 0 n) n x)))
+
+(def copy_prefix ((src (array int)) (dst (array int)) (i int) (n int)) (array int)
+  (if (ge i n)
+      dst
+      (copy_prefix src (array_set dst i (array_get src i)) (add i 1) n)))
+
+(def trim ((cells (array int)) (n int)) (array int)
+  (if (eq n (array_len cells)) cells (copy_prefix cells (array_new n 0) 0 n)))
+
+; --------------------------------------------------------------- neighbours
+
+; The index of the neighbour of u in direction k (0 up, 1 right, 2 down,
+; 3 left), or -1 if that is off the edge.
+(def neighbour ((u int) (k int) (w int) (h int)) int
+  (let x (mod u w)
+    (if (eq k 0) (if (lt u w) -1 (sub u w))
+    (if (eq k 1) (if (eq x (sub w 1)) -1 (add u 1))
+    (if (eq k 2) (if (ge (add u w) (mul w h)) -1 (add u w))
+        (if (eq x 0) -1 (sub u 1)))))))
+
+; ------------------------------------------------------------------- flat
+
+; The length of a shortest path from start to end, or -1 if there is none.
+(def shortest ((m Maze) (mode (list int))) int
+  (if (list_eq mode "rows")
+      (shortest_rows m)
+      (if (list_eq mode "swap")
+          (shortest_swap m)
+          (shortest_flat m))))
+
+(def shortest_flat ((m Maze)) int
+  (match m
+    ((Maze w h cells s e)
+      (bfs cells w h (array_set (array_new (mul w h) -1) s 0)
+           (array_set (array_new (mul w h) 0) 0 s) 0 1 e))))
+
+; dist is -1 for a cell not yet reached; the queue holds the cells reached
+; and not yet expanded, from qh up to qt.
+(def bfs ((cells (array int)) (w int) (h int) (dist (array int)) (queue (array int))
+          (qh int) (qt int) (e int)) int
+  (if (eq qh qt)
+      -1
+      (let u (array_get queue qh)
+        (if (eq u e)
+            (array_get dist e)
+            (expand cells w h dist queue qh qt e u 0)))))
+
+; Tries direction k from u, then the next, and after the fourth goes back to
+; bfs with u taken off the queue.
+(def expand ((cells (array int)) (w int) (h int) (dist (array int)) (queue (array int))
+             (qh int) (qt int) (e int) (u int) (k int)) int
+  (if (eq k 4)
+      (bfs cells w h dist queue (add qh 1) qt e)
+      (let v (neighbour u k w h)
+        (if (if (lt v 0) true (if (eq (array_get cells v) 1) true (ge (array_get dist v) 0)))
+            (expand cells w h dist queue qh qt e u (add k 1))
+            (expand cells w h (array_set dist v (add (array_get dist u) 1))
+                    (array_set queue qt v) qh (add qt 1) e u (add k 1))))))
+
+; ------------------------------------------------------------------- rows
+
+(def to_rows ((cells (array int)) (w int) (h int)) (array (array int))
+  (to_rows_from cells w h (array_new h (array_new 0 0)) 0))
+
+(def to_rows_from ((cells (array int)) (w int) (h int) (out (array (array int)))
+                   (y int)) (array (array int))
+  (if (ge y h)
+      out
+      (to_rows_from cells w h
+        (array_set out y (copy_row cells (mul y w) (array_new w 0) 0))
+        (add y 1))))
+
+(def copy_row ((cells (array int)) (off int) (row (array int)) (x int)) (array int)
+  (if (ge x (array_len row))
+      row
+      (copy_row cells off (array_set row x (array_get cells (add off x))) (add x 1))))
+
+; h rows of w copies of x, each row its own array.
+(def rows_of ((w int) (h int) (x int)) (array (array int))
+  (rows_of_from w h x (array_new h (array_new 0 0)) 0))
+
+(def rows_of_from ((w int) (h int) (x int) (out (array (array int))) (y int))
+    (array (array int))
+  (if (ge y h) out (rows_of_from w h x (array_set out y (array_new w x)) (add y 1))))
+
+(def get2 ((g (array (array int))) (w int) (u int)) int
+  (array_get (array_get g (div u w)) (mod u w)))
+
+; g with cell u set to v, written the way an array of rows is updated.
+(def set2 ((g (array (array int))) (w int) (u int) (v int)) (array (array int))
+  (let y (div u w)
+    (array_set g y (array_set (array_get g y) (mod u w) v))))
+
+(def shortest_rows ((m Maze)) int
+  (match m
+    ((Maze w h cells s e)
+      (bfs_rows (to_rows cells w h) w h (set2 (rows_of w h -1) w s 0)
+                (array_set (array_new (mul w h) 0) 0 s) 0 1 e))))
+
+(def bfs_rows ((cells (array (array int))) (w int) (h int) (dist (array (array int)))
+               (queue (array int)) (qh int) (qt int) (e int)) int
+  (if (eq qh qt)
+      -1
+      (let u (array_get queue qh)
+        (if (eq u e)
+            (get2 dist w e)
+            (expand_rows cells w h dist queue qh qt e u 0)))))
+
+(def expand_rows ((cells (array (array int))) (w int) (h int)
+                  (dist (array (array int))) (queue (array int))
+                  (qh int) (qt int) (e int) (u int) (k int)) int
+  (if (eq k 4)
+      (bfs_rows cells w h dist queue (add qh 1) qt e)
+      (let v (neighbour u k w h)
+        (if (if (lt v 0) true (if (eq (get2 cells w v) 1) true (ge (get2 dist w v) 0)))
+            (expand_rows cells w h dist queue qh qt e u (add k 1))
+            (expand_rows cells w h (set2 dist w v (add (get2 dist w u) 1))
+                         (array_set queue qt v) qh (add qt 1) e u (add k 1))))))
+
+; ------------------------------------------------------------------- swap
+
+; set2, with the row taken out of g first: an empty placeholder goes into
+; its slot, so the row has no other holder and updates in place.
+(def set2_swap ((g (array (array int))) (w int) (u int) (v int)) (array (array int))
+  (let y (div u w)
+    (let row (array_get g y)
+      (let g2 (array_set g y (array_new 0 0))
+        (array_set g2 y (array_set row (mod u w) v))))))
+
+(def shortest_swap ((m Maze)) int
+  (match m
+    ((Maze w h cells s e)
+      (bfs_swap (to_rows cells w h) w h (set2_swap (rows_of w h -1) w s 0)
+                (array_set (array_new (mul w h) 0) 0 s) 0 1 e))))
+
+(def bfs_swap ((cells (array (array int))) (w int) (h int) (dist (array (array int)))
+               (queue (array int)) (qh int) (qt int) (e int)) int
+  (if (eq qh qt)
+      -1
+      (let u (array_get queue qh)
+        (if (eq u e)
+            (get2 dist w e)
+            (expand_swap cells w h dist queue qh qt e u 0)))))
+
+(def expand_swap ((cells (array (array int))) (w int) (h int)
+                  (dist (array (array int))) (queue (array int))
+                  (qh int) (qt int) (e int) (u int) (k int)) int
+  (if (eq k 4)
+      (bfs_swap cells w h dist queue (add qh 1) qt e)
+      (let v (neighbour u k w h)
+        (if (if (lt v 0) true (if (eq (get2 cells w v) 1) true (ge (get2 dist w v) 0)))
+            (expand_swap cells w h dist queue qh qt e u (add k 1))
+            (expand_swap cells w h (set2_swap dist w v (add (get2 dist w u) 1))
+                         (array_set queue qt v) qh (add qt 1) e u (add k 1))))))
+
+; ---------------------------------------------------------------- output
+
+(def answer ((d int)) (list int)
+  (if (lt d 0) "no path" (digits d)))

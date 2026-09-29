@@ -1,0 +1,205 @@
+; Limit 02: no pair type, so a heap of (distance, node) entries cannot be an
+; array of pairs without boxing each entry.
+;
+; Dijkstra's heap holds (distance, node). The ways L0 offers, all three here,
+; each pushing N pseudo-random entries and then popping them all, printing a
+; checksum of the pop order; the first argument picks one:
+;
+;   flat      entry k at 2k and 2k+1 of one int array; the size is kept by
+;             the caller (what dijkstra.l0 does: a named workaround, since
+;             nothing checks that 2k is a distance and 2k+1 a node)
+;   parallel  two int arrays, distances and nodes, and the size, in a data
+;             value Heap, since push and pop must return both arrays
+;   boxed     an (array Entry) with (data Entry (Entry int int)): what the
+;             algorithm says, but every entry is a heap block, every compare
+;             a match, and every swap four reference-count updates
+;
+; Run: L0_ARRAY_STATS=1 ./02 flat 1000000
+
+(def main () int
+  (let mode (arg 0)
+    (let n (int_prefix (arg 1) 0)
+      (write_line (digits
+        (if (list_eq mode "flat")
+            (flat_run n)
+            (if (list_eq mode "parallel") (par_run n) (box_run n))))))))
+
+(def key ((s int)) int (mod s 1000000))
+
+(def rand_next ((s int)) int (mod (add (mul s 1103515245) 12345) 2147483648))
+
+(def mix ((acc int) (d int) (i int)) int
+  (mod (add (mul acc 31) (add d i)) 1000000007))
+
+; ------------------------------------------------------------------ flat
+
+(def flat_run ((n int)) int
+  (flat_drain (flat_fill (array_new 2 0) 0 n 1) n 0))
+
+(def flat_fill ((h (array int)) (size int) (n int) (s int)) (array int)
+  (if (ge size n) h (flat_fill (fpush h size (key s) size) (add size 1) n (rand_next s))))
+
+(def flat_drain ((h (array int)) (size int) (acc int)) int
+  (if (eq size 0)
+      acc
+      (let d (array_get h 0)
+        (flat_drain (fpop h size) (sub size 1) (mix acc d size)))))
+
+(def grow ((a (array int)) (len int)) (array int) (copy a (array_new len 0) 0))
+
+(def copy ((src (array int)) (dst (array int)) (i int)) (array int)
+  (if (ge i (array_len src)) dst (copy src (array_set dst i (array_get src i)) (add i 1))))
+
+(def fpush ((h (array int)) (size int) (d int) (u int)) (array int)
+  (let room (if (lt (mul 2 size) (array_len h)) h (grow h (mul 2 (array_len h))))
+    (fup (array_set (array_set room (mul 2 size) d) (add (mul 2 size) 1) u) size)))
+
+(def fup ((h (array int)) (i int)) (array int)
+  (if (eq i 0)
+      h
+      (let p (div (sub i 1) 2)
+        (if (le (array_get h (mul 2 p)) (array_get h (mul 2 i))) h (fup (fswap h i p) p)))))
+
+(def fswap ((h (array int)) (i int) (j int)) (array int)
+  (let di (array_get h (mul 2 i))
+    (let ui (array_get h (add (mul 2 i) 1))
+      (let dj (array_get h (mul 2 j))
+        (let uj (array_get h (add (mul 2 j) 1))
+          (array_set (array_set (array_set (array_set h (mul 2 i) dj) (add (mul 2 i) 1) uj)
+                                (mul 2 j) di)
+                     (add (mul 2 j) 1) ui))))))
+
+(def fpop ((h (array int)) (size int)) (array int)
+  (let last (sub size 1)
+    (let d (array_get h (mul 2 last))
+      (let u (array_get h (add (mul 2 last) 1))
+        (fdown (array_set (array_set h 0 d) 1 u) 0 last)))))
+
+(def fdown ((h (array int)) (i int) (size int)) (array int)
+  (let l (add (mul 2 i) 1)
+    (let r (add l 1)
+      (let a (if (if (lt l size) (lt (array_get h (mul 2 l)) (array_get h (mul 2 i))) false) l i)
+        (let b (if (if (lt r size) (lt (array_get h (mul 2 r)) (array_get h (mul 2 a))) false) r a)
+          (if (eq b i) h (fdown (fswap h i b) b size)))))))
+
+; -------------------------------------------------------------- parallel
+
+(data Heap
+  (Heap (array int) (array int) int))
+
+(def par_run ((n int)) int
+  (par_drain (par_fill (Heap (array_new 1 0) (array_new 1 0) 0) n 1) 0))
+
+(def par_fill ((h Heap) (n int) (s int)) Heap
+  (match h
+    ((Heap ds us size)
+      (if (ge size n)
+          (Heap ds us size)
+          (par_fill (ppush (Heap ds us size) (key s) size) n (rand_next s))))))
+
+(def par_drain ((h Heap) (acc int)) int
+  (match h
+    ((Heap ds us size)
+      (if (eq size 0)
+          acc
+          (let d (array_get ds 0)
+            (par_drain (ppop (Heap ds us size)) (mix acc d size)))))))
+
+(def ppush ((h Heap) (d int) (u int)) Heap
+  (match h
+    ((Heap ds us size)
+      (let ds2 (if (lt size (array_len ds)) ds (grow ds (mul 2 (array_len ds))))
+        (let us2 (if (lt size (array_len us)) us (grow us (mul 2 (array_len us))))
+          (pup (Heap (array_set ds2 size d) (array_set us2 size u) (add size 1)) size))))))
+
+(def pup ((h Heap) (i int)) Heap
+  (if (eq i 0)
+      h
+      (let p (div (sub i 1) 2)
+        (match h
+          ((Heap ds us size)
+            (if (le (array_get ds p) (array_get ds i))
+                (Heap ds us size)
+                (pup (pswap (Heap ds us size) i p) p)))))))
+
+; Swapping needs both arrays, so it takes and returns the whole Heap.
+(def pswap ((h Heap) (i int) (j int)) Heap
+  (match h
+    ((Heap ds us size)
+      (let di (array_get ds i)
+        (let dj (array_get ds j)
+          (let ui (array_get us i)
+            (let uj (array_get us j)
+              (Heap (array_set (array_set ds i dj) j di)
+                    (array_set (array_set us i uj) j ui) size))))))))
+
+(def ppop ((h Heap)) Heap
+  (match h
+    ((Heap ds us size)
+      (let last (sub size 1)
+        (let d (array_get ds last)
+          (let u (array_get us last)
+            (pdown (Heap (array_set ds 0 d) (array_set us 0 u) last) 0)))))))
+
+(def pdown ((h Heap) (i int)) Heap
+  (match h
+    ((Heap ds us size)
+      (let l (add (mul 2 i) 1)
+        (let r (add l 1)
+          (let a (if (if (lt l size) (lt (array_get ds l) (array_get ds i)) false) l i)
+            (let b (if (if (lt r size) (lt (array_get ds r) (array_get ds a)) false) r a)
+              (if (eq b i)
+                  (Heap ds us size)
+                  (pdown (pswap (Heap ds us size) i b) b)))))))))
+
+; ----------------------------------------------------------------- boxed
+
+(data Entry
+  (Entry int int))
+
+(def dist_of ((e Entry)) int (match e ((Entry d u) d)))
+
+(def box_run ((n int)) int
+  (box_drain (box_fill (array_new 1 (Entry 0 0)) 0 n 1) n 0))
+
+(def box_fill ((h (array Entry)) (size int) (n int) (s int)) (array Entry)
+  (if (ge size n) h (box_fill (bpush h size (Entry (key s) size)) (add size 1) n (rand_next s))))
+
+(def box_drain ((h (array Entry)) (size int) (acc int)) int
+  (if (eq size 0)
+      acc
+      (let d (dist_of (array_get h 0))
+        (box_drain (bpop h size) (sub size 1) (mix acc d size)))))
+
+; A copy of grow and copy for (array Entry): no type parameters.
+(def bgrow ((a (array Entry)) (len int)) (array Entry)
+  (bcopy a (array_new len (Entry 0 0)) 0))
+
+(def bcopy ((src (array Entry)) (dst (array Entry)) (i int)) (array Entry)
+  (if (ge i (array_len src)) dst (bcopy src (array_set dst i (array_get src i)) (add i 1))))
+
+(def bpush ((h (array Entry)) (size int) (e Entry)) (array Entry)
+  (let room (if (lt size (array_len h)) h (bgrow h (mul 2 (array_len h))))
+    (bup (array_set room size e) size)))
+
+(def bup ((h (array Entry)) (i int)) (array Entry)
+  (if (eq i 0)
+      h
+      (let p (div (sub i 1) 2)
+        (if (le (dist_of (array_get h p)) (dist_of (array_get h i))) h (bup (bswap h i p) p)))))
+
+(def bswap ((h (array Entry)) (i int) (j int)) (array Entry)
+  (let ei (array_get h i)
+    (let ej (array_get h j)
+      (array_set (array_set h i ej) j ei))))
+
+(def bpop ((h (array Entry)) (size int)) (array Entry)
+  (let e (array_get h (sub size 1))
+    (bdown (array_set h 0 e) 0 (sub size 1))))
+
+(def bdown ((h (array Entry)) (i int) (size int)) (array Entry)
+  (let l (add (mul 2 i) 1)
+    (let r (add l 1)
+      (let a (if (if (lt l size) (lt (dist_of (array_get h l)) (dist_of (array_get h i))) false) l i)
+        (let b (if (if (lt r size) (lt (dist_of (array_get h r)) (dist_of (array_get h a))) false) r a)
+          (if (eq b i) h (bdown (bswap h i b) b size)))))))

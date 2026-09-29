@@ -1,0 +1,207 @@
+; sudoku.l0 -- solve 9 by 9 Sudoku by backtracking with constraint checks.
+;
+; A puzzle is a line of 81 cells, row by row, each 1 to 9, or 0 or . for an
+; empty cell. The search fills the empty cell with the fewest candidates
+; first, trying its digits in increasing order, so its first solution is the
+; one it reports.
+;
+; Two searches, chosen by main's mode argument, which differ only in how
+; they get back the state they had before a digit that failed:
+;
+;   undo   hands the state down and back up, and takes the digit out again,
+;          as one would with mutable arrays; every update is in place
+;   copy   keeps the state it had, and lets array_set copy it: the natural
+;          way to write it with values, costing a copy of the state per digit
+;          tried
+
+; The board, and which digits each row, column, and box already has: element
+; unit * 10 + d is 1 when unit has d.
+(data State
+  (State (array int) (array int) (array int) (array int)))
+
+(data Outcome
+  (Solved State)
+  (Stuck State))
+
+(data Puzzle
+  (Puzzle (array int))
+  (PuzzleBad (list int)))
+
+; ------------------------------------------------------------------- parsing
+
+; line as a board, ignoring a final carriage return or newline.
+(def parse_puzzle ((line (list int))) Puzzle
+  (parse_cells line (array_new 81 0) 0))
+
+(def parse_cells ((s (list int)) (b (array int)) (i int)) Puzzle
+  (if (is_empty s)
+      (if (eq i 81) (Puzzle b) (PuzzleBad (append "has " (append (digits i) " cells, not 81"))))
+      (let c (head s)
+        (if (if (eq c 10) true (eq c 13))
+            (parse_cells (tail s) b i)
+            (if (ge i 81)
+                (PuzzleBad "has more than 81 cells")
+                (let v (cell_value c)
+                  (if (lt v 0)
+                      (PuzzleBad (append "has a bad cell at " (digits (add i 1))))
+                      (parse_cells (tail s) (array_set b i v) (add i 1)))))))))
+
+(def cell_value ((c int)) int
+  (if (eq c 46) 0 (if (is_digit c) (sub c 48) -1)))
+
+; --------------------------------------------------------------- the units
+
+(def row_of ((i int)) int (div i 9))
+(def col_of ((i int)) int (mod i 9))
+(def box_of ((i int)) int (add (mul (div (div i 9) 3) 3) (div (mod i 9) 3)))
+
+; Whether d can go in cell i: no row, column, or box of it has d.
+(def free ((rf (array int)) (cf (array int)) (xf (array int)) (i int) (d int)) bool
+  (if (eq (array_get rf (add (mul (row_of i) 10) d)) 1)
+      false
+      (if (eq (array_get cf (add (mul (col_of i) 10) d)) 1)
+          false
+          (eq (array_get xf (add (mul (box_of i) 10) d)) 0))))
+
+(def allowed ((s State) (i int) (d int)) bool
+  (match s ((State b rf cf xf) (free rf cf xf i d))))
+
+; s with d in cell i, and in its units' flags.
+(def place ((s State) (i int) (d int)) State
+  (put s i d 1))
+
+; s with cell i empty again, and d out of its units' flags.
+(def unplace ((s State) (i int) (d int)) State
+  (put s i d 0))
+
+(def put ((s State) (i int) (d int) (on int)) State
+  (match s
+    ((State b rf cf xf)
+      (State (array_set b i (mul d on))
+             (array_set rf (add (mul (row_of i) 10) d) on)
+             (array_set cf (add (mul (col_of i) 10) d) on)
+             (array_set xf (add (mul (box_of i) 10) d) on)))))
+
+; The state for board b, or a stuck one if two givens share a unit.
+(def start ((b (array int))) Outcome
+  (start_from b 0 (State (array_new 81 0) (array_new 90 0) (array_new 90 0) (array_new 90 0))))
+
+(def start_from ((b (array int)) (i int) (s State)) Outcome
+  (if (ge i 81)
+      (Solved s)
+      (let d (array_get b i)
+        (if (eq d 0)
+            (start_from b (add i 1) s)
+            (if (allowed s i d)
+                (start_from b (add i 1) (place s i d))
+                (Stuck s))))))
+
+; ------------------------------------------------------------ choosing a cell
+
+(def candidates ((rf (array int)) (cf (array int)) (xf (array int)) (i int) (d int)
+                 (n int)) int
+  (if (gt d 9)
+      n
+      (candidates rf cf xf i (add d 1)
+        (sub (add n 1)
+             (max3 (array_get rf (add (mul (row_of i) 10) d))
+                   (array_get cf (add (mul (col_of i) 10) d))
+                   (array_get xf (add (mul (box_of i) 10) d)))))))
+
+(def max3 ((a int) (b int) (c int)) int
+  (if (eq a 1) 1 (if (eq b 1) 1 c)))
+
+; The empty cell with the fewest candidates, the first of them if several
+; tie, or -1 if the board is full. Stops early at one with none or one.
+(def pick ((s State)) int
+  (match s ((State b rf cf xf) (pick_from b rf cf xf 0 -1 10))))
+
+(def pick_from ((b (array int)) (rf (array int)) (cf (array int)) (xf (array int))
+                (i int) (best int) (least int)) int
+  (if (ge i 81)
+      best
+      (if (gt (array_get b i) 0)
+          (pick_from b rf cf xf (add i 1) best least)
+          (let n (candidates rf cf xf i 1 0)
+            (if (le n 1)
+                i
+                (if (lt n least)
+                    (pick_from b rf cf xf (add i 1) i n)
+                    (pick_from b rf cf xf (add i 1) best least)))))))
+
+; ------------------------------------------------------------------- undo
+
+(def solve_undo ((s State)) Outcome
+  (let i (pick s)
+    (if (lt i 0) (Solved s) (try_undo s i 1))))
+
+(def try_undo ((s State) (i int) (d int)) Outcome
+  (if (gt d 9)
+      (Stuck s)
+      (if (allowed s i d)
+          (match (solve_undo (place s i d))
+            ((Solved done) (Solved done))
+            ((Stuck back) (try_undo (unplace back i d) i (add d 1))))
+          (try_undo s i (add d 1)))))
+
+; ------------------------------------------------------------------- copy
+
+(def solve_copy ((s State)) Outcome
+  (let i (pick s)
+    (if (lt i 0) (Solved s) (try_copy s i 1))))
+
+(def try_copy ((s State) (i int) (d int)) Outcome
+  (if (gt d 9)
+      (Stuck s)
+      (if (allowed s i d)
+          (match (solve_copy (place s i d))
+            ((Solved done) (Solved done))
+            ((Stuck dead) (try_copy s i (add d 1))))
+          (try_copy s i (add d 1)))))
+
+; ---------------------------------------------------------------- output
+
+(def board_text ((b (array int))) (list int)
+  (rev (board_text_onto b 0 (nil int))))
+
+(def board_text_onto ((b (array int)) (i int) (acc (list int))) (list int)
+  (if (ge i 81) acc (board_text_onto b (add i 1) (cons (add 48 (array_get b i)) acc))))
+
+(def solve ((s State) (mode (list int))) Outcome
+  (if (list_eq mode "copy") (solve_copy s) (solve_undo s)))
+
+; The solution of the puzzle on line, as 81 digits, or "no solution".
+(def solve_board ((b (array int)) (mode (list int))) (list int)
+  (match (start b)
+    ((Stuck s) "no solution")
+    ((Solved s)
+      (match (solve s mode)
+        ((Stuck t) "no solution")
+        ((Solved t) (match t ((State board rf cf xf) (board_text board))))))))
+
+; A line of output for a line of input: the solution, "no solution", or
+; "invalid: " and why the line is not a puzzle.
+(def solve_line ((line (list int)) (mode (list int))) (list int)
+  (match (parse_puzzle line)
+    ((PuzzleBad why) (append "invalid: " why))
+    ((Puzzle b) (solve_board b mode))))
+
+; Whether line holds nothing but a line ending.
+(def blank ((line (list int))) bool
+  (if (is_empty line)
+      true
+      (if (if (eq (head line) 10) true (eq (head line) 13)) (blank (tail line)) false)))
+
+; Solves every puzzle read from f, writing a line for each to out, and
+; returns how many lines were not puzzles, or -1 if reading failed.
+(def solve_all ((f IoFile) (out IoFile) (mode (list int)) (bad int)) int
+  (match (file_next_line f)
+    ((IoEnd) bad)
+    ((IoError code) -1)
+    ((IoLine line)
+      (if (blank line)
+          (solve_all f out mode bad)
+          (let r (solve_line line mode)
+            (let w (file_write_str out r)
+              (let nl (file_write_byte out 10)
+                (solve_all f out mode (if (starts_with r "invalid") (add bad 1) bad)))))))))

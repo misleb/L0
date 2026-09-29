@@ -1,0 +1,108 @@
+; Limit 01: holding the input as bytes costs 8 bytes per byte at best, and
+; reading an input of unknown length into an array peaks at about 25.
+;
+; json and sort both hold their whole input as an (array int) so they can
+; index it. Nothing tells a program how long its input is before it has read
+; it, so the array has to start small and double, copying as it goes, and
+; the last doubling holds the old array and the new one at once. With 11.5 or
+; 10 MB of input the new one has 2^24 elements, 134 MB, whatever the input's
+; exact length, and the old one another 67 MB.
+;
+; Modes, chosen by argument 0:
+;   grow        read into an array that doubles from 64 K, as json and sort do
+;   exact N     read into an array of exactly N elements; only possible
+;               because the length is given on the command line
+;   chunks      the workaround: arrays of 64 K bytes in an array of arrays
+;   list        read into a list, as 0014 did: 24 bytes a byte
+; Each then sums every byte it holds, so reaching a byte is timed too.
+;
+; Measured on 10 MB (data/lines10.txt, 10,485,828 bytes):
+;   grow           257.3 MB peak, 0.10 s    (25 bytes a byte)
+;   exact 10485828  81.5 MB,      0.05 s    (8)
+;   chunks          84.9 MB,      0.08 s    (8)
+;   list           241.5 MB,      0.09 s    (24)
+;   python3 sys.stdin.buffer.read(): 18.2 MB, 0.04 s
+; so an array read the only way a program can read it saves nothing over
+; the list. The last doubling allocates 2^24 elements, 134 MB, while the
+; 67 MB one it copies is still live, and the smaller ones before it are
+; still resident. Chunks avoid that, but every byte read is then two
+; array_gets, a div and a mod: sort rewritten on chunks
+; (exp/sort_chunks.l0) peaks at 91.5 MB instead of 259.8 MB and takes
+; 0.43 s instead of 0.27 s.
+
+(def main () int
+  (let mode (arg 0)
+    (if (list_eq mode "grow")
+        (mod (grown (array_new 65536 0) 0) 256)
+        (if (list_eq mode "exact")
+            (mod (exact (array_new (int_prefix (arg 1) 0) 0) 0) 256)
+            (if (list_eq mode "chunks")
+                (mod (chunked (array_new 16 (array_new 0 0)) 0 (array_new 65536 0) 0) 256)
+                (mod (listed (nil int) 0) 256))))))
+
+; Each mode ends by summing every byte it holds, flat or through chunks, so
+; the cost of reaching a byte can be compared too.
+(def grown ((a (array int)) (n int)) int
+  (let b (read_byte)
+    (if (lt b 0)
+        (sum_flat a n 0 0)
+        (if (lt n (array_len a))
+            (grown (array_set a n b) (add n 1))
+            (grown (array_set (grow a) n b) (add n 1))))))
+
+(def sum_flat ((a (array int)) (n int) (i int) (acc int)) int
+  (if (ge i n) acc (sum_flat a n (add i 1) (add acc (array_get a i)))))
+
+; The workaround: fixed chunks of 65,536 bytes, each filled alone and then
+; stored into an array of chunks, which is never updated in place again
+; except to add a chunk. Reading byte i is two array_gets, a div and a mod.
+; cs holds k full chunks; c is being filled, j bytes so far.
+(def chunked ((cs (array (array int))) (k int) (c (array int)) (j int)) int
+  (let b (read_byte)
+    (if (lt b 0)
+        (sum_chunks (add_chunk cs k c) (add (mul k 65536) j) 0 0)
+        (if (lt j 65536)
+            (chunked cs k (array_set c j b) (add j 1))
+            (chunked (add_chunk cs k c) (add k 1)
+              (array_set (array_new 65536 0) 0 b) 1)))))
+
+(def add_chunk ((cs (array (array int))) (k int) (c (array int)))
+    (array (array int))
+  (if (lt k (array_len cs))
+      (array_set cs k c)
+      (array_set (grow_chunks cs (array_new (mul 2 (array_len cs)) (array_new 0 0)) 0) k c)))
+
+(def grow_chunks ((src (array (array int))) (dst (array (array int))) (i int))
+    (array (array int))
+  (if (ge i (array_len src))
+      dst
+      (grow_chunks src (array_set dst i (array_get src i)) (add i 1))))
+
+(def chunk_get ((cs (array (array int))) (i int)) int
+  (array_get (array_get cs (div i 65536)) (mod i 65536)))
+
+(def sum_chunks ((cs (array (array int))) (n int) (i int) (acc int)) int
+  (if (ge i n) acc (sum_chunks cs n (add i 1) (add acc (chunk_get cs i)))))
+
+(def grow ((a (array int))) (array int)
+  (copy_into a (array_new (mul 2 (array_len a)) 0) 0))
+
+(def copy_into ((src (array int)) (dst (array int)) (i int)) (array int)
+  (if (ge i (array_len src))
+      dst
+      (copy_into src (array_set dst i (array_get src i)) (add i 1))))
+
+(def exact ((a (array int)) (n int)) int
+  (let b (read_byte)
+    (if (lt b 0)
+        (sum_flat a n 0 0)
+        (exact (array_set a n b) (add n 1)))))
+
+(def listed ((acc (list int)) (n int)) int
+  (let b (read_byte)
+    (if (lt b 0)
+        (sum_list acc 0)
+        (listed (cons b acc) (add n 1)))))
+
+(def sum_list ((xs (list int)) (acc int)) int
+  (if (is_empty xs) acc (sum_list (tail xs) (add acc (head xs)))))

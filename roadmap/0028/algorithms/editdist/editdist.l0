@@ -1,0 +1,203 @@
+; editdist.l0 -- Levenshtein distance between two byte strings, and an
+; optimal alignment.
+;
+; The distance is dynamic programming over two rows, which trade places each
+; row so both are updated in place. The alignment is Hirschberg's algorithm,
+; which needs the same two rows and so linear space; align_full is the
+; textbook full table, kept as an oracle and to measure what it costs.
+;
+; An alignment is a list of ops, one byte each: M (the bytes match), S
+; (substitute), D (delete a byte of the first string), I (insert a byte of
+; the second).
+
+; ---------------------------------------------------------------- the bytes
+
+; Every byte of f, in an array.
+(def read_all ((f IoFile)) (array int)
+  (read_rev f (nil int) 0))
+
+(def read_rev ((f IoFile) (acc (list int)) (n int)) (array int)
+  (let c (file_read_byte f)
+    (if (lt c 0)
+        (fill_back acc (array_new n 0) (sub n 1))
+        (read_rev f (cons c acc) (add n 1)))))
+
+; The array a with the reversed list xs written into it from index i down.
+(def fill_back ((xs (list int)) (a (array int)) (i int)) (array int)
+  (if (is_empty xs)
+      a
+      (fill_back (tail xs) (array_set a i (head xs)) (sub i 1))))
+
+(def array_of_list ((xs (list int))) (array int)
+  (fill_back (rev xs) (array_new (length xs) 0) (sub (length xs) 1)))
+
+; ------------------------------------------------------------ one DP table
+
+; The last row of the table for a[alo..ahi) against b[blo..bhi): element k is
+; the distance to the first k bytes of b's range. With fwd false both ranges
+; are read backwards, so element k is the distance of the reversed a range to
+; the last k bytes of b's range reversed, which is what Hirschberg needs.
+(def last_row ((a (array int)) (alo int) (ahi int) (b (array int)) (blo int)
+               (bhi int) (fwd bool)) (array int)
+  (let w (sub bhi blo)
+    (rows a alo ahi b blo bhi fwd 1 (iota (array_new (add w 1) 0) 0)
+          (array_new (add w 1) 0))))
+
+(def iota ((a (array int)) (i int)) (array int)
+  (if (ge i (array_len a)) a (iota (array_set a i i) (add i 1))))
+
+; Byte k, counting from 0, of the range lo..hi of a, from the front if fwd and
+; from the back otherwise.
+(def at ((a (array int)) (lo int) (hi int) (k int) (fwd bool)) int
+  (if fwd (array_get a (add lo k)) (array_get a (sub (sub hi 1) k))))
+
+(def rows ((a (array int)) (alo int) (ahi int) (b (array int)) (blo int)
+           (bhi int) (fwd bool) (i int) (prev (array int)) (cur (array int)))
+    (array int)
+  (if (gt i (sub ahi alo))
+      prev
+      (rows a alo ahi b blo bhi fwd (add i 1)
+            (fill b blo bhi fwd (at a alo ahi (sub i 1) fwd) prev
+                  (array_set cur 0 i) 1)
+            prev)))
+
+; cur, a row whose element 0 is set, with elements j onward computed from the
+; row above, prev, for the byte ca of the first string.
+(def fill ((b (array int)) (blo int) (bhi int) (fwd bool) (ca int)
+           (prev (array int)) (cur (array int)) (j int)) (array int)
+  (if (gt j (sub bhi blo))
+      cur
+      (let diag (add (array_get prev (sub j 1))
+                     (if (eq ca (at b blo bhi (sub j 1) fwd)) 0 1))
+        (let up (add (array_get prev j) 1)
+          (let left (add (array_get cur (sub j 1)) 1)
+            (fill b blo bhi fwd ca prev
+                  (array_set cur j (min_int diag (min_int up left)))
+                  (add j 1)))))))
+
+(def min_int ((a int) (b int)) int (if (lt a b) a b))
+
+(def distance ((a (array int)) (b (array int))) int
+  (array_get (last_row a 0 (array_len a) b 0 (array_len b) true) (array_len b)))
+
+; --------------------------------------------------------------- Hirschberg
+
+(def align ((a (array int)) (b (array int))) (list int)
+  (rev (hirsch a 0 (array_len a) b 0 (array_len b) (nil int))))
+
+; The ops aligning a[alo..ahi) with b[blo..bhi), pushed onto acc in order.
+(def hirsch ((a (array int)) (alo int) (ahi int) (b (array int)) (blo int)
+             (bhi int) (acc (list int))) (list int)
+  (if (eq alo ahi)
+      (push_n 73 (sub bhi blo) acc)
+      (if (eq blo bhi)
+          (push_n 68 (sub ahi alo) acc)
+          (if (eq (sub ahi alo) 1)
+              (one_byte (array_get a alo) b blo bhi acc)
+              (split a alo ahi b blo bhi acc)))))
+
+(def split ((a (array int)) (alo int) (ahi int) (b (array int)) (blo int)
+            (bhi int) (acc (list int))) (list int)
+  (let amid (div (add alo ahi) 2)
+    (let w (sub bhi blo)
+      (let k (best_split (last_row a alo amid b blo bhi true)
+                         (last_row a amid ahi b blo bhi false) w 0 0 -1)
+        (hirsch a amid ahi b (add blo k) bhi
+                (hirsch a alo amid b blo (add blo k) acc))))))
+
+; The k in 0..w minimizing left[k] + right[w - k].
+(def best_split ((left (array int)) (right (array int)) (w int) (k int)
+                 (best int) (cost int)) int
+  (if (gt k w)
+      best
+      (let c (add (array_get left k) (array_get right (sub w k)))
+        (if (if (lt cost 0) true (lt c cost))
+            (best_split left right w (add k 1) k c)
+            (best_split left right w (add k 1) best cost)))))
+
+; One byte c against b[blo..bhi), which is not empty: match it with its first
+; occurrence if it has one, and otherwise substitute it for the first byte.
+(def one_byte ((c int) (b (array int)) (blo int) (bhi int) (acc (list int)))
+    (list int)
+  (let p (find_byte b c blo bhi)
+    (if (lt p 0)
+        (push_n 73 (sub (sub bhi blo) 1) (cons 83 acc))
+        (push_n 73 (sub (sub bhi p) 1) (cons 77 (push_n 73 (sub p blo) acc))))))
+
+(def find_byte ((b (array int)) (c int) (i int) (hi int)) int
+  (if (ge i hi)
+      -1
+      (if (eq (array_get b i) c) i (find_byte b c (add i 1) hi))))
+
+(def push_n ((op int) (n int) (acc (list int))) (list int)
+  (if (le n 0) acc (push_n op (sub n 1) (cons op acc))))
+
+; --------------------------------------------------------------- full table
+
+; The alignment by the full (n+1) by (m+1) table in one array, row-major,
+; then a walk back from the corner. Needs (n+1)(m+1) words.
+(def align_full ((a (array int)) (b (array int))) (list int)
+  (let n (array_len a)
+    (let m (array_len b)
+      (back a b (add m 1) (table a b n m) n m (nil int)))))
+
+(def table ((a (array int)) (b (array int)) (n int) (m int)) (array int)
+  (trows a b (add m 1) n 1 (iota (array_new (mul (add n 1) (add m 1)) 0) 0)))
+
+; iota fills row 0 with 0..m but the rest with junk, which trows overwrites.
+(def trows ((a (array int)) (b (array int)) (w int) (n int) (i int)
+            (t (array int))) (array int)
+  (if (gt i n)
+      t
+      (trows a b w n (add i 1)
+             (tcells a b w i (array_get a (sub i 1))
+                     (array_set t (mul i w) i) 1))))
+
+(def tcells ((a (array int)) (b (array int)) (w int) (i int) (ca int)
+             (t (array int)) (j int)) (array int)
+  (if (ge j w)
+      t
+      (let here (add (mul i w) j)
+        (let diag (add (array_get t (sub (sub here w) 1))
+                       (if (eq ca (array_get b (sub j 1))) 0 1))
+          (let up (add (array_get t (sub here w)) 1)
+            (let left (add (array_get t (sub here 1)) 1)
+              (tcells a b w i ca
+                      (array_set t here (min_int diag (min_int up left)))
+                      (add j 1))))))))
+
+; Walks back from cell (i, j), consing ops, so they come out in order.
+(def back ((a (array int)) (b (array int)) (w int) (t (array int)) (i int)
+           (j int) (acc (list int))) (list int)
+  (if (if (eq i 0) (eq j 0) false)
+      acc
+      (let here (array_get t (add (mul i w) j))
+        (if (if (gt i 0) (gt j 0) false)
+            (let same (eq (array_get a (sub i 1)) (array_get b (sub j 1)))
+              (if (eq here (add (array_get t (add (mul (sub i 1) w) (sub j 1)))
+                                (if same 0 1)))
+                  (back a b w t (sub i 1) (sub j 1) (cons (if same 77 83) acc))
+                  (back_gap a b w t i j here acc)))
+            (back_gap a b w t i j here acc)))))
+
+(def back_gap ((a (array int)) (b (array int)) (w int) (t (array int)) (i int)
+               (j int) (here int) (acc (list int))) (list int)
+  (if (if (gt i 0) (eq here (add (array_get t (add (mul (sub i 1) w) j)) 1)) false)
+      (back a b w t (sub i 1) j (cons 68 acc))
+      (back a b w t i (sub j 1) (cons 73 acc))))
+
+; ------------------------------------------------------------------- output
+
+; How many ops cost 1: every one but M.
+(def script_cost ((ops (list int)) (n int)) int
+  (if (is_empty ops)
+      n
+      (script_cost (tail ops) (if (eq (head ops) 77) n (add n 1)))))
+
+(def report ((a (array int)) (b (array int)) (with_ops bool)) (list int)
+  (let d (push "distance " (nil int))
+    (let e (push (digits (distance a b)) d)
+      (let f (push "\n" e)
+        (if with_ops
+            (rev (push "\n" (push (align a b) f)))
+            (rev f))))))

@@ -34,4 +34,5 @@
   (let y (push (try_parse "(def f ((x Foo)) int (match x ((Bar 1) 2)))") x)
   (let z (push (try_parse "(def f ((x Foo)) int (match x ((bar) 1)))") y)
   (let aa (push (try_parse "(def f ((x Foo)) int (match x ((Bar) 1 2)))") z)
-    (rev aa)))))))))))))))))))))))))))))
+  (let ab (push (try_parse "(def f ((x array)) int 0)") aa)
+    (rev ab))))))))))))))))))))))))))))))

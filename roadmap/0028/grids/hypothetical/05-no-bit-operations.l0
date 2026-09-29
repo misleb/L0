@@ -1,0 +1,28 @@
+; Hypothetical: sudoku/sudoku.l0 with a 9-bit mask per unit instead of flag
+; arrays. Does not check: bit_and, bit_or, bit_not, shl, and popcount do
+; not exist.
+
+(data State
+  (State (array int) (array int) (array int) (array int)))   ; board, row, col, box masks
+
+; The digits cell i may take, as a mask with bit d set for digit d.
+(def open_digits ((rm (array int)) (cm (array int)) (xm (array int)) (i int)) int
+  (bit_and 1022 (bit_not (bit_or (array_get rm (row_of i))
+                                 (bit_or (array_get cm (col_of i)) (array_get xm (box_of i)))))))
+
+(def candidates ((rm (array int)) (cm (array int)) (xm (array int)) (i int)) int
+  (popcount (open_digits rm cm xm i)))
+
+(def free ((rm (array int)) (cm (array int)) (xm (array int)) (i int) (d int)) bool
+  (not (eq (bit_and (open_digits rm cm xm i) (shl 1 d)) 0)))
+
+(def put ((s State) (i int) (d int) (on int)) State
+  (match s
+    ((State b rm cm xm)
+      (State (array_set b i (mul d on))
+             (array_set rm (row_of i) (flip (array_get rm (row_of i)) d))
+             (array_set cm (col_of i) (flip (array_get cm (col_of i)) d))
+             (array_set xm (box_of i) (flip (array_get xm (box_of i)) d))))))
+
+(def flip ((m int) (d int)) int
+  (bit_xor m (shl 1 d)))

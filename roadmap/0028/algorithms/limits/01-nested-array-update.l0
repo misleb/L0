@@ -1,0 +1,86 @@
+; Limit 01: updating an element of an array held inside another array copies
+; the inner array, every time.
+;
+; The full edit-distance table is naturally a table of rows, t[i][j]. Filling
+; it cell by cell with the obvious nested update
+;
+;   (array_set t i (array_set (array_get t i) j x))
+;
+; copies row i on every cell: array_get gives the row a second holder while t
+; still holds it, so the inner array_set sees a count of 2 (spec 6.5). An n by
+; m table then costs n*m row copies, O(n * m^2) words, where a flat array
+; costs nothing. This program fills an N by N table of i + j three ways and
+; prints the sum of the last row, chosen by the first argument:
+;
+;   nested   the obvious update above: copies a row per cell
+;   swap     named workaround: take the row out by storing a placeholder
+;            array in its slot, update it alone, put it back
+;   flat     the table as one array of N*N, indexed i*N + j
+;   rowwise  each row filled as its own array before it is stored, which the
+;            edit-distance recurrence allows since row i needs only row i-1
+;
+; Run: L0_ARRAY_STATS=1 ./01 nested 1000
+
+(def main () int
+  (let n (int_prefix (arg 1) 0)
+    (let mode (arg 0)
+      (write_line (digits
+        (if (list_eq mode "flat")
+            (flat_sum (flat (array_new (mul n n) 0) n 0 0) n)
+            (row_sum (array_get (if (list_eq mode "swap")
+                                    (swap (grid n) n 0 0 (array_new 0 0))
+                                    (if (list_eq mode "rowwise")
+                                        (rowwise (array_new n (array_new 0 0)) n 0)
+                                        (nested (grid n) n 0 0)))
+                                (sub n 1))
+                     0 0)))))))
+
+(def rowwise ((t (array (array int))) (n int) (i int)) (array (array int))
+  (if (ge i n)
+      t
+      (rowwise (array_set t i (one_row (array_new n 0) i 0)) n (add i 1))))
+
+(def one_row ((r (array int)) (i int) (j int)) (array int)
+  (if (ge j (array_len r)) r (one_row (array_set r j (add i j)) i (add j 1))))
+
+(def grid ((n int)) (array (array int))
+  (rows (array_new n (array_new 0 0)) n 0))
+
+; Each row its own array, so no two rows share one.
+(def rows ((t (array (array int))) (n int) (i int)) (array (array int))
+  (if (ge i n) t (rows (array_set t i (array_new n 0)) n (add i 1))))
+
+(def nested ((t (array (array int))) (n int) (i int) (j int)) (array (array int))
+  (if (ge i n)
+      t
+      (if (ge j n)
+          (nested t n (add i 1) 0)
+          (nested (array_set t i (array_set (array_get t i) j (add i j)))
+                  n i (add j 1)))))
+
+(def swap ((t (array (array int))) (n int) (i int) (j int)
+           (hole (array int))) (array (array int))
+  (if (ge i n)
+      t
+      (if (ge j n)
+          (swap t n (add i 1) 0 hole)
+          (let row (array_get t i)
+            (let t2 (array_set t i hole)
+              (swap (array_set t2 i (array_set row j (add i j)))
+                    n i (add j 1) hole))))))
+
+(def flat ((t (array int)) (n int) (i int) (j int)) (array int)
+  (if (ge i n)
+      t
+      (if (ge j n)
+          (flat t n (add i 1) 0)
+          (flat (array_set t (add (mul i n) j) (add i j)) n i (add j 1)))))
+
+(def row_sum ((r (array int)) (j int) (acc int)) int
+  (if (ge j (array_len r)) acc (row_sum r (add j 1) (add acc (array_get r j)))))
+
+(def flat_sum ((t (array int)) (n int)) int
+  (flat_row t (mul (sub n 1) n) (mul n n) 0))
+
+(def flat_row ((t (array int)) (k int) (end int) (acc int)) int
+  (if (ge k end) acc (flat_row t (add k 1) end (add acc (array_get t k)))))

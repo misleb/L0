@@ -1,0 +1,8 @@
+; Phase timing: read the edges only.
+(def main () int
+  (match (open_in (arg 0))
+    ((IoOpened f)
+      (match (load f)
+        ((Loaded fs ts ws n top) (write_line (digits n)))
+        ((Malformed line) 1)))
+    ((IoFailed why) 1)))

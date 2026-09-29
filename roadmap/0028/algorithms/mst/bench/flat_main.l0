@@ -1,0 +1,39 @@
+; Comparison: Kruskal with parent and rank as two separate parameters and the
+; union written inline, so no UF or Found block is built per find.
+(def main () int
+  (match (open_in (arg 0))
+    ((IoOpened f)
+      (match (load f)
+        ((Loaded fs ts ws n top)
+          (match (kflat fs ts ws (sort_by_key ws n) (iota (array_new (add top 1) 0) 0)
+                        (array_new (add top 1) 0) 0 n top 0 0)
+            ((Mst t c) (write_str (report (Mst t c))))))
+        ((Malformed line) 1)))
+    ((IoFailed why) 1)))
+
+(def kflat ((fs (array int)) (ts (array int)) (ws (array int))
+            (order (array int)) (p (array int)) (r (array int)) (i int) (n int)
+            (need int) (total int) (count int)) Mst
+  (if (if (ge i n) true (ge count need))
+      (Mst total count)
+      (let e (array_get order i)
+        (let a (root_of p (array_get fs e))
+          (let p1 (compress p (array_get fs e) a)
+            (let b (root_of p1 (array_get ts e))
+              (let p2 (compress p1 (array_get ts e) b)
+                (if (eq a b)
+                    (kflat fs ts ws order p2 r (add i 1) n need total count)
+                    (klink fs ts ws order p2 r i n need (add total (array_get ws e))
+                           count a b)))))))))
+
+(def klink ((fs (array int)) (ts (array int)) (ws (array int))
+            (order (array int)) (p (array int)) (r (array int)) (i int) (n int)
+            (need int) (total int) (count int) (a int) (b int)) Mst
+  (let ra (array_get r a)
+    (let rb (array_get r b)
+      (if (lt ra rb)
+          (kflat fs ts ws order (array_set p a b) r (add i 1) n need total (add count 1))
+          (if (gt ra rb)
+              (kflat fs ts ws order (array_set p b a) r (add i 1) n need total (add count 1))
+              (kflat fs ts ws order (array_set p b a) (array_set r a (add ra 1))
+                     (add i 1) n need total (add count 1)))))))

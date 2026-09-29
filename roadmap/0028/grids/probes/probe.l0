@@ -1,0 +1,67 @@
+; Probes of when array_set copies. Run each case with L0_ARRAY_STATS=1:
+;   l0 run probe.l0 -- CASE
+; and read the copy count on standard error. Each case does 1000 updates.
+
+(data Box
+  (Box (array int) int))
+
+; 1. Threaded through a loop: expect 0 copies.
+(def plain ((a (array int)) (k int)) (array int)
+  (if (ge k 1000) a (plain (array_set a (mod k 10) k) (add k 1))))
+
+; 2. Held in a data field, matched from a parameter that is not used again,
+;    updated, and put back in a new Box.
+(def boxed ((b Box) (k int)) Box
+  (if (ge k 1000)
+      b
+      (match b
+        ((Box a n) (boxed (Box (array_set a (mod k 10) k) n) (add k 1))))))
+
+; 3. Returned in a data value from a function and matched at once.
+(def step ((a (array int)) (k int)) Box
+  (Box (array_set a (mod k 10) k) (add k 1)))
+
+(def via_result ((a (array int)) (k int)) (array int)
+  (if (ge k 1000)
+      a
+      (match (step a k)
+        ((Box a2 k2) (via_result a2 k2)))))
+
+; 4. A row of an array of rows, updated through array_get: expect a copy each.
+(def nested ((g (array (array int))) (k int)) (array (array int))
+  (if (ge k 1000)
+      g
+      (nested (array_set g (mod k 10) (array_set (array_get g (mod k 10)) (mod k 7) k))
+              (add k 1))))
+
+; 5. The same with 0021's placeholder swap.
+(def swapped ((g (array (array int))) (k int)) (array (array int))
+  (if (ge k 1000)
+      g
+      (let r (mod k 10)
+        (let row (array_get g r)
+          (let g2 (array_set g r (array_new 0 0))
+            (swapped (array_set g2 r (array_set row (mod k 7) k)) (add k 1)))))))
+
+; 6. A Box matched from a variable that IS used afterwards: the match reads it.
+(def boxed_kept ((b Box) (k int)) int
+  (if (ge k 1000)
+      0
+      (match b
+        ((Box a n) (let a2 (array_set a 0 k)
+                     (boxed_kept b (add 1 (array_get a2 0))))))))
+
+(def which ((c (list int))) int
+  (if (list_eq c "plain") (array_get (plain (array_new 10 0) 0) 9)
+  (if (list_eq c "boxed")
+      (match (boxed (Box (array_new 10 0) 0) 0) ((Box a n) (array_get a 9)))
+  (if (list_eq c "result") (array_get (via_result (array_new 10 0) 0) 9)
+  (if (list_eq c "nested")
+      (array_get (array_get (nested (array_new 10 (array_new 7 0)) 0) 9) 0)
+  (if (list_eq c "swapped")
+      (array_get (array_get (swapped (array_new 10 (array_new 7 0)) 0) 9) 0)
+  (if (list_eq c "kept") (boxed_kept (Box (array_new 10 0) 0) 0)
+      -1)))))))
+
+(def main () int
+  (let w (write_line (digits (which (arg 0)))) 0))

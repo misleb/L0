@@ -1,0 +1,26 @@
+; Hypothetical for limit 01: the full edit-distance table as a table of rows,
+; filled with the obvious nested update, running in constant time per cell.
+; Today this type checks and runs, but copies row i on every cell (O(n m^2)
+; words: 125 billion words, 11.3 s, for 5,000 by 5,000; about 1.5 minutes or
+; more projected for the 10,000 by 10,000 table, against 0.84 s flat).
+;
+; What would make it constant time is 0025: an update of an element that is
+; itself an array, held only by the outer array, done in place. Either the
+; compiler sees (array_set t i (array_set (array_get t i) j x)) as one update
+; and does not count the inner array_get as a second holder, or a builtin such
+; as (array_update2 t i j x) does it by name.
+
+(def tcells ((a (array int)) (b (array int)) (i int) (ca int)
+             (t (array (array int))) (j int)) (array (array int))
+  (if (gt j (array_len b))
+      t
+      (let diag (add (array_get (array_get t (sub i 1)) (sub j 1))
+                     (if (eq ca (array_get b (sub j 1))) 0 1))
+        (let up (add (array_get (array_get t (sub i 1)) j) 1)
+          (let left (add (array_get (array_get t i) (sub j 1)) 1)
+            (tcells a b i ca
+                    (array_set t i (array_set (array_get t i) j
+                                              (min diag (min up left))))
+                    (add j 1)))))))
+
+(def min ((a int) (b int)) int (if (lt a b) a b))

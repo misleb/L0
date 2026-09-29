@@ -6,23 +6,23 @@ Current focus: the memory-management and I/O goal is met by the language route
 (changelog "The route to memory management and I/O"): streaming and file I/O,
 arguments, reference counting, and guaranteed tail calls, and the gaps 0014
 found in it are closed by 0018 to 0020. The arrays goal's release rule
-(0023) and arrays (0024) are done; nested update (0025) and packed bytes
-(0026) wait for programs that need them.
+(0023) and arrays (0024) are done, and 0028's programs with arrays chose
+what follows: documentation that says what arrays cost, borrowed parameters,
+nested update, and research into holding bytes one byte per byte.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty. The arrays goal's first two items are done; 0025 and 0026 wait for
-programs that need them, which a round of programs written with arrays
-would find.
+1. [0030](0030-borrow-read-only-parameters.md) borrow a parameter the
+   function only reads — queued, next
+2. [0025](0025-nested-array-update.md) updating an array held inside another
+   without copying it — queued, needs 0030
 
 ## Other open items
 
-- [0025](0025-nested-array-update.md) updating an array held inside another
-  without copying it — proposed, needs 0024 and a program
-- [0026](0026-packed-bytes.md) bytes held one byte per byte — proposed, needs
-  0024 and a program
+- [0026](0026-packed-bytes.md) research: how L0 holds bytes one byte per byte
+  — proposed, next; earned by 0028
 
 ## Done and dropped
 
@@ -80,6 +80,12 @@ would find.
 - [0023](0023-release-at-last-use.md) release a value at its last use — done,
   changelog "A value is released at its last use"
 - [0024](0024-arrays.md) arrays — done, changelog "Arrays"
+- [0029](0029-array-docs.md) say what arrays really cost — done, changelog
+  "What updates an array in place, said correctly, and no language change
+  for it"
+- [0028](0028-programs-with-arrays.md) program: programs written with arrays
+  — done; nine programs, all faster than Python, which chose 0029, 0030,
+  0025, and 0026
 - [0027](0027-faster-compiler.md) tooling: a faster compiler — done, changelog
   "Programs and the runtime are optimized together, and no language change
   for it"

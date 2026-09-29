@@ -1,0 +1,67 @@
+; 02: calling a helper that only reads an array still counts a reference.
+;
+; Spec 10.3: a use of an array variable that is not its last hands over a
+; new reference (l0_inc), and the callee releases its parameter at its own
+; last use (l0_dec). array_get reads without a reference, but a function of
+; your own that only calls array_get cannot: the caller has to inc, and the
+; callee dec, on every call. l0_dec is a runtime call that may free, so
+; LLVM cannot pair it away even when the helper is inlined.
+;
+; So factoring a read into a helper has a cost the source does not show. In
+; sudoku/, the candidate test
+;
+;   (def free ((rf (array int)) (cf (array int)) (xf (array int)) (i int) (d int)) bool ...)
+;
+; is called 9 times per cell per search node; profiling put a third of all
+; samples in l0_dec called from it, and writing its three array_gets inline
+; in its caller took the 99-puzzle run from 0.29 s to 0.16 s (45%).
+;
+; This program: 3 arrays of 90, 50M lookups, three ways:
+;   ./02 helper     the arrays passed to a helper          0.27 s
+;   ./02 ints       a helper given the three ints instead  0.09 s
+;   ./02 inline     no helper                              0.07 s
+; so the call is cheap and the reference counting is two thirds of the time.
+;
+; Not an expressiveness limit: the helper is legal and correct. It is a cost
+; that pushes code toward manual inlining, the opposite of what an agent
+; reading the code wants. What would remove it without a language change is
+; the compiler borrowing a parameter the callee never consumes (only reads
+; with array_get, array_len, match, or passes to other borrowing positions),
+; which 10.3 would have to allow, since it fixes when references are taken.
+
+(def seen ((a (array int)) (b (array int)) (c (array int)) (i int)) int
+  (if (eq (array_get a i) 1) 1 (if (eq (array_get b i) 1) 1 (array_get c i))))
+
+(def via_helper ((a (array int)) (b (array int)) (c (array int)) (k int) (acc int)) int
+  (if (eq k 0)
+      acc
+      (via_helper a b c (sub k 1) (add acc (seen a b c (mod k 90))))))
+
+(def inline ((a (array int)) (b (array int)) (c (array int)) (k int) (acc int)) int
+  (if (eq k 0)
+      acc
+      (inline a b c (sub k 1)
+        (add acc (let i (mod k 90)
+                   (if (eq (array_get a i) 1) 1
+                       (if (eq (array_get b i) 1) 1 (array_get c i))))))))
+
+; The control: still a helper call, but given ints rather than arrays.
+(def seen_ints ((x int) (y int) (z int)) int
+  (if (eq x 1) 1 (if (eq y 1) 1 z)))
+
+(def via_ints ((a (array int)) (b (array int)) (c (array int)) (k int) (acc int)) int
+  (if (eq k 0)
+      acc
+      (via_ints a b c (sub k 1)
+        (add acc (let i (mod k 90)
+                   (seen_ints (array_get a i) (array_get b i) (array_get c i)))))))
+
+(def main () int
+  (let a (array_set (array_new 90 0) 3 1)
+    (let b (array_set (array_new 90 0) 5 1)
+      (let c (array_set (array_new 90 0) 7 1)
+        (write_line (digits (if (list_eq (arg 0) "inline")
+                                (inline a b c 50000000 0)
+                                (if (list_eq (arg 0) "ints")
+                                    (via_ints a b c 50000000 0)
+                                    (via_helper a b c 50000000 0)))))))))

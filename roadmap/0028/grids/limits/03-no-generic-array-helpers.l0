@@ -1,0 +1,38 @@
+; 03: an array helper works for one element type only, and the standard
+; library has none.
+;
+; Reading a grid of unknown size into an array needs an array that grows:
+; store at n, doubling when full, then trim to the length read. Both
+; life/life.l0 and maze/maze.l0 carry the same three functions for it
+; (push_cell, copy_prefix, trim, 17 lines), because L0 has no module system
+; and the library (l0 doc) has no array functions at all. Worse, they can
+; only ever be written for one element type: without type parameters,
+; push_cell over (array int) cannot store a (list int), so a program with
+; arrays of two element types writes them twice. The builtins are the only
+; generic array operations, the way cons and head are for lists, and the
+; prelude's list helpers already show the pattern: rev_strs_onto exists
+; beside rev_onto only because (list (list int)) is another type.
+;
+; The checker, on the last function below:
+;
+;   03-no-generic-array-helpers.l0:37:3: error: argument 1 of push_cell must
+;   be (array int), but this is (array (list int))
+;
+; What it costs: 17 lines per element type per program, and the growth
+; policy re-decided each time. At run time the doubling is fine: reading
+; the 1,000 by 1,000 life board takes 0.02 s with 3M sets in place and no
+; copies, and the 2,001 by 2,001 maze 0.09 s.
+
+(def push_cell ((cells (array int)) (n int) (x int)) (array int)
+  (if (lt n (array_len cells))
+      (array_set cells n x)
+      (array_set (copy_prefix cells (array_new (mul 2 (array_len cells)) 0) 0 n) n x)))
+
+(def copy_prefix ((src (array int)) (dst (array int)) (i int) (n int)) (array int)
+  (if (ge i n)
+      dst
+      (copy_prefix src (array_set dst i (array_get src i)) (add i 1) n)))
+
+; The same growth, needed for the lines of a file: does not check.
+(def push_line ((lines (array (list int))) (n int) (line (list int))) (array (list int))
+  (push_cell lines n line))

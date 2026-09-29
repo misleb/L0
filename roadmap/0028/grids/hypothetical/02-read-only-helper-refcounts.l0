@@ -1,0 +1,23 @@
+; Hypothetical: sudoku/sudoku.l0's candidate count, as written, running at the
+; speed of the inlined version. This is valid L0 today; what is hypothetical
+; is the cost. With a borrowed parameter (the compiler seeing that free only
+; reads rf, cf, and xf, so candidates need not inc them for it and free need
+; not dec them), the helper would cost what an int helper costs: 0.09 s
+; rather than 0.27 s in limits/02, 0.16 s rather than 0.29 s in sudoku.
+;
+; Nothing in the source would change; spec 10.3 would have to allow it,
+; since it fixes that "any earlier use calls @l0_inc". Freeing would happen
+; no later than now, since a borrowed parameter is never the last holder.
+
+(def free ((rf (array int)) (cf (array int)) (xf (array int)) (i int) (d int)) bool
+  (if (eq (array_get rf (add (mul (div i 9) 10) d)) 1)
+      false
+      (if (eq (array_get cf (add (mul (mod i 9) 10) d)) 1)
+          false
+          (eq (array_get xf (add (mul (add (mul (div (div i 9) 3) 3) (div (mod i 9) 3)) 10) d)) 0))))
+
+(def candidates ((rf (array int)) (cf (array int)) (xf (array int)) (i int) (d int)
+                 (n int)) int
+  (if (gt d 9)
+      n
+      (candidates rf cf xf i (add d 1) (if (free rf cf xf i d) (add n 1) n))))

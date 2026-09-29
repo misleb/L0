@@ -1,0 +1,22 @@
+; Limit 03: L0 has no floating point, so json cannot print a number as
+; python3 -m json.tool does.
+;
+; json.tool parses 1.50 to a double and prints repr() of it: 1.5. 1E5
+; becomes 100000.0, 0e0 becomes 0.0, 1e400 becomes Infinity, and
+; 0.1000000000000000055511151231257827 becomes 0.1. Reproducing that needs
+; the double nearest a decimal string and the shortest decimal string that
+; reads back as it, which is correctly rounded conversion in both directions;
+; with 64-bit integers only, that means writing bignum arithmetic in L0
+; first. json copies such numbers as written and documents the difference.
+;
+; This is the declaration json would start from. The checker's answer:
+;
+;   limits/03-no-floats.l0:22:14: error: unknown type float: a type is int,
+;   bool, (list T), or a data type, whose name starts uppercase
+;
+; (That message has not caught up with arrays: (array T) is a type too.)
+;
+; Cost here: none on the 11.5 MB document, which holds only integers; any
+; fraction or exponent in the input is printed differently from json.tool.
+
+(def half () float (div 1 2))

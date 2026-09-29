@@ -1,0 +1,23 @@
+; Hypothetical for limit 03: what was written first in dijkstra.l0's
+; heap_pop, and what the checker would ideally say about it.
+;
+; This IS valid L0 and gives the right answer; it copies the heap on every
+; pop (dijkstra on the 10,000-node graph: 2.45 s instead of 0.25 s, 16
+; billion words copied, every test still passing). What is missing is not a
+; construct but a diagnostic. The compiler already knows, from its last-use
+; analysis (spec 10.3), that h is used after the array_set that consumes it,
+; so it could warn:
+;
+;   FILE:LINE:COL: warning: h is used after this array_set consumes it, so
+;   it copies h; read what you need from h first
+;
+; Reordering is not an option: array_get can fail, so spec section 8 forbids
+; moving it past the inner array_set, whose own failure it would then mask.
+
+(def heap_pop ((h (array int)) (size int)) (array int)
+  (let last (sub size 1)
+    (sift_down (array_set (array_set h 0 (array_get h (mul 2 last)))
+                          1 (array_get h (add (mul 2 last) 1)))
+               0 last)))
+
+(def sift_down ((h (array int)) (i int) (size int)) (array int) h)

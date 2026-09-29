@@ -1,0 +1,30 @@
+; Hypothetical for limit 01: the input read in one call, into bytes held
+; one byte per byte, of exactly the input's length.
+;
+; What sort.l0 would be written as. (read_all h) is every byte left on
+; handle h as a (bytes), or a negative-length failure as IoLine does for
+; lines; (bytes_len b) and (bytes_get b i) are array_len and array_get for
+; it. The runtime can grow its buffer with realloc, which never has to hold
+; the old copy and the new one as live L0 values, and the result costs one
+; byte a byte: 10 MB of input in about 10 MB rather than 257.
+;
+; Checker output, today:
+;   hypothetical/01-input-into-array.l0:21:19: error: unknown type bytes: a
+;   type is int, bool, (list T), or a data type, whose name starts uppercase
+;   hypothetical/01-input-into-array.l0:17:10: error: unknown function read_all
+
+(def main () int
+  (let b (read_all 0)
+    (let st (line_starts b (bytes_len b))
+      (write_lines b st (sorted b st)))))
+
+(def bytes_lt ((b bytes) (i int) (ie int) (j int) (je int)) bool
+  (if (ge j je)
+      false
+      (if (ge i ie)
+          true
+          (let c (bytes_get b i)
+            (let d (bytes_get b j)
+              (if (eq c d)
+                  (bytes_lt b (add i 1) ie (add j 1) je)
+                  (lt c d)))))))

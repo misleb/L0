@@ -14,7 +14,7 @@ tools/test.sh NAME              # only tests whose name contains NAME
 tools/test.sh --bless [NAME]    # overwrite expectations with current output
 tools/l0check FILE.l0 ...       # type check
 tools/l0ll FILE.ll OUT          # link generated IR against the runtime
-build/l0i run FILE.l0 ... < in  # run a program
+tools/l0 run FILE.l0 ... < in   # run a program (build/l0i knows only stage 0's L0)
 tools/bootstrap.sh              # self-compile and check the fixpoint
 tools/bootstrap.sh --refresh-seed   # also install the result as bootstrap/stage2.ll
 tools/linux-test.sh [arm64] [amd64] # both suites on Linux, in a local container

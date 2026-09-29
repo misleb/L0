@@ -1,0 +1,187 @@
+; mst_test.l0 -- tests of mst.l0: l0 test mst.l0 mst_test.l0
+
+(def run_str ((s (list int))) (list int)
+  (match (open_in_bytes s)
+    ((IoOpened f)
+      (match (run f)
+        ((Answer out) (let c (file_close f) out))
+        ((Failure msg) (let c (file_close f) msg))))
+    ((IoFailed why) why)))
+
+(def test_triangle () int
+  (check_str "drops the heaviest" (run_str "0 1 5\n1 2 3\n0 2 4\n")
+             "weight 7\nedges 2\n"))
+
+(def test_empty () int
+  (check_str "no edges" (run_str "") "weight 0\nedges 0\n"))
+
+(def test_blank_lines_and_spaces () int
+  (check_str "tolerant" (run_str "\n  0   1\t2 \r\n\n1 2 3") "weight 5\nedges 2\n"))
+
+(def test_forest () int
+  (check_str "two components" (run_str "0 1 1\n2 3 2\n") "weight 3\nedges 2\n"))
+
+(def test_self_loop_and_parallel () int
+  (check_str "loop ignored, lighter parallel edge"
+             (run_str "0 0 1\n0 1 9\n1 0 2\n") "weight 2\nedges 1\n"))
+
+(def test_malformed () int
+  (add (check_str "two fields" (run_str "0 1 2\n3 4\n")
+                  "mst: line 2: expected FROM TO WEIGHT, whole numbers\n")
+       (add (check_str "four fields" (run_str "0 1 2 3\n")
+                       "mst: line 1: expected FROM TO WEIGHT, whole numbers\n")
+            (check_str "letter" (run_str "0 1 x\n")
+                       "mst: line 1: expected FROM TO WEIGHT, whole numbers\n"))))
+
+; ------------------------------------------------------------ sorting
+
+(def ints_of ((a (array int)) (i int) (acc (list int))) (list int)
+  (if (lt i 0) acc (ints_of a (sub i 1) (cons (array_get a i) acc))))
+
+(def array_of ((xs (list int)) (a (array int)) (i int)) (array int)
+  (if (is_empty xs) a (array_of (tail xs) (array_set a i (head xs)) (add i 1))))
+
+(def from_list ((xs (list int))) (array int)
+  (array_of xs (array_new (length xs) 0) 0))
+
+(def test_sort_small () int
+  (let keys (from_list (cons 5 (cons 1 (cons 4 (cons 1 (cons 3 (nil int)))))))
+    (check_str "stable order of indices"
+               (ints_of (sort_by_key keys 5) 4 (nil int))
+               (cons 1 (cons 3 (cons 4 (cons 2 (cons 0 (nil int)))))))))
+
+(def sorted_by ((keys (array int)) (order (array int)) (i int)) bool
+  (if (ge (add i 1) (array_len order))
+      true
+      (if (gt (array_get keys (array_get order i))
+              (array_get keys (array_get order (add i 1))))
+          false
+          (sorted_by keys order (add i 1)))))
+
+(def random_keys ((a (array int)) (i int) (s int)) (array int)
+  (if (ge i (array_len a))
+      a
+      (random_keys (array_set a i (rand_below s 50)) (add i 1) (rand_next s))))
+
+; Every index appears exactly once in the order.
+(def is_permutation ((order (array int)) (seen (array int)) (i int)) bool
+  (if (ge i (array_len order))
+      true
+      (let x (array_get order i)
+        (if (gt (array_get seen x) 0)
+            false
+            (is_permutation order (array_set seen x 1) (add i 1))))))
+
+(def test_sort_random () int
+  (let keys (random_keys (array_new 3001 0) 0 17)
+    (let order (sort_by_key keys 3001)
+      (add (check_true "ascending" (sorted_by keys order 0))
+           (check_true "permutation" (is_permutation order (array_new 3001 0) 0))))))
+
+; ------------------------------------------------------------ union-find
+
+(def root ((uf UF) (x int)) int
+  (match (uf_find uf x) ((Found r u) r)))
+
+(def test_union_find () int
+  (let u0 (uf_new 5)
+    (match (uf_find u0 3)
+      ((Found r u1)
+        (let u2 (uf_link u1 3 4)
+          (match (uf_find u2 4)
+            ((Found r4 u3)
+              (add (check_int "own root" r 3)
+                   (add (check_int "joined" r4 3)
+                        (check_int "untouched" (root u3 0) 0))))))))))
+
+; ------------------------------------------------------------ property
+
+; The MST weight by brute force on a tiny graph: every subset of edges that
+; forms a spanning tree, least total weight. Edges are packed into lists.
+(def edges_text ((n int) (m int) (s int) (acc (list int))) (list int)
+  (if (eq m 0)
+      acc
+      (let a (rand_below s n)
+        (let s1 (rand_next s)
+          (let b (rand_below s1 n)
+            (let s2 (rand_next s1)
+              (let w (add 1 (rand_below s2 9))
+                (edges_text n (sub m 1) (rand_next s2)
+                  (push "\n" (push (digits w) (push " " (push (digits b)
+                    (push " " (push (digits a) acc))))))))))))))
+
+; Prim's algorithm over an adjacency matrix, written separately, as the oracle.
+(def prim_weight ((text (list int)) (n int)) int
+  (match (open_in_bytes text)
+    ((IoOpened f)
+      (match (load f)
+        ((Loaded fs ts ws m top)
+          (let c (file_close f)
+            (prim (matrix fs ts ws m 0 (array_new (mul n n) 0) n) n
+                  (array_set (array_new n 0) 0 1) 1 0)))
+        ((Malformed line) -1)))
+    ((IoFailed why) -2)))
+
+(def matrix ((fs (array int)) (ts (array int)) (ws (array int)) (m int) (i int)
+             (mat (array int)) (n int)) (array int)
+  (if (ge i m)
+      mat
+      (let a (array_get fs i)
+        (let b (array_get ts i)
+          (let w (array_get ws i)
+            (matrix fs ts ws m (add i 1)
+                    (set_min (set_min mat (add (mul a n) b) w) (add (mul b n) a) w)
+                    n))))))
+
+(def set_min ((mat (array int)) (k int) (w int)) (array int)
+  (let old (array_get mat k)
+    (if (if (eq old 0) true (lt w old)) (array_set mat k w) mat)))
+
+; Grows the tree from node 0 while an edge leaves it; the total weight.
+(def prim ((mat (array int)) (n int) (inside (array int)) (count int) (total int)) int
+  (let best (cheapest mat n inside 0 -1 0)
+    (if (lt best 0)
+        total
+        (let v (mod best n)
+          (prim mat n (array_set inside v 1) (add count 1)
+                (add total (div best n)))))))
+
+; The cheapest edge from inside to outside as weight * n + node, or -1.
+(def cheapest ((mat (array int)) (n int) (inside (array int)) (k int) (best int)
+               (unused int)) int
+  (if (ge k (mul n n))
+      best
+      (let a (div k n)
+        (let b (mod k n)
+          (let w (array_get mat k)
+            (if (if (eq w 0) true (if (eq (array_get inside a) 0) true
+                                      (eq (array_get inside b) 1)))
+                (cheapest mat n inside (add k 1) best 0)
+                (let cand (add (mul w n) b)
+                  (cheapest mat n inside (add k 1)
+                            (if (if (lt best 0) true (lt cand best)) cand best)
+                            0))))))))
+
+(def weight_of_report ((s (list int))) int
+  (int_prefix (drop_n s 7) 0))
+
+; Connected random graphs: a path 0-1-...-(n-1) with weight 9 plus random edges.
+(def chain ((i int) (n int) (acc (list int))) (list int)
+  (if (ge (add i 1) n)
+      acc
+      (chain (add i 1) n (push " 9\n" (push (digits (add i 1))
+                                (push " " (push (digits i) acc)))))))
+
+(def agree ((trials int) (s int) (fails int)) int
+  (if (eq trials 0)
+      fails
+      (let n (add 2 (rand_below s 7))
+        (let text (rev (edges_text n (rand_below (rand_next s) 20)
+                                   (rand_next (rand_next s)) (chain 0 n (nil int))))
+          (agree (sub trials 1) (rand_next (rand_next (rand_next s)))
+                 (add fails (if (eq (weight_of_report (run_str text))
+                                    (prim_weight text n))
+                                0 1)))))))
+
+(def test_agrees_with_prim () int
+  (check_int "disagreements in 300 random graphs" (agree 300 99 0) 0))

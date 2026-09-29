@@ -1,0 +1,225 @@
+; mst.l0 -- Kruskal's minimum spanning tree (a forest, if the graph is not
+; connected) over edges "FROM TO WEIGHT", one per line, node ids 0 to N-1.
+;
+; The edges are read into three growable int arrays, an index permutation is
+; sorted by weight with a bottom-up merge sort, and union-find by rank with
+; path compression keeps parent and rank in two arrays. Every array is
+; threaded through tail calls so each update is in place.
+
+; ------------------------------------------------------------ growable arrays
+
+; arr with x at index n, doubling arr first if it has no room.
+(def push_at ((arr (array int)) (n int) (x int)) (array int)
+  (if (lt n (array_len arr))
+      (array_set arr n x)
+      (array_set (grow arr) n x)))
+
+(def grow ((arr (array int))) (array int)
+  (copy_ints arr (array_new (add 1 (mul 2 (array_len arr))) 0) 0))
+
+(def copy_ints ((src (array int)) (dst (array int)) (i int)) (array int)
+  (if (ge i (array_len src))
+      dst
+      (copy_ints src (array_set dst i (array_get src i)) (add i 1))))
+
+; ------------------------------------------------------------------ reading
+
+; The edges read: from, to, weight, how many, and the largest node id; or the
+; number of the first malformed line.
+(data Loaded
+  (Loaded (array int) (array int) (array int) int int)
+  (Malformed int))
+
+(def load ((f IoFile)) Loaded
+  (let z (array_new 1024 0)
+    (rd f z (array_new 1024 0) (array_new 1024 0) 0 -1 1 0 0 false 0 0 0)))
+
+; The reader is one state machine over bytes, so no line is ever built as a
+; list: fs ts ws are the edges so far, n how many, top the largest id,
+; field how many numbers this line has finished, cur the number being read,
+; dig whether cur has a digit yet, and a b w the finished numbers.
+(def rd ((f IoFile) (fs (array int)) (ts (array int)) (ws (array int)) (n int)
+         (top int) (line int) (field int) (cur int) (dig bool)
+         (a int) (b int) (w int)) Loaded
+  (let c (file_read_byte f)
+    (if (is_digit c)
+        (rd f fs ts ws n top line field (add (mul cur 10) (sub c 48)) true a b w)
+        (if (if (eq c 32) true (if (eq c 9) true (eq c 13)))
+            (end_field f fs ts ws n top line field cur dig a b w)
+            (if (if (eq c 10) true (lt c 0))
+                (end_line f fs ts ws n top line field cur dig a b w (lt c 0))
+                (Malformed line))))))
+
+(def end_field ((f IoFile) (fs (array int)) (ts (array int)) (ws (array int))
+                (n int) (top int) (line int) (field int) (cur int) (dig bool)
+                (a int) (b int) (w int)) Loaded
+  (if (not dig)
+      (rd f fs ts ws n top line field 0 false a b w)
+      (if (eq field 0)
+          (rd f fs ts ws n top line 1 0 false cur b w)
+          (if (eq field 1)
+              (rd f fs ts ws n top line 2 0 false a cur w)
+              (if (eq field 2)
+                  (rd f fs ts ws n top line 3 0 false a b cur)
+                  (Malformed line))))))
+
+(def end_line ((f IoFile) (fs (array int)) (ts (array int)) (ws (array int))
+               (n int) (top int) (line int) (field int) (cur int) (dig bool)
+               (a int) (b int) (w int) (eof bool)) Loaded
+  (let k (if dig (add field 1) field)
+    (if (gt k 3)
+        (Malformed line)
+        (if (eq k 3)
+            (let wt (if dig cur w)
+              (next_line_or_end f (push_at fs n a) (push_at ts n b)
+                                (push_at ws n wt) (add n 1)
+                                (max_int top (max_int a b)) line eof))
+            (if (eq k 0)
+                (next_line_or_end f fs ts ws n top line eof)
+                (Malformed line))))))
+
+(def next_line_or_end ((f IoFile) (fs (array int)) (ts (array int))
+                       (ws (array int)) (n int) (top int) (line int) (eof bool))
+    Loaded
+  (if eof
+      (Loaded fs ts ws n top)
+      (rd f fs ts ws n top (add line 1) 0 0 false 0 0 0)))
+
+(def max_int ((a int) (b int)) int (if (gt a b) a b))
+
+; ------------------------------------------------------------------ sorting
+
+; The indices 0 to n-1 ordered by keys, stably, by bottom-up merge sort
+; between two arrays that trade places each pass.
+(def sort_by_key ((keys (array int)) (n int)) (array int)
+  (passes keys (iota (array_new n 0) 0) (array_new n 0) n 1))
+
+(def iota ((a (array int)) (i int)) (array int)
+  (if (ge i (array_len a)) a (iota (array_set a i i) (add i 1))))
+
+(def passes ((keys (array int)) (src (array int)) (dst (array int)) (n int)
+             (width int)) (array int)
+  (if (ge width n)
+      src
+      (passes keys (merge_pass keys src dst n width 0) src n (mul width 2))))
+
+(def merge_pass ((keys (array int)) (src (array int)) (dst (array int)) (n int)
+                 (width int) (lo int)) (array int)
+  (if (ge lo n)
+      dst
+      (let mid (min_int (add lo width) n)
+        (let hi (min_int (add mid width) n)
+          (merge_pass keys src (merge keys src dst lo mid mid hi lo)
+                      n width hi)))))
+
+(def merge ((keys (array int)) (src (array int)) (dst (array int)) (i int)
+            (iend int) (j int) (jend int) (k int)) (array int)
+  (if (ge i iend)
+      (copy_run src dst j jend k)
+      (if (ge j jend)
+          (copy_run src dst i iend k)
+          (let x (array_get src i)
+            (let y (array_get src j)
+              (if (lt (array_get keys y) (array_get keys x))
+                  (merge keys src (array_set dst k y) i iend (add j 1) jend (add k 1))
+                  (merge keys src (array_set dst k x) (add i 1) iend j jend (add k 1))))))))
+
+(def copy_run ((src (array int)) (dst (array int)) (i int) (end int) (k int))
+    (array int)
+  (if (ge i end)
+      dst
+      (copy_run src (array_set dst k (array_get src i)) (add i 1) end (add k 1))))
+
+(def min_int ((a int) (b int)) int (if (lt a b) a b))
+
+; --------------------------------------------------------------- union-find
+
+; Parent and rank, together, since every union may change both.
+(data UF
+  (UF (array int) (array int)))
+
+(def uf_new ((n int)) UF
+  (UF (iota (array_new n 0) 0) (array_new n 0)))
+
+; The root of x, and the union-find with every node on x's path pointing at it.
+(data Found
+  (Found int UF))
+
+(def uf_find ((uf UF) (x int)) Found
+  (match uf
+    ((UF p r)
+      (let root (root_of p x)
+        (Found root (UF (compress p x root) r))))))
+
+(def root_of ((p (array int)) (x int)) int
+  (let px (array_get p x)
+    (if (eq px x) x (root_of p px))))
+
+(def compress ((p (array int)) (x int) (root int)) (array int)
+  (let px (array_get p x)
+    (if (eq px root)
+        p
+        (compress (array_set p x root) px root))))
+
+; Joins the trees of the roots a and b, which differ, by rank.
+(def uf_link ((uf UF) (a int) (b int)) UF
+  (match uf
+    ((UF p r)
+      (let ra (array_get r a)
+        (let rb (array_get r b)
+          (if (lt ra rb)
+              (UF (array_set p a b) r)
+              (if (gt ra rb)
+                  (UF (array_set p b a) r)
+                  (UF (array_set p b a) (array_set r a (add ra 1))))))))))
+
+; ------------------------------------------------------------------ Kruskal
+
+; The total weight of a minimum spanning forest, and how many edges it has.
+(data Mst
+  (Mst int int))
+
+(def mst ((fs (array int)) (ts (array int)) (ws (array int)) (n int)
+          (nodes int)) Mst
+  (kruskal fs ts ws (sort_by_key ws n) (uf_new nodes) 0 n
+           (sub nodes 1) 0 0))
+
+(def kruskal ((fs (array int)) (ts (array int)) (ws (array int))
+              (order (array int)) (uf UF) (i int) (n int) (need int)
+              (total int) (count int)) Mst
+  (if (if (ge i n) true (ge count need))
+      (Mst total count)
+      (let e (array_get order i)
+        (match (uf_find uf (array_get fs e))
+          ((Found ra uf1)
+            (match (uf_find uf1 (array_get ts e))
+              ((Found rb uf2)
+                (if (eq ra rb)
+                    (kruskal fs ts ws order uf2 (add i 1) n need total count)
+                    (kruskal fs ts ws order (uf_link uf2 ra rb) (add i 1) n
+                             need (add total (array_get ws e))
+                             (add count 1))))))))))
+
+; ------------------------------------------------------------------- output
+
+(def report ((m Mst)) (list int)
+  (match m
+    ((Mst total count)
+      (let a (push "weight " (nil int))
+        (let b (push (digits total) a)
+          (let c (push "\nedges " b)
+            (let d (push (digits count) c)
+              (rev (push "\n" d)))))))))
+
+; The whole program on an open file: the report, or a message for a bad line.
+(data Outcome
+  (Answer (list int))
+  (Failure (list int)))
+
+(def run ((f IoFile)) Outcome
+  (match (load f)
+    ((Loaded fs ts ws n top)
+      (Answer (report (mst fs ts ws n (add top 1)))))
+    ((Malformed line)
+      (Failure (append "mst: line " (append (digits line)
+                 ": expected FROM TO WEIGHT, whole numbers\n"))))))

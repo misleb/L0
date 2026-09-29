@@ -1,0 +1,19 @@
+; Hypothetical for limit 03: json printing a number as json.tool does.
+;
+; With a float type and two conversions, (float_parse s) giving the double
+; nearest the decimal text s and (float_repr x) the shortest text that reads
+; back as x, as Python's repr does, put_number would parse any number with a
+; fraction or exponent and print it back:
+;
+; Checker output, today:
+;   hypothetical/03-no-floats.l0:13:26: error: unknown function float_parse
+;   (one error per declaration; there is no float type to name either)
+
+(def put_float ((s (array int)) (n int) (j int) (end int) (h int)) int
+  (put_str h (float_repr (float_parse (slice s j end)))))
+
+(def slice ((s (array int)) (i int) (end int)) (list int)
+  (if (ge i end) (nil int) (cons (array_get s i) (slice s (add i 1) end))))
+
+(def put_str ((h int) (s (list int))) int
+  (if (is_empty s) 0 (let w (write_to h (head s)) (put_str h (tail s)))))

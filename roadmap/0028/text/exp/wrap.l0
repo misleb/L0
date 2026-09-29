@@ -1,0 +1,19 @@
+; Does an array held in a data value update in place once the value is
+; matched apart, when nothing else holds the value?
+
+(data Pair
+  (Pair (array int) (array int)))
+
+(def fill ((p Pair) (i int)) Pair
+  (if (ge i (arg_len))
+      p
+      (match p
+        ((Pair a b)
+          (fill (Pair (array_set a (mod i 100) i) (array_set b (mod i 100) i))
+                (add i 1))))))
+
+(def arg_len () int 100000)
+
+(def main () int
+  (match (fill (Pair (array_new 100 0) (array_new 100 0)) 0)
+    ((Pair a b) (add (array_get a 5) (array_get b 7)))))

@@ -1,0 +1,1 @@
+(def main ((input (list int))) int (array_len (array_new 3 0)))

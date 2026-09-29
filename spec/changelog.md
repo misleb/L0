@@ -7,6 +7,40 @@ New entries go at the top.
 
 ---
 
+## What updates an array in place, said correctly, and no language change for it
+
+**Section 6.5 said an array in a data value copies on every update, and it
+does not.** When the value is taken apart by a `match` at its last use, the
+match releases the value once it has the fields, so the field's binding is
+the array's only holder and the update is in place. That is what the release
+rule of 10.3 always did; "Arrays" described it wrongly, and the shipped skill
+repeated it. Section 6.5 now lists each case, and adds two that bit
+roadmap item 0028's workers and were written nowhere: a read of an array
+nested in a later operand, after an `array_set` of it in an earlier one,
+copies every time; and `(array_new n x)` of an array makes every element
+the same array. It also says what `array_new` costs.
+
+**The evidence.** Three workers wrote nine programs with arrays. Two built
+their data structures around arrays in data values (union-find's parent and
+rank, dijkstra's graph, wordfreq's table) and measured no copies, against
+what the skill told them; `0028/grids/probes/probe.l0` shows the rule case by
+case. The read-after-update trap made dijkstra's heap copy on every pop,
+passing every test at a tenth of its speed until `L0_ARRAY_STATS` showed it
+(`0028/algorithms/limits/03-read-after-set.l0`). It cannot be fixed by
+moving the read earlier, since `array_get` can fail and section 8 fixes
+which error is reported first, so it is stated instead, and the skill shows
+the `let` that avoids it.
+
+**Also:** the parser's type messages name `(array T)`, and a bare `array` in
+type position is told it needs an element type, as a bare `list` is. The
+shipped skill says what holding input of unknown length as an array costs,
+that nested pushes run innermost first, and to use one flat array for a
+grid. The repository's skills no longer point at `build/l0i run`, which
+cannot run the I/O builtins or arrays. `L0_ARRAY_STATS`'s third line is
+documented, and a missing period in 10.3 is restored.
+
+---
+
 ## Programs and the runtime are optimized together, and no language change for it
 
 **Every link now passes `-flto`, and the runtime is built as LLVM bitcode,**

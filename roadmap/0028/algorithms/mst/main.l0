@@ -1,0 +1,18 @@
+; main.l0 -- mst: the weight and edge count of a minimum spanning forest.
+;
+;   mst [FILE]     edges "FROM TO WEIGHT" from FILE, or standard input
+
+(def main () int
+  (if (gt (arg_count) 0)
+      (match (open_in (arg 0))
+        ((IoOpened f) (finish (run f)))
+        ((IoFailed why)
+          (let w (write_err (append "mst: " (append (arg 0)
+                              (append ": " (append why "\n")))))
+            1)))
+      (finish (run (IoFile 0)))))
+
+(def finish ((o Outcome)) int
+  (match o
+    ((Answer s) (let w (write_str s) 0))
+    ((Failure msg) (let w (write_err msg) 1))))

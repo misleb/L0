@@ -1,0 +1,5 @@
+{"name":"L0","version":1,"tags":["compiler","llvm","self-hosting"],
+ "stages":[{"id":0,"frozen":true,"lang":"C"},{"id":2,"frozen":false,"lang":"L0",
+ "notes":"compiled \"from itself\"\tand checked\\verified"}],
+ "limits":{"fields":31,"min":-9223372036854775808,"empty":{},"none":[]},
+ "unicode":"caf\u00e9 \u2603 \ud83d\ude80", "raw utf8":"naïve", "nothing":null}

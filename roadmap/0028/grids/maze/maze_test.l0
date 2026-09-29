@@ -1,0 +1,142 @@
+; Tests of maze.l0: l0 test maze.l0 maze_test.l0
+
+(def parse_str ((s (list int))) Parsed
+  (match (open_in_bytes s)
+    ((IoFailed why) (ParseBad why))
+    ((IoOpened f) (let m (read_maze f) (let c (file_close f) m)))))
+
+; The answer for maze s in mode, or the parse error.
+(def solve ((s (list int)) (mode (list int))) (list int)
+  (match (parse_str s)
+    ((ParseBad why) why)
+    ((Parsed m) (answer (shortest m mode)))))
+
+(def open_room () (list int) "S...\n....\n...E\n")
+(def detour () (list int) "S.#....\n#.#.##.\n#...#E.\n")
+(def walled () (list int) "S.#\n..#\n##E\n")
+
+(def test_parse_fields () int
+  (match (parse_str (detour))
+    ((ParseBad why) (fail_because "parse" why))
+    ((Parsed m)
+      (match m
+        ((Maze w h cells s e)
+          (add (check_int "width" w 7)
+            (add (check_int "height" h 3)
+              (add (check_int "start" s 0) (check_int "end" e 19)))))))))
+
+(def test_open_room () int
+  (check_str "manhattan" (solve (open_room) "flat") "5"))
+
+(def test_detour_flat () int
+  (check_str "around the walls" (solve (detour) "flat") "13"))
+
+(def test_detour_rows () int
+  (check_str "around the walls" (solve (detour) "rows") "13"))
+
+(def test_detour_swap () int
+  (check_str "around the walls" (solve (detour) "swap") "13"))
+
+(def test_no_path () int
+  (add (check_str "flat" (solve (walled) "flat") "no path")
+    (add (check_str "rows" (solve (walled) "rows") "no path")
+         (check_str "swap" (solve (walled) "swap") "no path"))))
+
+(def test_adjacent () int
+  (check_str "one move" (solve "SE\n" "flat") "1"))
+
+; Moves stop at the edges: the maze does not wrap around.
+(def test_no_wrap () int
+  (check_str "not through the edge" (solve "S#E\n" "flat") "no path"))
+
+(def test_single_column () int
+  (check_str "down" (solve "S\n.\n.\nE" "rows") "3"))
+
+(def test_errors () int
+  (add (check_str "no S" (solve "..E\n" "flat") "no S")
+    (add (check_str "no E" (solve "S..\n" "flat") "no E")
+      (check_str "two S" (solve "S.S\n..E\n" "flat") "more than one S"))))
+
+(def test_errors_shape () int
+  (add (check_str "ragged" (solve "S..\n.E\n" "flat") "row 2 has 2 cells, not 3")
+    (add (check_str "bad byte" (solve "S.x\n..E\n" "flat") "unexpected byte on row 1")
+         (check_str "empty" (solve "\n" "flat") "empty maze"))))
+
+(def test_crlf () int
+  (check_str "crlf" (solve "S.\r\n.E\r\n" "flat") "2"))
+
+(def test_neighbour_edges () int
+  (add (check_int "up off" (neighbour 1 0 3 2) -1)
+    (add (check_int "right off" (neighbour 2 1 3 2) -1)
+      (add (check_int "down off" (neighbour 4 2 3 2) -1)
+        (add (check_int "left off" (neighbour 3 3 3 2) -1)
+             (check_int "down" (neighbour 1 2 3 2) 4))))))
+
+; The three modes agree on random mazes, and on the reference, a search
+; written over lists that shares nothing with bfs but neighbour.
+(def modes_agree ((s int) (runs int)) int
+  (if (eq runs 0)
+      0
+      (let w (add 2 (rand_below s 25))
+        (let h (add 1 (rand_below (rand_next s) 12))
+          (let m (random_maze (rand_next (rand_next s)) w h)
+            (let flat (solve m "flat")
+              (if (if (list_eq flat (solve m "rows")) (list_eq flat (solve m "swap")) false)
+                  (if (list_eq flat (reference m))
+                      (modes_agree (rand_next (rand_next (rand_next s))) (sub runs 1))
+                      (check_str "reference" flat (reference m)))
+                  (check_str "modes agree" (solve m "rows") flat))))))))
+
+(def test_modes_agree () int
+  (modes_agree 5 150))
+
+; A random maze of w by h, walls one cell in three, S top left, E bottom right.
+(def random_maze ((s int) (w int) (h int)) (list int)
+  (rev (maze_cells s w h 0 (nil int))))
+
+(def maze_cells ((s int) (w int) (h int) (i int) (acc (list int))) (list int)
+  (if (ge i (mul w h))
+      acc
+      (let c (if (eq i 0) 83 (if (eq i (sub (mul w h) 1)) 69
+               (if (eq (rand_below s 3) 0) 35 46)))
+        (let acc2 (cons c acc)
+          (maze_cells (rand_next s) w h (add i 1)
+                      (if (eq (mod (add i 1) w) 0) (cons 10 acc2) acc2))))))
+
+; Breadth-first search by levels over lists: the frontier and the cells seen.
+(def reference ((s (list int))) (list int)
+  (match (parse_str s)
+    ((ParseBad why) why)
+    ((Parsed m)
+      (match m
+        ((Maze w h cells st e)
+          (answer (levels cells w h (cons st (nil int)) (cons st (nil int)) e 0)))))))
+
+(def levels ((cells (array int)) (w int) (h int) (frontier (list int)) (seen (list int))
+             (e int) (d int)) int
+  (if (is_empty frontier)
+      -1
+      (if (member e frontier)
+          d
+          (let next (grow cells w h frontier seen (nil int))
+            (levels cells w h next (append next seen) e (add d 1))))))
+
+(def grow ((cells (array int)) (w int) (h int) (frontier (list int)) (seen (list int))
+           (acc (list int))) (list int)
+  (if (is_empty frontier)
+      acc
+      (grow cells w h (tail frontier) seen
+            (grow_dirs cells w h (head frontier) 0 seen acc))))
+
+(def grow_dirs ((cells (array int)) (w int) (h int) (u int) (k int) (seen (list int))
+                (acc (list int))) (list int)
+  (if (eq k 4)
+      acc
+      (let v (neighbour u k w h)
+        (if (if (lt v 0) true (if (eq (array_get cells v) 1) true
+              (if (member v seen) true (member v acc))))
+            (grow_dirs cells w h u (add k 1) seen acc)
+            (grow_dirs cells w h u (add k 1) seen (cons v acc))))))
+
+(def member ((x int) (xs (list int))) bool
+  (if (is_empty xs) false (if (eq (head xs) x) true (member x (tail xs)))))

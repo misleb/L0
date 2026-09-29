@@ -196,7 +196,7 @@
                 (if (tok_is_lparen t)
                     (parse_list_type (tail ts) (tok_offset t))
                     (PTErr (tok_offset t)
-                      "expected a type: int, bool, or (list T)")))))))
+                      "expected a type: int, bool, (list T), or (array T)")))))))
 
 ; An uppercase name is a declared data type. Whether it was actually
 ; declared is the checker's business, not the parser's.
@@ -206,14 +206,14 @@
         (PTOk (TyInt) rest)
         (if (list_eq n "bool")
             (PTOk (TyBool) rest)
-            (if (list_eq n "list")
+            (if (any_eq n (split_spaces "list array"))
                 (PTErr (tok_offset t)
-                  "list needs an element type, as in (list int)")
+                  (append n (append " needs an element type, as in (" (append n " int)"))))
                 (if (name_is_upper n)
                     (PTOk (TyData n) rest)
                     (PTErr (tok_offset t)
                       (append "unknown type " (append n
-                        ": a type is int, bool, (list T), or a data type, whose name starts uppercase")))))))))
+                        ": a type is int, bool, (list T), (array T), or a data type, whose name starts uppercase")))))))))
 
 (def parse_list_type ((ts (list Token)) (open int)) PTy
   (if (is_empty ts)

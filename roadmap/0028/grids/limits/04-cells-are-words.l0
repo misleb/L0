@@ -1,0 +1,24 @@
+; 04: a grid of bytes costs 8 bytes a cell (0026's packed bytes).
+;
+; Every array element is an i64 (spec 10.1), so a maze of 2001 by 2001
+; cells, each a wall or not, is 32 MB where 4 MB would hold it. This
+; program holds that grid and nothing else:
+;
+;   ./04 4004001     peak 32.0 MB (measured), for 4 MB of information
+;
+; What it costs in the programs of this round, measured:
+;   maze 2001 by 2001  peak 127 MB: cells 32, distances 32, queue 32, and
+;                      the reader's last doubling; packed cells would save
+;                      28 MB of 127. Python, with bytes for the cells and a
+;                      list for the distances, peaks at 118 MB.
+;   life 1000 by 1000  peak 25.5 MB for two boards of 8 MB; packed, 2 MB.
+;                      Python's list-of-lists version peaks at 46.5 MB.
+;
+; So grids do not earn 0026: every program here fits comfortably and is at
+; or under Python's memory. The distances and the queue need full ints
+; anyway. A grid of 20,000 by 20,000 would: 3.2 GB of cells as words.
+
+(def main () int
+  (let n (int_prefix (arg 0) 0)
+    (let g (array_set (array_new n 0) (sub n 1) 1)
+      (write_line (digits (add (array_len g) (array_get g (sub n 1))))))))

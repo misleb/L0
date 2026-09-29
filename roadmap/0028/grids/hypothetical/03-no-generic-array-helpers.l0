@@ -1,0 +1,20 @@
+; Hypothetical: life/life.l0's reader, if arrays could grow as a builtin does
+; for any element type. Does not check: array_grow and array_take do not
+; exist.
+;
+;   (array_grow a n x)   a copy of a with length n, new elements x; in place
+;                        (realloc) when nothing else holds a, as array_set is
+;   (array_take a n)     the first n elements, in place when a is unshared
+;
+; Either is generic because it is a builtin, as array_set is. The library
+; alternative, a push/trim pair per element type, is what life.l0 and
+; maze.l0 each carry now.
+
+(def push_cell ((cells (array int)) (n int) (x int)) (array int)
+  (array_set (if (lt n (array_len cells))
+                 cells
+                 (array_grow cells (mul 2 (array_len cells)) 0))
+             n x))
+
+(def end_cells ((cells (array int)) (n int) (w int) (rows int)) Parsed
+  (Parsed (Grid w rows (array_take cells n))))

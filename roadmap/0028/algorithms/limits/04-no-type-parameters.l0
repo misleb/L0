@@ -1,0 +1,35 @@
+; Limit 04: no type parameters, so every array helper is written once per
+; element type.
+;
+; Growing an array (copy into one twice the size) is the same code for every
+; element type, but a def names its types, and a data type cannot take a
+; parameter either. Across these three programs that meant:
+;
+;   - grow and copy for (array int), and again for (array Entry) in limit 02
+;   - count_fields in dijkstra.l0, a copy of the prelude's length for
+;     (list (list int)); the prelude itself has rev_strs_onto, a copy of
+;     rev_onto for the same reason
+;   - the name table in dijkstra.l0 is a hash map from (list int) to int only;
+;     a second map with other types would be a second copy of Names, slot_of,
+;     name_add, roomy, rehash, and put (about 50 lines)
+;   - the sort in mst.l0 sorts indices by an int key array, which is generic
+;     only because indirection makes it so; sorting records directly, or by a
+;     compound key, would need a copy per element type and per order, since
+;     there are no function values to pass a comparison either
+;
+; This program is the smallest instance: grow_ints works, and using it on an
+; (array (list int)) is a type error, so the second copy has to be written.
+;
+;   $ tools/l0 check 04-no-type-parameters.l0
+;   04-no-type-parameters.l0:34:14: error: argument 1 of grow_ints must be
+;   (array int), but this is (array (list int))
+
+(def grow_ints ((a (array int)) (len int)) (array int)
+  (copy_ints a (array_new len 0) 0))
+
+(def copy_ints ((src (array int)) (dst (array int)) (i int)) (array int)
+  (if (ge i (array_len src)) dst (copy_ints src (array_set dst i (array_get src i)) (add i 1))))
+
+(def main () int
+  (let names (grow_ints (array_new 4 (nil int)) 8)
+    (array_len names)))

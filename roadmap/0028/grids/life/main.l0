@@ -1,0 +1,16 @@
+; life BOARD GENERATIONS [flat|rows|rows-reuse]
+(def main () int
+  (let n (parse_count (arg 1))
+    (if (lt n 0)
+        (let w (write_err "usage: life BOARD GENERATIONS [flat|rows|rows-reuse]\n") 2)
+        (match (open_in (arg 0))
+          ((IoFailed why) (let w (write_err (append (arg 0) (append ": " (append why "\n")))) 1))
+          ((IoOpened f)
+            (match (read_grid f)
+              ((ParseBad why) (let w (write_err (append "life: " (append why "\n"))) 1))
+              ((Parsed g)
+                (let c (file_close f)
+                  (let w (write_grid (IoFile 1) (life g n (arg 2)))
+                    (if (lt (flush 1) 0)
+                        (let e (write_err "life: write error\n") 1)
+                        0))))))))))

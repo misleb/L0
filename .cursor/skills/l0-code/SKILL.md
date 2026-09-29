@@ -33,11 +33,14 @@ Diagnostics are `file:line:column: error: message` and the checker reports one
 error per declaration, so a single run finds many problems at once. Fix them,
 re-run, and only proceed at zero errors.
 
-To run a program:
+To run a program, with the standard library linked:
 
 ```bash
-build/l0i run FILE.l0 [MORE.l0 ...] < input-bytes
+tools/l0 run FILE.l0 [MORE.l0 ...] [-- ARGS] < input-bytes
 ```
+
+Not `build/l0i run`: the frozen stage-0 interpreter knows nothing added
+since, so it rejects the I/O builtins, files, and arrays.
 
 Then `tools/test.sh` before considering any change done.
 

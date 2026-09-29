@@ -1,0 +1,53 @@
+; 01: updating one cell of an (array (array int)) copies its whole row.
+;
+; The natural way to set cell (y, x) of a grid held as rows is
+;
+;   (array_set g y (array_set (array_get g y) x v))
+;
+; array_get gives the row a holder of its own while g still holds it, so the
+; inner array_set always sees a shared row and copies it (spec 6.5, 10.3).
+; Each update costs the row's length, not constant time. There is no way to
+; take the row out of g, since array_get cannot consume g and no builtin
+; returns both an element and the array it came from.
+;
+; This program sets every cell of a W by W grid once, row-major, which is
+; the best case for locality. Run:
+;
+;   L0_ARRAY_STATS=1 ./01 W        natural form: W*W copies of W words
+;   L0_ARRAY_STATS=1 ./01 W swap   0021's workaround: 0 copies
+;
+; Measured (W = 2000, 4M updates, rows of 16 KB that stay in cache):
+;   natural  4,000,000 copies, 8,000,000,000 words copied, 0.73 s
+;   swap     0 copies, 12,002,000 sets in place, 0.10 s
+; and in maze/ (BFS over a 2001 by 2001 maze, 2.1M distance updates):
+;   flat 0.15 s, rows 1.16 s (4.2e9 words copied), swap 0.36 s
+;
+; The workaround: put a placeholder in the row's slot so the grid lets go of
+; it, update the row alone, and set it back. It is three array_sets per
+; update, a throwaway (array_new 0 0) each time, and a pattern the reader has
+; to recognize; forgetting it gives correct output at W times the cost.
+
+(def set_all ((g (array (array int))) (w int) (y int) (x int)) (array (array int))
+  (if (ge y w)
+      g
+      (if (ge x w)
+          (set_all g w (add y 1) 0)
+          (set_all (array_set g y (array_set (array_get g y) x (add y x))) w y (add x 1)))))
+
+(def set_all_swap ((g (array (array int))) (w int) (y int) (x int)) (array (array int))
+  (if (ge y w)
+      g
+      (if (ge x w)
+          (set_all_swap g w (add y 1) 0)
+          (let row (array_get g y)
+            (let g2 (array_set g y (array_new 0 0))
+              (set_all_swap (array_set g2 y (array_set row x (add y x))) w y (add x 1)))))))
+
+(def rows ((w int) (out (array (array int))) (y int)) (array (array int))
+  (if (ge y w) out (rows w (array_set out y (array_new w 0)) (add y 1))))
+
+(def main () int
+  (let w (int_prefix (arg 0) 0)
+    (let g (rows w (array_new w (array_new 0 0)) 0)
+      (let done (if (list_eq (arg 1) "swap") (set_all_swap g w 0 0) (set_all g w 0 0))
+        (write_line (digits (array_get (array_get done (sub w 1)) (sub w 1))))))))

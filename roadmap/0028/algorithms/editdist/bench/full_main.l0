@@ -1,0 +1,12 @@
+; Measurement: the alignment by the full table instead of Hirschberg.
+(def main () int
+  (match (open_in (arg 0))
+    ((IoFailed why) 1)
+    ((IoOpened f)
+      (match (open_in (arg 1))
+        ((IoFailed why) 1)
+        ((IoOpened g)
+          (let a (read_all f)
+            (let b (read_all g)
+              (let ops (align_full a b)
+                (write_line (append "distance " (digits (script_cost ops 0))))))))))))

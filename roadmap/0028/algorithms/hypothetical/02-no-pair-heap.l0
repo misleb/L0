@@ -1,0 +1,41 @@
+; Hypothetical for limit 02: the heap as an array of entries, with no
+; boxing, and find returning two values without a declared data type.
+;
+; NOT VALID L0. Two things are assumed:
+;
+; 1. An (array T) whose T is a data type with one constructor and only int
+;    and bool fields stores its elements inline, as the flat heap does by
+;    hand, so (array Entry) costs 2 words per entry and array_get of one
+;    builds nothing. Today (array Entry) is the "boxed" mode of limit 02:
+;    2.6 times slower than the flat layout, 1.45 times the memory.
+; 2. A pair type, (pair A B), built with (pair a b) and taken apart with
+;    (let2 a b expr body), so a function can return an array and a value
+;    without a one-use data declaration, and without a heap block per call
+;    (limit 02's "parallel" mode, and mst's Found and UF: 1.8 times slower
+;    for the heap, and twice the time of Kruskal's union-find loop).
+
+(data Entry
+  (Entry int int))
+
+(def dist_of ((e Entry)) int (match e ((Entry d u) d)))
+
+(def sift_up ((h (array Entry)) (i int)) (array Entry)
+  (if (eq i 0)
+      h
+      (let p (div (sub i 1) 2)
+        (if (le (dist_of (array_get h p)) (dist_of (array_get h i)))
+            h
+            (sift_up (swap h i p) p)))))
+
+(def swap ((h (array Entry)) (i int) (j int)) (array Entry)
+  (let ei (array_get h i)
+    (let ej (array_get h j)
+      (array_set (array_set h i ej) j ei))))
+
+; mst's find, returning the root and the compressed parents together.
+(def find ((p (array int)) (x int)) (pair int (array int))
+  (let px (array_get p x)
+    (if (eq px x)
+        (pair x p)
+        (let2 root p2 (find p px)
+          (pair root (array_set p2 x root))))))

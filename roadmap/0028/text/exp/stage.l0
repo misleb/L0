@@ -1,0 +1,17 @@
+; Scratch: sort.l0 cut off after each stage, chosen by argument 0:
+; 1 read, 2 also find lines, 3 also sort, 4 also write (the whole program).
+
+(def main () int
+  (let stage (int_prefix (arg 0) 0)
+    (match (read_input (IoFile 0))
+      ((InputFailed code) 1)
+      ((Input b n)
+        (if (eq stage 1)
+            (mod n 256)
+            (let st (line_starts b n)
+              (if (eq stage 2)
+                  (mod (array_len st) 256)
+                  (let o (sorted b st)
+                    (if (eq stage 3)
+                        (mod (array_get o 0) 256)
+                        (let w (write_lines (IoFile 1) b st o) 0))))))))))
