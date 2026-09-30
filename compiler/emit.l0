@@ -505,6 +505,117 @@
 ; tail call, for what it passed in read-only positions.
 (def emit_call ((n (list int)) (args (list Expr)) (env Env)
                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
+  (match (row_update n args)
+    ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
+    ((NotRowUpdate) (emit_call_plain n args env live tl st))))
+
+; (array_set g y (array_set (array_get g y) x v)), with g one variable and y
+; the same variable or integer literal both times: spec 6.5.
+(data RowUpdate
+  (RowUpdate (list int) Expr Expr Expr)      ; g, y, x, v
+  (NotRowUpdate))
+
+(def row_update ((n (list int)) (args (list Expr))) RowUpdate
+  (if (if (list_eq n "array_set") (eq (length_exprs args) 3) false)
+      (row_update_of (head args) (head (tail args)) (head (tail (tail args))))
+      (NotRowUpdate)))
+
+(def row_update_of ((g Expr) (y Expr) (inner Expr)) RowUpdate
+  (match inner
+    ((ECall o n args)
+      (if (if (list_eq n "array_set") (eq (length_exprs args) 3) false)
+          (match (head args)
+            ((ECall o2 n2 args2)
+              (if (if (list_eq n2 "array_get") (eq (length_exprs args2) 2) false)
+                  (if (if (same_var g (head args2)) (same_index y (head (tail args2))) false)
+                      (RowUpdate (var_name g) y (head (tail args)) (head (tail (tail args))))
+                      (NotRowUpdate))
+                  (NotRowUpdate)))
+            ((EInt o2 v2) (NotRowUpdate))
+            ((EBool o2 v2) (NotRowUpdate))
+            ((EStr o2 s2) (NotRowUpdate))
+            ((ENil o2 t2) (NotRowUpdate))
+            ((EVar o2 n2) (NotRowUpdate))
+            ((EIf o2 c2 a2 b2) (NotRowUpdate))
+            ((ELet o2 n2 v2 b2) (NotRowUpdate))
+            ((ECtor o2 n2 a2) (NotRowUpdate))
+            ((EMatch o2 s2 a2) (NotRowUpdate)))
+          (NotRowUpdate)))
+    ((EInt o v) (NotRowUpdate))
+    ((EBool o v) (NotRowUpdate))
+    ((EStr o s) (NotRowUpdate))
+    ((ENil o t) (NotRowUpdate))
+    ((EVar o n) (NotRowUpdate))
+    ((EIf o c a b) (NotRowUpdate))
+    ((ELet o n v b) (NotRowUpdate))
+    ((ECtor o n a) (NotRowUpdate))
+    ((EMatch o s a) (NotRowUpdate))))
+
+(def length_exprs ((es (list Expr))) int
+  (if (is_empty es) 0 (add 1 (length_exprs (tail es)))))
+
+(def same_var ((a Expr) (b Expr)) bool
+  (if (is_empty (var_name a)) false (list_eq (var_name a) (var_name b))))
+
+; The same variable, or the same integer literal, so that one evaluation is
+; the same as two.
+(def same_index ((a Expr) (b Expr)) bool
+  (if (same_var a b) true (same_int a b)))
+
+(def same_int ((a Expr) (b Expr)) bool
+  (match a
+    ((EInt o v)
+      (match b
+        ((EInt o2 v2) (eq v v2))
+        ((EBool o2 v2) false)
+        ((EStr o2 s2) false)
+        ((ENil o2 t2) false)
+        ((EVar o2 n2) false)
+        ((EIf o2 c2 a2 b2) false)
+        ((ELet o2 n2 v3 b3) false)
+        ((ECtor o2 n2 a2) false)
+        ((EMatch o2 s2 a2) false)
+        ((ECall o2 n2 a2) false)))
+    ((EBool o v) false)
+    ((EStr o s) false)
+    ((ENil o t) false)
+    ((EVar o n) false)
+    ((EIf o c x y) false)
+    ((ELet o n v b) false)
+    ((ECtor o n x) false)
+    ((EMatch o s x) false)
+    ((ECall o n x) false)))
+
+; The row check first, as (array_get g y) makes it before x and v are
+; evaluated, then the operands, then one runtime call. g is consumed, as
+; array_set's array is.
+(def emit_row_update ((g (list int)) (y Expr) (x Expr) (v Expr) (env Env)
+                      (live (list (list int))) (tl bool) (st Emit)) EmitVal
+  (let yop (if (is_empty (var_name y))
+               (match y
+                 ((EInt o k) (digits k))
+                 ((EBool o b) "0")
+                 ((EStr o s) "0")
+                 ((ENil o t) "0")
+                 ((EVar o n) "0")
+                 ((EIf o c a b) "0")
+                 ((ELet o n e b) "0")
+                 ((ECtor o n a) "0")
+                 ((EMatch o s a) "0")
+                 ((ECall o n a) "0"))
+               (lookup_operand (var_name y) (env_binds env)))
+    (match (emit_rt_call "l0_array_get"
+             (two_ops (lookup_operand g (env_binds env)) yop) st)
+      ((Val chk ct st1)
+        (match (emit_args (cons (EVar 0 g) (cons y (cons x (cons v (nil Expr)))))
+                          env live (nil bool) st1)
+          ((Ops ops ts ws st2)
+            (emit_ret tl
+              (retype (emit_rt_call "l0_array_set_row" ops st2)
+                      (lookup_type g (env_binds env))))))))))
+
+(def emit_call_plain ((n (list int)) (args (list Expr)) (env Env)
+                      (live (list (list int))) (tl bool) (st Emit)) EmitVal
   (if (is_builtin_in n (env_ctx env))
       (match (emit_args args env live (flags_for (is_borrowing n) args) st)
         ((Ops ops ts ws st1)
@@ -1543,7 +1654,8 @@
   (append "declare i64 @l0_array_new(i64, i64, i64)\n"
     (append "declare i64 @l0_array_len(i64)\n"
       (append "declare i64 @l0_array_get(i64, i64)\n"
-        "declare i64 @l0_array_set(i64, i64, i64)\n\n"))))
+        (append "declare i64 @l0_array_set(i64, i64, i64)\n"
+          "declare i64 @l0_array_set_row(i64, i64, i64, i64)\n\n")))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

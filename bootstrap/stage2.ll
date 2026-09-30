@@ -33,6 +33,7 @@ declare i64 @l0_array_new(i64, i64, i64)
 declare i64 @l0_array_len(i64)
 declare i64 @l0_array_get(i64, i64)
 declare i64 @l0_array_set(i64, i64, i64)
+declare i64 @l0_array_set_row(i64, i64, i64, i64)
 
 @l0_main_ret_kind = global i64 2
 
@@ -8548,6 +8549,771 @@ entry:
 define internal i64 @l0_f_emit_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
+  call void @l0_inc(i64 %a0)
+  call void @l0_inc(i64 %a1)
+  %t1 = call i64 @l0_f_row_update(i64 %a0, i64 %a1, i64 0)
+  %t2 = call i64 @l0_data_tag(i64 %t1)
+  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %t1, i64 1)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %t1, i64 2)
+  call void @l0_inc(i64 %t5)
+  %t6 = call i64 @l0_data_get(i64 %t1, i64 3)
+  call void @l0_inc(i64 %t6)
+  call void @l0_dec(i64 %t1)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  %t7 = musttail call i64 @l0_f_emit_row_update(i64 %t3, i64 %t4, i64 %t5, i64 %t6, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 0, i64 0)
+  ret i64 %t7
+A0_1:
+  call void @l0_dec(i64 %t1)
+  %t8 = musttail call i64 @l0_f_emit_call_plain(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_row_update(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %r1 = alloca i64
+  %t2 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
+  %t3 = call i64 @l0_new_cons(i64 101, i64 %t2, i64 2)
+  %t4 = call i64 @l0_new_cons(i64 115, i64 %t3, i64 2)
+  %t5 = call i64 @l0_new_cons(i64 95, i64 %t4, i64 2)
+  %t6 = call i64 @l0_new_cons(i64 121, i64 %t5, i64 2)
+  %t7 = call i64 @l0_new_cons(i64 97, i64 %t6, i64 2)
+  %t8 = call i64 @l0_new_cons(i64 114, i64 %t7, i64 2)
+  %t9 = call i64 @l0_new_cons(i64 114, i64 %t8, i64 2)
+  %t10 = call i64 @l0_new_cons(i64 97, i64 %t9, i64 2)
+  %t11 = call i64 @l0_f_list_eq(i64 %a0, i64 %t10)
+  %t12 = icmp ne i64 %t11, 0
+  br i1 %t12, label %Lt1, label %Le1
+Lt1:
+  call void @l0_inc(i64 %a1)
+  %t13 = call i64 @l0_f_length_exprs(i64 %a1)
+  %t14 = icmp eq i64 %t13, 3
+  %t15 = zext i1 %t14 to i64
+  store i64 %t15, ptr %r1
+  br label %Lx1
+Le1:
+  store i64 0, ptr %r1
+  br label %Lx1
+Lx1:
+  %t16 = load i64, ptr %r1
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt0, label %Le0
+Lt0:
+  %t18 = call i64 @l0_head(i64 %a1)
+  call void @l0_inc(i64 %t18)
+  %t19 = call i64 @l0_tail(i64 %a1)
+  call void @l0_inc(i64 %t19)
+  %t20 = call i64 @l0_head(i64 %t19)
+  call void @l0_inc(i64 %t20)
+  call void @l0_dec(i64 %t19)
+  %t21 = call i64 @l0_tail(i64 %a1)
+  call void @l0_inc(i64 %t21)
+  call void @l0_dec(i64 %a1)
+  %t22 = call i64 @l0_tail(i64 %t21)
+  call void @l0_inc(i64 %t22)
+  call void @l0_dec(i64 %t21)
+  %t23 = call i64 @l0_head(i64 %t22)
+  call void @l0_inc(i64 %t23)
+  call void @l0_dec(i64 %t22)
+  %t24 = musttail call i64 @l0_f_row_update_of(i64 %t18, i64 %t20, i64 %t23)
+  ret i64 %t24
+Le0:
+  call void @l0_dec(i64 %a1)
+  %t25 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t25
+}
+
+define internal i64 @l0_f_row_update_of(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a2)
+  switch i64 %t1, label %Ln0 [ i64 9, label %A0_0 i64 0, label %A0_1 i64 1, label %A0_2 i64 2, label %A0_3 i64 6, label %A0_4 i64 3, label %A0_5 i64 4, label %A0_6 i64 5, label %A0_7 i64 7, label %A0_8 i64 8, label %A0_9 ]
+A0_0:
+  %t2 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a2, i64 1)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a2, i64 2)
+  call void @l0_inc(i64 %t4)
+  call void @l0_dec(i64 %a2)
+  %r6 = alloca i64
+  %t7 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
+  %t8 = call i64 @l0_new_cons(i64 101, i64 %t7, i64 2)
+  %t9 = call i64 @l0_new_cons(i64 115, i64 %t8, i64 2)
+  %t10 = call i64 @l0_new_cons(i64 95, i64 %t9, i64 2)
+  %t11 = call i64 @l0_new_cons(i64 121, i64 %t10, i64 2)
+  %t12 = call i64 @l0_new_cons(i64 97, i64 %t11, i64 2)
+  %t13 = call i64 @l0_new_cons(i64 114, i64 %t12, i64 2)
+  %t14 = call i64 @l0_new_cons(i64 114, i64 %t13, i64 2)
+  %t15 = call i64 @l0_new_cons(i64 97, i64 %t14, i64 2)
+  %t16 = call i64 @l0_f_list_eq(i64 %t3, i64 %t15)
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt6, label %Le6
+Lt6:
+  call void @l0_inc(i64 %t4)
+  %t18 = call i64 @l0_f_length_exprs(i64 %t4)
+  %t19 = icmp eq i64 %t18, 3
+  %t20 = zext i1 %t19 to i64
+  store i64 %t20, ptr %r6
+  br label %Lx6
+Le6:
+  store i64 0, ptr %r6
+  br label %Lx6
+Lx6:
+  %t21 = load i64, ptr %r6
+  %t22 = icmp ne i64 %t21, 0
+  br i1 %t22, label %Lt5, label %Le5
+Lt5:
+  %t24 = call i64 @l0_head(i64 %t4)
+  call void @l0_inc(i64 %t24)
+  %t25 = call i64 @l0_data_tag(i64 %t24)
+  switch i64 %t25, label %Ln23 [ i64 9, label %A23_0 i64 0, label %A23_1 i64 1, label %A23_2 i64 2, label %A23_3 i64 6, label %A23_4 i64 3, label %A23_5 i64 4, label %A23_6 i64 5, label %A23_7 i64 7, label %A23_8 i64 8, label %A23_9 ]
+A23_0:
+  %t26 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t27 = call i64 @l0_data_get(i64 %t24, i64 1)
+  call void @l0_inc(i64 %t27)
+  %t28 = call i64 @l0_data_get(i64 %t24, i64 2)
+  call void @l0_inc(i64 %t28)
+  call void @l0_dec(i64 %t24)
+  %r30 = alloca i64
+  %t31 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
+  %t32 = call i64 @l0_new_cons(i64 101, i64 %t31, i64 2)
+  %t33 = call i64 @l0_new_cons(i64 103, i64 %t32, i64 2)
+  %t34 = call i64 @l0_new_cons(i64 95, i64 %t33, i64 2)
+  %t35 = call i64 @l0_new_cons(i64 121, i64 %t34, i64 2)
+  %t36 = call i64 @l0_new_cons(i64 97, i64 %t35, i64 2)
+  %t37 = call i64 @l0_new_cons(i64 114, i64 %t36, i64 2)
+  %t38 = call i64 @l0_new_cons(i64 114, i64 %t37, i64 2)
+  %t39 = call i64 @l0_new_cons(i64 97, i64 %t38, i64 2)
+  %t40 = call i64 @l0_f_list_eq(i64 %t27, i64 %t39)
+  %t41 = icmp ne i64 %t40, 0
+  br i1 %t41, label %Lt30, label %Le30
+Lt30:
+  call void @l0_inc(i64 %t28)
+  %t42 = call i64 @l0_f_length_exprs(i64 %t28)
+  %t43 = icmp eq i64 %t42, 2
+  %t44 = zext i1 %t43 to i64
+  store i64 %t44, ptr %r30
+  br label %Lx30
+Le30:
+  store i64 0, ptr %r30
+  br label %Lx30
+Lx30:
+  %t45 = load i64, ptr %r30
+  %t46 = icmp ne i64 %t45, 0
+  br i1 %t46, label %Lt29, label %Le29
+Lt29:
+  %r48 = alloca i64
+  %t49 = call i64 @l0_head(i64 %t28)
+  call void @l0_inc(i64 %t49)
+  call void @l0_inc(i64 %a0)
+  %t50 = call i64 @l0_f_same_var(i64 %a0, i64 %t49)
+  %t51 = icmp ne i64 %t50, 0
+  br i1 %t51, label %Lt48, label %Le48
+Lt48:
+  %t52 = call i64 @l0_tail(i64 %t28)
+  call void @l0_inc(i64 %t52)
+  call void @l0_dec(i64 %t28)
+  %t53 = call i64 @l0_head(i64 %t52)
+  call void @l0_inc(i64 %t53)
+  call void @l0_dec(i64 %t52)
+  call void @l0_inc(i64 %a1)
+  %t54 = call i64 @l0_f_same_index(i64 %a1, i64 %t53)
+  store i64 %t54, ptr %r48
+  br label %Lx48
+Le48:
+  call void @l0_dec(i64 %t28)
+  store i64 0, ptr %r48
+  br label %Lx48
+Lx48:
+  %t55 = load i64, ptr %r48
+  %t56 = icmp ne i64 %t55, 0
+  br i1 %t56, label %Lt47, label %Le47
+Lt47:
+  %t57 = call i64 @l0_f_var_name(i64 %a0)
+  %t58 = call i64 @l0_tail(i64 %t4)
+  call void @l0_inc(i64 %t58)
+  %t59 = call i64 @l0_head(i64 %t58)
+  call void @l0_inc(i64 %t59)
+  call void @l0_dec(i64 %t58)
+  %t60 = call i64 @l0_tail(i64 %t4)
+  call void @l0_inc(i64 %t60)
+  call void @l0_dec(i64 %t4)
+  %t61 = call i64 @l0_tail(i64 %t60)
+  call void @l0_inc(i64 %t61)
+  call void @l0_dec(i64 %t60)
+  %t62 = call i64 @l0_head(i64 %t61)
+  call void @l0_inc(i64 %t62)
+  call void @l0_dec(i64 %t61)
+  %t63 = call i64 @l0_new_data(i64 0, i64 4, i64 30)
+  call void @l0_data_set(i64 %t63, i64 0, i64 %t57)
+  call void @l0_data_set(i64 %t63, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t63, i64 2, i64 %t59)
+  call void @l0_data_set(i64 %t63, i64 3, i64 %t62)
+  ret i64 %t63
+Le47:
+  call void @l0_dec(i64 %t4)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t64 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t64
+Le29:
+  call void @l0_dec(i64 %t28)
+  call void @l0_dec(i64 %t4)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t65 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t65
+A23_1:
+  %t66 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t67 = call i64 @l0_data_get(i64 %t24, i64 1)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t68 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t68
+A23_2:
+  %t69 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t70 = call i64 @l0_data_get(i64 %t24, i64 1)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t71 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t71
+A23_3:
+  %t72 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t73 = call i64 @l0_data_get(i64 %t24, i64 1)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t74 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t74
+A23_4:
+  %t75 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t76 = call i64 @l0_data_get(i64 %t24, i64 1)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t77 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t77
+A23_5:
+  %t78 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t79 = call i64 @l0_data_get(i64 %t24, i64 1)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t80 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t80
+A23_6:
+  %t81 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t82 = call i64 @l0_data_get(i64 %t24, i64 1)
+  %t83 = call i64 @l0_data_get(i64 %t24, i64 2)
+  %t84 = call i64 @l0_data_get(i64 %t24, i64 3)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t85 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t85
+A23_7:
+  %t86 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t87 = call i64 @l0_data_get(i64 %t24, i64 1)
+  %t88 = call i64 @l0_data_get(i64 %t24, i64 2)
+  %t89 = call i64 @l0_data_get(i64 %t24, i64 3)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t90 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t90
+A23_8:
+  %t91 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t92 = call i64 @l0_data_get(i64 %t24, i64 1)
+  %t93 = call i64 @l0_data_get(i64 %t24, i64 2)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t94 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t94
+A23_9:
+  %t95 = call i64 @l0_data_get(i64 %t24, i64 0)
+  %t96 = call i64 @l0_data_get(i64 %t24, i64 1)
+  %t97 = call i64 @l0_data_get(i64 %t24, i64 2)
+  call void @l0_dec(i64 %t24)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t98 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t98
+Ln23:
+  unreachable
+Le5:
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %t4)
+  %t99 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t99
+A0_1:
+  %t100 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t101 = call i64 @l0_data_get(i64 %a2, i64 1)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t102 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t102
+A0_2:
+  %t103 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t104 = call i64 @l0_data_get(i64 %a2, i64 1)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t105 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t105
+A0_3:
+  %t106 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t107 = call i64 @l0_data_get(i64 %a2, i64 1)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t108 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t108
+A0_4:
+  %t109 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t110 = call i64 @l0_data_get(i64 %a2, i64 1)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t111 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t111
+A0_5:
+  %t112 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t113 = call i64 @l0_data_get(i64 %a2, i64 1)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t114 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t114
+A0_6:
+  %t115 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t116 = call i64 @l0_data_get(i64 %a2, i64 1)
+  %t117 = call i64 @l0_data_get(i64 %a2, i64 2)
+  %t118 = call i64 @l0_data_get(i64 %a2, i64 3)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t119 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t119
+A0_7:
+  %t120 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t121 = call i64 @l0_data_get(i64 %a2, i64 1)
+  %t122 = call i64 @l0_data_get(i64 %a2, i64 2)
+  %t123 = call i64 @l0_data_get(i64 %a2, i64 3)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t124 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t124
+A0_8:
+  %t125 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t126 = call i64 @l0_data_get(i64 %a2, i64 1)
+  %t127 = call i64 @l0_data_get(i64 %a2, i64 2)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t128 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t128
+A0_9:
+  %t129 = call i64 @l0_data_get(i64 %a2, i64 0)
+  %t130 = call i64 @l0_data_get(i64 %a2, i64 1)
+  %t131 = call i64 @l0_data_get(i64 %a2, i64 2)
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t132 = call i64 @l0_new_data(i64 1, i64 4, i64 0)
+  ret i64 %t132
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_length_exprs(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  ret i64 0
+Le0:
+  %t3 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t3)
+  call void @l0_dec(i64 %a0)
+  %t4 = call i64 @l0_f_length_exprs(i64 %t3)
+  %t5 = add i64 1, %t4
+  ret i64 %t5
+}
+
+define internal i64 @l0_f_same_var(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  call void @l0_inc(i64 %a0)
+  %t1 = call i64 @l0_f_var_name(i64 %a0)
+  %t2 = call i64 @l0_is_empty(i64 %t1)
+  call void @l0_dec(i64 %t1)
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  ret i64 0
+Le0:
+  %t4 = call i64 @l0_f_var_name(i64 %a0)
+  %t5 = call i64 @l0_f_var_name(i64 %a1)
+  %t6 = musttail call i64 @l0_f_list_eq(i64 %t4, i64 %t5)
+  ret i64 %t6
+}
+
+define internal i64 @l0_f_same_index(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  call void @l0_inc(i64 %a0)
+  call void @l0_inc(i64 %a1)
+  %t1 = call i64 @l0_f_same_var(i64 %a0, i64 %a1)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  ret i64 1
+Le0:
+  %t3 = musttail call i64 @l0_f_same_int(i64 %a0, i64 %a1)
+  ret i64 %t3
+}
+
+define internal i64 @l0_f_same_int(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 i64 2, label %A0_2 i64 6, label %A0_3 i64 3, label %A0_4 i64 4, label %A0_5 i64 5, label %A0_6 i64 7, label %A0_7 i64 8, label %A0_8 i64 9, label %A0_9 ]
+A0_0:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_dec(i64 %a0)
+  %t5 = call i64 @l0_data_tag(i64 %a1)
+  switch i64 %t5, label %Ln4 [ i64 0, label %A4_0 i64 1, label %A4_1 i64 2, label %A4_2 i64 6, label %A4_3 i64 3, label %A4_4 i64 4, label %A4_5 i64 5, label %A4_6 i64 7, label %A4_7 i64 8, label %A4_8 i64 9, label %A4_9 ]
+A4_0:
+  %t6 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t7 = call i64 @l0_data_get(i64 %a1, i64 1)
+  call void @l0_dec(i64 %a1)
+  %t8 = icmp eq i64 %t3, %t7
+  %t9 = zext i1 %t8 to i64
+  ret i64 %t9
+A4_1:
+  %t10 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t11 = call i64 @l0_data_get(i64 %a1, i64 1)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A4_2:
+  %t12 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t13 = call i64 @l0_data_get(i64 %a1, i64 1)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A4_3:
+  %t14 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t15 = call i64 @l0_data_get(i64 %a1, i64 1)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A4_4:
+  %t16 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t17 = call i64 @l0_data_get(i64 %a1, i64 1)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A4_5:
+  %t18 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t19 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t20 = call i64 @l0_data_get(i64 %a1, i64 2)
+  %t21 = call i64 @l0_data_get(i64 %a1, i64 3)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A4_6:
+  %t22 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t23 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t24 = call i64 @l0_data_get(i64 %a1, i64 2)
+  %t25 = call i64 @l0_data_get(i64 %a1, i64 3)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A4_7:
+  %t26 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t27 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t28 = call i64 @l0_data_get(i64 %a1, i64 2)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A4_8:
+  %t29 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t30 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t31 = call i64 @l0_data_get(i64 %a1, i64 2)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A4_9:
+  %t32 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t33 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t34 = call i64 @l0_data_get(i64 %a1, i64 2)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+Ln4:
+  unreachable
+A0_1:
+  %t35 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t36 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A0_2:
+  %t37 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t38 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A0_3:
+  %t39 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t40 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A0_4:
+  %t41 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t42 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A0_5:
+  %t43 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t44 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t45 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t46 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A0_6:
+  %t47 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t48 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t49 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t50 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A0_7:
+  %t51 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t52 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t53 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A0_8:
+  %t54 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t55 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t56 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+A0_9:
+  %t57 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t58 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t59 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %a1)
+  ret i64 0
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_emit_row_update(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
+entry:
+  call void @l0_stack_check()
+  %r0 = alloca i64
+  call void @l0_inc(i64 %a1)
+  %t1 = call i64 @l0_f_var_name(i64 %a1)
+  %t2 = call i64 @l0_is_empty(i64 %t1)
+  call void @l0_dec(i64 %t1)
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  %m4 = alloca i64
+  %t5 = call i64 @l0_data_tag(i64 %a1)
+  switch i64 %t5, label %Ln4 [ i64 0, label %A4_0 i64 1, label %A4_1 i64 2, label %A4_2 i64 6, label %A4_3 i64 3, label %A4_4 i64 4, label %A4_5 i64 5, label %A4_6 i64 7, label %A4_7 i64 8, label %A4_8 i64 9, label %A4_9 ]
+A4_0:
+  %t6 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t7 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t8 = call i64 @l0_f_digits(i64 %t7, i64 0)
+  store i64 %t8, ptr %m4
+  br label %Lm4
+A4_1:
+  %t9 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t10 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t11 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t11, ptr %m4
+  br label %Lm4
+A4_2:
+  %t12 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t13 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t14 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t14, ptr %m4
+  br label %Lm4
+A4_3:
+  %t15 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t16 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t17 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t17, ptr %m4
+  br label %Lm4
+A4_4:
+  %t18 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t19 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t20 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t20, ptr %m4
+  br label %Lm4
+A4_5:
+  %t21 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t22 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t23 = call i64 @l0_data_get(i64 %a1, i64 2)
+  %t24 = call i64 @l0_data_get(i64 %a1, i64 3)
+  %t25 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t25, ptr %m4
+  br label %Lm4
+A4_6:
+  %t26 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t27 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t28 = call i64 @l0_data_get(i64 %a1, i64 2)
+  %t29 = call i64 @l0_data_get(i64 %a1, i64 3)
+  %t30 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t30, ptr %m4
+  br label %Lm4
+A4_7:
+  %t31 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t32 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t33 = call i64 @l0_data_get(i64 %a1, i64 2)
+  %t34 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t34, ptr %m4
+  br label %Lm4
+A4_8:
+  %t35 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t36 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t37 = call i64 @l0_data_get(i64 %a1, i64 2)
+  %t38 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t38, ptr %m4
+  br label %Lm4
+A4_9:
+  %t39 = call i64 @l0_data_get(i64 %a1, i64 0)
+  %t40 = call i64 @l0_data_get(i64 %a1, i64 1)
+  %t41 = call i64 @l0_data_get(i64 %a1, i64 2)
+  %t42 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
+  store i64 %t42, ptr %m4
+  br label %Lm4
+Ln4:
+  unreachable
+Lm4:
+  %t43 = load i64, ptr %m4
+  store i64 %t43, ptr %r0
+  br label %Lx0
+Le0:
+  call void @l0_inc(i64 %a1)
+  %t44 = call i64 @l0_f_var_name(i64 %a1)
+  call void @l0_inc(i64 %a4)
+  %t45 = call i64 @l0_f_env_binds(i64 %a4)
+  %t46 = call i64 @l0_f_lookup_operand(i64 %t44, i64 %t45)
+  store i64 %t46, ptr %r0
+  br label %Lx0
+Lx0:
+  %t47 = load i64, ptr %r0
+  %t49 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
+  %t50 = call i64 @l0_new_cons(i64 101, i64 %t49, i64 2)
+  %t51 = call i64 @l0_new_cons(i64 103, i64 %t50, i64 2)
+  %t52 = call i64 @l0_new_cons(i64 95, i64 %t51, i64 2)
+  %t53 = call i64 @l0_new_cons(i64 121, i64 %t52, i64 2)
+  %t54 = call i64 @l0_new_cons(i64 97, i64 %t53, i64 2)
+  %t55 = call i64 @l0_new_cons(i64 114, i64 %t54, i64 2)
+  %t56 = call i64 @l0_new_cons(i64 114, i64 %t55, i64 2)
+  %t57 = call i64 @l0_new_cons(i64 97, i64 %t56, i64 2)
+  %t58 = call i64 @l0_new_cons(i64 95, i64 %t57, i64 2)
+  %t59 = call i64 @l0_new_cons(i64 48, i64 %t58, i64 2)
+  %t60 = call i64 @l0_new_cons(i64 108, i64 %t59, i64 2)
+  call void @l0_inc(i64 %a4)
+  %t61 = call i64 @l0_f_env_binds(i64 %a4)
+  call void @l0_inc(i64 %a0)
+  %t62 = call i64 @l0_f_lookup_operand(i64 %a0, i64 %t61)
+  %t63 = call i64 @l0_f_two_ops(i64 %t62, i64 %t47)
+  %t64 = call i64 @l0_f_emit_rt_call(i64 %t60, i64 %t63, i64 %a7, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t65 = call i64 @l0_data_tag(i64 %t64)
+  switch i64 %t65, label %Ln48 [ i64 0, label %A48_0 ]
+A48_0:
+  %t66 = call i64 @l0_data_get(i64 %t64, i64 0)
+  %t67 = call i64 @l0_data_get(i64 %t64, i64 1)
+  %t68 = call i64 @l0_data_get(i64 %t64, i64 2)
+  call void @l0_inc(i64 %t68)
+  call void @l0_dec(i64 %t64)
+  call void @l0_inc(i64 %a0)
+  %t70 = call i64 @l0_new_data(i64 3, i64 4, i64 4)
+  call void @l0_data_set(i64 %t70, i64 0, i64 0)
+  call void @l0_data_set(i64 %t70, i64 1, i64 %a0)
+  %t71 = call i64 @l0_new_cons(i64 %a3, i64 0, i64 3)
+  %t72 = call i64 @l0_new_cons(i64 %a2, i64 %t71, i64 3)
+  %t73 = call i64 @l0_new_cons(i64 %a1, i64 %t72, i64 3)
+  %t74 = call i64 @l0_new_cons(i64 %t70, i64 %t73, i64 3)
+  call void @l0_inc(i64 %a4)
+  %t75 = call i64 @l0_f_emit_args(i64 %t74, i64 %a4, i64 %a5, i64 0, i64 %t68)
+  %t76 = call i64 @l0_data_tag(i64 %t75)
+  switch i64 %t76, label %Ln69 [ i64 0, label %A69_0 ]
+A69_0:
+  %t77 = call i64 @l0_data_get(i64 %t75, i64 0)
+  call void @l0_inc(i64 %t77)
+  %t78 = call i64 @l0_data_get(i64 %t75, i64 1)
+  %t79 = call i64 @l0_data_get(i64 %t75, i64 2)
+  %t80 = call i64 @l0_data_get(i64 %t75, i64 3)
+  call void @l0_inc(i64 %t80)
+  call void @l0_dec(i64 %t75)
+  %t81 = call i64 @l0_new_cons(i64 119, i64 0, i64 2)
+  %t82 = call i64 @l0_new_cons(i64 111, i64 %t81, i64 2)
+  %t83 = call i64 @l0_new_cons(i64 114, i64 %t82, i64 2)
+  %t84 = call i64 @l0_new_cons(i64 95, i64 %t83, i64 2)
+  %t85 = call i64 @l0_new_cons(i64 116, i64 %t84, i64 2)
+  %t86 = call i64 @l0_new_cons(i64 101, i64 %t85, i64 2)
+  %t87 = call i64 @l0_new_cons(i64 115, i64 %t86, i64 2)
+  %t88 = call i64 @l0_new_cons(i64 95, i64 %t87, i64 2)
+  %t89 = call i64 @l0_new_cons(i64 121, i64 %t88, i64 2)
+  %t90 = call i64 @l0_new_cons(i64 97, i64 %t89, i64 2)
+  %t91 = call i64 @l0_new_cons(i64 114, i64 %t90, i64 2)
+  %t92 = call i64 @l0_new_cons(i64 114, i64 %t91, i64 2)
+  %t93 = call i64 @l0_new_cons(i64 97, i64 %t92, i64 2)
+  %t94 = call i64 @l0_new_cons(i64 95, i64 %t93, i64 2)
+  %t95 = call i64 @l0_new_cons(i64 48, i64 %t94, i64 2)
+  %t96 = call i64 @l0_new_cons(i64 108, i64 %t95, i64 2)
+  %t97 = call i64 @l0_f_emit_rt_call(i64 %t96, i64 %t77, i64 %t80, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t98 = call i64 @l0_f_env_binds(i64 %a4)
+  %t99 = call i64 @l0_f_lookup_type(i64 %a0, i64 %t98)
+  %t100 = call i64 @l0_f_retype(i64 %t97, i64 %t99, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t101 = musttail call i64 @l0_f_emit_ret(i64 %a6, i64 %t100, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t101
+Ln69:
+  unreachable
+Ln48:
+  unreachable
+}
+
+define internal i64 @l0_f_emit_call_plain(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
+entry:
+  call void @l0_stack_check()
   call void @l0_inc(i64 %a2)
   %t1 = call i64 @l0_f_env_ctx(i64 %a2)
   call void @l0_inc(i64 %a0)
@@ -15019,51 +15785,102 @@ entry:
   %t106 = call i64 @l0_new_cons(i64 101, i64 %t105, i64 2)
   %t107 = call i64 @l0_new_cons(i64 100, i64 %t106, i64 2)
   %t108 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
-  %t109 = call i64 @l0_new_cons(i64 10, i64 %t108, i64 2)
-  %t110 = call i64 @l0_new_cons(i64 41, i64 %t109, i64 2)
-  %t111 = call i64 @l0_new_cons(i64 52, i64 %t110, i64 2)
-  %t112 = call i64 @l0_new_cons(i64 54, i64 %t111, i64 2)
-  %t113 = call i64 @l0_new_cons(i64 105, i64 %t112, i64 2)
-  %t114 = call i64 @l0_new_cons(i64 32, i64 %t113, i64 2)
-  %t115 = call i64 @l0_new_cons(i64 44, i64 %t114, i64 2)
-  %t116 = call i64 @l0_new_cons(i64 52, i64 %t115, i64 2)
-  %t117 = call i64 @l0_new_cons(i64 54, i64 %t116, i64 2)
-  %t118 = call i64 @l0_new_cons(i64 105, i64 %t117, i64 2)
-  %t119 = call i64 @l0_new_cons(i64 32, i64 %t118, i64 2)
-  %t120 = call i64 @l0_new_cons(i64 44, i64 %t119, i64 2)
-  %t121 = call i64 @l0_new_cons(i64 52, i64 %t120, i64 2)
-  %t122 = call i64 @l0_new_cons(i64 54, i64 %t121, i64 2)
-  %t123 = call i64 @l0_new_cons(i64 105, i64 %t122, i64 2)
-  %t124 = call i64 @l0_new_cons(i64 40, i64 %t123, i64 2)
-  %t125 = call i64 @l0_new_cons(i64 116, i64 %t124, i64 2)
-  %t126 = call i64 @l0_new_cons(i64 101, i64 %t125, i64 2)
-  %t127 = call i64 @l0_new_cons(i64 115, i64 %t126, i64 2)
-  %t128 = call i64 @l0_new_cons(i64 95, i64 %t127, i64 2)
-  %t129 = call i64 @l0_new_cons(i64 121, i64 %t128, i64 2)
-  %t130 = call i64 @l0_new_cons(i64 97, i64 %t129, i64 2)
+  %t109 = call i64 @l0_new_cons(i64 41, i64 %t108, i64 2)
+  %t110 = call i64 @l0_new_cons(i64 52, i64 %t109, i64 2)
+  %t111 = call i64 @l0_new_cons(i64 54, i64 %t110, i64 2)
+  %t112 = call i64 @l0_new_cons(i64 105, i64 %t111, i64 2)
+  %t113 = call i64 @l0_new_cons(i64 32, i64 %t112, i64 2)
+  %t114 = call i64 @l0_new_cons(i64 44, i64 %t113, i64 2)
+  %t115 = call i64 @l0_new_cons(i64 52, i64 %t114, i64 2)
+  %t116 = call i64 @l0_new_cons(i64 54, i64 %t115, i64 2)
+  %t117 = call i64 @l0_new_cons(i64 105, i64 %t116, i64 2)
+  %t118 = call i64 @l0_new_cons(i64 32, i64 %t117, i64 2)
+  %t119 = call i64 @l0_new_cons(i64 44, i64 %t118, i64 2)
+  %t120 = call i64 @l0_new_cons(i64 52, i64 %t119, i64 2)
+  %t121 = call i64 @l0_new_cons(i64 54, i64 %t120, i64 2)
+  %t122 = call i64 @l0_new_cons(i64 105, i64 %t121, i64 2)
+  %t123 = call i64 @l0_new_cons(i64 40, i64 %t122, i64 2)
+  %t124 = call i64 @l0_new_cons(i64 116, i64 %t123, i64 2)
+  %t125 = call i64 @l0_new_cons(i64 101, i64 %t124, i64 2)
+  %t126 = call i64 @l0_new_cons(i64 115, i64 %t125, i64 2)
+  %t127 = call i64 @l0_new_cons(i64 95, i64 %t126, i64 2)
+  %t128 = call i64 @l0_new_cons(i64 121, i64 %t127, i64 2)
+  %t129 = call i64 @l0_new_cons(i64 97, i64 %t128, i64 2)
+  %t130 = call i64 @l0_new_cons(i64 114, i64 %t129, i64 2)
   %t131 = call i64 @l0_new_cons(i64 114, i64 %t130, i64 2)
-  %t132 = call i64 @l0_new_cons(i64 114, i64 %t131, i64 2)
-  %t133 = call i64 @l0_new_cons(i64 97, i64 %t132, i64 2)
-  %t134 = call i64 @l0_new_cons(i64 95, i64 %t133, i64 2)
-  %t135 = call i64 @l0_new_cons(i64 48, i64 %t134, i64 2)
-  %t136 = call i64 @l0_new_cons(i64 108, i64 %t135, i64 2)
-  %t137 = call i64 @l0_new_cons(i64 64, i64 %t136, i64 2)
-  %t138 = call i64 @l0_new_cons(i64 32, i64 %t137, i64 2)
-  %t139 = call i64 @l0_new_cons(i64 52, i64 %t138, i64 2)
-  %t140 = call i64 @l0_new_cons(i64 54, i64 %t139, i64 2)
-  %t141 = call i64 @l0_new_cons(i64 105, i64 %t140, i64 2)
-  %t142 = call i64 @l0_new_cons(i64 32, i64 %t141, i64 2)
-  %t143 = call i64 @l0_new_cons(i64 101, i64 %t142, i64 2)
-  %t144 = call i64 @l0_new_cons(i64 114, i64 %t143, i64 2)
-  %t145 = call i64 @l0_new_cons(i64 97, i64 %t144, i64 2)
-  %t146 = call i64 @l0_new_cons(i64 108, i64 %t145, i64 2)
-  %t147 = call i64 @l0_new_cons(i64 99, i64 %t146, i64 2)
-  %t148 = call i64 @l0_new_cons(i64 101, i64 %t147, i64 2)
-  %t149 = call i64 @l0_new_cons(i64 100, i64 %t148, i64 2)
-  %t150 = call i64 @l0_f_append(i64 %t107, i64 %t149, i64 0, i64 0, i64 0)
-  %t151 = call i64 @l0_f_append(i64 %t71, i64 %t150, i64 0, i64 0, i64 0)
-  %t152 = musttail call i64 @l0_f_append(i64 %t40, i64 %t151, i64 0, i64 0, i64 0)
-  ret i64 %t152
+  %t132 = call i64 @l0_new_cons(i64 97, i64 %t131, i64 2)
+  %t133 = call i64 @l0_new_cons(i64 95, i64 %t132, i64 2)
+  %t134 = call i64 @l0_new_cons(i64 48, i64 %t133, i64 2)
+  %t135 = call i64 @l0_new_cons(i64 108, i64 %t134, i64 2)
+  %t136 = call i64 @l0_new_cons(i64 64, i64 %t135, i64 2)
+  %t137 = call i64 @l0_new_cons(i64 32, i64 %t136, i64 2)
+  %t138 = call i64 @l0_new_cons(i64 52, i64 %t137, i64 2)
+  %t139 = call i64 @l0_new_cons(i64 54, i64 %t138, i64 2)
+  %t140 = call i64 @l0_new_cons(i64 105, i64 %t139, i64 2)
+  %t141 = call i64 @l0_new_cons(i64 32, i64 %t140, i64 2)
+  %t142 = call i64 @l0_new_cons(i64 101, i64 %t141, i64 2)
+  %t143 = call i64 @l0_new_cons(i64 114, i64 %t142, i64 2)
+  %t144 = call i64 @l0_new_cons(i64 97, i64 %t143, i64 2)
+  %t145 = call i64 @l0_new_cons(i64 108, i64 %t144, i64 2)
+  %t146 = call i64 @l0_new_cons(i64 99, i64 %t145, i64 2)
+  %t147 = call i64 @l0_new_cons(i64 101, i64 %t146, i64 2)
+  %t148 = call i64 @l0_new_cons(i64 100, i64 %t147, i64 2)
+  %t149 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
+  %t150 = call i64 @l0_new_cons(i64 10, i64 %t149, i64 2)
+  %t151 = call i64 @l0_new_cons(i64 41, i64 %t150, i64 2)
+  %t152 = call i64 @l0_new_cons(i64 52, i64 %t151, i64 2)
+  %t153 = call i64 @l0_new_cons(i64 54, i64 %t152, i64 2)
+  %t154 = call i64 @l0_new_cons(i64 105, i64 %t153, i64 2)
+  %t155 = call i64 @l0_new_cons(i64 32, i64 %t154, i64 2)
+  %t156 = call i64 @l0_new_cons(i64 44, i64 %t155, i64 2)
+  %t157 = call i64 @l0_new_cons(i64 52, i64 %t156, i64 2)
+  %t158 = call i64 @l0_new_cons(i64 54, i64 %t157, i64 2)
+  %t159 = call i64 @l0_new_cons(i64 105, i64 %t158, i64 2)
+  %t160 = call i64 @l0_new_cons(i64 32, i64 %t159, i64 2)
+  %t161 = call i64 @l0_new_cons(i64 44, i64 %t160, i64 2)
+  %t162 = call i64 @l0_new_cons(i64 52, i64 %t161, i64 2)
+  %t163 = call i64 @l0_new_cons(i64 54, i64 %t162, i64 2)
+  %t164 = call i64 @l0_new_cons(i64 105, i64 %t163, i64 2)
+  %t165 = call i64 @l0_new_cons(i64 32, i64 %t164, i64 2)
+  %t166 = call i64 @l0_new_cons(i64 44, i64 %t165, i64 2)
+  %t167 = call i64 @l0_new_cons(i64 52, i64 %t166, i64 2)
+  %t168 = call i64 @l0_new_cons(i64 54, i64 %t167, i64 2)
+  %t169 = call i64 @l0_new_cons(i64 105, i64 %t168, i64 2)
+  %t170 = call i64 @l0_new_cons(i64 40, i64 %t169, i64 2)
+  %t171 = call i64 @l0_new_cons(i64 119, i64 %t170, i64 2)
+  %t172 = call i64 @l0_new_cons(i64 111, i64 %t171, i64 2)
+  %t173 = call i64 @l0_new_cons(i64 114, i64 %t172, i64 2)
+  %t174 = call i64 @l0_new_cons(i64 95, i64 %t173, i64 2)
+  %t175 = call i64 @l0_new_cons(i64 116, i64 %t174, i64 2)
+  %t176 = call i64 @l0_new_cons(i64 101, i64 %t175, i64 2)
+  %t177 = call i64 @l0_new_cons(i64 115, i64 %t176, i64 2)
+  %t178 = call i64 @l0_new_cons(i64 95, i64 %t177, i64 2)
+  %t179 = call i64 @l0_new_cons(i64 121, i64 %t178, i64 2)
+  %t180 = call i64 @l0_new_cons(i64 97, i64 %t179, i64 2)
+  %t181 = call i64 @l0_new_cons(i64 114, i64 %t180, i64 2)
+  %t182 = call i64 @l0_new_cons(i64 114, i64 %t181, i64 2)
+  %t183 = call i64 @l0_new_cons(i64 97, i64 %t182, i64 2)
+  %t184 = call i64 @l0_new_cons(i64 95, i64 %t183, i64 2)
+  %t185 = call i64 @l0_new_cons(i64 48, i64 %t184, i64 2)
+  %t186 = call i64 @l0_new_cons(i64 108, i64 %t185, i64 2)
+  %t187 = call i64 @l0_new_cons(i64 64, i64 %t186, i64 2)
+  %t188 = call i64 @l0_new_cons(i64 32, i64 %t187, i64 2)
+  %t189 = call i64 @l0_new_cons(i64 52, i64 %t188, i64 2)
+  %t190 = call i64 @l0_new_cons(i64 54, i64 %t189, i64 2)
+  %t191 = call i64 @l0_new_cons(i64 105, i64 %t190, i64 2)
+  %t192 = call i64 @l0_new_cons(i64 32, i64 %t191, i64 2)
+  %t193 = call i64 @l0_new_cons(i64 101, i64 %t192, i64 2)
+  %t194 = call i64 @l0_new_cons(i64 114, i64 %t193, i64 2)
+  %t195 = call i64 @l0_new_cons(i64 97, i64 %t194, i64 2)
+  %t196 = call i64 @l0_new_cons(i64 108, i64 %t195, i64 2)
+  %t197 = call i64 @l0_new_cons(i64 99, i64 %t196, i64 2)
+  %t198 = call i64 @l0_new_cons(i64 101, i64 %t197, i64 2)
+  %t199 = call i64 @l0_new_cons(i64 100, i64 %t198, i64 2)
+  %t200 = call i64 @l0_f_append(i64 %t148, i64 %t199, i64 0, i64 0, i64 0)
+  %t201 = call i64 @l0_f_append(i64 %t107, i64 %t200, i64 0, i64 0, i64 0)
+  %t202 = call i64 @l0_f_append(i64 %t71, i64 %t201, i64 0, i64 0, i64 0)
+  %t203 = musttail call i64 @l0_f_append(i64 %t40, i64 %t202, i64 0, i64 0, i64 0)
+  ret i64 %t203
 }
 
 define internal i64 @l0_f_ret_kind(i64 %a0) {

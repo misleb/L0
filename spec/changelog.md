@@ -7,6 +7,55 @@ New entries go at the top.
 
 ---
 
+## A row of an array of rows updates in place, written the natural way
+
+**`(array_set g y (array_set (array_get g y) x v))`, with `g` one variable
+and `y` the same variable or literal both times, now updates the row in
+place** (section 6.5). It means what it always meant, and errors come in
+the same order, but the row is never given the second holder that made
+every such update copy the whole row. No syntax, builtin, or rule of the
+checker changed.
+
+**The blocker.** Roadmap item 0028's maze, keeping its grid as an array of
+rows and updating a cell in exactly this form, copied 2.1 million rows and
+ran 7.7 times slower than flat (`0028/grids/maze/`), and
+`0028/grids/limits/01-nested-update-copies.l0` made 4,000,000 copies in
+0.65 s where the placeholder swap made none in 0.10 s. The algorithms
+worker's 5,000 by 5,000 table took 11.3 s this way against 0.06 s flat.
+
+Now the maze's array-of-rows version, unchanged, finds the same path on a
+2001 by 2001 maze in 0.26 s instead of 1.13 s, with no copies, faster than
+the placeholder swap (0.36 s) and within twice the flat version (0.14 s).
+The limit program's four million nested updates take 0.02 s instead of 0.65
+s. `tests/io/array_rows` sets a million cells this way and checks nothing
+copied; `tests/io/array_row_order` checks the error order.
+
+**Why this, and not a builtin.** The shapes weighed were a two-level
+builtin `array_set2`, one that returned the old element, and the compiler
+recognizing the form. A builtin returning the old element would need a
+second result, and there is no pair type. `array_set2` would work, but it is
+vocabulary every agent must learn to reach for, and both workers wrote this
+nested form first, before any workaround. Recognizing it makes the code
+agents already write fast, as read-only parameters did, and costs nothing
+in the language: it is a guarantee about when references move, stated in
+6.5 so a program can rely on it.
+
+**Why only this form.** It is the one form in which the row obviously has
+no other use: the row read and the row written are the same element of the
+same array, and nothing else sees the old row. With `y` any expression,
+evaluating it once instead of twice could change what the program does, and
+with the row bound by a `let` first, the binding is a holder, which the
+compiler would have to prove unused elsewhere. The skill says to write it
+nested.
+
+**Why the check comes first.** Written out, `(array_get g y)` runs before
+`x` and `v` are evaluated, so if `y` is out of range and `v` divides by
+zero, the index error is the one reported (section 8). The compiled form
+checks `y` with the same runtime call before evaluating `x` and `v`, and
+only then replaces the row.
+
+---
+
 ## Read-only parameters
 
 **A parameter that nothing of escapes its function is now passed without a

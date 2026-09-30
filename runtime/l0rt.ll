@@ -785,6 +785,74 @@ store:
   ret i64 %b
 }
 
+; a itself if nothing else holds it, and otherwise a copy of it, holding a
+; reference to each pointer element, with a released. Spec 10.3.
+define internal i64 @arr_own(i64 %a) {
+entry:
+  %q = inttoptr i64 %a to ptr
+  %hp = getelementptr i64, ptr %q, i64 -1
+  %h = load i64, ptr %hp
+  %rc = lshr i64 %h, 40
+  %alone = icmp eq i64 %rc, 1
+  br i1 %alone, label %mine, label %copy
+mine:
+  ret i64 %a
+copy:
+  %n = load i64, ptr %q
+  %cc = load i64, ptr @arr_copies
+  %cc1 = add i64 %cc, 1
+  store i64 %cc1, ptr @arr_copies
+  %cw = load i64, ptr @arr_words
+  %cw1 = add i64 %cw, %n
+  store i64 %cw1, ptr @arr_words
+  %p = and i64 %h, 1
+  %b = call i64 @arr_alloc(i64 %n, i64 %p)
+  %bq = inttoptr i64 %b to ptr
+  %src = getelementptr i64, ptr %q, i64 1
+  %dst = getelementptr i64, ptr %bq, i64 1
+  %bytes = mul i64 %n, 8
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 %bytes, i1 false)
+  %isp = icmp ne i64 %p, 0
+  br i1 %isp, label %share, label %done
+share:
+  %k = phi i64 [ 1, %copy ], [ %k1, %sinc ]
+  %end = icmp ugt i64 %k, %n
+  br i1 %end, label %done, label %sinc
+sinc:
+  %sp = getelementptr i64, ptr %bq, i64 %k
+  %sv = load i64, ptr %sp
+  call void @l0_inc(i64 %sv)
+  %k1 = add i64 %k, 1
+  br label %share
+done:
+  call void @l0_dec(i64 %a)
+  ret i64 %b
+}
+
+; (array_set g y (array_set (array_get g y) x v)) without giving row y a
+; second holder, spec 6.5: g is made its own, then row y's slot hands its
+; reference to l0_array_set, which updates the row in place if nothing else
+; holds it and copies it otherwise, and the result goes back in the slot.
+; The compiler has already checked y, before evaluating x and v.
+define i64 @l0_array_set_row(i64 %g, i64 %y, i64 %x, i64 %v) {
+entry:
+  %g1 = call i64 @arr_own(i64 %g)
+  %q = inttoptr i64 %g1 to ptr
+  %n = load i64, ptr %q
+  %in = icmp ult i64 %y, %n
+  br i1 %in, label %ok, label %err
+err:
+  call void @rt_error(ptr @m_range, i64 24)
+  unreachable
+ok:
+  %y1 = add i64 %y, 1
+  %rp = getelementptr i64, ptr %q, i64 %y1
+  %row = load i64, ptr %rp
+  %nr = call i64 @l0_array_set(i64 %row, i64 %x, i64 %v)
+  store i64 %nr, ptr %rp
+  ret i64 %g1
+}
+
 ; Drops a reference to each pointer element of the array q, queueing any
 ; whose count reaches zero, then gives q back to malloc. Under L0_RC_CHECK
 ; it is kept, with a count of 0 and a length of 0, so a later use is caught.

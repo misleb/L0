@@ -1,7 +1,8 @@
 # 0025: Updating an array held inside another without copying it
 
 Kind: language
-Status: queued, by the user's choice
+Status: done, changelog "A row of an array of rows updates in place, written
+the natural way"; Linux not yet run
 Needs: 0030
 
 ## Why
@@ -43,3 +44,13 @@ copies.
 - 2026-09-25: opened from 0021's finding.
 - 2026-09-28: queued after 0030 by the user's choice, with 0028's maze as
   its program.
+- 2026-09-29: done. The shape: the compiler recognizes `(array_set g y
+  (array_set (array_get g y) x v))` with `g` one variable and `y` the same
+  variable or literal both times, checks `y` first, and calls
+  `l0_array_set_row`, which never gives the row a second holder; weighed
+  against `array_set2` and a builtin returning the old element (changelog).
+  The maze's rows version 1.13 s to 0.26 s with no copies, the limit program
+  0.65 s to 0.02 s; the compiler unchanged at about 110 ms. New tests
+  `tests/io/array_rows`, `tests/io/array_row_order`, and three unit tests
+  in `array_test.l0`. Both suites green on macOS; Docker was down, so the
+  Linux runs are owed, with 0030's.

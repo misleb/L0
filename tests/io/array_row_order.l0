@@ -1,0 +1,7 @@
+; The nested row update of spec 6.5 checks the row index before it evaluates
+; the value, as (array_get g y) does when written out: with both wrong, the
+; index error is the one reported, not the division by zero.
+
+(def main () int
+  (let g (array_new 3 (array_new 3 0))
+    (array_len (array_set g 5 (array_set (array_get g 5) 0 (div 1 0))))))

@@ -59,6 +59,30 @@
       (let a (array_new 2 s)
         (check_str "shared field" (array_get (array_set a 0 "y") 1) "x")))))
 
+; The nested row update of spec 6.5 keeps value semantics: an old grid still
+; held elsewhere, and rows array_new shared, see no change.
+(def set_cell ((g (array (array int))) (y int) (x int) (v int)) (array (array int))
+  (array_set g y (array_set (array_get g y) x v)))
+
+(def test_row_update_keeps_old_grid () int
+  (let g (array_new 2 (array_new 3 0))
+    (let h (set_cell g 1 2 9)
+      (add (check_int "new cell" (array_get (array_get h 1) 2) 9)
+        (add (check_int "old grid" (array_get (array_get g 1) 2) 0)
+             (check_int "shared row" (array_get (array_get h 0) 2) 0))))))
+
+(def test_row_update_literal_index () int
+  (let g (array_new 2 (array_new 2 5))
+    (let h (array_set g 0 (array_set (array_get g 0) 1 7))
+      (add (check_int "set" (array_get (array_get h 0) 1) 7)
+           (check_int "other row" (array_get (array_get h 1) 1) 5)))))
+
+(def test_row_update_of_lists () int
+  (let g (array_new 2 (array_new 2 "ab"))
+    (let h (array_set g 1 (array_set (array_get g 1) 0 "xyz"))
+      (add (check_str "replaced" (array_get (array_get h 1) 0) "xyz")
+           (check_str "kept" (array_get (array_get h 1) 1) "ab")))))
+
 ; Replacing the only reference to a list frees it, which L0_RC_CHECK checks.
 (def test_replace_releases () int
   (let a (array_new 2 (cons 1 (cons 2 (nil int))))

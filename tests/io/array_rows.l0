@@ -1,0 +1,28 @@
+; A grid kept as an array of rows, every cell set by the form spec 6.5 says
+; updates the row in place: (array_set g y (array_set (array_get g y) x v)).
+; array_rows.sh checks the sum and that no update copied.
+
+; h rows of w zeros, each its own array, so no row starts shared.
+(def rows ((g (array (array int))) (w int) (y int)) (array (array int))
+  (if (ge y (array_len g))
+      g
+      (rows (array_set g y (array_new w 0)) w (add y 1))))
+
+(def fill ((g (array (array int))) (w int) (y int) (x int)) (array (array int))
+  (if (ge y (array_len g))
+      g
+      (if (ge x w)
+          (fill g w (add y 1) 0)
+          (fill (array_set g y (array_set (array_get g y) x (add y x))) w y (add x 1)))))
+
+(def row_sum ((r (array int)) (x int) (acc int)) int
+  (if (ge x (array_len r)) acc (row_sum r (add x 1) (add acc (array_get r x)))))
+
+(def sum ((g (array (array int))) (y int) (acc int)) int
+  (if (ge y (array_len g)) acc (sum g (add y 1) (add acc (row_sum (array_get g y) 0 0)))))
+
+(def main () int
+  (let w (int_prefix (arg 0) 0)
+    (let g (fill (rows (array_new w (array_new 0 0)) w 0) w 0 0)
+      (let o (write_line (digits (sum g 0 0)))
+        0))))
