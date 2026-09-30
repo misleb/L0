@@ -1,0 +1,14 @@
+; The nested update of spec 6.5, written with an array_get of the program's
+; own. The form is only recognized when array_get is the builtin, so this
+; must compile to a call of the program's function and array_set, with no
+; l0_array_set_row; shadow_row.sh checks the IR.
+
+(def array_get ((g (array (array int))) (y int)) (array int)
+  (array_new y 7))
+
+(def update ((g (array (array int))) (y int)) (array (array int))
+  (array_set g y (array_set (array_get g y) 0 1)))
+
+(def main () int
+  (let g (update (array_new 4 (array_new 1 0)) 3)
+    (sub (array_len g) 4)))

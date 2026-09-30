@@ -1,0 +1,14 @@
+; A def named like a builtin that only reads its argument, array_len, but
+; this one updates it. touch's parameter escapes into that update, so it is
+; not read-only (spec 10.3), and touch's caller hands over its only
+; reference: the update is in place. Judged as if the call were the
+; builtin's, the parameter would be read-only, the caller would keep its
+; reference, and the update would copy. shadow_read_only.sh checks for none.
+
+(def array_len ((a (array int))) (array int) (array_set a 0 1))
+
+(def touch ((a (array int))) (array int) (array_len a))
+
+(def main () int
+  (let a (touch (array_new 3 0))
+    0))

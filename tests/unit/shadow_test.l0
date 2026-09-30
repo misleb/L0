@@ -1,0 +1,42 @@
+; Unit tests for spec section 7: a def shadows a builtin of the same name.
+; The library is the prelude group and cannot see these defs, so its own
+; calls still reach the builtins. l0 test runs each test under L0_RC_CHECK,
+; so a reference the compiler miscounts fails it.
+
+; A program written before flush was a builtin.
+(def flush ((s (list int))) int (head s))
+
+(def test_own_flush () int
+  (check_int "the program's flush" (flush "abc") 97))
+
+; file_flush in lib/io.l0 calls flush, and gets the builtin.
+(def test_library_flush () int
+  (match (open_out_buffer)
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f) (check_int "the library's flush" (file_flush f) 0))))
+
+; A different arity from the builtin's.
+(def not ((a int) (b int)) int (sub a b))
+
+(def test_other_arity () int
+  (check_int "two arguments" (not 5 3) 2))
+
+; A tail call to a def named like a builtin joins the two functions' padded
+; arities (spec 8), or musttail between ping and neg would not link.
+(def neg ((a int) (b int) (c int)) int (add a (add b c)))
+
+(def ping ((n int)) int (neg n 1 2))
+
+(def test_tail_call_to_wider () int
+  (check_int "tail call" (ping 4) 7))
+
+; is_empty the builtin only reads its list; this one returns it, so the list
+; outlives the call through keep, and is still whole.
+(def is_empty ((xs (list int))) (list int) xs)
+
+(def keep ((xs (list int))) (list int) (is_empty xs))
+
+(def test_returns_its_argument () int
+  (let s (cons 1 (cons 2 (cons 3 (nil int))))
+    (add (check_str "kept" (keep s) (cons 1 (cons 2 (cons 3 (nil int)))))
+         (check_str "still held" s (cons 1 (cons 2 (cons 3 (nil int))))))))

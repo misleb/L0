@@ -794,10 +794,22 @@
       (or (ty_eq t (TyBool)) (ty_eq t (TyList (TyInt))))))
 
 (def build_ctx ((ds (list Decl))) Ctx
-  (Cx (collect_sigs ds (nil Sig))
+  (sigs_ctx (collect_sigs ds (nil Sig)) ds))
+
+; A context whose calls see the functions sigs. A builtin is only what no
+; def among them shadows. Spec 7.
+(def sigs_ctx ((sigs (list Sig)) (ds (list Decl))) Ctx
+  (Cx sigs
       (collect_ctor_infos ds (nil CtorInfo))
       (collect_datas ds (nil DataDef))
-      (builtin_names 0)))
+      (builtins_seen (builtin_names 0) sigs)))
+
+(def builtins_seen ((bs (list (list int))) (sigs (list Sig))) (list (list int))
+  (if (is_empty bs)
+      bs
+      (if (sig_exists (head bs) sigs)
+          (builtins_seen (tail bs) sigs)
+          (cons (head bs) (builtins_seen (tail bs) sigs)))))
 
 ; ------------------------------------------------------- the two groups
 ;
@@ -825,21 +837,16 @@
 
 ; A prelude declaration sees prelude functions only.
 (def prelude_view ((ds (list Decl)) (pre int)) Ctx
-  (Cx (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig))
-      (collect_ctor_infos ds (nil CtorInfo))
-      (collect_datas ds (nil DataDef))
-      (builtin_names 0)))
+  (sigs_ctx (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig)) ds))
 
 ; A program declaration sees both, program first. find_sig takes the first
 ; match, so putting the program's signatures ahead of the prelude's is the
 ; whole of shadowing.
 (def program_view ((ds (list Decl)) (pre int)) Ctx
-  (Cx (append_sigs
-        (collect_sigs (program_decls ds pre (nil Decl)) (nil Sig))
-        (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig)))
-      (collect_ctor_infos ds (nil CtorInfo))
-      (collect_datas ds (nil DataDef))
-      (builtin_names 0)))
+  (sigs_ctx (append_sigs
+              (collect_sigs (program_decls ds pre (nil Decl)) (nil Sig))
+              (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig)))
+            ds))
 
 ; want_main is false when checking a fragment rather than a whole program,
 ; such as a library file or a work in progress. Type correctness is still

@@ -7,6 +7,69 @@ New entries go at the top.
 
 ---
 
+## A new builtin does not take over a program's function
+
+**A `def` now shadows a builtin of the same name** (section 7): a call
+resolves to a builtin only when no `def` of that name is visible to it,
+under section 7.1's rules when there is a prelude. It used to be the other
+way round, with the builtin always winning and the `def` uncallable.
+
+**The blocker.** Roadmap item 0026's prototype of packed bytes added six
+builtins, and its first names broke three existing programs: `write_bytes`
+took the name of a function in 0028's sort, `bytes_of` one in
+`tests/unit/kvlog_test.l0`, and `read_all` would have taken one in json's
+tests and in editdist. Each program then failed with a type error in its
+own code, at a call that had been correct, which is the most confusing
+place an error can appear. `roadmap/0031/01-builtin-takes-over.l0` is the
+smallest case: a program with its own `flush`, as 0014's wordfreq had before
+`flush` became a builtin, reported `an argument of flush must be int, but
+this is (list int)`. The prototype had to pick names nobody uses rather
+than names that say what the builtin does, and 0032 is about to add the
+type for real.
+
+**Why a `def` wins, and not an error at the definition.** An error naming
+the builtin would at least appear in the right place, but it would still
+break every program that used the name, on every addition. Section 7.1
+already answered this for the prelude: a program's function wins over the
+prelude's, so the prelude can grow without breaking programs. Builtins are
+the same kind of thing, a set of names that grows under programs already
+written, and now follow the same rule. What it costs a reader is what the
+prelude rule already cost: `(head xs)` means the builtin only if nothing
+visible defines `head`. The rule it replaced was chosen because it kept
+resolution uniform and the `def` was only a lint concern (below, "Shadowing
+a builtin is legal but the builtin always wins"); neither reason survived a
+language that gains builtins.
+
+**Why the prelude's own `def` shadows too.** The rule is simply that a
+visible `def` wins, so a prelude function named like a builtin shadows it
+for the prelude and for programs, and a program's `def` shadows it only for
+the program, since the prelude cannot see the program. No prelude function
+has a builtin's name today, and none should gain one on purpose; the rule
+exists so that a new builtin cannot break a library either.
+
+**What the compiler had to learn.** The checker's and emitter's list of
+builtins is now per group, leaving out every name a visible `def` takes.
+Three places in the emitter had used the list of all builtins: the
+tail-call graph that sets each function's padded arity, the read-only
+analysis, and the recognition of section 6.5's nested update, which now
+requires `array_set` and `array_get` to be the builtins. Each has a test
+that fails when that place goes back to the list of all builtins:
+`tests/unit/shadow_test.l0` has a tail call to a wider function named
+`neg`, which LLVM refuses to link unless the two arities are joined;
+`tests/io/shadow_read_only` updates an array through a function named
+`array_len`, which copies if the parameter is judged read-only as the
+builtin's would be; and `tests/io/shadow_row` checks the IR of the nested
+form with the program's own `array_get`. A wrong read-only judgment costs a
+copy, not a miscounted reference, since the emitter adds a reference
+whenever it passes on a value it does not own.
+
+**Stage 0 keeps the old rule**, since it is frozen. No function in
+`compiler/`, `lib/`, or `tests/lang` has a builtin's name, so the rule
+changes nothing stage 0 runs, and the tests of the new rule are all in the
+compiled suite or in the compiler's own stage tests.
+
+---
+
 ## A row of an array of rows updates in place, written the natural way
 
 **`(array_set g y (array_set (array_get g y) x v))`, with `g` one variable

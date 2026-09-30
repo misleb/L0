@@ -41,4 +41,19 @@
   ; Type and constructor names are not grouped, so these still collide.
   (let g (push (case "(data T (A int)) " (prog "(data T (B int))")) f)
   (let h (push (case "(data T (A int)) " (prog "(data U (A int))")) g)
-    (rev h))))))))))
+
+  ; A def shadows a builtin (spec 7): the program's flush takes a list, and
+  ; the prelude, which cannot see it, still calls the builtin with an int.
+  (let i (push (case "(def fl ((h int)) int (flush h)) "
+                     "(def flush ((s (list int))) int 0) (def main ((input (list int))) int (add (fl 1) (flush input)))")
+               h)
+
+  ; Shadowing takes effect: the program's flush takes a list, so calling it
+  ; with an int, as the builtin would take, is an error.
+  (let j (push (case "" (prog "(def flush ((s (list int))) int 0) (def z ((x int)) int (flush x))")) i)
+
+  ; A prelude def shadows a builtin for the prelude and for the program.
+  (let k (push (case "(def not ((a int) (b int)) int (sub a b)) (def u ((x int)) int (not x 1)) "
+                     "(def main ((input (list int))) int (not (u 3) 1))")
+               j)
+    (rev k)))))))))))))

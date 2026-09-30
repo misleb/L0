@@ -6,3 +6,6 @@ ok
 -1: this program has no main function
 17: data type T is already declared
 17: constructor A is already declared
+ok
+56: argument 1 of flush must be (list int), but this is int
+ok

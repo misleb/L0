@@ -1,7 +1,8 @@
 # 0031: A new builtin does not take over a program's function
 
 Kind: language
-Status: queued, next
+Status: done, changelog "A new builtin does not take over a program's
+function"; Linux not yet run
 Needs: 0026
 
 ## Why
@@ -52,10 +53,25 @@ Then the l0-bootstrap checklist, and:
   `tests/unit`, never `tests/lang`
 - `compiler/`, `lib/prelude.l0`, and the rest of `lib/` checked for a `def`
   named like a builtin, whose calls the new rule would change
-- the program above checks, and runs, exiting with 97; then `0031/` is
-  deleted
+- the program above checks, and runs, exiting with 97
 
 ## Log
 
 - 2026-09-29: opened from 0026's finding; queued ahead of 0032 so that
   0032's builtins can be named for what they do.
+- 2026-09-30: done. A visible `def` wins over a builtin, as a program's
+  wins over the prelude's; an error at the definition was weighed and
+  rejected, since it would still break every program on every addition
+  (changelog). Nothing in `compiler/`, `lib/`, or the tests had a builtin's
+  name, so stage 0's old rule changes nothing it runs. The checker's views
+  and the emitter's tail-call graph and read-only analysis take each
+  group's builtins, less what a visible `def` shadows, and the nested
+  update requires the builtins. Tests: three cases in
+  `tests/compiler/prelude_scope`, `tests/unit/shadow_test.l0`,
+  `tests/io/shadow_read_only`, and `tests/io/shadow_row`; each emitter test
+  was seen to fail with its place reverted. The program above exits 97
+  through the refreshed seed; the compiler unchanged at 0.07 s on its own
+  source. Both suites green on macOS (60 and 87), fixpoint holds, seed
+  refreshed; Docker was down, so the Linux runs are owed, with 0030's and
+  0025's. The shipped skill and `lib/AGENTS.md` say a definition wins over
+  a builtin too. `0031/` stays, since the changelog cites it.

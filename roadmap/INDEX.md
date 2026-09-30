@@ -15,9 +15,7 @@ stop breaking programs.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0031](0031-builtins-do-not-take-over.md) a new builtin does not take
-   over a program's function — queued, next
-2. [0032](0032-bytes.md) bytes held one byte per byte — queued, needs 0031
+1. [0032](0032-bytes.md) bytes held one byte per byte — queued, next
 
 ## Other open items
 
@@ -96,3 +94,6 @@ Changes to the language, strictly in order. At most one is active.
   for it"
 - [0026](0026-packed-bytes.md) research: how L0 holds bytes one byte per byte
   — done; a packed type (0032), after 0031, then 0033
+- [0031](0031-builtins-do-not-take-over.md) a new builtin does not take over
+  a program's function — done, changelog "A new builtin does not take over a
+  program's function"; Linux runs owed

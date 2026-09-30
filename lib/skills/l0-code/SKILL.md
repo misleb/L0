@@ -128,12 +128,14 @@ standard library; comparing data values needs a function you write.
 or a `def`, so a parameter named `f` cannot be called and does not shadow a
 function named `f`.
 
-**Your definition wins over the standard library's.** Defining `length` when
-the prelude already has one is legal rather than a collision: yours is used
-everywhere in your program, and the prelude goes on calling its own, so
-redefining something the prelude uses internally cannot break it. Type and
-constructor names are not shadowable and still have to be unique. Spec
-section 7.1.
+**Your definition wins over the standard library's, and over a builtin.**
+Defining `length` when the prelude already has one, or `flush` when it is a
+builtin, is legal rather than a collision: yours is used everywhere in your
+program, with your signature, and the prelude goes on calling its own and
+the builtin, so redefining something the prelude uses internally cannot
+break it, and a builtin added to L0 later cannot break your program. Type
+and constructor names are not shadowable and still have to be unique. Spec
+sections 7 and 7.1.
 
 ## The one performance rule
 

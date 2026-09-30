@@ -1,7 +1,7 @@
 # 0032: Bytes held one byte per byte
 
 Kind: language
-Status: queued, needs 0031
+Status: queued, next
 Needs: 0031
 
 ## Why

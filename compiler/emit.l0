@@ -505,7 +505,7 @@
 ; tail call, for what it passed in read-only positions.
 (def emit_call ((n (list int)) (args (list Expr)) (env Env)
                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
-  (match (row_update n args)
+  (match (row_update n args (env_ctx env))
     ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
     ((NotRowUpdate) (emit_call_plain n args env live tl st))))
 
@@ -515,9 +515,13 @@
   (RowUpdate (list int) Expr Expr Expr)      ; g, y, x, v
   (NotRowUpdate))
 
-(def row_update ((n (list int)) (args (list Expr))) RowUpdate
+; Only when array_set and array_get are the builtins, which a def may
+; shadow. Spec 7.
+(def row_update ((n (list int)) (args (list Expr)) (c Ctx)) RowUpdate
   (if (if (list_eq n "array_set") (eq (length_exprs args) 3) false)
-      (row_update_of (head args) (head (tail args)) (head (tail (tail args))))
+      (if (if (is_builtin_in "array_set" c) (is_builtin_in "array_get" c) false)
+          (row_update_of (head args) (head (tail args)) (head (tail (tail args))))
+          (NotRowUpdate))
       (NotRowUpdate)))
 
 (def row_update_of ((g Expr) (y Expr) (inner Expr)) RowUpdate
@@ -1024,19 +1028,20 @@
   (if (is_empty ps) 0 (add 1 (length_params (tail ps)))))
 
 ; Every function of both groups, in declaration order. ppre and pprog are the
-; prelude names each group's calls reach.
+; prelude names each group's calls reach, and bpre and bprog its builtins.
 (def graph_nodes ((ds (list Decl)) (pre int) (ppre (list (list int)))
-                  (pprog (list (list int))) (bs (list (list int)))) (list Node)
+                  (pprog (list (list int))) (bpre (list (list int)))
+                  (bprog (list (list int)))) (list Node)
   (if (is_empty ds)
       (nil Node)
       (match (head ds)
-        ((DData o n cs) (graph_nodes (tail ds) pre ppre pprog bs))
+        ((DData o n cs) (graph_nodes (tail ds) pre ppre pprog bpre bprog))
         ((DDef o n ps ret body)
           (let inpre (lt o pre)
             (cons (Nd (def_sym n inpre) (length_params ps)
-                      (tail_callees body (if inpre ppre pprog) bs
+                      (tail_callees body (if inpre ppre pprog) (if inpre bpre bprog)
                                     (nil (list int))))
-                  (graph_nodes (tail ds) pre ppre pprog bs)))))))
+                  (graph_nodes (tail ds) pre ppre pprog bpre bprog)))))))
 
 (def node_syms ((ns (list Node))) (list (list int))
   (if (is_empty ns)
@@ -1105,16 +1110,16 @@
             (cons (Pd s (head ks) (rf_flags (head rs))) acc))))))
 
 (def module_pads ((ds (list Decl)) (pre int) (ppre (list (list int)))
-                  (pprog (list (list int)))) PadMap
-  (let bs (builtin_names 0)
-    (let ns (graph_nodes ds pre ppre pprog bs)
-      (pad_map
-        (pad_table ns
-          (spread (graph_edges ns (node_syms ns) 0 (nil Edge)) (node_arities ns))
-          (module_read_only (ro_fns ds pre ppre pprog) bs
-                            (collect_ctor_infos ds (nil CtorInfo)))
-          (nil Pad))
-        (PmLeaf)))))
+                  (pprog (list (list int))) (bpre (list (list int)))
+                  (bprog (list (list int)))) PadMap
+  (let ns (graph_nodes ds pre ppre pprog bpre bprog)
+    (pad_map
+      (pad_table ns
+        (spread (graph_edges ns (node_syms ns) 0 (nil Edge)) (node_arities ns))
+        (module_read_only (ro_fns ds pre ppre pprog bpre bprog)
+                          (collect_ctor_infos ds (nil CtorInfo)))
+        (nil Pad))
+      (PmLeaf))))
 
 ; The pad table, looked up at every call, as a tree walked by the bits of a
 ; hash of the symbol, with the symbols that share a path in a bucket at its
@@ -1187,23 +1192,26 @@
 ; across the call, would leave that part shared: an array in it would copy
 ; on update, and a list walked through it would not be freed as it goes.
 
-; One function: its symbol, parameters, flags, body, and the prelude names
-; its calls reach.
+; One function: its symbol, parameters, flags, body, the prelude names its
+; calls reach, and the builtins no def its calls see shadows.
 (data RoFn
-  (Rf (list int) (list Param) (list bool) Expr (list (list int))))
+  (Rf (list int) (list Param) (list bool) Expr (list (list int)) (list (list int))))
 
 (data Demote
   (Dm (list int) int))                  ; symbol, parameter position
 
-(def rf_sym ((r RoFn)) (list int) (match r ((Rf s ps fs b pn) s)))
-(def rf_flags ((r RoFn)) (list bool) (match r ((Rf s ps fs b pn) fs)))
+(def rf_sym ((r RoFn)) (list int) (match r ((Rf s ps fs b pn bs) s)))
+(def rf_flags ((r RoFn)) (list bool) (match r ((Rf s ps fs b pn bs) fs)))
 
+; bpre and bprog are each group's builtins, as ppre and pprog are its
+; prelude names.
 (def ro_fns ((ds (list Decl)) (pre int) (ppre (list (list int)))
-             (pprog (list (list int)))) (list RoFn)
+             (pprog (list (list int))) (bpre (list (list int)))
+             (bprog (list (list int)))) (list RoFn)
   (if (is_empty ds)
       (nil RoFn)
       (match (head ds)
-        ((DData o n cs) (ro_fns (tail ds) pre ppre pprog))
+        ((DData o n cs) (ro_fns (tail ds) pre ppre pprog bpre bprog))
         ((DDef o n ps ret body)
           (let inpre (lt o pre)
             (let sym (def_sym n inpre)
@@ -1211,16 +1219,15 @@
                         (if (list_eq sym "l0_f_main.body")
                             (nil bool)
                             (all_set ps))
-                        body (if inpre ppre pprog))
-                    (ro_fns (tail ds) pre ppre pprog))))))))
+                        body (if inpre ppre pprog) (if inpre bpre bprog))
+                    (ro_fns (tail ds) pre ppre pprog bpre bprog))))))))
 
 (def all_set ((ps (list Param))) (list bool)
   (if (is_empty ps) (nil bool) (cons true (all_set (tail ps)))))
 
-(def module_read_only ((fs (list RoFn)) (bs (list (list int)))
-                       (cs (list CtorInfo))) (list RoFn)
-  (let next (ro_pass fs bs cs)
-    (if (ro_same next fs) fs (module_read_only next bs cs))))
+(def module_read_only ((fs (list RoFn)) (cs (list CtorInfo))) (list RoFn)
+  (let next (ro_pass fs cs)
+    (if (ro_same next fs) fs (module_read_only next cs))))
 
 (def ro_same ((a (list RoFn)) (b (list RoFn))) bool
   (if (is_empty a)
@@ -1239,20 +1246,19 @@
               false))))
 
 ; The flag table is built once per pass, since every body consults it.
-(def ro_pass ((fs (list RoFn)) (bs (list (list int))) (cs (list CtorInfo)))
-    (list RoFn)
-  (let own (ro_own_all fs (ro_table fs) bs cs)
-    (ro_apply own (ro_demotions own own (ro_table own) bs cs (nil Demote)))))
+(def ro_pass ((fs (list RoFn)) (cs (list CtorInfo))) (list RoFn)
+  (let own (ro_own_all fs (ro_table fs) cs)
+    (ro_apply own (ro_demotions own own (ro_table own) cs (nil Demote)))))
 
 ; Each function's flags from its own body.
-(def ro_own_all ((todo (list RoFn)) (table PadMap) (bs (list (list int)))
-                 (cs (list CtorInfo))) (list RoFn)
+(def ro_own_all ((todo (list RoFn)) (table PadMap) (cs (list CtorInfo)))
+    (list RoFn)
   (if (is_empty todo)
       (nil RoFn)
       (match (head todo)
-        ((Rf s ps flags body pn)
-          (cons (Rf s ps (ro_own_flags ps flags body (Rx table bs pn cs)) body pn)
-                (ro_own_all (tail todo) table bs cs))))))
+        ((Rf s ps flags body pn bs)
+          (cons (Rf s ps (ro_own_flags ps flags body (Rx table bs pn cs)) body pn bs)
+                (ro_own_all (tail todo) table cs))))))
 
 ; What judging a body needs: every function's flags, as the pad table holds
 ; them, the builtins, the prelude names its calls reach, and the
@@ -1374,13 +1380,13 @@
 ; Every read-only position a tail call gives anything but a read-only
 ; parameter of the caller.
 (def ro_demotions ((todo (list RoFn)) (fs (list RoFn)) (table PadMap)
-                   (bs (list (list int))) (cs (list CtorInfo)) (acc (list Demote)))
+                   (cs (list CtorInfo)) (acc (list Demote)))
     (list Demote)
   (if (is_empty todo)
       acc
       (match (head todo)
-        ((Rf s ps flags body pn)
-          (ro_demotions (tail todo) fs table bs cs
+        ((Rf s ps flags body pn bs)
+          (ro_demotions (tail todo) fs table cs
             (ro_tail_demote body (ro_names ps flags) fs bs pn
                             (Rx table bs pn cs) acc))))))
 
@@ -1465,8 +1471,8 @@
   (if (is_empty fs)
       fs
       (match (head fs)
-        ((Rf s ps flags body pn)
-          (cons (Rf s ps (ro_clear s flags ds) body pn) (ro_apply (tail fs) ds))))))
+        ((Rf s ps flags body pn bs)
+          (cons (Rf s ps (ro_clear s flags ds) body pn bs) (ro_apply (tail fs) ds))))))
 
 (def ro_clear ((s (list int)) (flags (list bool)) (ds (list Demote))) (list bool)
   (if (is_empty ds)
@@ -1682,7 +1688,8 @@
 
 (def emit_module_fns ((ds (list Decl)) (pre int) (ppre (list (list int)))
                       (pprog (list (list int))) (st Emit)) (list int)
-  (let pads (module_pads ds pre ppre pprog)
-    (emit_text
-      (emit_fns ds (Sc (prelude_view ds pre) ppre true pads)
-                   (Sc (program_view ds pre) pprog false pads) pre st))))
+  (let pv (prelude_view ds pre)
+    (let gv (program_view ds pre)
+      (let pads (module_pads ds pre ppre pprog (ctx_builtins pv) (ctx_builtins gv))
+        (emit_text
+          (emit_fns ds (Sc pv ppre true pads) (Sc gv pprog false pads) pre st))))))
