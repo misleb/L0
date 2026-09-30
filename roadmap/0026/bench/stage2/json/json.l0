@@ -1,0 +1,381 @@
+; json.l0 -- validate and pretty-print JSON, as python3 -m json.tool
+; --indent 2 prints it.
+;
+; The input is held as bytes, one per byte, and parsed by index.
+; Nothing is built from it: no tree, no strings, no output list. The same
+; walk runs twice, first with no handle to check the whole document, then
+; with the output handle to write it, so nothing is written for a document
+; that turns out to be invalid. Output is written as it is produced.
+;
+; Output matches json.tool's: two spaces per level, ": " after a key, empty
+; containers as [] and {}, and strings re-escaped as ensure_ascii does, with
+; every byte outside space to ~ written as \uXXXX in lower-case hex, UTF-8
+; decoded and astral code points split into surrogates. Numbers are written
+; as they appear, except -0, which is 0. See the README for where this still
+; differs from json.tool.
+
+; ------------------------------------------------------------------ input
+
+; The bytes read, and how many, or a failure.
+(data Input
+  (Input bytes int)
+  (InputFailed int))
+
+; Every byte of f. After read_bytes, read_from says whether it stopped at the
+; end of the input or because a read failed.
+(def read_input ((f IoFile)) Input
+  (match f
+    ((IoFile h)
+      (let a (read_bytes h)
+        (let e (read_from h)
+          (if (eq e -1) (Input a (bytes_len a)) (InputFailed e)))))))
+
+; The byte at i, or -1 at and past the end, n.
+(def at ((s bytes) (n int) (i int)) int
+  (if (lt i n) (byte_at s i) -1))
+
+; ---------------------------------------------------------------- output
+;
+; h is a handle, or -1 for the checking pass, which writes nothing.
+
+(def put ((h int) (b int)) int
+  (if (lt h 0) 0 (write_to h b)))
+
+(def put_str ((h int) (s (list int))) int
+  (if (lt h 0)
+      0
+      (if (is_empty s)
+          0
+          (let w (write_to h (head s)) (put_str h (tail s))))))
+
+(def newline ((h int) (ind int)) int
+  (if (lt h 0) 0 (let w (put h 10) (spaces h (mul 2 ind)))))
+
+(def spaces ((h int) (k int)) int
+  (if (le k 0) 0 (let w (put h 32) (spaces h (sub k 1)))))
+
+; --------------------------------------------------------------- results
+
+; The index just past what was parsed, or where parsing failed and why.
+(data R
+  (Ok int)
+  (Bad int (list int)))
+
+(def skip_ws ((s bytes) (n int) (i int)) int
+  (let c (at s n i)
+    (if (if (eq c 32) true (if (eq c 10) true (if (eq c 13) true (eq c 9))))
+        (skip_ws s n (add i 1))
+        i)))
+
+; What was found where something else was expected, for a message.
+(def found ((c int)) (list int)
+  (if (lt c 0)
+      "end of input"
+      (if (and (gt c 32) (lt c 127))
+          (cons 39 (cons c (cons 39 (nil int))))
+          (append "byte " (digits c)))))
+
+(def expected ((what (list int)) (c int)) (list int)
+  (append "expected " (append what (append ", found " (found c)))))
+
+; ------------------------------------------------------------- documents
+
+; One value and nothing after it but whitespace, written to h with a
+; newline after it.
+(def document ((s bytes) (n int) (h int)) R
+  (match (value s n 0 h 0)
+    ((Bad at msg) (Bad at msg))
+    ((Ok k)
+      (let j (skip_ws s n k)
+        (if (lt j n)
+            (Bad j (append "unexpected " (append (found (at s n j))
+                     " after the value")))
+            (let w (put h 10) (Ok j)))))))
+
+(def value ((s bytes) (n int) (i int) (h int) (ind int)) R
+  (let j (skip_ws s n i)
+    (value_at s n j h ind (at s n j))))
+
+(def value_at ((s bytes) (n int) (j int) (h int) (ind int) (c int)) R
+  (if (eq c 123)
+      (object s n (skip_ws s n (add j 1)) h ind)
+      (if (eq c 91)
+          (elements s n (skip_ws s n (add j 1)) h ind)
+          (if (eq c 34)
+              (let w (put h 34) (str_chars s n (add j 1) h))
+              (if (if (eq c 45) true (is_digit c))
+                  (number s n j h)
+                  (word s n j h c))))))
+
+(def word ((s bytes) (n int) (j int) (h int) (c int)) R
+  (if (literal_at s n j "true")
+      (let w (put_str h "true") (Ok (add j 4)))
+      (if (literal_at s n j "false")
+          (let w (put_str h "false") (Ok (add j 5)))
+          (if (literal_at s n j "null")
+              (let w (put_str h "null") (Ok (add j 4)))
+              (Bad j (expected "a value" c))))))
+
+(def literal_at ((s bytes) (n int) (i int) (lit (list int))) bool
+  (if (is_empty lit)
+      true
+      (if (eq (at s n i) (head lit))
+          (literal_at s n (add i 1) (tail lit))
+          false)))
+
+; ------------------------------------------------------------ containers
+;
+; i is past the opening bracket and any whitespace after it.
+
+(def elements ((s bytes) (n int) (i int) (h int) (ind int)) R
+  (if (eq (at s n i) 93)
+      (let w (put_str h "[]") (Ok (add i 1)))
+      (let w (put h 91) (items s n i h ind))))
+
+(def items ((s bytes) (n int) (i int) (h int) (ind int)) R
+  (let w (newline h (add ind 1))
+    (match (value s n i h (add ind 1))
+      ((Bad at msg) (Bad at msg))
+      ((Ok k)
+        (let j (skip_ws s n k)
+          (let c (at s n j)
+            (if (eq c 44)
+                (let x (put h 44) (items s n (add j 1) h ind))
+                (if (eq c 93)
+                    (let y (newline h ind) (let z (put h 93) (Ok (add j 1))))
+                    (Bad j (expected ", or ] in an array" c))))))))))
+
+(def object ((s bytes) (n int) (i int) (h int) (ind int)) R
+  (if (eq (at s n i) 125)
+      (let w (put_str h "{}") (Ok (add i 1)))
+      (let w (put h 123) (members s n i h ind))))
+
+(def members ((s bytes) (n int) (i int) (h int) (ind int)) R
+  (let w (newline h (add ind 1))
+    (let j (skip_ws s n i)
+      (if (eq (at s n j) 34)
+          (let q (put h 34)
+            (match (str_chars s n (add j 1) h)
+              ((Bad at msg) (Bad at msg))
+              ((Ok k) (member_value s n (skip_ws s n k) h ind))))
+          (Bad j (expected "a string key in an object" (at s n j)))))))
+
+(def member_value ((s bytes) (n int) (k int) (h int) (ind int)) R
+  (if (eq (at s n k) 58)
+      (let w (put_str h ": ")
+        (match (value s n (add k 1) h (add ind 1))
+          ((Bad at msg) (Bad at msg))
+          ((Ok m) (member_next s n (skip_ws s n m) h ind))))
+      (Bad k (expected ": after a key" (at s n k)))))
+
+(def member_next ((s bytes) (n int) (j int) (h int) (ind int)) R
+  (let c (at s n j)
+    (if (eq c 44)
+        (let x (put h 44) (members s n (add j 1) h ind))
+        (if (eq c 125)
+            (let y (newline h ind) (let z (put h 125) (Ok (add j 1))))
+            (Bad j (expected ", or } in an object" c))))))
+
+; --------------------------------------------------------------- strings
+;
+; i is past the opening quote, which has been written.
+
+(def str_chars ((s bytes) (n int) (i int) (h int)) R
+  (let c (at s n i)
+    (if (eq c 34)
+        (let w (put h 34) (Ok (add i 1)))
+        (if (eq c 92)
+            (escape s n (add i 1) h)
+            (if (lt c 32)
+                (Bad i (if (lt c 0)
+                           "unterminated string"
+                           "control character in a string; use an escape"))
+                (if (lt c 127)
+                    (let w (put h c) (str_chars s n (add i 1) h))
+                    (if (eq c 127)
+                        (let w (put_unit h c) (str_chars s n (add i 1) h))
+                        (utf8 s n i h c))))))))
+
+; i is past a backslash.
+(def escape ((s bytes) (n int) (i int) (h int)) R
+  (let c (at s n i)
+    (if (eq c 117)
+        (let u (hex4 s n (add i 1) 4 0)
+          (if (lt u 0)
+              (Bad i "\\u must be followed by four hex digits")
+              (let w (put_unit h u) (str_chars s n (add i 5) h))))
+        (let k (position_of c "\"\\/bfnrt" 0)
+          (if (lt k 0)
+              (Bad i (append "invalid escape " (found c)))
+              (let w (put_unit h (pick k "\"\\/\x08\x0c\n\r\t"))
+                (str_chars s n (add i 1) h)))))))
+
+(def position_of ((c int) (xs (list int)) (i int)) int
+  (if (is_empty xs)
+      -1
+      (if (eq (head xs) c) i (position_of c (tail xs) (add i 1)))))
+
+(def pick ((i int) (xs (list int))) int
+  (if (eq i 0) (head xs) (pick (sub i 1) (tail xs))))
+
+; The value of k hex digits at i, or -1 if they are not all there.
+(def hex4 ((s bytes) (n int) (i int) (k int) (acc int)) int
+  (if (eq k 0)
+      acc
+      (let v (hex_val (at s n i))
+        (if (lt v 0)
+            -1
+            (hex4 s n (add i 1) (sub k 1) (add (mul acc 16) v))))))
+
+; Writes one UTF-16 code unit as ensure_ascii does.
+(def put_unit ((h int) (u int)) int
+  (let k (position_of u "\"\\\x08\x0c\n\r\t" 0)
+    (if (ge k 0)
+        (let w (put h 92) (put h (pick k "\"\\bfnrt")))
+        (if (if (ge u 32) (lt u 127) false)
+            (put h u)
+            (let w (put_str h "\\u")
+              (let a (put h (hex_char (div u 4096)))
+                (let b (put h (hex_char (mod (div u 256) 16)))
+                  (let c (put h (hex_char (mod (div u 16) 16)))
+                    (put h (hex_char (mod u 16)))))))))))
+
+(def hex_char ((d int)) int
+  (if (lt d 10) (add 48 d) (add 87 d)))
+
+(def put_code_point ((h int) (cp int)) int
+  (if (lt cp 65536)
+      (put_unit h cp)
+      (let v (sub cp 65536)
+        (let w (put_unit h (add 55296 (div v 1024)))
+          (put_unit h (add 56320 (mod v 1024)))))))
+
+; A UTF-8 sequence starting with c, at i, as a code point, with overlong
+; forms, surrogates, and values past U+10FFFF rejected as Python's decoder
+; rejects them.
+(def utf8 ((s bytes) (n int) (i int) (h int) (c int)) R
+  (let k (if (lt c 194) 0 (if (lt c 224) 1 (if (lt c 240) 2 (if (lt c 245) 3 0))))
+    (if (eq k 0)
+        (Bad i "invalid UTF-8")
+        (let c1 (at s n (add i 1))
+          (if (if (lt c1 (first_lo c)) true (gt c1 (first_hi c)))
+              (Bad i "invalid UTF-8")
+              (utf8_rest s n (add i 2) h (sub k 1)
+                (add (mul (sub c (lead_base k)) 64) (sub c1 128))))))))
+
+(def lead_base ((k int)) int
+  (if (eq k 1) 192 (if (eq k 2) 224 240)))
+
+(def first_lo ((c int)) int
+  (if (eq c 224) 160 (if (eq c 240) 144 128)))
+
+(def first_hi ((c int)) int
+  (if (eq c 237) 159 (if (eq c 244) 143 191)))
+
+(def utf8_rest ((s bytes) (n int) (i int) (h int) (k int) (cp int)) R
+  (if (eq k 0)
+      (let w (put_code_point h cp) (str_chars s n i h))
+      (let c (at s n i)
+        (if (if (lt c 128) true (gt c 191))
+            (Bad i "invalid UTF-8")
+            (utf8_rest s n (add i 1) h (sub k 1) (add (mul cp 64) (sub c 128)))))))
+
+; --------------------------------------------------------------- numbers
+;
+; -?(0|[1-9][0-9]*)(\.[0-9]+)?([eE][+-]?[0-9]+)?, copied as written.
+
+(def number ((s bytes) (n int) (j int) (h int)) R
+  (let a (if (eq (at s n j) 45) (add j 1) j)
+    (let d (at s n a)
+      (if (not (is_digit d))
+          (Bad a (expected "a digit" d))
+          (let b (if (eq d 48) (add a 1) (digits_end s n a))
+            (match (fraction s n b)
+              ((Bad at msg) (Bad at msg))
+              ((Ok e)
+                (match (exponent s n e)
+                  ((Bad at msg) (Bad at msg))
+                  ((Ok end) (let w (put_number s n j end h) (Ok end)))))))))))
+
+(def digits_end ((s bytes) (n int) (i int)) int
+  (if (is_digit (at s n i)) (digits_end s n (add i 1)) i))
+
+(def fraction ((s bytes) (n int) (i int)) R
+  (if (eq (at s n i) 46)
+      (at_least_one_digit s n (add i 1) "a digit after .")
+      (Ok i)))
+
+(def exponent ((s bytes) (n int) (i int)) R
+  (let c (at s n i)
+    (if (if (eq c 101) true (eq c 69))
+        (let j (add i 1)
+          (let k (if (if (eq (at s n j) 43) true (eq (at s n j) 45)) (add j 1) j)
+            (at_least_one_digit s n k "a digit in the exponent")))
+        (Ok i))))
+
+(def at_least_one_digit ((s bytes) (n int) (i int) (what (list int))) R
+  (let e (digits_end s n i)
+    (if (eq e i) (Bad i (expected what (at s n i))) (Ok e))))
+
+(def put_number ((s bytes) (n int) (j int) (end int) (h int)) int
+  (if (if (eq end (add j 2)) (eq (at s n j) 45) false)
+      (if (eq (at s n (add j 1)) 48) (put h 48) (copy_out s j end h))
+      (copy_out s j end h)))
+
+(def copy_out ((s bytes) (i int) (end int) (h int)) int
+  (if (lt h 0) 0 (bytes_write h s i end)))
+
+; ------------------------------------------------------------ positions
+
+(data Pos
+  (Pos int int))                        ; line, column, both from 1
+
+(def pos_of ((s bytes) (idx int)) Pos
+  (walk_pos s idx 0 1 1))
+
+(def walk_pos ((s bytes) (idx int) (i int) (line int) (col int)) Pos
+  (if (ge i idx)
+      (Pos line col)
+      (if (eq (byte_at s i) 10)
+          (walk_pos s idx (add i 1) (add line 1) 1)
+          (walk_pos s idx (add i 1) line (add col 1)))))
+
+; "LINE:COL: error: MSG\n", for an error at index idx.
+(def error_text ((s bytes) (idx int) (msg (list int))) (list int)
+  (match (pos_of s idx)
+    ((Pos line col)
+      (let a (push (digits line) (nil int))
+        (let b (push (digits col) (cons 58 a))
+          (let c (push " error: " (cons 58 b))
+            (rev (cons 10 (push msg c)))))))))
+
+; ------------------------------------------------------------- the whole
+
+; Checks the document in s, then writes it to out, or returns the message
+; for where it is wrong and writes nothing.
+(def pretty ((s bytes) (n int) (out IoFile)) R
+  (match (document s n -1)
+    ((Bad at msg) (Bad at msg))
+    ((Ok k) (match out ((IoFile h) (document s n h))))))
+
+; The output for the text t, or "error: " and the message, for tests.
+(def pretty_string ((t (list int))) (list int)
+  (match (open_in_bytes t)
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (let r (read_input f)
+        (let c (file_close f)
+          (match r
+            ((InputFailed code) (io_error code))
+            ((Input s n) (pretty_input s n))))))))
+
+(def pretty_input ((s bytes) (n int)) (list int)
+  (match (open_out_buffer)
+    ((IoFailed why) why)
+    ((IoOpened out)
+      (match (pretty s n out)
+        ((Bad at msg)
+          (let c (file_close out) (append "error: " (error_text s at msg))))
+        ((Ok k)
+          (let t (buffer_contents out)
+            (let c (file_close out) t)))))))

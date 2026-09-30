@@ -7,20 +7,22 @@ Current focus: the memory-management and I/O goal is met by the language route
 arguments, reference counting, and guaranteed tail calls, and the gaps 0014
 found in it are closed by 0018 to 0020. The arrays goal's release rule
 (0023) and arrays (0024) are done, and 0028's programs with arrays chose
-what follows: documentation that says what arrays cost, borrowed parameters,
-nested update, and research into holding bytes one byte per byte.
+what followed them (0029, 0030, 0025, 0026). 0026 found that holding text
+one byte per byte needs a packed type, and that adding builtins must first
+stop breaking programs.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty. 0026, research into holding bytes one byte per byte, is next and
-will fill it.
+1. [0031](0031-builtins-do-not-take-over.md) a new builtin does not take
+   over a program's function — queued, next
+2. [0032](0032-bytes.md) bytes held one byte per byte — queued, needs 0031
 
 ## Other open items
 
-- [0026](0026-packed-bytes.md) research: how L0 holds bytes one byte per byte
-  — proposed, next; earned by 0028
+- [0033](0033-bytes-library-and-programs.md) tooling: the library reads into
+  bytes, and the text programs use it — proposed, needs 0032
 
 ## Done and dropped
 
@@ -92,3 +94,5 @@ will fill it.
 - [0027](0027-faster-compiler.md) tooling: a faster compiler — done, changelog
   "Programs and the runtime are optimized together, and no language change
   for it"
+- [0026](0026-packed-bytes.md) research: how L0 holds bytes one byte per byte
+  — done; a packed type (0032), after 0031, then 0033

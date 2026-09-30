@@ -1,0 +1,4 @@
+; A program written before flush was a builtin, with its own flush.
+(def flush ((s (list int))) int (head s))
+
+(def main () int (flush "abc"))
