@@ -1,1 +1,1 @@
-tests/check/type_lowercase.l0:3:12: error: unknown type string: a type is int, bool, (list T), (array T), or a data type, whose name starts uppercase
+tests/check/type_lowercase.l0:3:12: error: unknown type string: a type is int, bool, bytes, (list T), (array T), or a data type, whose name starts uppercase

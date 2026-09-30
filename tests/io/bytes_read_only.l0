@@ -1,0 +1,10 @@
+; A loop over a bytes parameter it only reads: bytes_len and bytes_get borrow
+; and return ints, so the parameter is read-only (spec 10.3) and the loop
+; counts no references.
+
+(def sum_from ((b bytes) (i int) (acc int)) int
+  (if (ge i (bytes_len b)) acc (sum_from b (add i 1) (add acc (bytes_get b i)))))
+
+(def main () int
+  (let b (bytes_from_list "ABC")
+    (if (eq (sum_from b 0 0) 198) (bytes_len b) 1)))

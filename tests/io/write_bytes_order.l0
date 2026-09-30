@@ -1,0 +1,5 @@
+; A range whose start is after its end is a runtime error, before anything of
+; it is written.
+
+(def main () int
+  (write_bytes 1 (bytes_from_list "abcd") 3 2))

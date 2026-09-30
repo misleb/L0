@@ -3,10 +3,10 @@ parse error at offset 20: unexpected ) where an expression was expected
 parse error at offset 8: each parameter is (name type)
 parse error at offset 5: a function name must be lowercase and not reserved
 parse error at offset 5: a function name must be lowercase and not reserved
-parse error at offset 25: expected a type: int, bool, (list T), or (array T)
+parse error at offset 25: expected a type: int, bool, bytes, (list T), or (array T)
 parse error at offset 30: nil takes exactly one element type, as in (nil int)
-parse error at offset 17: unknown type nope: a type is int, bool, (list T), (array T), or a data type, whose name starts uppercase
-parse error at offset 22: expected a type: int, bool, (list T), or (array T)
+parse error at offset 17: unknown type nope: a type is int, bool, bytes, (list T), (array T), or a data type, whose name starts uppercase
+parse error at offset 22: expected a type: int, bool, bytes, (list T), or (array T)
 (data Foo (Bar))
 parse error at offset 21: match needs a subject and at least one arm
 parse error at offset 26: expected a name after let
@@ -20,7 +20,7 @@ parse error at offset 0: no declarations found
 parse error at offset 6: a data declaration needs an uppercase type name
 parse error at offset 0: a data type needs at least one constructor
 parse error at offset 11: a constructor is (Name field-types...)
-parse error at offset 15: unknown type nope: a type is int, bool, (list T), (array T), or a data type, whose name starts uppercase
+parse error at offset 15: unknown type nope: a type is int, bool, bytes, (list T), (array T), or a data type, whose name starts uppercase
 parse error at offset 31: a match pattern is (Constructor names...)
 parse error at offset 36: expected a field binding name
 parse error at offset 32: a match pattern starts with a constructor name

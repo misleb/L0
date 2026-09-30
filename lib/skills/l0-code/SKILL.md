@@ -365,7 +365,7 @@ To check a loop, run the program with `L0_ARRAY_STATS=1`: it reports on
 standard error how many updates copied.
 
 Factor reads into small functions freely: a function that only reads its
-list, data, or array parameters, and returns nothing taken out of them,
+list, data, array, or bytes parameters, and returns nothing taken out of them,
 costs no reference counting to call, so there is no reason to inline such
 a helper by hand.
 

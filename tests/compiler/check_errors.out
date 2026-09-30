@@ -47,3 +47,10 @@ ok
 35: array_len takes 1 argument, but got 2
 parse error at offset 40: a let binding name must be lowercase and not reserved
 parse error at offset 12: expected list or array after ( in a type
+35: an argument of bytes_get must be bytes, but this is (list int)
+35: bytes_len takes 1 argument, but got 2
+39: an argument of eq must be int, but this is bytes
+35: an argument of write_bytes must be int, but this is bool
+46: an argument of read_bytes must be int, but this is bool
+ok
+0: a main with no parameters must return int

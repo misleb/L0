@@ -1,0 +1,8 @@
+; read_bytes has no error code of its own: when reading fails, the next
+; read_from says so with -5 (spec 6.6). The exit status is 50, plus 10 for
+; each byte read, plus the negated code.
+
+(def main () int
+  (let b (read_bytes 0)
+    (let e (read_from 0)
+      (add 50 (add (mul 10 (bytes_len b)) (neg e))))))

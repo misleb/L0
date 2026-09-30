@@ -1,0 +1,4 @@
+; A negative bytes index is a runtime error.
+
+(def main () int
+  (bytes_get (bytes_from_list "abc") -1))

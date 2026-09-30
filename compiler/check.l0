@@ -131,6 +131,8 @@
 (def bi_to_list ((i int)) (list (list int)) (split_spaces "arg buffer_bytes"))
 (def bi_array ((i int)) (list (list int))
   (split_spaces "array_new array_len array_get array_set"))
+(def bi_bytes ((i int)) (list (list int))
+  (split_spaces "read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes"))
 
 ; Every builtin's name. Built once per context (ctx_builtins), not per call.
 (def builtin_names ((i int)) (list (list int))
@@ -141,7 +143,8 @@
           (names_then (bi_io 0)
             (names_then (bi_path 0)
               (names_then (bi_to_list 0)
-                (names_then (bi_array 0) (split_spaces "neg not"))))))))))
+                (names_then (bi_array 0)
+                  (names_then (bi_bytes 0) (split_spaces "neg not")))))))))))
 
 (def names_then ((xs (list (list int))) (ys (list (list int))))
     (list (list int))
@@ -151,9 +154,9 @@
   (if (any_eq n (split_spaces "read_byte arg_count open_buffer"))
       0
       (if (any_eq n (split_spaces
-            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len"))
+            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list"))
           1
-          (if (list_eq n "array_set") 3 2))))
+          (if (list_eq n "array_set") 3 (if (list_eq n "write_bytes") 4 2)))))
 
 (def plural ((n int) (word (list int))) (list int)
   (if (eq n 1) word (append word "s")))
@@ -195,7 +198,36 @@
           (need_all n ats o (TyInt) (TyList (TyInt)))
           (if (any_eq n (bi_array 0))
               (check_array_builtin n ats o)
-              (check_list_builtin n ats o)))))
+              (if (any_eq n (bi_bytes 0))
+                  (check_bytes_builtin n ats o)
+                  (check_list_builtin n ats o))))))
+
+; The bytes builtins are not polymorphic: each argument has one type.
+(def check_bytes_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
+  (if (list_eq n "read_bytes")
+      (need_each n ats o (cons (TyInt) (nil Ty)) (TyBytes))
+      (if (list_eq n "bytes_len")
+          (need_each n ats o (cons (TyBytes) (nil Ty)) (TyInt))
+          (if (list_eq n "bytes_get")
+              (need_each n ats o (cons (TyBytes) (cons (TyInt) (nil Ty))) (TyInt))
+              (if (list_eq n "bytes_from_list")
+                  (need_each n ats o (cons (TyList (TyInt)) (nil Ty)) (TyBytes))
+                  (if (list_eq n "bytes_to_list")
+                      (need_each n ats o (cons (TyBytes) (nil Ty)) (TyList (TyInt)))
+                      (need_each n ats o
+                        (cons (TyInt) (cons (TyBytes) (cons (TyInt) (cons (TyInt) (nil Ty)))))
+                        (TyInt))))))))
+
+; Each argument against the type in the same position of wants, which is as
+; long, since the arity was checked first.
+(def need_each ((n (list int)) (ats (list Ty)) (o int) (wants (list Ty)) (res Ty))
+    CTy
+  (if (is_empty ats)
+      (CTyOk res)
+      (if (ty_eq (head ats) (head wants))
+          (need_each n (tail ats) o (tail wants) res)
+          (CTyErr o (type_msg (append "an argument of " n) (ty_str (head wants))
+                              (head ats))))))
 
 ; The array builtins are polymorphic in the element type as the list ones
 ; are: array_new's element argument determines it, and every other takes the

@@ -1,0 +1,8 @@
+; read_bytes takes all of standard input and write_bytes gives it back, then
+; read_from reports the end.
+
+(def main () int
+  (let b (read_bytes 0)
+    (let w (write_bytes 1 b 0 (bytes_len b))
+      (let e (read_from 0)
+        (write_byte (if (eq e -1) 69 88))))))

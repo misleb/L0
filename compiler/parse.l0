@@ -15,7 +15,8 @@
   (TyBool)
   (TyList Ty)
   (TyData (list int))                   ; declared type name
-  (TyArray Ty))
+  (TyArray Ty)
+  (TyBytes))
 
 (data Expr
   (EInt int int)                        ; offset, value
@@ -53,11 +54,13 @@
     ((TyBool) 1)
     ((TyList e) 2)
     ((TyData n) 3)
-    ((TyArray e) 4)))
+    ((TyArray e) 4)
+    ((TyBytes) 5)))
 
 (def ty_is_list ((t Ty)) bool (eq (ty_kind t) 2))
 (def ty_is_data ((t Ty)) bool (eq (ty_kind t) 3))
 (def ty_is_array ((t Ty)) bool (eq (ty_kind t) 4))
+(def ty_is_bytes ((t Ty)) bool (eq (ty_kind t) 5))
 
 ; The element type of a list or an array. The result is meaningless for
 ; anything else, which callers guard with ty_is_list or ty_is_array.
@@ -67,7 +70,8 @@
     ((TyArray e) e)
     ((TyInt) (TyInt))
     ((TyBool) (TyBool))
-    ((TyData n) (TyInt))))
+    ((TyData n) (TyInt))
+    ((TyBytes) (TyInt))))
 
 (def ty_name ((t Ty)) (list int)
   (match t
@@ -75,7 +79,8 @@
     ((TyInt) "")
     ((TyBool) "")
     ((TyList e) "")
-    ((TyArray e) "")))
+    ((TyArray e) "")
+    ((TyBytes) "")))
 
 (def ty_eq ((a Ty) (b Ty)) bool
   (if (not (eq (ty_kind a) (ty_kind b)))
@@ -93,7 +98,8 @@
     ((TyBool) "bool")
     ((TyList e) (append "(list " (append (ty_str e) ")")))
     ((TyArray e) (append "(array " (append (ty_str e) ")")))
-    ((TyData n) n)))
+    ((TyData n) n)
+    ((TyBytes) "bytes")))
 
 (data PTy
   (PTOk Ty (list Token))
@@ -196,7 +202,7 @@
                 (if (tok_is_lparen t)
                     (parse_list_type (tail ts) (tok_offset t))
                     (PTErr (tok_offset t)
-                      "expected a type: int, bool, (list T), or (array T)")))))))
+                      "expected a type: int, bool, bytes, (list T), or (array T)")))))))
 
 ; An uppercase name is a declared data type. Whether it was actually
 ; declared is the checker's business, not the parser's.
@@ -206,14 +212,19 @@
         (PTOk (TyInt) rest)
         (if (list_eq n "bool")
             (PTOk (TyBool) rest)
-            (if (any_eq n (split_spaces "list array"))
-                (PTErr (tok_offset t)
-                  (append n (append " needs an element type, as in (" (append n " int)"))))
-                (if (name_is_upper n)
-                    (PTOk (TyData n) rest)
-                    (PTErr (tok_offset t)
-                      (append "unknown type " (append n
-                        ": a type is int, bool, (list T), (array T), or a data type, whose name starts uppercase")))))))))
+            (if (list_eq n "bytes")
+                (PTOk (TyBytes) rest)
+                (parse_type_other t n rest))))))
+
+(def parse_type_other ((t Token) (n (list int)) (rest (list Token))) PTy
+  (if (any_eq n (split_spaces "list array"))
+      (PTErr (tok_offset t)
+        (append n (append " needs an element type, as in (" (append n " int)"))))
+      (if (name_is_upper n)
+          (PTOk (TyData n) rest)
+          (PTErr (tok_offset t)
+            (append "unknown type " (append n
+              ": a type is int, bool, bytes, (list T), (array T), or a data type, whose name starts uppercase"))))))
 
 (def parse_list_type ((ts (list Token)) (open int)) PTy
   (if (is_empty ts)

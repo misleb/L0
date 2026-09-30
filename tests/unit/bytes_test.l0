@@ -1,0 +1,119 @@
+; Unit tests for bytes (spec section 6.6): read from a handle, converted to
+; and from lists, written, and held in parameters, data, and arrays.
+
+(def test_read_bytes () int
+  (let h (open_bytes "hello")
+    (let b (read_bytes h)
+      (add (check_int "length" (bytes_len b) 5)
+        (add (check_int "first" (bytes_get b 0) 104)
+          (add (check_int "last" (bytes_get b 4) 111)
+            (add (check_str "as a list" (bytes_to_list b) "hello")
+              (add (check_int "then end" (read_from h) -1)
+                (add (check_int "again empty" (bytes_len (read_bytes h)) 0)
+                     (check_int "close" (close h) 0))))))))))
+
+(def test_after_a_byte () int
+  (let h (open_bytes "abc")
+    (let c (read_from h)
+      (let b (read_bytes h)
+        (add (check_int "first" c 97)
+          (add (check_str "rest" (bytes_to_list b) "bc")
+               (check_int "close" (close h) 0)))))))
+
+(def test_not_readable () int
+  (let h (open_buffer)
+    (let r (open_bytes "abc")
+      (let c (close r)
+        (add (check_int "not a handle" (bytes_len (read_bytes 99)) 0)
+          (add (check_int "buffer" (bytes_len (read_bytes h)) 0)
+            (add (check_int "closed" (bytes_len (read_bytes r)) 0)
+                 (check_int "close" (close h) 0))))))))
+
+(def test_from_list () int
+  (let b (bytes_from_list "abc")
+    (add (check_int "length" (bytes_len b) 3)
+      (add (check_str "round trip" (bytes_to_list b) "abc")
+        (add (check_int "empty" (bytes_len (bytes_from_list (nil int))) 0)
+          (add (check_str "empty list" (bytes_to_list (bytes_from_list "")) "")
+            (add (check_int "modulo 256" (bytes_get (bytes_from_list (cons 300 (nil int))) 0) 44)
+                 (check_int "negative" (bytes_get (bytes_from_list (cons -1 (nil int))) 0) 255))))))))
+
+(def written ((b bytes) (i int) (j int)) (list int)
+  (let h (open_buffer)
+    (let w (write_bytes h b i j)
+      (let s (buffer_bytes h)
+        (let c (close h) s)))))
+
+(def test_write_bytes () int
+  (let b (bytes_from_list "hello")
+    (add (check_str "middle" (written b 1 4) "ell")
+      (add (check_str "all" (written b 0 5) "hello")
+        (add (check_str "none" (written b 5 5) "")
+          (add (check_int "not writable" (write_bytes 0 b 0 5) -2)
+               (check_int "not a handle" (write_bytes 99 b 0 1) -2)))))))
+
+; A bytes parameter only read, so it is passed without a reference.
+(def sum_from ((b bytes) (i int) (acc int)) int
+  (if (ge i (bytes_len b)) acc (sum_from b (add i 1) (add acc (bytes_get b i)))))
+
+(def test_read_only_parameter () int
+  (let b (bytes_from_list "AB")
+    (add (check_int "sum" (sum_from b 0 0) 131)
+         (check_int "still there" (bytes_get b 1) 66))))
+
+; bytes_to_list consumes its argument, so a caller that keeps using b must
+; give it a reference of its own.
+(def test_to_list_keeps () int
+  (let b (bytes_from_list "xy")
+    (let l (bytes_to_list b)
+      (add (check_str "list" l "xy")
+           (check_int "still there" (bytes_get b 0) 120)))))
+
+; bytes is a type only where a type is expected.
+(def count_of ((bytes (list int))) int
+  (if (is_empty bytes) 0 (add 1 (count_of (tail bytes)))))
+
+(def test_bytes_is_a_name () int
+  (let bytes (bytes_from_list "four")
+    (check_int "length" (count_of (bytes_to_list bytes)) 4)))
+
+(data Named
+  (Named (list int) bytes))
+
+(def name_len ((n Named)) int
+  (match n ((Named k b) (bytes_len b))))
+
+(def test_in_data_and_arrays () int
+  (let a (array_new 4 (bytes_from_list ""))
+    (let a2 (array_set a 2 (bytes_from_list "xyz"))
+      (let a3 (array_set a2 2 (bytes_from_list "pq"))
+        (add (check_int "replaced" (bytes_len (array_get a3 2)) 2)
+          (add (check_int "shared empty" (bytes_len (array_get a3 0)) 0)
+               (check_int "field" (name_len (Named "k" (array_get a3 2))) 2)))))))
+
+(def write_n ((h int) (n int)) int
+  (if (le n 0)
+      0
+      (let w (write_to h (mod n 251))
+        (write_n h (sub n 1)))))
+
+(def mismatches ((b bytes) (i int) (n int) (acc int)) int
+  (if (ge i n)
+      acc
+      (mismatches b (add i 1) n
+        (if (eq (bytes_get b i) (mod (sub n i) 251)) acc (add acc 1)))))
+
+; More than the 64 KB the runtime buffers, so the buffered bytes and the
+; reads after them both land in the block.
+(def test_large_file () int
+  (let w (open_write "large.bin")
+    (let x (write_n w 200000)
+      (let c (close w)
+        (let r (open_read "large.bin")
+          (let f (read_from r)
+            (let b (read_bytes r)
+              (add (check_int "first" f (mod 200000 251))
+                (add (check_int "length" (bytes_len b) 199999)
+                  (add (check_int "mismatches" (mismatches b 0 199999 0) 0)
+                    (add (check_int "then end" (read_from r) -1)
+                         (check_int "close" (close r) 0))))))))))))

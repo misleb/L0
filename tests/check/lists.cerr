@@ -1,4 +1,4 @@
-tests/check/lists.l0:10:46: error: expected a type: int, bool, (list T), or (array T)
+tests/check/lists.l0:10:46: error: expected a type: int, bool, bytes, (list T), or (array T)
 tests/check/lists.l0:14:26: error: list needs an element type, as in (list int)
 tests/check/lists.l0:4:54: error: the element consed onto a list must be int, but this is bool
 tests/check/lists.l0:5:39: error: the second argument of cons must be a list, but this is int

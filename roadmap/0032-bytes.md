@@ -1,7 +1,7 @@
 # 0032: Bytes held one byte per byte
 
 Kind: language
-Status: queued, next
+Status: done, changelog "Bytes, held one byte per byte"; Linux runs owed
 Needs: 0031
 
 ## Why
@@ -43,3 +43,26 @@ after reading all, and `L0_RC_CHECK` clean on 0026's json and sort inputs.
 ## Log
 
 - 2026-09-29: opened from 0026's finding.
+- 2026-09-30: done. The names are `read_bytes`, `bytes_len`, `bytes_get`,
+  `bytes_from_list`, `bytes_to_list`, and `write_bytes`, mirroring
+  `array_len`, `array_get`, `read_byte`, and `write_byte`; the prototype's
+  `read_array` is dropped, since a program can build an int array from
+  bytes. `bytes` is recognized only where a type is expected (spec 2.3),
+  because 0028's sort and wordfreq tests use it as a parameter name, and
+  `tests/compiler/check_errors` and `tests/unit/bytes_test` check that it
+  still can be one. The conversions consume their argument (spec 10.3);
+  `bytes_len`, `bytes_get`, and `write_bytes` borrow, and
+  `tests/io/bytes_read_only` checks from the IR that a loop over a
+  read-only bytes parameter counts no references, and fails when
+  `bytes_get` is taken out of the borrowing list. The runtime is the
+  prototype's, renamed. The runtime errors are now seven:
+  `tests/io/bytes_range`, `bytes_negative_index`, `write_bytes_range` (out
+  of range on a handle that is not open, after writing an earlier range),
+  and `write_bytes_order`. A read failure seen through `read_from` after
+  `read_bytes` is `tests/io/bytes_read_failure`, with a directory as
+  standard input, since `open_read` refuses a directory. Both suites
+  green (60 and 95), fixpoint holds, seed refreshed. 0026's stage-2 json,
+  sort, and wordfreq, renamed, pass their unit tests and match the Python
+  references byte for byte on the full inputs under `L0_RC_CHECK`, with
+  nothing left live; their time and memory were not measured again, since
+  the runtime code is 0026's with the names changed.

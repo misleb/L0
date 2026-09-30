@@ -1,0 +1,6 @@
+; A main that takes its input has read all of standard input already, so
+; read_bytes finds none left.
+
+(def main ((input (list int))) (list int)
+  (let b (read_bytes 0)
+    (cons (add 48 (bytes_len b)) input)))

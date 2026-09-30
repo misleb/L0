@@ -9,18 +9,18 @@ found in it are closed by 0018 to 0020. The arrays goal's release rule
 (0023) and arrays (0024) are done, and 0028's programs with arrays chose
 what followed them (0029, 0030, 0025, 0026). 0026 found that holding text
 one byte per byte needs a packed type, and that adding builtins must first
-stop breaking programs.
+stop breaking programs; 0031 and 0032 did both, and 0033 puts bytes to use.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0032](0032-bytes.md) bytes held one byte per byte — queued, next
+(empty)
 
 ## Other open items
 
 - [0033](0033-bytes-library-and-programs.md) tooling: the library reads into
-  bytes, and the text programs use it — proposed, needs 0032
+  bytes, and the text programs use it — proposed, next
 
 ## Done and dropped
 
@@ -97,3 +97,5 @@ Changes to the language, strictly in order. At most one is active.
 - [0031](0031-builtins-do-not-take-over.md) a new builtin does not take over
   a program's function — done, changelog "A new builtin does not take over a
   program's function"; Linux runs owed
+- [0032](0032-bytes.md) bytes held one byte per byte — done, changelog
+  "Bytes, held one byte per byte"; Linux runs owed

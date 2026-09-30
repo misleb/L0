@@ -7,6 +7,88 @@ New entries go at the top.
 
 ---
 
+## Bytes, held one byte per byte
+
+**A new type, `bytes`, and six builtins** (sections 3 and 6.6):
+`read_bytes` reads everything left on a handle, `bytes_len` and `bytes_get`
+read it, `bytes_from_list` and `bytes_to_list` convert, and `write_bytes`
+writes a range to a handle. A bytes value is immutable and takes about one
+byte per byte. `bytes` is a type name but not a reserved word (section 2.3),
+and the runtime errors are now seven, the new one an index out of range for
+`bytes_get` or `write_bytes`.
+
+**The blocker.** Roadmap item 0028's json and sort held their input as an
+array and still peaked at 25 bytes per input byte: 257 MB for an 11.5 MB
+JSON document and 260 MB for 10 MB of lines, against Python's 18 MB
+(`roadmap/0028/text/limits/01-input-into-array.l0`). A program cannot learn
+its input's length before reading it, so the array doubles, and the last
+doubling holds both copies. Item 0026 prototyped both answers on the
+programs themselves (`roadmap/0026/bench/`): a builtin reading all of a
+handle into an `(array int)` of exactly the right size got json to 102 MB,
+9 bytes a byte, since an int array costs a word a byte; packed bytes got it
+to 13.6 MB and sort to 17.6 MB, and made sort three times faster, 0.25 s to
+0.08 s, because it touches an eighth of the memory. Words kept as hash keys
+in wordfreq went from 54 MB to 25.
+
+**Why a type, not only the input builtin.** The input builtin alone fixes
+the doubling and nothing else. With bytes, a program that wants an int
+array builds one from them in L0, so the builtin that reads into an array
+is not needed at all and was dropped.
+
+**Why these six, and no more.** They are what the three programs needed.
+sort compares lines with `bytes_get` in L0 and is still three times faster;
+wordfreq hashes its words in L0; json only reads. Slices, comparison,
+hashing, update, and literals were each left out because no program needed
+them, and each can be added the day one does, now that a new builtin breaks
+nothing (the entry below). String literals stay lists, and
+`bytes_from_list` is how one becomes bytes.
+
+**Why the names.** `bytes_len` and `bytes_get` mirror `array_len` and
+`array_get`, and `read_bytes` and `write_bytes` mirror `read_byte` and
+`write_byte`. The prototype had to call them `byte_at` and `bytes_write`,
+because `write_bytes` and others were taken by existing programs; the
+entry below is what made the natural names safe. None of them is a name
+the standard library defines, which would hide the builtin from every
+program the library is linked with.
+
+**Why `read_bytes` has no error result.** It returns bytes, and there is no
+pair type to return a code alongside them. The handle's state already
+records why reading stopped, so the next `read_from` says -1 for the end or
+-5 for a failure, as it would after reading byte by byte. `lib/io.l0` will
+wrap this in a result type (roadmap item 0033), which it can only do once
+the seed knows the type.
+
+**Why `bytes` is not reserved.** Every other lower type name is. But
+`bytes` arrived after programs had used it, as a parameter in 0028's sort
+and wordfreq tests, and taking it would break them for no gain: the parser knows
+a type position from its place, so a type name needs no reservation to be
+read unambiguously. The same reasoning is why a new builtin no longer takes
+over a function (below).
+
+**Why the conversions consume their argument.** Section 10.3 says the
+compiler adds a reference to what a builtin that reads without consuming
+returns, because until now every such result was a part of the argument.
+`bytes_to_list` returns a new list, and adding a reference to it would leak
+it. Consuming is what any function does, and costs a program nothing it can
+see. The builtins that do read without consuming, `bytes_len`, `bytes_get`,
+and `write_bytes`, return ints, so a loop over a read-only bytes parameter
+stays a tail call with no reference counting per step.
+
+**The layout.** A bytes block has an array's header, with no pointer
+elements, then the bytes, so the code that frees arrays frees bytes, and
+`L0_RC_CHECK` and the live count needed nothing new. `read_bytes` reads
+into a buffer that doubles and is trimmed, and that buffer becomes the
+block, so its peak is about the input's size.
+
+**What it costs.** One more type, not parametric, so `list` and `array` stay
+the only type constructors with a parameter and no builtin needs
+unification. Nothing is mutable. Stage 0 cannot run any of it, as with
+arrays, so the new builtins are tested by the compiled suite alone, against
+expectations written by hand; the compiler does not use them, so this is one
+bootstrapped change.
+
+---
+
 ## A new builtin does not take over a program's function
 
 **A `def` now shadows a builtin of the same name** (section 7): a call

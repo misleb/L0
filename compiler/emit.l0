@@ -101,7 +101,7 @@
 ; Whether a value of type t is a pointer to a heap block rather than a plain
 ; word. Spec 10.1.
 (def ty_is_ptr ((t Ty)) bool
-  (or (ty_is_list t) (or (ty_is_data t) (ty_is_array t))))
+  (or (ty_is_list t) (or (ty_is_data t) (or (ty_is_array t) (ty_is_bytes t)))))
 
 (def val_op ((v EmitVal)) (list int) (match v ((Val o t s) o)))
 (def val_st ((v EmitVal)) Emit (match v ((Val o t s) s)))
@@ -494,7 +494,7 @@
   (fn_sym n (env_prelude env)))
 
 (def is_borrowing ((n (list int))) bool
-  (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename open_bytes array_len array_get")))
+  (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename open_bytes array_len array_get bytes_len bytes_get write_bytes")))
 
 ; A call to a function in tail position is a tail call, spec 8, and nothing
 ; may come between it and the ret. Nothing does: live is empty there, so the
@@ -655,8 +655,9 @@
           (append (fmt_ops (pad_ops ops (pad_of sym (env_pads env)))) ")"))))
     st))
 
-; head, tail, is_empty, array_len, array_get, open_bytes, and the builtins
-; taking paths read their list and array arguments without consuming them.
+; head, tail, is_empty, array_len, array_get, open_bytes, bytes_len,
+; bytes_get, write_bytes, and the builtins taking paths read their list,
+; array, and bytes arguments without consuming them.
 ; Their result gains a reference if it is a pointer, and then each argument
 ; that came with a reference is released, in order: every one but a variable
 ; still live afterwards, which was read without one.
@@ -695,7 +696,9 @@
       (TyList (TyInt))
       (if (list_eq n "array_new")
           (TyArray (head (tail ts)))
-          (TyInt))))
+          (if (any_eq n (split_spaces "read_bytes bytes_from_list"))
+              (TyBytes)
+              (if (list_eq n "bytes_to_list") (TyList (TyInt)) (TyInt))))))
 
 ; The type a function returns, from its signature.
 (def fn_type ((n (list int)) (env Env)) Ty
@@ -919,7 +922,7 @@
 ; Spec 10.3.
 (def io_names ((i int)) (list (list int))
   (split_spaces
-    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes"))
+    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes"))
 
 (def rt_names ((i int)) (list (list int))
   (append_strs (split_spaces "div mod head tail is_empty array_len array_get array_set")
@@ -1661,7 +1664,16 @@
     (append "declare i64 @l0_array_len(i64)\n"
       (append "declare i64 @l0_array_get(i64, i64)\n"
         (append "declare i64 @l0_array_set(i64, i64, i64)\n"
-          "declare i64 @l0_array_set_row(i64, i64, i64, i64)\n\n")))))
+          (append "declare i64 @l0_array_set_row(i64, i64, i64, i64)\n"
+            (bytes_decls 0)))))))
+
+(def bytes_decls ((i int)) (list int)
+  (append "declare i64 @l0_read_bytes(i64)\n"
+    (append "declare i64 @l0_bytes_len(i64)\n"
+      (append "declare i64 @l0_bytes_get(i64, i64)\n"
+        (append "declare i64 @l0_bytes_from_list(i64)\n"
+          (append "declare i64 @l0_bytes_to_list(i64)\n"
+            "declare i64 @l0_write_bytes(i64, i64, i64, i64)\n\n"))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

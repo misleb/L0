@@ -1,7 +1,7 @@
 # 0033: The library reads into bytes, and the text programs use it
 
 Kind: tooling
-Status: proposed, needs 0032
+Status: proposed, next
 Needs: 0032
 
 ## Why

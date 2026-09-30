@@ -1252,6 +1252,337 @@ entry:
   ret i64 %r
 }
 
+; ---------------------------------------------------------- reading it all
+
+; Makes the buffer at bufp, of the capacity at capp, hold at least need
+; bytes, doubling it as often as that takes.
+define internal void @buf_reserve(ptr %bufp, ptr %capp, i64 %need) {
+entry:
+  %cap = load i64, ptr %capp
+  %ok = icmp uge i64 %cap, %need
+  br i1 %ok, label %done, label %dbl
+dbl:
+  %c = phi i64 [ %cap, %entry ], [ %c2, %dbl ]
+  %c2 = shl i64 %c, 1
+  %enough = icmp uge i64 %c2, %need
+  br i1 %enough, label %re, label %dbl
+re:
+  %old = load ptr, ptr %bufp
+  %new = call ptr @realloc(ptr %old, i64 %c2)
+  %null = icmp eq ptr %new, null
+  br i1 %null, label %oom, label %grown
+oom:
+  call void @rt_error(ptr @m_heap, i64 14)
+  unreachable
+grown:
+  store ptr %new, ptr %bufp
+  store i64 %c2, ptr %capp
+  br label %done
+done:
+  ret void
+}
+
+; Every byte left on h, a handle open for reading, in a buffer from malloc
+; whose first pre bytes are left for the caller, with their count stored at
+; lenp. It leaves h as read_from would at the end: in state 1 at end of
+; input, or 2 if a read failed, so the next read_from says which; a handle
+; already in either state gives nothing. The buffer doubles as it fills and
+; is trimmed to fit at the end, so only realloc ever holds two copies.
+define internal ptr @slurp(i64 %h, i64 %pre, ptr %lenp) {
+entry:
+  %bufp = alloca ptr
+  %capp = alloca i64
+  %np = alloca i64
+  store i64 0, ptr %np
+  %init = add i64 %pre, 65536
+  %b0 = call ptr @malloc(i64 %init)
+  %null = icmp eq ptr %b0, null
+  br i1 %null, label %oom, label %start
+oom:
+  call void @rt_error(ptr @m_heap, i64 14)
+  unreachable
+start:
+  store ptr %b0, ptr %bufp
+  store i64 %init, ptr %capp
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
+  %st = load i64, ptr %sp
+  %over = icmp ne i64 %st, 0
+  br i1 %over, label %finish, label %kind
+kind:
+  %pp = getelementptr [64 x i64], ptr @h_pos, i64 0, i64 %h
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %k = load i64, ptr %kp
+  %list = icmp eq i64 %k, 1
+  br i1 %list, label %lstart, label %dstart
+lstart:
+  %cur0 = load i64, ptr %pp
+  br label %lloop
+lloop:
+  %cur = phi i64 [ %cur0, %lstart ], [ %next, %lbody ]
+  %lend = icmp eq i64 %cur, 0
+  br i1 %lend, label %ldone, label %lbody
+lbody:
+  %ln = load i64, ptr %np
+  %loff = add i64 %pre, %ln
+  %lneed = add i64 %loff, 1
+  call void @buf_reserve(ptr %bufp, ptr %capp, i64 %lneed)
+  %cq = inttoptr i64 %cur to ptr
+  %ev = load i64, ptr %cq
+  %eb = trunc i64 %ev to i8
+  %lbuf = load ptr, ptr %bufp
+  %ldst = getelementptr i8, ptr %lbuf, i64 %loff
+  store i8 %eb, ptr %ldst
+  %ln1 = add i64 %ln, 1
+  store i64 %ln1, ptr %np
+  %nextp = getelementptr i64, ptr %cq, i64 1
+  %next = load i64, ptr %nextp
+  br label %lloop
+ldone:
+  store i64 0, ptr %pp
+  store i64 1, ptr %sp
+  br label %finish
+dstart:
+  %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
+  %hbp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %pos = load i64, ptr %pp
+  %len = load i64, ptr %lp
+  %hbuf = load ptr, ptr %hbp
+  %rem = sub i64 %len, %pos
+  %rneed = add i64 %pre, %rem
+  call void @buf_reserve(ptr %bufp, ptr %capp, i64 %rneed)
+  %dbuf = load ptr, ptr %bufp
+  %ddst = getelementptr i8, ptr %dbuf, i64 %pre
+  %dsrc = getelementptr i8, ptr %hbuf, i64 %pos
+  call void @llvm.memcpy.p0.p0.i64(ptr %ddst, ptr %dsrc, i64 %rem, i1 false)
+  store i64 %rem, ptr %np
+  store i64 %len, ptr %pp
+  call void @flush_std()
+  %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
+  %fd = load i64, ptr %fp
+  %fd32 = trunc i64 %fd to i32
+  br label %rloop
+rloop:
+  %rn = load i64, ptr %np
+  %rcap = load i64, ptr %capp
+  %used = add i64 %pre, %rn
+  %room = sub i64 %rcap, %used
+  %has = icmp sgt i64 %room, 0
+  br i1 %has, label %rread, label %rgrow
+rgrow:
+  %more = add i64 %rcap, 1
+  call void @buf_reserve(ptr %bufp, ptr %capp, i64 %more)
+  br label %rloop
+rread:
+  %rbuf = load ptr, ptr %bufp
+  %rdst = getelementptr i8, ptr %rbuf, i64 %used
+  %r = call i64 @read(i32 %fd32, ptr %rdst, i64 %room)
+  %got = icmp sgt i64 %r, 0
+  br i1 %got, label %radv, label %rstop
+radv:
+  %rn1 = add i64 %rn, %r
+  store i64 %rn1, ptr %np
+  br label %rloop
+rstop:
+  %zero = icmp eq i64 %r, 0
+  %ns = select i1 %zero, i64 1, i64 2
+  store i64 %ns, ptr %sp
+  br label %finish
+finish:
+  %n = load i64, ptr %np
+  store i64 %n, ptr %lenp
+  %fbuf = load ptr, ptr %bufp
+  %fsize = add i64 %pre, %n
+  %fsize1 = add i64 %fsize, 8
+  %trim = call ptr @realloc(ptr %fbuf, i64 %fsize1)
+  %tnull = icmp eq ptr %trim, null
+  %res = select i1 %tnull, ptr %fbuf, ptr %trim
+  ret ptr %res
+}
+
+; ------------------------------------------------------------------- bytes
+;
+; A bytes value is laid out as an array of ints is, a header of size 0 with
+; mask bit 0 clear and then the length in word 0, but the bytes follow one
+; per byte rather than one per word. free_block treats it as an array with
+; no pointer elements, which is all it needs, and free gives it back.
+
+@m_brange = private constant [23 x i8] c"byte index out of range"
+
+; Marks the malloc block m, whose bytes start 16 past it, as a counted bytes
+; value of length n, and returns it.
+define internal i64 @bytes_mark(ptr %m, i64 %n) {
+entry:
+  %lv = load i64, ptr @live
+  %lv1 = add i64 %lv, 1
+  store i64 %lv1, ptr @live
+  store i64 1099511627776, ptr %m
+  %lp = getelementptr i64, ptr %m, i64 1
+  store i64 %n, ptr %lp
+  %b = ptrtoint ptr %lp to i64
+  ret i64 %b
+}
+
+define internal i64 @bytes_alloc(i64 %n) {
+entry:
+  %huge = icmp ugt i64 %n, 1099511627776
+  br i1 %huge, label %oom, label %try
+try:
+  %size = add i64 %n, 16
+  %m = call ptr @malloc(i64 %size)
+  %null = icmp eq ptr %m, null
+  br i1 %null, label %oom, label %ok
+oom:
+  call void @rt_error(ptr @m_heap, i64 14)
+  unreachable
+ok:
+  %b = call i64 @bytes_mark(ptr %m, i64 %n)
+  ret i64 %b
+}
+
+; Every byte left on h, or none if h is not open for reading. Read straight
+; into the block it is returned in.
+define i64 @l0_read_bytes(i64 %h) {
+entry:
+  %lenp = alloca i64
+  %ok = call i1 @h_is(i64 %h, i64 1)
+  br i1 %ok, label %go, label %none
+none:
+  %e = call i64 @bytes_alloc(i64 0)
+  ret i64 %e
+go:
+  %m = call ptr @slurp(i64 %h, i64 16, ptr %lenp)
+  %n = load i64, ptr %lenp
+  %b = call i64 @bytes_mark(ptr %m, i64 %n)
+  ret i64 %b
+}
+
+define i64 @l0_bytes_len(i64 %b) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %n = load i64, ptr %q
+  ret i64 %n
+}
+
+define i64 @l0_bytes_get(i64 %b, i64 %i) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %n = load i64, ptr %q
+  %in = icmp ult i64 %i, %n
+  br i1 %in, label %ok, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+ok:
+  %o = add i64 %i, 8
+  %cp = getelementptr i8, ptr %q, i64 %o
+  %c = load i8, ptr %cp
+  %v = zext i8 %c to i64
+  ret i64 %v
+}
+
+; The bytes of the list s, each taken modulo 256 as write_byte takes it.
+; Consumes s.
+define i64 @l0_bytes_from_list(i64 %s) {
+entry:
+  br label %count
+count:
+  %c = phi i64 [ %s, %entry ], [ %cn, %cstep ]
+  %k = phi i64 [ 0, %entry ], [ %k1, %cstep ]
+  %cend = icmp eq i64 %c, 0
+  br i1 %cend, label %alloc, label %cstep
+cstep:
+  %cq = inttoptr i64 %c to ptr
+  %cnp = getelementptr i64, ptr %cq, i64 1
+  %cn = load i64, ptr %cnp
+  %k1 = add i64 %k, 1
+  br label %count
+alloc:
+  %b = call i64 @bytes_alloc(i64 %k)
+  %bq = inttoptr i64 %b to ptr
+  br label %fill
+fill:
+  %f = phi i64 [ %s, %alloc ], [ %fn, %fstep ]
+  %i = phi i64 [ 8, %alloc ], [ %i1, %fstep ]
+  %fend = icmp eq i64 %f, 0
+  br i1 %fend, label %done, label %fstep
+fstep:
+  %fq = inttoptr i64 %f to ptr
+  %v = load i64, ptr %fq
+  %v8 = trunc i64 %v to i8
+  %dp = getelementptr i8, ptr %bq, i64 %i
+  store i8 %v8, ptr %dp
+  %fnp = getelementptr i64, ptr %fq, i64 1
+  %fn = load i64, ptr %fnp
+  %i1 = add i64 %i, 1
+  br label %fill
+done:
+  %nz = icmp ne i64 %s, 0
+  br i1 %nz, label %rel, label %out
+rel:
+  call void @l0_dec(i64 %s)
+  br label %out
+out:
+  ret i64 %b
+}
+
+; The bytes of b as a list. Consumes b.
+define i64 @l0_bytes_to_list(i64 %b) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %n = load i64, ptr %q
+  br label %loop
+loop:
+  %i = phi i64 [ %n, %entry ], [ %i1, %cons ]
+  %acc = phi i64 [ 0, %entry ], [ %acc1, %cons ]
+  %done = icmp eq i64 %i, 0
+  br i1 %done, label %out, label %cons
+cons:
+  %i1 = sub i64 %i, 1
+  %o = add i64 %i1, 8
+  %cp = getelementptr i8, ptr %q, i64 %o
+  %c = load i8, ptr %cp
+  %v = zext i8 %c to i64
+  %acc1 = call i64 @l0_new_cons(i64 %v, i64 %acc, i64 2)
+  br label %loop
+out:
+  call void @l0_dec(i64 %b)
+  ret i64 %acc
+}
+
+; Writes bytes i up to j of b to h, as write_to would one by one: 0, or -2
+; if h is not open for writing. i and j must be in order within b.
+define i64 @l0_write_bytes(i64 %h, i64 %b, i64 %i, i64 %j) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %n = load i64, ptr %q
+  %lo = icmp ule i64 %i, %j
+  %hi = icmp ule i64 %j, %n
+  %in = and i1 %lo, %hi
+  br i1 %in, label %chk, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+chk:
+  %ok = call i1 @h_is(i64 %h, i64 2)
+  br i1 %ok, label %loop, label %bad
+bad:
+  ret i64 -2
+loop:
+  %k = phi i64 [ %i, %chk ], [ %k1, %put ]
+  %end = icmp eq i64 %k, %j
+  br i1 %end, label %done, label %put
+put:
+  %o = add i64 %k, 8
+  %cp = getelementptr i8, ptr %q, i64 %o
+  %c = load i8, ptr %cp
+  %v = zext i8 %c to i64
+  %r = call i64 @l0_write_to(i64 %h, i64 %v)
+  %k1 = add i64 %k, 1
+  br label %loop
+done:
+  ret i64 0
+}
+
 ; Releases the list a list handle holds; nothing for any other kind.
 define internal void @h_drop_list(i64 %h) {
 entry:
