@@ -1,7 +1,7 @@
 ; sort.l0 -- the lines of a text in bytewise order, as LC_ALL=C sort
 ; prints them.
 ;
-; The input is held once, as an (array int) of its bytes, and a line is its
+; The input is held once, as bytes, one per byte, and a line is its
 ; index: starts holds where each line begins, and one more entry past the
 ; last, so line i is bytes starts[i] up to starts[i + 1] - 1, the newline
 ; excluded. A last line with no newline is treated as if it had one, which
@@ -10,51 +10,24 @@
 ; The sort is a bottom-up merge sort: stable, n log n comparisons whatever
 ; the input, and every pass is one loop writing a fresh array in place.
 
-; ------------------------------------------------------------------ input
-
-(data Input
-  (Input (array int) int)
-  (InputFailed int))
-
-; Every byte of f, in an array whose first n elements they are. It doubles
-; when full, since nothing says how long the input is before it is read.
-(def read_input ((f IoFile)) Input
-  (read_into f (array_new 65536 0) 0))
-
-(def read_into ((f IoFile) (a (array int)) (n int)) Input
-  (let b (file_read_byte f)
-    (if (lt b 0)
-        (if (eq b -1) (Input a n) (InputFailed b))
-        (if (lt n (array_len a))
-            (read_into f (array_set a n b) (add n 1))
-            (read_into f (array_set (grow a (mul 2 (array_len a))) n b) (add n 1))))))
-
-; a copied into a new array of length len, at least as long, padded with 0.
-(def grow ((a (array int)) (len int)) (array int)
-  (copy_into a (array_new len 0) 0))
-
-(def copy_into ((src (array int)) (dst (array int)) (i int)) (array int)
-  (if (ge i (array_len src))
-      dst
-      (copy_into src (array_set dst i (array_get src i)) (add i 1))))
-
 ; ------------------------------------------------------------------ lines
 
-; The start of every line of the first n bytes of b, then the sentinel.
-; There are (array_len starts) - 1 lines.
-(def line_starts ((b (array int)) (n int)) (array int)
-  (if (eq n 0)
-      (array_new 1 0)
-      (find_lines b n 0 (array_set (array_new 1024 0) 0 0) 1)))
+; The start of every line of b, then the sentinel. There are
+; (array_len starts) - 1 lines.
+(def line_starts ((b bytes)) (array int)
+  (let n (bytes_len b)
+    (if (eq n 0)
+        (array_new 1 0)
+        (find_lines b n 0 (array_set (array_new 1024 0) 0 0) 1))))
 
 ; st holds k starts; i is the next byte to look at.
-(def find_lines ((b (array int)) (n int) (i int) (st (array int)) (k int))
+(def find_lines ((b bytes) (n int) (i int) (st (array int)) (k int))
     (array int)
   (if (ge i n)
-      (if (eq (array_get b (sub n 1)) 10)
+      (if (eq (bytes_get b (sub n 1)) 10)
           (shrink st k)
           (shrink (add_start st k (add n 1)) (add k 1)))
-      (if (eq (array_get b i) 10)
+      (if (eq (bytes_get b i) 10)
           (if (eq (add i 1) n)
               (find_lines b n (add i 1) (add_start st k n) (add k 1))
               (find_lines b n (add i 1) (add_start st k (add i 1)) (add k 1)))
@@ -64,6 +37,15 @@
   (if (lt k (array_len st))
       (array_set st k x)
       (array_set (grow st (mul 2 (array_len st))) k x)))
+
+; a copied into a new array of length len, at least as long, padded with 0.
+(def grow ((a (array int)) (len int)) (array int)
+  (copy_into a (array_new len 0) 0))
+
+(def copy_into ((src (array int)) (dst (array int)) (i int)) (array int)
+  (if (ge i (array_len src))
+      dst
+      (copy_into src (array_set dst i (array_get src i)) (add i 1))))
 
 ; The first k elements of a.
 (def shrink ((a (array int)) (k int)) (array int)
@@ -78,17 +60,17 @@
 
 ; Whether line y sorts strictly before line x, bytewise, a proper prefix
 ; first.
-(def line_lt ((b (array int)) (st (array int)) (y int) (x int)) bool
+(def line_lt ((b bytes) (st (array int)) (y int) (x int)) bool
   (bytes_lt b (array_get st y) (sub (array_get st (add y 1)) 1)
               (array_get st x) (sub (array_get st (add x 1)) 1)))
 
-(def bytes_lt ((b (array int)) (i int) (ie int) (j int) (je int)) bool
+(def bytes_lt ((b bytes) (i int) (ie int) (j int) (je int)) bool
   (if (ge j je)
       false
       (if (ge i ie)
           true
-          (let c (array_get b i)
-            (let d (array_get b j)
+          (let c (bytes_get b i)
+            (let d (bytes_get b j)
               (if (eq c d)
                   (bytes_lt b (add i 1) ie (add j 1) je)
                   (lt c d)))))))
@@ -99,11 +81,11 @@
   (if (ge i (array_len a)) a (identity (array_set a i i) (add i 1))))
 
 ; The line indices 0 to m - 1 in sorted order, where m is the line count.
-(def sorted ((b (array int)) (st (array int))) (array int)
+(def sorted ((b bytes) (st (array int))) (array int)
   (let m (sub (array_len st) 1)
     (passes b st (identity (array_new m 0) 0) 1)))
 
-(def passes ((b (array int)) (st (array int)) (src (array int)) (w int))
+(def passes ((b bytes) (st (array int)) (src (array int)) (w int))
     (array int)
   (if (ge w (array_len src))
       src
@@ -111,7 +93,7 @@
         (mul w 2))))
 
 ; Merges each pair of runs of width w in src, from lo on, into dst.
-(def merge_pass ((b (array int)) (st (array int)) (src (array int))
+(def merge_pass ((b bytes) (st (array int)) (src (array int))
                  (dst (array int)) (w int) (lo int)) (array int)
   (let m (array_len src)
     (if (ge lo m)
@@ -125,7 +107,7 @@
 
 ; src[i..ie) and src[j..je) merged into dst from k. Equal lines keep their
 ; order, the left run's first.
-(def merge ((b (array int)) (st (array int)) (src (array int)) (dst (array int))
+(def merge ((b bytes) (st (array int)) (src (array int)) (dst (array int))
             (i int) (ie int) (j int) (je int) (k int)) (array int)
   (if (ge i ie)
       (copy_run src dst j je k)
@@ -145,45 +127,27 @@
 
 ; ----------------------------------------------------------------- output
 
-; Writes the lines in the order given, each with a newline, to out.
-(def write_lines ((out IoFile) (b (array int)) (st (array int)) (order (array int)))
-    int
-  (match out ((IoFile h) (write_from h b st order 0))))
-
-(def write_from ((h int) (b (array int)) (st (array int)) (order (array int)) (k int))
-    int
+; Writes the lines in the order given, from the kth, each with a newline, to
+; out, straight from b.
+(def write_lines ((out IoFile) (b bytes) (st (array int)) (order (array int))
+                  (k int)) int
   (if (ge k (array_len order))
       0
       (let x (array_get order k)
-        (let w (write_bytes h b (array_get st x) (sub (array_get st (add x 1)) 1))
-          (let e (write_to h 10)
-            (write_from h b st order (add k 1)))))))
+        (let w (file_write_bytes out b (array_get st x) (sub (array_get st (add x 1)) 1))
+          (let e (file_write_byte out 10)
+            (write_lines out b st order (add k 1)))))))
 
-(def write_bytes ((h int) (b (array int)) (i int) (end int)) int
-  (if (ge i end)
-      0
-      (let w (write_to h (array_get b i)) (write_bytes h b (add i 1) end))))
-
-; Sorts the first n bytes of b onto out.
-(def sort_onto ((out IoFile) (b (array int)) (n int)) int
-  (let st (line_starts b n)
-    (write_lines out b st (sorted b st))))
+; Sorts the lines of b onto out.
+(def sort_onto ((out IoFile) (b bytes)) int
+  (let st (line_starts b)
+    (write_lines out b st (sorted b st) 0)))
 
 ; The sorted text of t, for tests.
 (def sort_string ((t (list int))) (list int)
-  (match (open_in_bytes t)
-    ((IoFailed why) why)
-    ((IoOpened f)
-      (let r (read_input f)
-        (let c (file_close f)
-          (match r
-            ((InputFailed code) (io_error code))
-            ((Input b n) (sort_to_buffer b n))))))))
-
-(def sort_to_buffer ((b (array int)) (n int)) (list int)
   (match (open_out_buffer)
     ((IoFailed why) why)
     ((IoOpened out)
-      (let w (sort_onto out b n)
-        (let t (buffer_contents out)
-          (let c (file_close out) t))))))
+      (let w (sort_onto out (bytes_from_list t))
+        (let s (buffer_contents out)
+          (let c (file_close out) s))))))

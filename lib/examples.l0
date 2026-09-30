@@ -177,6 +177,58 @@
       (let w (write_err "usage: first FILE\n") 2)
       (first_line_of (arg 0))))
 
+; ------------------------------------------------------------------- arrays
+
+; An (array T) is read and updated by index in constant time. array_set
+; returns the updated array, and updates it in place when nothing else holds
+; it, so thread one array through a tail-recursive loop and keep no other name
+; for the old one. Here the bytes of xs, each 0 to 255, are counted.
+(def byte_counts ((xs (list int)) (counts (array int))) (array int)
+  (if (is_empty xs)
+      counts
+      (byte_counts (tail xs)
+        (array_set counts (head xs) (add (array_get counts (head xs)) 1)))))
+
+(def most_common_byte ((xs (list int))) int
+  (index_of_max (byte_counts xs (array_new 256 0)) 0 0))
+
+; A function that only reads an array costs nothing to call, so factor reads
+; out freely.
+(def index_of_max ((a (array int)) (i int) (best int)) int
+  (if (ge i (array_len a))
+      best
+      (index_of_max a (add i 1)
+        (if (gt (array_get a i) (array_get a best)) i best))))
+
+; -------------------------------------------------------------------- bytes
+
+; bytes hold one byte in a byte of memory, where a list spends 24, and are
+; read by index. Nothing changes them. read_input reads all of standard
+; input into bytes; bytes_from_list makes them from a string.
+(def count_newlines ((b bytes) (i int) (n int)) int
+  (if (ge i (bytes_len b))
+      n
+      (count_newlines b (add i 1) (if (eq (bytes_get b i) 10) (add n 1) n))))
+
+; read_input returns IoBytes, and match makes you handle a failed read.
+(def lines_of_input ((ignored int)) int
+  (match (read_input)
+    ((IoReadFailed code)
+      (let w (write_err (append "reading input: " (append (io_error code) "\n")))
+        -1))
+    ((IoBytes b) (count_newlines b 0 0))))
+
+; Part of a bytes value, such as a line, is written out by position, without
+; building a list of it: file_write_bytes writes bytes i up to j.
+(def write_first_line ((f IoFile) (b bytes)) int
+  (file_write_bytes f b 0 (line_end b 0)))
+
+; Where the line starting at i ends, just past its newline if it has one.
+(def line_end ((b bytes) (i int)) int
+  (if (ge i (bytes_len b))
+      i
+      (if (eq (bytes_get b i) 10) (add i 1) (line_end b (add i 1)))))
+
 ; --------------------------------------------------------- the entry point
 
 ; A program defines main in one of two forms. The first takes stdin as a list

@@ -107,29 +107,12 @@
   (match (open_out_buffer)
     ((IoFailed why) (check_str "open" why ""))
     ((IoOpened out)
-      (let r (pretty (array_of "[1,2,3,}" (array_new 8 0) 0) 8 out)
+      (let r (pretty (bytes_from_list "[1,2,3,}") 8 out)
         (let got (buffer_contents out)
           (let c (file_close out)
             (check_str "written" got "")))))))
 
-(def array_of ((s (list int)) (a (array int)) (i int)) (array int)
-  (if (is_empty s) a (array_of (tail s) (array_set a i (head s)) (add i 1))))
-
 ; -------------------------------------------------------------- input
-
-(def test_read_input_grows () int
-  (let text (rev (cons 49 (spaces_onto 200000 (nil int))))
-    (match (open_in_bytes text)
-      ((IoFailed why) (check_str "open" why ""))
-      ((IoOpened f)
-        (let r (read_input f)
-          (let c (file_close f)
-            (match r
-              ((InputFailed code) (check_int "read failed" code 0))
-              ((Input s n)
-                (add (check_int "length" n 200001)
-                     (add (check_int "capacity" (array_len s) 262144)
-                          (check_int "last" (array_get s 200000) 49)))))))))))
 
 (def spaces_onto ((k int) (acc (list int))) (list int)
   (if (eq k 0) acc (spaces_onto (sub k 1) (cons 32 acc))))
@@ -142,7 +125,7 @@
 ; indentation, so only the checking pass runs.
 (def test_deep_nesting () int
   (let text (brackets 100000 91 (brackets 100000 93 (nil int)))
-    (match (document (array_of text (array_new 200000 0) 0) 200000 -1)
+    (match (document (bytes_from_list text) 200000 -1)
       ((Bad at msg) (check_str "deep" msg ""))
       ((Ok k) (check_int "end" k 200000)))))
 
@@ -153,13 +136,12 @@
   (match (open_in "testdata/sample.json")
     ((IoFailed why) (check_str "open" why ""))
     ((IoOpened f)
-      (let t (read_all f (nil int))
+      (let r (file_read_all f)
         (let c (file_close f)
-          (check_file "sample" (pretty_string t) "testdata/sample.expected"))))))
-
-(def read_all ((f IoFile) (acc (list int))) (list int)
-  (let b (file_read_byte f)
-    (if (lt b 0) (rev acc) (read_all f (cons b acc)))))
+          (match r
+            ((IoReadFailed code) (check_str "read" (io_error code) ""))
+            ((IoBytes s)
+              (check_file "sample" (pretty_input s) "testdata/sample.expected"))))))))
 
 ; ------------------------------------------------------------ property
 ;

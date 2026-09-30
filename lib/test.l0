@@ -170,15 +170,12 @@
         (append path (append ": " (append why
           "; run l0 test --bless to create it")))))
     ((IoOpened f)
-      (let want (read_all f (nil int))
+      (let r (file_read_all f)
         (let c (file_close f)
-          (check_str name got want))))))
-
-(def read_all ((f IoFile) (acc (list int))) (list int)
-  (let b (file_read_byte f)
-    (if (lt b 0)
-        (rev acc)
-        (read_all f (cons b acc)))))
+          (match r
+            ((IoReadFailed code)
+              (fail_because name (append path (append ": " (io_error code)))))
+            ((IoBytes want) (check_str name got (bytes_to_list want)))))))))
 
 (def bless_file ((name (list int)) (got (list int)) (path (list int))) int
   (match (open_out path)

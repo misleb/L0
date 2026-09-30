@@ -44,8 +44,8 @@ grep -q 'first difference at byte 1' got.tap ||
 # way l0 test builds it: through l0 check --test, and through tools/l0check
 # given lib/test.l0.
 cat > shadow_test.l0 <<'EOF'
-(def read_all ((xs (list int))) int (length xs))
-(def test_shadow () int (check_int "read_all" (read_all "abc") 3))
+(def first_diff ((xs (list int))) int (length xs))
+(def test_shadow () int (check_int "first_diff" (first_diff "abc") 3))
 EOF
 l0 test shadow_test.l0 > got.tap || { cat got.tap; fail "a shadowing test failed"; }
 l0 check --test shadow_test.l0 > /dev/null ||

@@ -26,14 +26,12 @@
   (check_str "cr" (sort_string "a\r\na\n") "a\na\r\n"))
 
 (def test_line_starts () int
-  (let b (array_of "ab\n\ncd" (array_new 6 0) 0)
-    (let st (line_starts b 6)
+  (let b (bytes_from_list "ab\n\ncd")
+    (let st (line_starts b)
       (add (check_int "lines" (sub (array_len st) 1) 3)
            (add (check_int "second" (array_get st 1) 3)
                 (check_int "sentinel" (array_get st 3) 7))))))
 
-(def array_of ((s (list int)) (a (array int)) (i int)) (array int)
-  (if (is_empty s) a (array_of (tail s) (array_set a i (head s)) (add i 1))))
 
 ; 30,000 lines of 5 bytes: the input grows past 65,536 bytes, and starts
 ; past 1,024 lines, several times.

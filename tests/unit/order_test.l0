@@ -16,9 +16,13 @@
   (match (open_in path)
     ((IoFailed why) why)
     ((IoOpened f)
-      (let s (read_all f (nil int))
-        (let c (file_close f)
-          s)))))
+      (match (file_read_all f)
+        ((IoBytes b)
+          (let c (file_close f)
+            (bytes_to_list b)))
+        ((IoReadFailed code)
+          (let c (file_close f)
+            (io_error code)))))))
 
 (def test_evaluation_order () int
   (match (open_out "order.txt")

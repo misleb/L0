@@ -55,7 +55,7 @@ breaks into, each one bootstrapped change.
 
   **A packed type is needed; an input builtin alone is not enough.** Peak
   memory per input byte, and time, median of three on macOS arm64
-  (`0026/bench/measurements.txt`):
+  (`0026/bench/measurements.txt`, deleted by 0033; it is in git history):
 
   | program, input | today | `read_array` | `bytes` |
   |---|---|---|---|
@@ -115,4 +115,4 @@ breaks into, each one bootstrapped change.
   handle into `bytes`, and the 0028 text programs moved onto it, which must
   follow 0032's seed refresh because `tools/l0` builds with the seed. The
   prototype's programs are kept in `0026/bench/stage2/` for 0033, with the
-  measurement script; delete them when 0033 lands.
+  measurement script; delete them when 0033 lands. (0033 did.)

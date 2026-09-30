@@ -57,6 +57,28 @@
 (def expect_head_of_nothing () (list int)
   "head of empty list")
 
+(def test_most_common_byte () int
+  (check_int "a" (most_common_byte "abracadabra") 97))
+
+(def test_count_newlines () int
+  (add (check_int "three" (count_newlines (bytes_from_list "a\nb\n\n") 0 0) 3)
+       (check_int "none" (count_newlines (bytes_from_list "") 0 0) 0)))
+
+; Code that writes to an IoFile is tested by giving it a buffer in memory,
+; whose contents buffer_contents returns.
+(def written_first_line ((text (list int))) (list int)
+  (match (open_out_buffer)
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (let w (write_first_line f (bytes_from_list text))
+        (let s (buffer_contents f)
+          (let c (file_close f)
+            s))))))
+
+(def test_write_first_line () int
+  (add (check_str "with newline" (written_first_line "one\ntwo\n") "one\n")
+       (check_str "without" (written_first_line "only") "only")))
+
 ; A property test: the two ways of summing agree on many pseudo-random
 ; lists. rand_next and rand_below come from l0 doc test, and give the same
 ; sequence on every run, so a failure can be reproduced.

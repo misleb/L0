@@ -39,9 +39,9 @@
             (check_int "trailing" (parse_limit "3x") -1))))
 
 (def test_cmp_str () int
-  (add (check_true "prefix first" (lt (cmp_str "ab" "abc") 0))
-       (add (check_true "bytewise" (gt (cmp_str "b" "abc") 0))
-            (check_int "equal" (cmp_str "ab" "ab") 0))))
+  (add (check_true "prefix first" (lt (cmp_bytes (bytes_from_list "ab") (bytes_from_list "abc")) 0))
+       (add (check_true "bytewise" (gt (cmp_bytes (bytes_from_list "b") (bytes_from_list "abc")) 0))
+            (check_int "equal" (cmp_bytes (bytes_from_list "ab") (bytes_from_list "ab")) 0))))
 
 ; "w0 w1 ... w(n-1)" with each word i repeated (i mod 7) + 1 times, pushed
 ; onto acc reversed.

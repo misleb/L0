@@ -1,4 +1,4 @@
-# wordfreq, with a hash table in arrays
+# wordfreq, with a hash table of bytes keys
 
 Prints the most frequent words of standard input with their counts, highest
 count first, ties in byte order:
@@ -24,7 +24,7 @@ tools/l0 build wordfreq.l0 main.l0 -o wordfreq
 
 ## Files
 
-- `wordfreq.l0`: the logic (266 lines): the scanner, over an `IoFile`, the
+- `wordfreq.l0`: the logic (292 lines): the scanner, over an `IoFile`, the
   hash table, the ranking heap, output to an `IoFile`
 - `main.l0`: arguments, `(IoFile 0)` and `(IoFile 1)`, exit status
 - `wordfreq_test.l0`: 15 tests
@@ -32,16 +32,20 @@ tools/l0 build wordfreq.l0 main.l0 -o wordfreq
 
 ## How it works
 
-- **The table** is `(Table keys counts size)`: an `(array (list int))` of
-  keys, an `(array int)` of counts (0 marks an empty slot), and how many are
-  full. Linear probing, a power-of-two capacity from 1,024, doubled by
-  rehashing when more than half full.
-- **Keys are held reversed**, as the scanner conses a word. Nothing is
-  reversed while counting, only each distinct word once at the end.
-- **Ranking**: the distinct words are copied out forwards into two arrays,
-  words and counts, a max-heap of their indices is built in linear time, and
-  the top N are popped, so the top 10 of n words costs n + 10 log n
-  comparisons rather than a sort.
+- **The table** is `(Table keys counts size)`: an `(array bytes)` of keys,
+  an `(array int)` of counts (0 marks an empty slot), and how many are full.
+  Linear probing, a power-of-two capacity from 1,024, doubled by rehashing
+  when more than half full.
+- **Keys are bytes, in order**, one byte per letter, made once per distinct
+  word from the list the scanner conses, which is reversed. A word being
+  counted is hashed and compared against keys from its end, so it is
+  reversed only when it is new. (At 0028 keys were the reversed lists
+  themselves, 24 bytes a letter; see Measurements.)
+- **Ranking**: the distinct words are copied out into two arrays, words and
+  counts, sharing the table's keys, a max-heap of their indices is built in
+  linear time, and the top N are popped, so the top 10 of n words costs
+  n + 10 log n comparisons rather than a sort. Words are compared bytewise
+  and written with `file_write_bytes`.
 - **One scanner.** It reads an `IoFile`, so the tests run it on
   `open_in_bytes` and collect output with `open_out_buffer`. 0014 had to
   write the tokenizer twice (its limit 02), once over a list for tests and
@@ -56,7 +60,7 @@ tools/l0 build wordfreq.l0 main.l0 -o wordfreq
 - Byte-identical to `reference.py` and to 0014's wordfreq on both 10 MB
   inputs, and to `reference.py 10` for the top 10.
 - `L0_RC_CHECK=1` on the wide 10 MB input reports nothing live at exit.
-- `L0_ARRAY_STATS=1` on the wide input: **0 copies**, 2,978,124 updates in
+- `L0_ARRAY_STATS=1` on the wide input: **0 copies**, 9,024,474 updates in
   place. Every update of `keys` and `counts` is in place even though both
   arrays live inside a `Table` data value, which is matched apart and rebuilt
   for every word: matching a value nothing else holds releases it, and its
@@ -65,28 +69,28 @@ tools/l0 build wordfreq.l0 main.l0 -o wordfreq
 
 ## Measurements
 
-Second of two runs (`../measure.sh`), Apple Silicon, macOS; 0014's program
-rebuilt with today's compiler and measured the same way. Its README's
-figures (2.13 s and 3.43 s) predate the faster compiler.
+wordfreq with bytes keys (0033): median of three runs, `/usr/bin/time -l`,
+Apple Silicon, macOS. The other columns are from the second of two runs
+(`../measure.sh`) at 0028: wordfreq with list keys, and 0014's program
+rebuilt with the compiler of then. 0014's README's figures (2.13 s and
+3.43 s) predate the faster compiler.
 
-| input | distinct | wordfreq | 0014 (AVL tree) | Python `reference.py` |
-|---|---|---|---|---|
-| 10 MB, `gen.py 10 20000 1` | 19,997 | **0.16 s, 10.3 MB** | 0.56 s, 8.2 MB | 0.29 s, 95.3 MB |
-| same, top 10 | | 0.16 s, 10.2 MB | | |
-| 10 MB, `gen.py 10 500000 2` | 195,412 | **0.40 s, 54.1 MB** | 1.02 s, 68.0 MB | 0.41 s, 112.6 MB |
-| same, top 10 | | 0.26 s, 54 MB | | |
-
-Build: 0.37 s (`tools/l0 build`).
+| input | distinct | wordfreq, bytes keys | list keys (0028) | 0014 (AVL tree) | Python `reference.py` |
+|---|---|---|---|---|---|
+| 10 MB, `gen.py 10 20000 1` | 19,997 | **0.14 s, 4.0 MB** | 0.16 s, 10.3 MB | 0.56 s, 8.2 MB | 0.29 s, 95.3 MB |
+| same, top 10 | | 0.14 s, 4.5 MB | 0.16 s, 10.2 MB | | |
+| 10 MB, `gen.py 10 500000 2` | 195,412 | **0.28 s, 25.1 MB** | 0.40 s, 54.1 MB | 1.02 s, 68.0 MB | 0.41 s, 112.6 MB |
+| same, top 10 | | 0.17 s, 25.0 MB | 0.26 s, 54 MB | | |
 
 **Memory.** It streams, so memory depends on the distinct words, not the
-input. On the wide input, the keys as cons cells are 1,533,971 letters at
-24 bytes, 36.8 MB of the 54 MB; the table's two arrays of 524,288 slots are
-8.4 MB. `limits/02-word-keys.l0` measures the keys alone: 40.2 MB as lists,
-20.7 MB as one `(array int)` per word.
+input. On the wide input the keys are 1,533,971 letters; as cons cells at
+24 bytes they were 36.8 MB of 0028's 54.1 MB, and as bytes they are the
+letters plus one small header per word. The table's two arrays of 524,288
+slots are 8.4 MB. `limits/02-word-keys.l0` measures the keys alone: 40.2 MB as lists,
+20.7 MB as one `(array int)` per word, and 11.1 MB as bytes (0026's
+prototype).
 
-The first version peaked at 91.2 MB there: copying each key out reversed
-while the table still held the original doubled the keys. Taking each key
-out of the table as it is copied, `(array_set keys i (nil int))`, frees the
-old one as `rev` walks it, and brought the peak to 54.1 MB. That is the
-pattern 0025 describes for nested arrays, needed here for lists too; it is
-cheap and local, so it is not reported as a limit.
+0028's version first peaked at 91.2 MB there, because copying each key out
+reversed while the table still held the original doubled the keys; taking
+each key out of the table as it was copied fixed it. Keys that are held in
+order need no copy, so the ranking arrays now share the table's keys.

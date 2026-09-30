@@ -7,12 +7,12 @@
 ; standard output, and exits 1.
 
 (def main () int
-  (match (read_input (IoFile 0))
-    ((InputFailed code)
+  (match (read_input)
+    ((IoReadFailed code)
       (let w (write_err (append "json: reading input: " (append (io_error code) "\n")))
         1))
-    ((Input s n)
-      (match (pretty s n (IoFile 1))
+    ((IoBytes s)
+      (match (pretty s (bytes_len s) (IoFile 1))
         ((Bad at msg)
           (let w (write_err (append "stdin:" (error_text s at msg))) 1))
         ((Ok k)

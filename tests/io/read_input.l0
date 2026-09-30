@@ -1,0 +1,10 @@
+; read_input holds all of standard input as bytes, and file_write_bytes gives
+; it back, through lib/io.l0.
+
+(def main () int
+  (match (read_input)
+    ((IoReadFailed code)
+      (let w (write_err (append "failed: " (append (io_error code) "\n")))
+        3))
+    ((IoBytes b)
+      (file_write_bytes (IoFile 1) b 0 (bytes_len b)))))

@@ -1,0 +1,9 @@
+; read_input reports a failed read as IoReadFailed, rather than giving what it
+; read as though it were all of the input.
+
+(def main () int
+  (match (read_input)
+    ((IoReadFailed code)
+      (let w (write_err (append "failed: " (append (io_error code) "\n")))
+        3))
+    ((IoBytes b) 0)))

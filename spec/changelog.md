@@ -7,6 +7,48 @@ New entries go at the top.
 
 ---
 
+## The library reads a whole input into bytes, and no language change for it
+
+**`lib/io.l0` gains `read_input`, `file_read_all`, and `file_write_bytes`,**
+and a result type, `IoBytes`: `(IoBytes b)`, or `(IoReadFailed code)` with
+the code of section 6.3. `read_input` reads what is left of standard input
+and `file_read_all` what is left of an `IoFile`, each with `read_bytes` and
+then one `read_from` to learn whether reading stopped at the end or on a
+failure, which is the check every program that calls `read_bytes` would
+otherwise have to remember (roadmap item 0033). `file_write_bytes` is
+`write_bytes` on an `IoFile`, as `file_write_str` is `write_str`.
+
+**Why a failure drops the bytes read before it.** There is no pair type, so
+one value carries either the bytes or the code, as `IoLine` does. A program
+that reads a whole input to work on it has no use for part of one, and one
+that wants to keep going past a failure can call `read_bytes` itself. There
+is no end case, as `IoLine` has: an input that is already at its end gives
+empty bytes, which is not an error.
+
+**Why these names.** `read_input` mirrors `read_line`, and `file_read_all`
+and `file_write_bytes` follow the `file_` names of the others. None is a
+builtin's name, so none hides a builtin. 0026's prototypes of json and
+sort each defined their own `read_input`; a program that still does keeps
+its own, since 0031, and these now use the library's.
+
+**What moved onto it.** `lib/test.l0` reads a golden file with
+`file_read_all`, so a failed read is reported as one rather than looking
+like a short file. `lib/examples.l0` has worked examples of arrays and
+bytes. Roadmap item 0028's json and sort read their input with
+`read_input` and hold it as bytes, and wordfreq holds its keys as bytes and
+writes them with `file_write_bytes`: json on 11.5 MB peaks at 13.6 MB,
+from 257 MB, and sort on 10 MB at 17.6 MB, from 260 MB, in about a third
+to a half of the time. Their READMEs have the tables. Comparing ranges of
+bytes is written twice, in sort and wordfreq, in two shapes, so it is left
+out of the library until a third program shows which shape it should take.
+
+`lib/prelude.l0` is unchanged, since stage 0 runs it and cannot run bytes.
+No rule in `spec/L0.md` changed; this is recorded because `IoBytes` is a
+choice between a result type and the handle state that a later reader
+would otherwise have to guess.
+
+---
+
 ## Bytes, held one byte per byte
 
 **A new type, `bytes`, and six builtins** (sections 3 and 6.6):

@@ -46,7 +46,7 @@
   hex_val ((c int)) int
       The value of c as a hexadecimal digit, 0 to 15, in either case, or -1 if it is not one.
 
-== io: Reading and writing lines and strings, command-line arguments, and files.
+== io: Reading and writing lines, strings, and bytes, command-line arguments, and files.
   read_line () (list int)
       The next line of standard input, including its newline if it has one.
   (data IoLine (IoLine (list int)) (IoEnd) (IoError int))
@@ -59,6 +59,10 @@
       Writes s and then a newline to standard output, and returns 0.
   write_err ((s (list int))) int
       Writes every byte of s to standard error, and returns 0.
+  (data IoBytes (IoBytes bytes) (IoReadFailed int))
+      The rest of an input, read at once by read_input or file_read_all.
+  read_input () IoBytes
+      All of standard input that is left, as an IoBytes.
   args () (list (list int))
       Every command-line argument, in order, not counting the program's name.
   (data IoFile (IoFile int))
@@ -87,6 +91,10 @@
       Writes the byte b to f, and returns 0, or a negative code.
   file_write_str ((f IoFile) (s (list int))) int
       Writes every byte of s to f, and returns 0.
+  file_write_bytes ((f IoFile) (b bytes) (i int) (j int)) int
+      Writes bytes i up to but not including j of b to f, and returns 0, or a negative code.
+  file_read_all ((f IoFile)) IoBytes
+      The rest of f as an IoBytes, as read_input reads standard input.
   file_read_line ((f IoFile)) (list int)
       The next line of f, as read_line reads standard input, so a failed read looks like end of input; file_next_line tells them apart.
   file_next_line ((f IoFile)) IoLine

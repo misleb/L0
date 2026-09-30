@@ -260,6 +260,16 @@ failed read ends the line as end of input would. When that matters, use
 `next_line` and `file_next_line`, which return an `IoLine`: `(IoLine s)`,
 `(IoEnd)`, or `(IoError code)`, where `(io_error code)` says why in words.
 
+**Reading a whole input at once.** `(read_input)` reads all of standard
+input, and `(file_read_all f)` the rest of a file, as `bytes` (spec section
+6.6), returning `(IoBytes b)`, or `(IoReadFailed code)` if a read failed.
+`(bytes_len b)` and `(bytes_get b i)` read them by index, and
+`(file_write_bytes f b i j)` writes bytes `i` up to `j` to a file, so a
+line or a field goes out by position without becoming a list. Pass
+`(IoFile 1)` to write to standard output. `(bytes_to_list b)` and
+`(bytes_from_list s)` convert, which is how bytes meet string literals, in
+tests especially. Nothing changes a bytes value.
+
 Writes are held back, so a write failure shows up only later: `file_close`,
 or `file_flush` on a file kept open, returns a negative number if any byte
 written to the file was lost; check it. For standard output, which is never
@@ -309,6 +319,10 @@ iteration's garbage before the next. So:
 - a `main` that takes its input gets it as a list built in full before `main`
   starts, one cons cell per byte, about 2.4 GB for 100 MB, however little of
   it `main` then keeps
+- to hold a whole input, because the program must see all of it, as a sort
+  or a parser must, use the streaming `main` and `(read_input)`: bytes take
+  one byte of memory per byte, about 100 MB for 100 MB, and are read by
+  index like an array
 - write loops as tail calls, so each iteration's values are freed as it goes.
   A tail call uses no stack at all, between functions of any arities and at
   any optimization level (spec section 8), so a loop through tail calls,
@@ -369,9 +383,12 @@ list, data, array, or bytes parameters, and returns nothing taken out of them,
 costs no reference counting to call, so there is no reason to inline such
 a helper by hand.
 
-Reading input of unknown length into an array means doubling it as it
-fills, which briefly holds two copies: about as much memory as a list, 25
-bytes per input byte. If you know the length, make the array that size.
+Don't read input into an `(array int)`: its length is unknown until the end,
+so the array doubles as it fills and briefly holds two copies, about as
+much memory as a list, 25 bytes per input byte, and even at the right size
+an int array takes 8 bytes per byte. Read it with `(read_input)` or
+`(file_read_all f)` into `bytes`, which take one. An `(array bytes)` is a
+compact table of words or lines: build each with `bytes_from_list`.
 
 There is no clock, network, or environment yet.
 

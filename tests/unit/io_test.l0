@@ -6,9 +6,15 @@
   (match (open_in path)
     ((IoFailed why) (append "cannot read: " why))
     ((IoOpened f)
-      (let s (read_all f (nil int))
+      (let s (all_of f)
         (let c (file_close f)
           s)))))
+
+; The rest of f as a string, or its failure in words.
+(def all_of ((f IoFile)) (list int)
+  (match (file_read_all f)
+    ((IoBytes b) (bytes_to_list b))
+    ((IoReadFailed code) (append "cannot read: " (io_error code)))))
 
 ; ------------------------------------------------------------ error codes
 
@@ -142,7 +148,7 @@
     (match (open_in "short.txt")
       ((IoFailed why) (check_str "open" why ""))
       ((IoOpened f)
-        (let all (read_all f (nil int))
+        (let all (all_of f)
           (let again (file_read_byte f)
             (let c (file_close f)
               (add (check_int "after the end" again -1)
@@ -366,6 +372,96 @@
 (def test_bytes_left_open () int
   (let h (open_bytes "left open")
     (check_int "first byte" (read_from h) 108)))
+
+; -------------------------------------------------------------------- bytes
+
+(def test_read_all_of_memory () int
+  (match (open_in_bytes "one\ntwo")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let s (all_of f)
+        (let again (file_read_byte f)
+          (let c (file_close f)
+            (add (check_str "contents" s "one\ntwo")
+                 (check_int "then the end" again -1))))))))
+
+(def test_read_all_after_a_line () int
+  (match (open_in_bytes "one\ntwo\n")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let l (file_read_line f)
+        (let s (all_of f)
+          (let c (file_close f)
+            (add (check_str "line" l "one\n")
+                 (check_str "rest" s "two\n"))))))))
+
+(def test_read_all_of_nothing () int
+  (match (open_in_bytes "")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (match (file_read_all f)
+        ((IoReadFailed code) (check_int "should have read" code 0))
+        ((IoBytes b)
+          (let c (file_close f)
+            (check_int "length" (bytes_len b) 0)))))))
+
+; Reading a file open only for writing fails, rather than looking empty.
+(def test_read_all_wrong_direction () int
+  (match (open_out_buffer)
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let s (all_of f)
+        (let c (file_close f)
+          (check_str "failure" s "cannot read: not open in that direction"))))))
+
+(def test_read_all_after_close () int
+  (match (open_in_bytes "abc")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let c (file_close f)
+        (check_str "failure" (all_of f) "cannot read: not open in that direction")))))
+
+(def written_range ((b bytes) (i int) (j int)) (list int)
+  (match (open_out_buffer)
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (let w (file_write_bytes f b i j)
+        (let s (buffer_contents f)
+          (let c (file_close f)
+            s))))))
+
+(def test_file_write_bytes () int
+  (let b (bytes_from_list "hello")
+    (add (check_str "middle" (written_range b 1 4) "ell")
+      (add (check_str "all" (written_range b 0 (bytes_len b)) "hello")
+           (check_str "none" (written_range b 2 2) "")))))
+
+(def test_file_write_bytes_wrong_direction () int
+  (match (open_in_bytes "x")
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let w (file_write_bytes f (bytes_from_list "ab") 0 2)
+        (let c (file_close f)
+          (check_int "result" w -2))))))
+
+(def test_file_write_bytes_past_the_end () int
+  (match (open_out_buffer)
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened f) (file_write_bytes f (bytes_from_list "ab") 1 3))))
+
+(def expect_file_write_bytes_past_the_end () (list int)
+  "byte index out of range")
+
+; Bytes read from one file and written to another arrive unchanged.
+(def test_copy_through_bytes () int
+  (match (open_in_bytes (rand_bytes 7 5000))
+    ((IoFailed why) (check_str "open" why ""))
+    ((IoOpened in)
+      (match (file_read_all in)
+        ((IoReadFailed code) (check_int "read" code 0))
+        ((IoBytes b)
+          (let c (file_close in)
+            (check_str "copy" (written_range b 0 (bytes_len b)) (rand_bytes 7 5000))))))))
 
 ; ---------------------------------------------------------------- arguments
 

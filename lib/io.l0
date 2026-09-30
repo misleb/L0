@@ -1,5 +1,5 @@
-; io.l0 -- lines, strings, arguments, and files, over the I/O builtins of
-; spec sections 6.2 to 6.4.
+; io.l0 -- lines, strings, bytes, arguments, and files, over the I/O
+; builtins of spec sections 6.2 to 6.4 and 6.6.
 ;
 ; tools/l0 links this into every program, in the prelude group alongside
 ; lib/prelude.l0, so a program may define its own read_line and keep calling
@@ -8,9 +8,10 @@
 ; tools/l0check does not know the I/O builtins. ;; comments are what l0 doc
 ; shows, as in lib/prelude.l0.
 
-;;; Reading and writing lines and strings, command-line arguments, and files.
-;;; Everything here is built on the I/O builtins of spec sections 6.2 to 6.4,
-;;; and like them happens in evaluation order: sequence it with let.
+;;; Reading and writing lines, strings, and bytes, command-line arguments, and
+;;; files. Everything here is built on the I/O builtins of spec sections 6.2
+;;; to 6.4 and 6.6, and like them happens in evaluation order: sequence it
+;;; with let.
 
 ;; The next line of standard input, including its newline if it has one. The
 ;; empty list means end of input: a blank line is "\n", and a last line with
@@ -73,6 +74,30 @@
       0
       (let w (write_to h (head s))
         (write_to_handle h (tail s)))))
+
+; ---------------------------------------------------------------------- bytes
+
+;; The rest of an input, read at once by read_input or file_read_all. It is
+;; (IoBytes b), or (IoReadFailed code) if a read failed, with the negative
+;; code of spec section 6.3, which io_error puts into words; the bytes read
+;; before the failure are dropped.
+(data IoBytes
+  (IoBytes bytes)
+  (IoReadFailed int))
+
+;; All of standard input that is left, as an IoBytes. bytes take about one
+;; byte of memory per byte, where a list takes 24, so this is how to hold a
+;; large input whole. A main that takes its input has read all of it already,
+;; so there this gives empty bytes.
+(def read_input () IoBytes
+  (read_all_from 0))
+
+; After read_bytes, read_from says why it stopped: -1 at the end, and any other
+; code if reading failed or h was not open for reading (spec 6.6).
+(def read_all_from ((h int)) IoBytes
+  (let b (read_bytes h)
+    (let e (read_from h)
+      (if (eq e -1) (IoBytes b) (IoReadFailed e)))))
 
 ; ------------------------------------------------------------------ arguments
 
@@ -175,6 +200,16 @@
 ;; Writes every byte of s to f, and returns 0.
 (def file_write_str ((f IoFile) (s (list int))) int
   (match f ((IoFile h) (write_to_handle h s))))
+
+;; Writes bytes i up to but not including j of b to f, and returns 0, or a
+;; negative code. Unless 0 <= i <= j <= (bytes_len b) it is a runtime error,
+;; so write all of b with (file_write_bytes f b 0 (bytes_len b)).
+(def file_write_bytes ((f IoFile) (b bytes) (i int) (j int)) int
+  (match f ((IoFile h) (write_bytes h b i j))))
+
+;; The rest of f as an IoBytes, as read_input reads standard input.
+(def file_read_all ((f IoFile)) IoBytes
+  (match f ((IoFile h) (read_all_from h))))
 
 ;; The next line of f, as read_line reads standard input, so a failed read
 ;; looks like end of input; file_next_line tells them apart.
