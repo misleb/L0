@@ -7,6 +7,81 @@ New entries go at the top.
 
 ---
 
+## Read-only parameters
+
+**A parameter that nothing of escapes its function is now passed without a
+reference** (section 10.3), and so are the fields a `match` on it takes
+out, where they escape nothing either. The caller does not add one for a
+variable it still uses, and releases anything else it passed once the call
+returns; the function neither takes nor releases one. Which parameters are
+read-only the compiler works out for the whole program. Nothing in the
+source changes, no program is rejected, and no output can differ.
+
+**The blocker.** Roadmap item 0028's sudoku solver called a three-line
+candidate check, taking three arrays, nine times per cell per search node,
+and every call cost an increment in the caller and a release in the callee:
+writing the check inline took the 99-puzzle run from 0.29 s to 0.16 s.
+`0028/grids/limits/02-read-only-helper-refcounts.l0` isolates it: 50 million
+lookups through a helper taking the arrays took 0.27 s, taking the three ints
+0.09 s, and inline 0.07 s. The release is a runtime call that may free, so
+LLVM cannot pair it away even when it inlines the helper. The cost pushed
+agents toward inlining by hand, the opposite of code worth reading.
+
+Now, on the same inputs: the helper takes 0.10 s instead of 0.26 s, level
+with passing ints, and sudoku 0.15 s instead of 0.29 s, as fast as the
+hand-inlined version, with identical output and still no array copied. The
+compiler on its own source runs in the same 106 ms, its output slightly
+smaller.
+
+**What "only reads" had to mean.** The first version counted any `match`
+on a parameter, and any `head`, `tail`, or `array_get` of it, as a read.
+Sudoku then copied every array on every update, 1.8 million copies where
+there had been none: its `put` takes its state parameter apart and updates
+the arrays inside, and with the state read-only, the caller's reference
+kept the state block holding each array while it was updated. A parameter
+is read-only only if no part of it escapes: a read that yields a list,
+data, or array counts only if what it yields escapes nothing either. That
+also keeps a list walked through `tail` freed as it goes, which a
+read-only parameter would have held until the call returned.
+`tests/io/array_state` fails, with 400,000 copies, if that rule is
+loosened again.
+
+**Why fields of a read-only parameter are read-only too.** Sudoku's
+`allowed` matches its state and passes three arrays to the candidate check;
+with only the state read-only, each call still took and released a
+reference per field. The parameter outlives the whole call, so a field that
+escapes nothing needs no reference of its own, and a tail call may pass it
+on as it passes the parameter itself.
+
+**Why the lookups became a tree.** Every call now asks for its callee's
+flags as well as its padding, and both were a scan of a list of every
+function, with the analysis asking again at every call in every pass. That
+tripled the compiler's list walking and made it 70% slower on itself. The
+table is now a tree walked by the bits of a hash of the symbol, which paid
+for the analysis and left the compiler as fast as before.
+
+**Why not called borrowing.** It is what Lean 4 calls borrowed parameters,
+inferred the same way, but nothing here resembles Rust's borrowing: nothing
+is written, nothing is checked, nothing is rejected, and it changes only when
+reference counts move. It is the last-use rule of "A value is released at its
+last use" carried across a call.
+
+**Why tail calls decide it.** Section 8 guarantees that a tail call uses no
+stack, which means nothing may follow it. A read-only parameter given
+something the caller owns, a temporary or a binding at its last use, needs
+releasing after the call, so it cannot receive one in a tail call. So a
+parameter is read-only only if every tail call to its function passes, in
+its position, a read-only parameter or field of the caller; a loop that
+threads an array through tail calls qualifies. Disabling that rule breaks
+the bootstrap at once: LLVM rejects the prelude's own tail calls, followed
+by a release.
+The compiler starts from every pointer-typed parameter and removes the ones
+that are consumed, or given something owned by a tail call, until nothing
+changes. `main`'s parameter is never read-only, since the runtime's entry
+point calls it and would have to release it after.
+
+---
+
 ## What updates an array in place, said correctly, and no language change for it
 
 **Section 6.5 said an array in a data value copies on every update, and it

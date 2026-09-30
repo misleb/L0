@@ -1,0 +1,43 @@
+; Read-only parameters (spec 10.3) around arrays kept in a data value, the
+; shape of a solver's state: a helper that only reads the state takes it,
+; and its arrays, without references, while the function that updates it
+; takes the state apart at its last use, so every update is in place.
+; array_state.sh checks the answer and that no update copied.
+
+(data State
+  (State (array int) (array int) int))  ; counts, marks, steps
+
+; Only reads: read-only, and so are the arrays it matches out and passes on.
+(def seen ((s State) (i int)) bool
+  (match s ((State cs ms n) (marked ms i))))
+
+(def marked ((ms (array int)) (i int)) bool
+  (eq (array_get ms i) 1))
+
+(def count_of ((cs (array int)) (i int)) int
+  (array_get cs i))
+
+; Takes the state apart and updates both arrays: owns it.
+(def step ((s State) (i int)) State
+  (match s
+    ((State cs ms n)
+      (State (array_set cs i (add (count_of cs i) 1)) (array_set ms i 1) (add n 1)))))
+
+; Visits i, i*7, i*49, ... modulo 1000, counting each visit and marking
+; what has been seen, until it sees a place again.
+(def walk ((s State) (i int) (left int)) State
+  (if (eq left 0)
+      s
+      (if (seen s i)
+          (walk (step s i) (mod (add (mul i 7) 3) 1000) (sub left 1))
+          (walk (step s i) (mod (add (mul i 7) 1) 1000) (sub left 1)))))
+
+(def total ((cs (array int)) (i int) (acc int)) int
+  (if (ge i (array_len cs)) acc (total cs (add i 1) (add acc (count_of cs i)))))
+
+(def main () int
+  (match (walk (State (array_new 1000 0) (array_new 1000 0) 0) 1 200000)
+    ((State cs ms n)
+      (let w (write_line (digits (total cs 0 0)))
+        (let x (write_line (digits n))
+          0)))))

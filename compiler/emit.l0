@@ -36,15 +36,17 @@
 (data EmitOps
   (Ops (list (list int)) (list Ty) (list bool) Emit))   ; texts, types, owned, state
 
+; A read-only parameter (spec 10.3) holds no reference: it is never handed
+; over or released, and every use of it that needs one adds one.
 (data EBind
-  (EB (list int) (list int) Ty))        ; L0 name, operand text, type
+  (EB (list int) (list int) Ty bool))   ; L0 name, operand text, type, read-only
 
 ; Local bindings, the global tables, the function names that resolve to the
 ; prelude from here, and how many parameters each function takes. The
 ; emitter builds the constructor table from the declarations itself, so it
 ; still needs nothing the checker produced.
 (data Env
-  (Ev (list EBind) Ctx (list (list int)) (list Pad)))
+  (Ev (list EBind) Ctx (list (list int)) PadMap))
 
 (data EnvEmit
   (EnvSt Env Emit))
@@ -52,10 +54,10 @@
 (def env_binds ((e Env)) (list EBind) (match e ((Ev b c p k) b)))
 (def env_ctx ((e Env)) Ctx (match e ((Ev b c p k) c)))
 (def env_prelude ((e Env)) (list (list int)) (match e ((Ev b c p k) p)))
-(def env_pads ((e Env)) (list Pad) (match e ((Ev b c p k) k)))
+(def env_pads ((e Env)) PadMap (match e ((Ev b c p k) k)))
 
 (def env_bind ((n (list int)) (op (list int)) (t Ty) (e Env)) Env
-  (match e ((Ev b c p k) (Ev (cons (EB n op t) b) c p k))))
+  (match e ((Ev b c p k) (Ev (cons (EB n op t false) b) c p k))))
 
 ; ------------------------------------------------------------------ output
 
@@ -76,15 +78,25 @@
   (if (is_empty binds)
       "0"
       (match (head binds)
-        ((EB bn op t)
+        ((EB bn op t ro)
           (if (list_eq n bn) op (lookup_operand n (tail binds)))))))
 
 (def lookup_type ((n (list int)) (binds (list EBind))) Ty
   (if (is_empty binds)
       (TyInt)
       (match (head binds)
-        ((EB bn op t)
+        ((EB bn op t ro)
           (if (list_eq n bn) t (lookup_type n (tail binds)))))))
+
+(def lookup_read_only ((n (list int)) (binds (list EBind))) bool
+  (if (is_empty binds)
+      false
+      (match (head binds)
+        ((EB bn op t ro)
+          (if (list_eq n bn) ro (lookup_read_only n (tail binds)))))))
+
+(def is_read_only ((n (list int)) (env Env)) bool
+  (lookup_read_only n (env_binds env)))
 
 ; Whether a value of type t is a pointer to a heap block rather than a plain
 ; word. Spec 10.1.
@@ -221,13 +233,16 @@
 (def arm_fv ((a Arm)) (list (list int))
   (match a ((A o cn names body) (set_del_all names (fv body)))))
 
-; Releases each named binding that is a pointer. The names are ones a branch
-; does not use and nothing after it does either.
+; Releases each named binding that is a pointer and holds a reference, which
+; a read-only parameter never does. The names are ones a branch does not use
+; and nothing after it does either.
 (def release_names ((ns (list (list int))) (env Env) (st Emit)) Emit
   (if (is_empty ns)
       st
       (release_names (tail ns) env
-        (if (ty_is_ptr (lookup_type (head ns) (env_binds env)))
+        (if (if (ty_is_ptr (lookup_type (head ns) (env_binds env)))
+                (not (is_read_only (head ns) env))
+                false)
             (emit_dec (lookup_operand (head ns) (env_binds env)) st)
             st))))
 
@@ -243,7 +258,14 @@
     EmitVal
   (let op (lookup_operand n (env_binds env))
     (let t (lookup_type n (env_binds env))
-      (Val op t (if (and (ty_is_ptr t) (any_eq n live)) (emit_inc op st) st)))))
+      (Val op t (if (if (ty_is_ptr t) (still_held n env live) false)
+                    (emit_inc op st)
+                    st)))))
+
+; Whether a use of n must leave the binding its reference: it is used later,
+; or it is a read-only parameter, which has none to hand over.
+(def still_held ((n (list int)) (env Env) (live (list (list int)))) bool
+  (if (any_eq n live) true (is_read_only n env)))
 
 (def emit_expr ((e Expr) (env Env) (live (list (list int))) (tl bool)
                 (st Emit)) EmitVal
@@ -390,15 +412,26 @@
 
 ; Operands that are not variables are evaluated first, left to right, and
 ; the variables are taken after them, so each variable's last use is as late
-; as it can be. borrow says the callee reads its operands without consuming
-; them, so a variable still live afterwards is given without a reference.
+; as it can be. borrows has a flag per operand: the callee reads that
+; operand without consuming it, so a variable still live afterwards is given
+; without a reference.
 (def emit_args ((args (list Expr)) (env Env) (live (list (list int)))
-                (borrow bool) (st Emit)) EmitOps
+                (borrows (list bool)) (st Emit)) EmitOps
   (match (emit_nonvars args env (var_names args live) st (nil EArg))
     ((EAs nvs st1)
-      (match (emit_vars args env live borrow st1 (nil EArg))
+      (match (emit_vars args env live borrows st1 (nil EArg))
         ((EAs vs st2)
           (ops_of (merge_args args nvs vs (nil EArg)) st2))))))
+
+; The same flag for every operand.
+(def flags_for ((b bool) (args (list Expr))) (list bool)
+  (if (is_empty args) (nil bool) (cons b (flags_for b (tail args)))))
+
+(def flag_head ((bs (list bool))) bool
+  (if (is_empty bs) false (head bs)))
+
+(def flag_tail ((bs (list bool))) (list bool)
+  (if (is_empty bs) bs (tail bs)))
 
 (def emit_nonvars ((args (list Expr)) (env Env) (vlive (list (list int)))
                    (st Emit) (acc (list EArg))) EArgs
@@ -411,16 +444,23 @@
           (emit_nonvars (tail args) env vlive st acc))))
 
 (def emit_vars ((args (list Expr)) (env Env) (live (list (list int)))
-                (borrow bool) (st Emit) (acc (list EArg))) EArgs
+                (borrows (list bool)) (st Emit) (acc (list EArg))) EArgs
   (if (is_empty args)
       (EAs (rev_eargs acc (nil EArg)) st)
       (let n (var_name (head args))
         (if (is_empty n)
-            (emit_vars (tail args) env live borrow st acc)
-            (match (emit_var_arg n env (any_eq n (var_names (tail args) live))
-                                 borrow st)
-              ((EAS a st1) (emit_vars (tail args) env live borrow st1 (cons a acc))))))))
+            (emit_vars (tail args) env live (flag_tail borrows) st acc)
+            (match (emit_var_arg n env
+                     (if (any_eq n (var_names (tail args) live))
+                         true
+                         (is_read_only n env))
+                     (flag_head borrows) st)
+              ((EAS a st1)
+                (emit_vars (tail args) env live (flag_tail borrows) st1
+                           (cons a acc))))))))
 
+; later: the binding keeps its reference after this operand, because the
+; variable is used again or is a read-only parameter.
 (def emit_var_arg ((n (list int)) (env Env) (later bool) (borrow bool)
                    (st Emit)) EArgSt
   (let op (lookup_operand n (env_binds env))
@@ -458,21 +498,38 @@
 
 ; A call to a function in tail position is a tail call, spec 8, and nothing
 ; may come between it and the ret. Nothing does: live is empty there, so the
-; operands took every reference still held. A builtin's borrowing is not a
-; tail call and may release what it read afterwards.
+; operands took every reference still held, and a read-only position in a
+; tail call is only ever given a read-only parameter, which the caller does
+; not own either (module_read_only). A builtin's borrowing is not a tail call
+; and may release what it read afterwards, and so may a call that is not a
+; tail call, for what it passed in read-only positions.
 (def emit_call ((n (list int)) (args (list Expr)) (env Env)
                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
   (if (is_builtin_in n (env_ctx env))
-      (match (emit_args args env live (is_borrowing n) st)
+      (match (emit_args args env live (flags_for (is_borrowing n) args) st)
         ((Ops ops ts ws st1)
           (emit_ret tl
             (after_borrow n ops ts ws
               (retype (emit_op n ops ts st1) (builtin_type n ts))))))
-      (match (emit_args args env live false st)
-        ((Ops ops ts ws st1)
-          (emit_ret tl
-            (retype (emit_def_call (call_sym n env) ops env tl st1)
-                    (fn_type n env)))))))
+      (let sym (call_sym n env)
+        (let ro (read_only_of sym (env_pads env))
+          (match (emit_args args env live ro st)
+            ((Ops ops ts ws st1)
+              (match (emit_def_call sym ops env tl st1)
+                ((Val r rt st2)
+                  (emit_ret tl
+                    (Val r (fn_type n env)
+                      (emit_dec_read_only ops ts ws ro st2)))))))))))
+
+; Releases what a call was given in its read-only positions with a reference.
+(def emit_dec_read_only ((ops (list (list int))) (ts (list Ty)) (ws (list bool))
+                         (ro (list bool)) (st Emit)) Emit
+  (if (is_empty ops)
+      st
+      (emit_dec_read_only (tail ops) (tail ts) (tail ws) (flag_tail ro)
+        (if (if (flag_head ro) (if (head ws) (ty_is_ptr (head ts)) false) false)
+            (emit_dec (head ops) st)
+            st))))
 
 (def emit_def_call ((sym (list int)) (ops (list (list int))) (env Env)
                     (tl bool) (st Emit)) EmitVal
@@ -545,7 +602,7 @@
   (match (find_ctor n (ctx_ctors (env_ctx env)))
     ((CtorMissing) (Val "0" (TyInt) st))
     ((CtorFound ci)
-      (match (emit_args args env live false st)
+      (match (emit_args args env live (nil bool) st)
         ((Ops ops ts ws st1) (emit_ctor_block ci ops (env_ctx env) st1))))))
 
 ; A data block's layout mask has bit k set when word k is a pointer. Word 0
@@ -591,26 +648,28 @@
         (let slot (append "%m" id)
           (let st1 (emit_slot slot tl (bump st))
             (let sn (var_name subject)
-              (if (and (not (is_empty sn)) (any_eq sn slive))
+              (if (if (is_empty sn) false (still_held sn env slive))
                   (emit_match_dispatch id slot
                     (lookup_operand sn (env_binds env)) arms
-                    (Mx env live tl farms false) st1)
+                    (Mx env live tl farms false (is_read_only sn env)) st1)
                   (match (emit_expr subject env slive false st1)
                     ((Val sv svt st2)
                       (emit_match_dispatch id slot sv arms
-                        (Mx env live tl farms true) st2)))))))))))
+                        (Mx env live tl farms true false) st2)))))))))))
 
 ; What every arm of one match shares: the environment, what is live after
-; the match, whether it is in tail position, the names any arm uses, and
-; whether the subject came with a reference.
+; the match, whether it is in tail position, the names any arm uses,
+; whether the subject came with a reference, and whether it is a read-only
+; parameter, which outlives the whole call.
 (data MatchCx
-  (Mx Env (list (list int)) bool (list (list int)) bool))
+  (Mx Env (list (list int)) bool (list (list int)) bool bool))
 
-(def mx_env ((m MatchCx)) Env (match m ((Mx e l t f o) e)))
-(def mx_live ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o) l)))
-(def mx_tl ((m MatchCx)) bool (match m ((Mx e l t f o) t)))
-(def mx_farms ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o) f)))
-(def mx_owned ((m MatchCx)) bool (match m ((Mx e l t f o) o)))
+(def mx_env ((m MatchCx)) Env (match m ((Mx e l t f o r) e)))
+(def mx_live ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o r) l)))
+(def mx_tl ((m MatchCx)) bool (match m ((Mx e l t f o r) t)))
+(def mx_farms ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o r) f)))
+(def mx_owned ((m MatchCx)) bool (match m ((Mx e l t f o r) o)))
+(def mx_read_only ((m MatchCx)) bool (match m ((Mx e l t f o r) r)))
 
 (def arm_label ((id (list int)) (k int)) (list int)
   (append "A" (append id (append "_" (digits k)))))
@@ -674,6 +733,7 @@
       (let bfv (fv body)
         (let st1 (emit_line (append lbl ":") st)
           (match (emit_field_loads sv names (arm_field_tys cn (mx_env mx)) 0 bfv
+                   (if (mx_read_only mx) (ReadOnlySubject body) (OtherSubject))
                    (mx_env mx) st1)
             ((EnvSt env2 st2)
               (let st3 (release_names
@@ -695,22 +755,45 @@
     ((CtorFound ci) (ctor_fields ci))
     ((CtorMissing) (nil Ty))))
 
+; The arm's body, when the subject is a read-only parameter, which outlives
+; the whole call.
+(data MaybeBody
+  (ReadOnlySubject Expr)
+  (OtherSubject))
+
 ; A field is taken only if the body uses it, and a later field of the same
-; name does not hide it.
+; name does not hide it. A field of a read-only subject that the body only
+; reads, as ro_ok judges a parameter, is taken without a reference, as a
+; read-only binding, since the subject keeps it alive throughout.
 (def emit_field_loads ((sv (list int)) (names (list (list int)))
                        (fts (list Ty)) (i int) (used (list (list int)))
-                       (env Env) (st Emit)) EnvEmit
+                       (rbody MaybeBody) (env Env) (st Emit)) EnvEmit
   (if (is_empty names)
       (EnvSt env st)
       (match (emit_rt_call "l0_data_get" (two_ops sv (digits i)) st)
         ((Val f ft st1)
-          (emit_field_loads sv (tail names) (tail fts) (add i 1) used
-            (env_bind (head names) f (head fts) env)
-            (if (and (ty_is_ptr (head fts))
-                     (and (any_eq (head names) used)
-                          (not (any_eq (head names) (tail names)))))
-                (emit_inc f st1)
-                st1))))))
+          (let taken (if (ty_is_ptr (head fts))
+                         (if (any_eq (head names) used)
+                             (not (any_eq (head names) (tail names)))
+                             false)
+                         false)
+            (if (if taken (field_read_only (head names) (head fts) rbody env) false)
+                (emit_field_loads sv (tail names) (tail fts) (add i 1) used rbody
+                  (env_bind_read_only (head names) f (head fts) env) st1)
+                (emit_field_loads sv (tail names) (tail fts) (add i 1) used rbody
+                  (env_bind (head names) f (head fts) env)
+                  (if taken (emit_inc f st1) st1))))))))
+
+(def field_read_only ((n (list int)) (t Ty) (rbody MaybeBody) (env Env)) bool
+  (match rbody
+    ((OtherSubject) false)
+    ((ReadOnlySubject body)
+      (ro_ok n t body
+        (Rx (env_pads env) (ctx_builtins (env_ctx env)) (env_prelude env)
+            (ctx_ctors (env_ctx env)))))))
+
+(def env_bind_read_only ((n (list int)) (op (list int)) (t Ty) (e Env)) Env
+  (match e ((Ev b c p k) (Ev (cons (EB n op t true) b) c p k))))
 
 ; ---------------------------------------------------------------- builtins
 
@@ -780,7 +863,7 @@
 ; ones. Spec 8 and 10.2.
 
 (data Pad
-  (Pd (list int) int))                  ; symbol, parameters it takes
+  (Pd (list int) int (list bool)))      ; symbol, parameters it takes, read-only
 
 ; One function: its symbol, its L0 arity, and the symbols it tail-calls.
 (data Node
@@ -900,26 +983,393 @@
           (let m (if (gt a b) a b)
             (set_int (set_int ks i m) j m))))))
 
-(def pad_table ((ns (list Node)) (ks (list int)) (acc (list Pad)))
-    (list Pad)
+; ns and rs are both in declaration order, one per function.
+(def pad_table ((ns (list Node)) (ks (list int)) (rs (list RoFn))
+                (acc (list Pad))) (list Pad)
   (if (is_empty ns)
       acc
       (match (head ns)
         ((Nd s k cs)
-          (pad_table (tail ns) (tail ks) (cons (Pd s (head ks)) acc))))))
+          (pad_table (tail ns) (tail ks) (tail rs)
+            (cons (Pd s (head ks) (rf_flags (head rs))) acc))))))
 
 (def module_pads ((ds (list Decl)) (pre int) (ppre (list (list int)))
-                  (pprog (list (list int)))) (list Pad)
-  (let ns (graph_nodes ds pre ppre pprog (builtin_names 0))
-    (pad_table ns
-      (spread (graph_edges ns (node_syms ns) 0 (nil Edge)) (node_arities ns))
-      (nil Pad))))
+                  (pprog (list (list int)))) PadMap
+  (let bs (builtin_names 0)
+    (let ns (graph_nodes ds pre ppre pprog bs)
+      (pad_map
+        (pad_table ns
+          (spread (graph_edges ns (node_syms ns) 0 (nil Edge)) (node_arities ns))
+          (module_read_only (ro_fns ds pre ppre pprog) bs
+                            (collect_ctor_infos ds (nil CtorInfo)))
+          (nil Pad))
+        (PmLeaf)))))
 
-(def pad_of ((s (list int)) (ps (list Pad))) int
+; The pad table, looked up at every call, as a tree walked by the bits of a
+; hash of the symbol, with the symbols that share a path in a bucket at its
+; end, so a lookup costs a dozen steps rather than a scan of every function.
+(data PadMap
+  (PmLeaf)
+  (PmNode (list Pad) PadMap PadMap))
+
+(def sym_hash ((s (list int)) (h int)) int
+  (if (is_empty s)
+      (mod h 4096)
+      (sym_hash (tail s) (mod (add (mul h 31) (head s)) 1000003))))
+
+(def pad_map ((ps (list Pad)) (m PadMap)) PadMap
+  (if (is_empty ps)
+      m
+      (match (head ps)
+        ((Pd n k ro) (pad_map (tail ps) (pm_add m (sym_hash n 7) (head ps)))))))
+
+(def pm_add ((m PadMap) (k int) (p Pad)) PadMap
+  (match m
+    ((PmLeaf) (pm_add (PmNode (nil Pad) (PmLeaf) (PmLeaf)) k p))
+    ((PmNode b l r)
+      (if (eq k 0)
+          (PmNode (cons p b) l r)
+          (if (eq (mod k 2) 0)
+              (PmNode b (pm_add l (div k 2) p) r)
+              (PmNode b l (pm_add r (div k 2) p)))))))
+
+(def pm_bucket ((m PadMap) (k int)) (list Pad)
+  (match m
+    ((PmLeaf) (nil Pad))
+    ((PmNode b l r)
+      (if (eq k 0)
+          b
+          (if (eq (mod k 2) 0) (pm_bucket l (div k 2)) (pm_bucket r (div k 2)))))))
+
+(def pad_of ((s (list int)) (m PadMap)) int
+  (pad_in s (pm_bucket m (sym_hash s 7))))
+
+(def pad_in ((s (list int)) (ps (list Pad))) int
   (if (is_empty ps)
       0
       (match (head ps)
-        ((Pd n k) (if (list_eq s n) k (pad_of s (tail ps)))))))
+        ((Pd n k ro) (if (list_eq s n) k (pad_in s (tail ps)))))))
+
+; Which parameters of the function s are read-only, spec 10.3; empty for a
+; symbol not in the table.
+(def read_only_of ((s (list int)) (m PadMap)) (list bool)
+  (read_only_in s (pm_bucket m (sym_hash s 7))))
+
+(def read_only_in ((s (list int)) (ps (list Pad))) (list bool)
+  (if (is_empty ps)
+      (nil bool)
+      (match (head ps)
+        ((Pd n k ro) (if (list_eq s n) ro (read_only_in s (tail ps)))))))
+
+; ------------------------------------------------------ read-only parameters
+;
+; Spec 10.3. A flag says a parameter position never consumes what it is
+; given: every position of int or bool type, and each read-only one of list,
+; data, or array type. Every flag starts set, but main's, and a pass clears
+; a pointer parameter's flag if its body lets anything of it escape, and any
+; pointer position a tail call gives something the caller owns, since
+; releasing it after the call would take the call out of tail position.
+; Passes repeat until nothing changes; flags only ever clear, so they stop.
+;
+; Escaping is anything but a read that yields no pointer. If a callee could
+; keep or update a part of its parameter, the caller's reference, held
+; across the call, would leave that part shared: an array in it would copy
+; on update, and a list walked through it would not be freed as it goes.
+
+; One function: its symbol, parameters, flags, body, and the prelude names
+; its calls reach.
+(data RoFn
+  (Rf (list int) (list Param) (list bool) Expr (list (list int))))
+
+(data Demote
+  (Dm (list int) int))                  ; symbol, parameter position
+
+(def rf_sym ((r RoFn)) (list int) (match r ((Rf s ps fs b pn) s)))
+(def rf_flags ((r RoFn)) (list bool) (match r ((Rf s ps fs b pn) fs)))
+
+(def ro_fns ((ds (list Decl)) (pre int) (ppre (list (list int)))
+             (pprog (list (list int)))) (list RoFn)
+  (if (is_empty ds)
+      (nil RoFn)
+      (match (head ds)
+        ((DData o n cs) (ro_fns (tail ds) pre ppre pprog))
+        ((DDef o n ps ret body)
+          (let inpre (lt o pre)
+            (let sym (def_sym n inpre)
+              (cons (Rf sym ps
+                        (if (list_eq sym "l0_f_main.body")
+                            (nil bool)
+                            (all_set ps))
+                        body (if inpre ppre pprog))
+                    (ro_fns (tail ds) pre ppre pprog))))))))
+
+(def all_set ((ps (list Param))) (list bool)
+  (if (is_empty ps) (nil bool) (cons true (all_set (tail ps)))))
+
+(def module_read_only ((fs (list RoFn)) (bs (list (list int)))
+                       (cs (list CtorInfo))) (list RoFn)
+  (let next (ro_pass fs bs cs)
+    (if (ro_same next fs) fs (module_read_only next bs cs))))
+
+(def ro_same ((a (list RoFn)) (b (list RoFn))) bool
+  (if (is_empty a)
+      true
+      (if (bools_eq (rf_flags (head a)) (rf_flags (head b)))
+          (ro_same (tail a) (tail b))
+          false)))
+
+(def bools_eq ((a (list bool)) (b (list bool))) bool
+  (if (is_empty a)
+      (is_empty b)
+      (if (is_empty b)
+          false
+          (if (eq (if (head a) 1 0) (if (head b) 1 0))
+              (bools_eq (tail a) (tail b))
+              false))))
+
+; The flag table is built once per pass, since every body consults it.
+(def ro_pass ((fs (list RoFn)) (bs (list (list int))) (cs (list CtorInfo)))
+    (list RoFn)
+  (let own (ro_own_all fs (ro_table fs) bs cs)
+    (ro_apply own (ro_demotions own own (ro_table own) bs cs (nil Demote)))))
+
+; Each function's flags from its own body.
+(def ro_own_all ((todo (list RoFn)) (table PadMap) (bs (list (list int)))
+                 (cs (list CtorInfo))) (list RoFn)
+  (if (is_empty todo)
+      (nil RoFn)
+      (match (head todo)
+        ((Rf s ps flags body pn)
+          (cons (Rf s ps (ro_own_flags ps flags body (Rx table bs pn cs)) body pn)
+                (ro_own_all (tail todo) table bs cs))))))
+
+; What judging a body needs: every function's flags, as the pad table holds
+; them, the builtins, the prelude names its calls reach, and the
+; constructors. The emitter builds one too, to bind fields (emit_field_loads).
+(data RoCx
+  (Rx PadMap (list (list int)) (list (list int)) (list CtorInfo)))
+
+(def ro_table ((fs (list RoFn))) PadMap
+  (pad_map (ro_pads fs) (PmLeaf)))
+
+(def ro_pads ((fs (list RoFn))) (list Pad)
+  (if (is_empty fs)
+      (nil Pad)
+      (cons (Pd (rf_sym (head fs)) 0 (rf_flags (head fs))) (ro_pads (tail fs)))))
+
+(def rx_pads ((x RoCx)) PadMap (match x ((Rx f b p c) f)))
+(def rx_bs ((x RoCx)) (list (list int)) (match x ((Rx f b p c) b)))
+(def rx_pn ((x RoCx)) (list (list int)) (match x ((Rx f b p c) p)))
+(def rx_cs ((x RoCx)) (list CtorInfo) (match x ((Rx f b p c) c)))
+
+(def ro_own_flags ((ps (list Param)) (flags (list bool)) (body Expr) (x RoCx))
+    (list bool)
+  (if (is_empty ps)
+      (nil bool)
+      (match (head ps)
+        ((P n t)
+          (cons (if (flag_head flags) (ro_ok n t body x) false)
+                (ro_own_flags (tail ps) (flag_tail flags) body x))))))
+
+; Whether nothing of p, of type t, escapes e: p itself is only an operand of
+; a builtin read that yields no pointer, the subject of a match whose pointer
+; fields escape nothing either, or an operand where the callee's flag is
+; set. A value of int or bool type cannot escape. A let or a field of the
+; same name hides p below it.
+(def ro_ok ((p (list int)) (t Ty) (e Expr) (x RoCx)) bool
+  (if (not (ty_is_ptr t))
+      true
+      (match e
+        ((EInt o v) true)
+        ((EBool o v) true)
+        ((EStr o s) true)
+        ((ENil o ty) true)
+        ((EVar o n) (not (list_eq n p)))
+        ((EIf o c a b)
+          (if (ro_ok p t c x) (if (ro_ok p t a x) (ro_ok p t b x) false) false))
+        ((ELet o n v body)
+          (if (ro_ok p t v x) (if (list_eq n p) true (ro_ok p t body x)) false))
+        ((ECtor o n args) (ro_ok_args p t args (nil bool) x))
+        ((EMatch o s arms)
+          (if (list_eq (var_name s) p)
+              (ro_ok_fields p t arms x)
+              (if (ro_ok p t s x) (ro_ok_arms p t arms x) false)))
+        ((ECall o n args)
+          (ro_ok_args p t args
+            (if (any_eq n (rx_bs x))
+                (flags_for (reads_no_pointer n t) args)
+                (read_only_of (fn_sym n (rx_pn x)) (rx_pads x)))
+            x)))))
+
+; Whether the builtin n, given a value of type t, only reads it and yields no
+; pointer: head and array_get yield an element, and tail a list.
+(def reads_no_pointer ((n (list int)) (t Ty)) bool
+  (if (any_eq n (split_spaces "head array_get"))
+      (not (ty_is_ptr (ty_elem t)))
+      (if (list_eq n "tail") false (is_borrowing n))))
+
+; p may be an operand itself only where the flag is set.
+(def ro_ok_args ((p (list int)) (t Ty) (args (list Expr)) (flags (list bool))
+                 (x RoCx)) bool
+  (if (is_empty args)
+      true
+      (if (if (list_eq (var_name (head args)) p)
+              (flag_head flags)
+              (ro_ok p t (head args) x))
+          (ro_ok_args p t (tail args) (flag_tail flags) x)
+          false)))
+
+(def ro_ok_arms ((p (list int)) (t Ty) (arms (list Arm)) (x RoCx)) bool
+  (if (is_empty arms)
+      true
+      (match (head arms)
+        ((A o cn names body)
+          (if (if (any_eq p names) true (ro_ok p t body x))
+              (ro_ok_arms p t (tail arms) x)
+              false)))))
+
+; A match on p itself: in each arm, the fields must escape nothing, and nor
+; must p, unless a field of the same name hides it.
+(def ro_ok_fields ((p (list int)) (t Ty) (arms (list Arm)) (x RoCx)) bool
+  (if (is_empty arms)
+      true
+      (match (head arms)
+        ((A o cn names body)
+          (if (if (ro_fields_ok names (arm_fields cn (rx_cs x)) body x)
+                  (if (any_eq p names) true (ro_ok p t body x))
+                  false)
+              (ro_ok_fields p t (tail arms) x)
+              false)))))
+
+(def arm_fields ((cn (list int)) (cs (list CtorInfo))) (list Ty)
+  (match (find_ctor cn cs)
+    ((CtorFound ci) (ctor_fields ci))
+    ((CtorMissing) (nil Ty))))
+
+; A later field of the same name hides an earlier one, which then cannot be
+; used at all.
+(def ro_fields_ok ((names (list (list int))) (ts (list Ty)) (body Expr) (x RoCx))
+    bool
+  (if (is_empty names)
+      true
+      (if (if (is_empty ts)
+              true
+              (if (any_eq (head names) (tail names))
+                  true
+                  (ro_ok (head names) (head ts) body x)))
+          (ro_fields_ok (tail names) (if (is_empty ts) ts (tail ts)) body x)
+          false)))
+
+; Every read-only position a tail call gives anything but a read-only
+; parameter of the caller.
+(def ro_demotions ((todo (list RoFn)) (fs (list RoFn)) (table PadMap)
+                   (bs (list (list int))) (cs (list CtorInfo)) (acc (list Demote)))
+    (list Demote)
+  (if (is_empty todo)
+      acc
+      (match (head todo)
+        ((Rf s ps flags body pn)
+          (ro_demotions (tail todo) fs table bs cs
+            (ro_tail_demote body (ro_names ps flags) fs bs pn
+                            (Rx table bs pn cs) acc))))))
+
+; The names of the pointer parameters whose flags are set: read-only.
+(def ro_names ((ps (list Param)) (flags (list bool))) (list (list int))
+  (if (is_empty ps)
+      (nil (list int))
+      (match (head ps)
+        ((P n t)
+          (if (if (flag_head flags) (ty_is_ptr t) false)
+              (cons n (ro_names (tail ps) (flag_tail flags)))
+              (ro_names (tail ps) (flag_tail flags)))))))
+
+; ok is the caller's read-only parameters not hidden at e by a let or field.
+(def ro_tail_demote ((e Expr) (ok (list (list int))) (fs (list RoFn))
+                     (bs (list (list int))) (pn (list (list int))) (x RoCx)
+                     (acc (list Demote))) (list Demote)
+  (match e
+    ((EInt o v) acc)
+    ((EBool o v) acc)
+    ((EStr o s) acc)
+    ((ENil o t) acc)
+    ((EVar o n) acc)
+    ((ECtor o n args) acc)
+    ((EIf o c a b)
+      (ro_tail_demote b ok fs bs pn x (ro_tail_demote a ok fs bs pn x acc)))
+    ((ELet o n v body) (ro_tail_demote body (set_del n ok) fs bs pn x acc))
+    ((EMatch o s arms)
+      (ro_arms_demote arms ok (any_eq (var_name s) ok) fs bs pn x acc))
+    ((ECall o n args)
+      (if (any_eq n bs)
+          acc
+          (let g (fn_sym n pn)
+            (ro_args_demote g args (read_only_of g (rx_pads x)) ok 0 acc))))))
+
+; A match on a read-only parameter binds each pointer field its arm only
+; reads as read-only too (emit_field_loads), so a tail call may pass those.
+(def ro_arms_demote ((arms (list Arm)) (ok (list (list int))) (subj_ok bool)
+                     (fs (list RoFn)) (bs (list (list int)))
+                     (pn (list (list int))) (x RoCx) (acc (list Demote)))
+    (list Demote)
+  (if (is_empty arms)
+      acc
+      (match (head arms)
+        ((A o cn names body)
+          (ro_arms_demote (tail arms) ok subj_ok fs bs pn x
+            (ro_tail_demote body
+              (if subj_ok
+                  (set_union (ro_read_fields names (arm_fields cn (rx_cs x)) body x)
+                             (set_del_all names ok))
+                  (set_del_all names ok))
+              fs bs pn x acc))))))
+
+; The pointer fields of an arm, not hidden by a later one of the same name,
+; that its body only reads.
+(def ro_read_fields ((names (list (list int))) (ts (list Ty)) (body Expr) (x RoCx))
+    (list (list int))
+  (if (if (is_empty names) true (is_empty ts))
+      (nil (list int))
+      (if (if (ty_is_ptr (head ts))
+              (if (any_eq (head names) (tail names))
+                  false
+                  (ro_ok (head names) (head ts) body x))
+              false)
+          (cons (head names) (ro_read_fields (tail names) (tail ts) body x))
+          (ro_read_fields (tail names) (tail ts) body x))))
+
+; This also clears flags of int and bool positions, which is harmless: such
+; a flag is only ever asked about a pointer variable passed there, which
+; types rule out, and a value of those types has nothing to release.
+(def ro_args_demote ((g (list int)) (args (list Expr)) (flags (list bool))
+                     (ok (list (list int))) (j int) (acc (list Demote)))
+    (list Demote)
+  (if (is_empty args)
+      acc
+      (ro_args_demote g (tail args) (flag_tail flags) ok (add j 1)
+        (if (if (flag_head flags) (not (any_eq (var_name (head args)) ok)) false)
+            (cons (Dm g j) acc)
+            acc))))
+
+(def ro_apply ((fs (list RoFn)) (ds (list Demote))) (list RoFn)
+  (if (is_empty fs)
+      fs
+      (match (head fs)
+        ((Rf s ps flags body pn)
+          (cons (Rf s ps (ro_clear s flags ds) body pn) (ro_apply (tail fs) ds))))))
+
+(def ro_clear ((s (list int)) (flags (list bool)) (ds (list Demote))) (list bool)
+  (if (is_empty ds)
+      flags
+      (match (head ds)
+        ((Dm g j)
+          (ro_clear s (if (list_eq g s) (set_bool flags j false) flags) (tail ds))))))
+
+(def set_bool ((xs (list bool)) (i int) (v bool)) (list bool)
+  (if (is_empty xs)
+      xs
+      (if (le i 0)
+          (cons v (tail xs))
+          (cons (head xs) (set_bool (tail xs) (sub i 1) v)))))
 
 ; ops followed by as many "0" as bring them to k.
 (def pad_ops ((ops (list (list int))) (k int)) (list (list int))
@@ -936,24 +1386,26 @@
       (append "i64 %a" (append (digits i)
         (if (ge (add i 1) k) "" (append ", " (fmt_params (add i 1) k)))))))
 
-(def param_binds ((ps (list Param)) (i int) (acc (list EBind))) (list EBind)
+; ro is the read-only flag of each parameter, in order.
+(def param_binds ((ps (list Param)) (ro (list bool)) (i int)
+                  (acc (list EBind))) (list EBind)
   (if (is_empty ps)
       acc
       (match (head ps)
         ((P n t)
-          (param_binds (tail ps) (add i 1)
-            (cons (EB n (append "%a" (digits i)) t) acc))))))
+          (param_binds (tail ps) (flag_tail ro) (add i 1)
+            (cons (EB n (append "%a" (digits i)) t (flag_head ro)) acc))))))
 
 ; What emitting one group's declarations needs: the tables its calls resolve
 ; against, the names among them that land in the prelude, which group it is,
 ; and how many parameters every function takes.
 (data Scope
-  (Sc Ctx (list (list int)) bool (list Pad)))
+  (Sc Ctx (list (list int)) bool PadMap))
 
 (def sc_ctx ((s Scope)) Ctx (match s ((Sc c p i k) c)))
 (def sc_prelude_names ((s Scope)) (list (list int)) (match s ((Sc c p i k) p)))
 (def sc_is_prelude ((s Scope)) bool (match s ((Sc c p i k) i)))
-(def sc_pads ((s Scope)) (list Pad) (match s ((Sc c p i k) k)))
+(def sc_pads ((s Scope)) PadMap (match s ((Sc c p i k) k)))
 
 ; A program is a closed module, and the runtime reaches into it by name for
 ; exactly one function, so everything else gets internal linkage and LLVM can
@@ -974,8 +1426,9 @@
                      (emit_entry n ps k sc st))
             (let st2 (emit_line "  call void @l0_stack_check()"
                        (emit_line "entry:" st1))
-              (let env (Ev (param_binds ps 0 (nil EBind)) (sc_ctx sc)
-                           (sc_prelude_names sc) (sc_pads sc))
+              (let env (Ev (param_binds ps (read_only_of sym (sc_pads sc)) 0
+                                        (nil EBind))
+                           (sc_ctx sc) (sc_prelude_names sc) (sc_pads sc))
                 (emit_line ""
                   (emit_line "}"
                     (val_st (emit_expr body env (nil (list int)) true

@@ -1,7 +1,7 @@
-# 0030: Borrow a parameter the function only reads
+# 0030: Read-only parameters
 
 Kind: language
-Status: queued
+Status: done, changelog "Read-only parameters"; Linux not yet run
 Needs: 0029
 
 ## Why
@@ -29,3 +29,15 @@ is.
 ## Log
 
 - 2026-09-28: opened from 0028, by the user's choice.
+- 2026-09-29: renamed from "borrow a parameter the function only reads", so
+  nobody reads Rust's borrowing into it. Done. A whole-program fixpoint over
+  the flags, a match on a read-only parameter binding its read-only fields
+  without references, and the pad table made a hash-keyed tree. Measured:
+  the helper 0.26 s to 0.10 s, sudoku 0.29 s to 0.15 s with identical
+  output and no copies, the compiler unchanged at 106 ms. Two mutations
+  checked: without tail-call demotion the bootstrap fails at once (LLVM
+  rejects a release after a musttail call); with a match counted as a read
+  whatever its fields, `tests/io/array_state` fails with 400,000 copies,
+  which is the flaw the first version had. `tests/lang/read_only` covers the
+  shapes. Both suites green on macOS; Docker was down, so the Linux runs
+  are owed. Next is 0025.

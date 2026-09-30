@@ -359,6 +359,11 @@ fine. What copies, silently, with correct results:
 To check a loop, run the program with `L0_ARRAY_STATS=1`: it reports on
 standard error how many updates copied.
 
+Factor reads into small functions freely: a function that only reads its
+list, data, or array parameters, and returns nothing taken out of them,
+costs no reference counting to call, so there is no reason to inline such
+a helper by hand.
+
 Reading input of unknown length into an array means doubling it as it
 fills, which briefly holds two copies: about as much memory as a list, 25
 bytes per input byte. If you know the length, make the array that size.

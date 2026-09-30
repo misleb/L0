@@ -1,0 +1,71 @@
+; Shapes that read-only parameters (spec 10.3) must count correctly. Stage 0
+; gives the answers; the compiled suite runs this under L0_RC_CHECK, so a
+; reference released twice or never fails it even when every answer is right.
+
+(data Pair
+  (Pair (list int) (list int)))
+
+; Only reads xs: read-only.
+(def first_or ((xs (list int)) (d int)) int
+  (if (is_empty xs) d (head xs)))
+
+; Reads through a match, using a field.
+(def left_len ((p Pair)) int
+  (match p ((Pair a b) (count a 0))))
+
+; Threads a read-only list through tail calls, reading it each time.
+(def sum_first ((xs (list int)) (n int) (acc int)) int
+  (if (eq n 0) acc (sum_first xs (sub n 1) (add acc (first_or xs 0)))))
+
+; Walks a list by tail calls on (tail xs), an owned value, so xs cannot be
+; read-only.
+(def count ((xs (list int)) (n int)) int
+  (if (is_empty xs) n (count (tail xs) (add n 1))))
+
+; Returns its parameter, so consumes it.
+(def same ((xs (list int))) (list int)
+  xs)
+
+; Conses its parameter onto nothing: consumes it.
+(def wrap ((xs (list int))) (list (list int))
+  (cons xs (nil (list int))))
+
+; A let of the same name hides the parameter; the parameter itself is only
+; read.
+(def shadow ((xs (list int))) int
+  (let xs (cons 7 xs) (first_or xs 0)))
+
+; Never uses its list at all.
+(def ignore ((xs (list int)) (n int)) int
+  (add n 1))
+
+; Read-only positions passed along mutually recursive tail calls.
+(def ping ((xs (list int)) (n int)) int
+  (if (le n 0) (first_or xs -1) (pong xs (sub n 1))))
+
+(def pong ((xs (list int)) (n int)) int
+  (ping xs n))
+
+; A tail call giving a read-only-looking position an owned value, a fresh
+; list, which takes the flag away from f's parameter.
+(def via_tail ((n int)) int
+  (f_tail (cons n (nil int))))
+
+(def f_tail ((ys (list int))) int
+  (first_or ys 0))
+
+(def main ((input (list int))) (list int)
+  (let s "abc"
+    (yn (eq (first_or s 0) 97)
+    (yn (eq (first_or (cons 5 (nil int)) 0) 5)
+    (yn (eq (left_len (Pair s "zz")) 3)
+    (yn (eq (sum_first s 4 0) 388)
+    (yn (eq (count s 0) 3)
+    (yn (list_eq (same s) s)
+    (yn (eq (count (head (wrap s)) 0) 3)
+    (yn (eq (shadow s) 7)
+    (yn (eq (ignore (cons 1 s) 4) 5)
+    (yn (eq (ping s 5) 97)
+    (yn (eq (via_tail 9) 9)
+    (yn (eq (first_or s 0) 97)
+    "\n"))))))))))))))

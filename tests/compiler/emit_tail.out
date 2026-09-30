@@ -80,11 +80,9 @@ entry:
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
 A0_0:
   %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
-  call void @l0_dec(i64 %a0)
   %t3 = musttail call i64 @l0_f_lone(i64 %t2)
   ret i64 %t3
 A0_1:
-  call void @l0_dec(i64 %a0)
   ret i64 0
 Ln0:
   unreachable
@@ -112,6 +110,7 @@ entry:
   %t2 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
   call void @l0_data_set(i64 %t2, i64 0, i64 2)
   %t3 = call i64 @l0_f_open(i64 %t2)
+  call void @l0_dec(i64 %t2)
   %t4 = add i64 %t1, %t3
   %t5 = add i64 %t0, %t4
   ret i64 %t5

@@ -14,10 +14,8 @@ nested update, and research into holding bytes one byte per byte.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0030](0030-borrow-read-only-parameters.md) borrow a parameter the
-   function only reads — queued, next
-2. [0025](0025-nested-array-update.md) updating an array held inside another
-   without copying it — queued, needs 0030
+1. [0025](0025-nested-array-update.md) updating an array held inside another
+   without copying it — queued, next
 
 ## Other open items
 
@@ -80,6 +78,8 @@ Changes to the language, strictly in order. At most one is active.
 - [0023](0023-release-at-last-use.md) release a value at its last use — done,
   changelog "A value is released at its last use"
 - [0024](0024-arrays.md) arrays — done, changelog "Arrays"
+- [0030](0030-borrow-read-only-parameters.md) read-only parameters — done,
+  changelog "Read-only parameters"; Linux runs owed
 - [0029](0029-array-docs.md) say what arrays really cost — done, changelog
   "What updates an array in place, said correctly, and no language change
   for it"
