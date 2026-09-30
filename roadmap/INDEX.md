@@ -16,11 +16,14 @@ the library and the text programs.
 
 Changes to the language, strictly in order. At most one is active.
 
-(empty)
+1. [0036](0036-parametric-data.md) data types take type parameters — queued
+2. [0037](0037-library-type-names.md) a program's types do not collide with
+   the library's — queued, needs 0036
 
 ## Other open items
 
-(none)
+- [0038](0038-parametric-functions.md) functions take type parameters —
+  proposed, needs 0036
 
 ## Done and dropped
 
@@ -103,3 +106,6 @@ Changes to the language, strictly in order. At most one is active.
   bytes, and the text programs use it — done, changelog "The library reads a
   whole input into bytes, and no language change for it"; Linux runs owed
 - [0034](0034-clock.md) a clock — done, changelog "A clock"; Linux runs owed
+- [0035](0035-type-parameters.md) research: how L0 gets type parameters —
+  done; parametric data (0036), then library type names (0037), then
+  parametric functions (0038)
