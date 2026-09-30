@@ -1,0 +1,120 @@
+; Data types with type parameters (spec 4, 5.5, 5.6). Stage 0 predates them,
+; so this runs in the compiled suite only, with reference counting checked:
+; a field whose declared type is a parameter must be counted exactly when
+; the value's type makes it a pointer (spec 10.1).
+
+(data (Option T)
+  (None)
+  (Some T))
+
+(data (Result T E)
+  (Ok T)
+  (Err E))
+
+(data (Pair A B)
+  (Pair A B))
+
+(data (Tree T)
+  (Leaf)
+  (Node (Tree T) T (Tree T)))
+
+; A parameter hides a data type of the same name within its declaration.
+(data Token
+  (Tok int))
+
+(data (Box Token)
+  (Box Token))
+
+(def lookup ((k int) (kvs (list (Pair int (list int))))) (Option (list int))
+  (if (is_empty kvs)
+      ((None (list int)))
+      (match (head kvs)
+        ((Pair key v) (if (eq key k) (Some v) (lookup k (tail kvs)))))))
+
+(def parse_digit ((c int)) (Result int (list int))
+  (if (and (ge c 48) (le c 57))
+      ((Ok int (list int)) (sub c 48))
+      ((Err int (list int)) "not a digit")))
+
+(def insert ((x int) (t (Tree int))) (Tree int)
+  (match t
+    ((Leaf) (Node ((Leaf int)) x ((Leaf int))))
+    ((Node l v r)
+      (if (lt x v)
+          (Node (insert x l) v r)
+          (Node l v (insert x r))))))
+
+(def to_list ((t (Tree int)) (acc (list int))) (list int)
+  (match t
+    ((Leaf) acc)
+    ((Node l v r) (to_list l (cons v (to_list r acc))))))
+
+(def build ((n int) (acc (Tree int))) (Tree int)
+  (if (eq n 0) acc (build (sub n 1) (insert (mod (mul n 7919) 101) acc))))
+
+; The pointer field and the int field of one constructor, read in a loop.
+(def sum_firsts ((ps (list (Pair (list int) int))) (acc int)) int
+  (if (is_empty ps)
+      acc
+      (match (head ps)
+        ((Pair xs n) (sum_firsts (tail ps) (add acc (add n (length xs))))))))
+
+; The int field is never counted, though Pair declares it as A.
+(def weight ((o (Pair int (list int)))) int
+  (match o ((Pair a b) (add a (length b)))))
+
+; head of rows yields a pointer, so o is not read-only here: judging it by
+; Option's declared field T rather than (list (list int)) would hand back a
+; row its caller then frees.
+(def first_row ((o (Option (list (list int))))) (list int)
+  (match o
+    ((None) (nil int))
+    ((Some rows) (head rows))))
+
+(def show_opt ((o (Option (list int)))) (list int)
+  (match o
+    ((None) "none")
+    ((Some s) s)))
+
+(def show_res ((r (Result int (list int)))) (list int)
+  (match r
+    ((Ok n) (digits n))
+    ((Err m) m)))
+
+(def show_nested ((o (Option (Option (Pair bool (list int)))))) (list int)
+  (match o
+    ((None) "no")
+    ((Some inner)
+      (match inner
+        ((None) "no")
+        ((Some p) (match p ((Pair b s) (if b s "no"))))))))
+
+(def unbox ((b (Box int))) int
+  (match b ((Box n) n)))
+
+(def row_after ((o (Option (list (list int))))) (list int)
+  (let row (first_row o)
+    (let n (length (show_opt (Some "dropped")))
+      (append row (digits n)))))
+
+(def main ((input (list int))) (list int)
+  (let kvs (cons (Pair 1 "one") (cons (Pair 2 "two") (nil (Pair int (list int)))))
+    (let ps (cons (Pair "abc" 10) (cons (Pair "de" 20) (nil (Pair (list int) int))))
+      (let rows (Some (cons "row" (cons "other" (nil (list int)))))
+        (lines
+          (cons (show_opt (lookup 2 kvs))
+          (cons (show_opt (lookup 3 kvs))
+          (cons (show_res (parse_digit 55))
+          (cons (show_res (parse_digit 65))
+          (cons (digits (sum_firsts ps 0))
+          (cons (digits (weight (Pair 4 "abc")))
+          (cons (digits (length (to_list (build 50 ((Leaf int))) (nil int))))
+          (cons (show_nested (Some (Some (Pair true "nested"))))
+          (cons (row_after rows)
+          (cons (digits (unbox (Box 9)))
+                (nil (list int)))))))))))))))))
+
+(def lines ((ls (list (list int)))) (list int)
+  (if (is_empty ls)
+      (nil int)
+      (append (head ls) (cons 10 (lines (tail ls))))))

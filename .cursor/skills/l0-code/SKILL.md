@@ -126,6 +126,13 @@ goes for the file and argument builtins of spec sections 6.3 and 6.4. When
 `lib/prelude.l0` are checked as the prelude group, since only the prelude may
 declare the `Io` names spec section 7.1 reserves.
 
+**Parametric `data` types have the same limit.** `(data (Option T) ...)`,
+`(Option int)`, and `((None int))` are L0 (spec 4 and 5.6), but stage 0
+predates them, so the compiler's sources and `lib/prelude.l0` must not use
+them, and tests of them go in `tests/io/` or, for the checker's verdicts, in
+a `tests/compiler/` stage test such as `check_params`, which gives the
+source to the checker as data.
+
 ## The one performance rule
 
 **Build output as a reversed accumulator and reverse once at the end.**

@@ -7,6 +7,81 @@ New entries go at the top.
 
 ---
 
+## Data types take type parameters
+
+**A `data` declaration may take type parameters** (sections 3, 4, 5.5, 5.6):
+`(data (Option T) (None) (Some T))` declares `Option`, and `(Option int)`
+and `(Option (list int))` are types. A `match` binds each field at its
+declared type with the subject's arguments in place of the parameters. A
+construction finds its type from its arguments, `(Some 5)` being an
+`(Option int)`; one whose fields do not mention every parameter, such as
+`None`, is written with the type's arguments: `((None int))`. Functions do
+not take type parameters, so every expression still has a complete type.
+
+**The blocker.** A program needing "a value or an error", "a value or
+nothing", or "two values" declared a new type for each type it held.
+Roadmap item 0035 counted them: the compiler has ten result types of one
+shape (`PTy` to `PDecl` in `parse.l0`, `CTy` and `CTys`) and four option
+types (`FindSig` to `FindData`); 0014's json has `PJ` and `PS` and a
+function that only moves an error from one to the other; kvstore has five
+result types; 0028's mst has `UF` and `Found`; dijkstra interleaves its
+heap in one `(array int)` "since there is no pair type to make an array of".
+What could not be written was `(data (Option T) ...)`, which the checker
+rejected with `a data declaration needs an uppercase type name`.
+
+**Why data first, and functions not yet.** 0035 found that the only thing
+compiled code needs to know about a type is whether its values are counted:
+every value is an `i64`, freeing walks the mask in each block's header, and
+the compiler's every counting decision goes through one predicate on the
+static type. With functions kept monomorphic, every expression in every
+function has a complete type, so each construction knows its field types and
+each `match` knows its bindings' types, and nothing is compiled twice or
+decided at run time. The runtime is unchanged. Parametric functions remove
+more lines (0035: most of what is duplicated is helpers, not declarations),
+but need a rule for compiling one function at several representations, and
+are roadmap item 0038, to be earned by programs that use this first.
+
+**Why a construction's type comes from its arguments.** It is the rule
+`cons` already follows, taking its type from the list it is given, so
+"every expression's type is determined by itself and its parts" (5.4)
+still holds, and no inference or unification is needed: an argument's type
+is complete, and is matched one way against the field's declared type. A
+constructor whose fields leave a parameter out has nothing to take it from,
+which is the case `nil` has, and is solved the way `nil` solves it, by
+writing the type.
+
+**Why `((None int))`.** The type has to be written somewhere the parser can
+tell from an argument. `(None int)` cannot be: `(None (Pair int bool))`
+would read as constructing a `Pair`, and `bytes` is a type and a variable
+name both. `((` begins no expression today, so `((Ok int (list int)) 5)` is
+unambiguous without knowing which names are types, and every argument after
+the head is an ordinary expression. A new reserved word such as `the` would
+have taken a name from programs, which section 7 does not do. The form is
+allowed for any constructor of a parametric type, so a program can write the
+type where it helps a reader, and refused for one without parameters, where
+it could only be noise.
+
+**Why a parameter hides a data type of the same name.** A reader can tell
+what a field type means from the declaration alone. Forbidding the clash
+instead would let a type declared elsewhere, perhaps later in the library,
+break a declaration that never mentions it.
+
+**What is given up.** Of the properties the l0-bootstrap skill lists,
+"`list` and `array` are the only parametric type constructors" no longer
+holds. "No type inference" and "no unification anywhere" do, and so do
+one-level patterns and exhaustive `match`: an arm names a constructor, and a
+constructor still belongs to exactly one type.
+
+**Where it can be used.** Stage 0 is frozen and does not know the syntax,
+so programs using it run in the compiled suite only (`tests/io`). The
+compiler and `lib/prelude.l0` do not use it, since the interpreted suite
+runs both under stage 0; adopting it there is a separate decision. The
+library can use it in `lib/io.l0` and `lib/test.l0`, but not yet with names
+programs already use, such as `Ok` or `Some`: type and constructor names are
+not grouped (7.1), which is roadmap item 0037.
+
+---
+
 ## Runtime error messages are specified, and stale references fixed
 
 **Section 8 now gives each runtime error its message,** and the line it is

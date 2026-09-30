@@ -1,0 +1,34 @@
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+159: None does not determine parameter T of Option, so it is written with the type's arguments: ((None T) ...)
+159: Ok does not determine parameter E of Result, so it is written with the type's arguments: ((Ok T E) ...)
+178: Phantom does not determine parameter T of Phantom, so it is written with the type's arguments: ((Phantom T) ...)
+159: argument 1 of Some must be bool, but this is int
+209: argument 2 of Twin must be int, but this is bool
+214: argument 1 of Wrap must be (list T), but this is int
+182: all match arms must have the same type, but one is int and another is (list int)
+208: argument 1 of f must be (Option int), but this is (Option bool)
+152: type Color takes 0 type arguments, but got 1
+159: type Option takes 1 type argument, but got 2
+159: unknown type Nope
+117: type Option takes 1 type argument, but got 0
+117: type Color takes 0 type arguments, but got 1
+117: unknown type T
+parse error at offset 138: (Option ...) needs at least one type argument; a type without parameters is written Option
+166: type Option takes 1 type argument, but got 0
+117: type parameter T takes no type arguments
+117: type parameter T is declared twice
+117: unknown type U
+parse error at offset 123: (Empty) needs at least one type parameter; a type without parameters is declared (data Empty ...)
+parse error at offset 128: a type parameter is an uppercase name
+parse error at offset 153: ((Some) ...) needs at least one type argument
+parse error at offset 154: a constructor written with its type is ((Constructor type...) arguments...)

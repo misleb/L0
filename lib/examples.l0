@@ -141,6 +141,31 @@
     ((Ok v rest) v)
     ((Bad msg) 0)))
 
+; ---------------------------------------------------------- type parameters
+
+; A data type may take type parameters, so one declaration serves every type
+; it holds: (Maybe int) and (Maybe (list int)) are both types. Functions do
+; not take them; each is written at the types it uses.
+(data (Maybe T)
+  (Nothing)
+  (Just T))
+
+; (Just x) takes its type from x, as cons takes its type from the list. A
+; constructor whose fields do not mention T is written with the type, as
+; nil is: ((Nothing int)).
+(def first_even ((xs (list int))) (Maybe int)
+  (if (is_empty xs)
+      ((Nothing int))
+      (if (eq (mod (head xs) 2) 0)
+          (Just (head xs))
+          (first_even (tail xs)))))
+
+; In a match, each field has the subject's type in place of T.
+(def first_even_or ((xs (list int)) (fallback int)) int
+  (match (first_even xs)
+    ((Nothing) fallback)
+    ((Just n) n)))
+
 ; ------------------------------------------------ reading and writing as you go
 
 ; read_line and write_str are in the standard library (l0 doc io), built on the

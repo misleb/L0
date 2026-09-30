@@ -1,0 +1,67 @@
+; Data types with type parameters: spec 3, 4, 5.5, and 5.6. One line of
+; diagnostics per snippet, "ok" for one that checks. The valid snippets are
+; here too, because a field's type after substitution is only visible
+; through what the checker accepts and rejects.
+
+; Declarations every snippet can use.
+(def decls ((i int)) (list int)
+  (append "(data (Option T) (None) (Some T)) "
+    (append "(data (Result T E) (Ok T) (Err E)) "
+      (append "(data (Pair A B) (Pair A B)) "
+        "(data Color (Red)) "))))
+
+; An expression as the body of main, which returns int.
+(def m ((body (list int))) (list int)
+  (append (decls 0)
+    (append "(def main ((input (list int))) int " (append body ")"))))
+
+; Declarations, with a trivial main.
+(def d ((ds (list int))) (list int)
+  (append (decls 0) (append ds " (def main ((input (list int))) int 0)")))
+
+(def cases ((i int)) (list (list int))
+  (cons (m "(match (Some 5) ((None) 0) ((Some n) n))")
+  (cons (m "(match ((None int)) ((None) 0) ((Some n) n))")
+  (cons (m "(match ((Ok int bool) 1) ((Ok n) n) ((Err b) 0))")
+  (cons (m "(match ((Err int bool) true) ((Ok n) n) ((Err b) (if b 1 0)))")
+  (cons (m "(match (Pair 1 (nil bool)) ((Pair a b) (if (is_empty b) a 0)))")
+  (cons (m "(match (Some \"ab\") ((None) 0) ((Some s) (head s)))")
+  (cons (m "(match (Some (Some 3)) ((None) 0) ((Some o) (match o ((None) 0) ((Some n) n))))")
+  (cons (m "(if (is_empty (nil (Option (list int)))) 1 0)")
+  (cons (d "(data (Tree T) (Leaf) (Node (Tree T) T (Tree T)))")
+  (cons (append (d "(data (Box Color) (Box Color))")
+          "(def f ((b (Box int))) int (match b ((Box n) n)))")
+  (cons (d "(data (Phantom T) (Phantom int))")
+  ; the type is not determined by the arguments
+  (cons (m "(match (None) ((None) 0) ((Some n) n))")
+  (cons (m "(match (Ok 1) ((Ok n) n) ((Err e) 0))")
+  (cons (d "(data (Phantom T) (Phantom int)) (def f ((i int)) int (match (Phantom i) ((Phantom n) n)))")
+  ; arguments against fields
+  (cons (m "(match ((Some bool) 1) ((None) 0) ((Some n) 0))")
+  (cons (append (d "(data (Twin T) (Twin T T))")
+          "(def f ((i int)) int (match (Twin i true) ((Twin a b) a)))")
+  (cons (append (d "(data (Wrap T) (Wrap (list T)))")
+          "(def f ((i int)) int (match (Wrap i) ((Wrap xs) 0)))")
+  (cons (m "(match (Some \"ab\") ((None) 0) ((Some s) s))")
+  (cons (append (d "(def f ((o (Option int))) int 0)") "(def g ((i int)) int (f (Some true)))")
+  ; type arguments
+  (cons (m "((Red int))")
+  (cons (m "(match ((Some int bool) 1) ((None) 0) ((Some n) n))")
+  (cons (m "(match ((None Nope)) ((None) 0) ((Some n) 0))")
+  (cons (d "(def f ((x Option)) int 0)")
+  (cons (d "(def f ((x (Color int))) int 0)")
+  (cons (d "(def f ((x (Option T))) int 0)")
+  (cons (d "(def f ((x (Pair int (Option)))) int 0)")
+  (cons (m "(if (is_empty (nil Option)) 1 0)")
+  ; declarations
+  (cons (d "(data (Bad T) (Bad (T int)))")
+  (cons (d "(data (Dup T T) (Dup T))")
+  (cons (d "(data (Holey T) (Holey U))")
+  (cons (d "(data (Empty) (Empty))")
+  (cons (d "(data (Low t) (Low t))")
+  (cons (m "((Some) 1)")
+  (cons (m "((some int) 1)")
+        (nil (list int)))))))))))))))))))))))))))))))))))))
+
+(def main ((input (list int))) (list int)
+  (check_lines (cases 0) (nil int)))

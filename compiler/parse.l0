@@ -1,20 +1,20 @@
 ; parse.l0 -- tokens to an abstract syntax tree.
 ;
-; Covers the slice-1 subset: everything in L0 v1 except data declarations and
-; match. Parsing stops at the first error, which is reported with the byte
-; offset of the token that caused it.
+; Parsing stops at the first error in a declaration, which is reported with
+; the byte offset of the token that caused it.
 ;
-; Note the family of near-identical result types below. L0's data types are
-; monomorphic and list is its only parametric type constructor, so a "either a
-; value or an error" type cannot be written once and reused. This is the
-; concrete case for parametric data types; adopting them here follows the
-; two-step rule in the l0-bootstrap skill.
+; Note the family of near-identical result types below. One parametric
+; Result type would do for all of them (spec 4), but the compiler cannot use
+; parametric data types while the interpreted suite runs its source under
+; stage 0, which predates them.
 
+; Within a data declaration that takes parameters, a parameter is a TyData
+; with its name and no arguments, and substitution (check.l0) replaces it.
 (data Ty
   (TyInt)
   (TyBool)
   (TyList Ty)
-  (TyData (list int))                   ; declared type name
+  (TyData (list int) (list Ty))         ; declared type name, arguments
   (TyArray Ty)
   (TyBytes))
 
@@ -26,7 +26,8 @@
   (EIf int Expr Expr Expr)              ; offset, condition, then, else
   (ELet int (list int) Expr Expr)       ; offset, name, value, body
   (ENil int Ty)                         ; offset, element type
-  (ECtor int (list int) (list Expr))    ; offset, constructor, arguments
+  (ECtor int (list int) (list Ty) (list Expr))  ; offset, constructor, type
+                                                ; arguments if written, arguments
   (EMatch int Expr (list Arm))          ; offset, subject, arms
   (ECall int (list int) (list Expr)))   ; offset, callee name, arguments
 
@@ -44,7 +45,8 @@
 
 (data Decl
   (DDef int (list int) (list Param) Ty Expr)
-  (DData int (list int) (list Ctor)))   ; offset, type name, constructors
+  (DData int (list int) (list (list int)) (list Ctor)))   ; offset, type name,
+                                                          ; parameters, constructors
 
 ; ----------------------------------------------------------------- on types
 
@@ -53,7 +55,7 @@
     ((TyInt) 0)
     ((TyBool) 1)
     ((TyList e) 2)
-    ((TyData n) 3)
+    ((TyData n as) 3)
     ((TyArray e) 4)
     ((TyBytes) 5)))
 
@@ -70,17 +72,27 @@
     ((TyArray e) e)
     ((TyInt) (TyInt))
     ((TyBool) (TyBool))
-    ((TyData n) (TyInt))
+    ((TyData n as) (TyInt))
     ((TyBytes) (TyInt))))
 
 (def ty_name ((t Ty)) (list int)
   (match t
-    ((TyData n) n)
+    ((TyData n as) n)
     ((TyInt) "")
     ((TyBool) "")
     ((TyList e) "")
     ((TyArray e) "")
     ((TyBytes) "")))
+
+; A data type's arguments, and none for any other type.
+(def ty_args ((t Ty)) (list Ty)
+  (match t
+    ((TyData n as) as)
+    ((TyInt) (nil Ty))
+    ((TyBool) (nil Ty))
+    ((TyList e) (nil Ty))
+    ((TyArray e) (nil Ty))
+    ((TyBytes) (nil Ty))))
 
 (def ty_eq ((a Ty) (b Ty)) bool
   (if (not (eq (ty_kind a) (ty_kind b)))
@@ -88,8 +100,17 @@
       (if (or (ty_is_list a) (ty_is_array a))
           (ty_eq (ty_elem a) (ty_elem b))
           (if (ty_is_data a)
-              (list_eq (ty_name a) (ty_name b))
+              (if (list_eq (ty_name a) (ty_name b))
+                  (tys_eq (ty_args a) (ty_args b))
+                  false)
               true))))
+
+(def tys_eq ((as (list Ty)) (bs (list Ty))) bool
+  (if (is_empty as)
+      (is_empty bs)
+      (if (is_empty bs)
+          false
+          (if (ty_eq (head as) (head bs)) (tys_eq (tail as) (tail bs)) false))))
 
 ; Renders a type as spec-legal source text, for diagnostics.
 (def ty_str ((t Ty)) (list int)
@@ -98,12 +119,23 @@
     ((TyBool) "bool")
     ((TyList e) (append "(list " (append (ty_str e) ")")))
     ((TyArray e) (append "(array " (append (ty_str e) ")")))
-    ((TyData n) n)
+    ((TyData n as)
+      (if (is_empty as) n (append "(" (append n (append (tys_str as) ")")))))
     ((TyBytes) "bytes")))
+
+; " t1 t2 ...", each type preceded by a space.
+(def tys_str ((ts (list Ty))) (list int)
+  (if (is_empty ts)
+      ""
+      (append " " (append (ty_str (head ts)) (tys_str (tail ts))))))
 
 (data PTy
   (PTOk Ty (list Token))
   (PTErr int (list int)))
+
+(data PTys
+  (PTsOk (list Ty) (list Token))
+  (PTsErr int (list int)))
 
 (data PExpr
   (PEOk Expr (list Token))
@@ -221,7 +253,7 @@
       (PTErr (tok_offset t)
         (append n (append " needs an element type, as in (" (append n " int)"))))
       (if (name_is_upper n)
-          (PTOk (TyData n) rest)
+          (PTOk (TyData n (nil Ty)) rest)
           (PTErr (tok_offset t)
             (append "unknown type " (append n
               ": a type is int, bool, bytes, (list T), (array T), or a data type, whose name starts uppercase"))))))
@@ -230,15 +262,40 @@
   (if (is_empty ts)
       (PTErr open "unclosed ( in a type")
       (let t (head ts)
-        (if (not (and (tok_is_name t)
-                      (or (list_eq (tok_bytes t) "list")
-                          (list_eq (tok_bytes t) "array"))))
-            (PTErr (tok_offset t) "expected list or array after ( in a type")
-            (match (parse_type (tail ts))
-              ((PTErr o m) (PTErr o m))
-              ((PTOk elem rest)
-                (close_list_type (list_eq (tok_bytes t) "array") elem rest
-                                 open)))))))
+        (if (and (tok_is_name t) (name_is_upper (tok_bytes t)))
+            (parse_data_type (tok_bytes t) (tail ts) open)
+            (if (not (and (tok_is_name t)
+                          (or (list_eq (tok_bytes t) "list")
+                              (list_eq (tok_bytes t) "array"))))
+                (PTErr (tok_offset t)
+                  "expected list, array, or a data type name after ( in a type")
+                (match (parse_type (tail ts))
+                  ((PTErr o m) (PTErr o m))
+                  ((PTOk elem rest)
+                    (close_list_type (list_eq (tok_bytes t) "array") elem rest
+                                     open))))))))
+
+; (Name type...) -- a data type given its arguments. Whether it takes that
+; many is the checker's business.
+(def parse_data_type ((n (list int)) (ts (list Token)) (open int)) PTy
+  (match (parse_types ts (nil Ty) open)
+    ((PTsErr o m) (PTErr o m))
+    ((PTsOk as rest)
+      (if (is_empty as)
+          (PTErr open
+            (append "(" (append n (append " ...) needs at least one type argument; "
+              (append "a type without parameters is written " n)))))
+          (PTOk (TyData n as) rest)))))
+
+; Types up to and including the closing ).
+(def parse_types ((ts (list Token)) (acc (list Ty)) (open int)) PTys
+  (if (is_empty ts)
+      (PTsErr open "unclosed ( in a type")
+      (if (tok_is_rparen (head ts))
+          (PTsOk (rev_tys_list_onto acc (nil Ty)) (tail ts))
+          (match (parse_type ts)
+            ((PTErr o m) (PTsErr o m))
+            ((PTOk t rest) (parse_types rest (cons t acc) open))))))
 
 (def close_list_type ((arr bool) (elem Ty) (rest (list Token)) (open int)) PTy
   (if (is_empty rest)
@@ -289,10 +346,33 @@
       (let t (head ts)
         (if (tok_is_err t)
             (PEErr (tok_offset t) (tok_bytes t))
-            (if (not (tok_is_name t))
-                (PEErr (tok_offset t)
-                  "expected a function or special form name after (")
-                (dispatch_form (tok_bytes t) (tail ts) open (tok_offset t)))))))
+            (if (tok_is_lparen t)
+                (parse_typed_ctor (tail ts) open (tok_offset t))
+                (if (not (tok_is_name t))
+                    (PEErr (tok_offset t)
+                      "expected a function or special form name after (")
+                    (dispatch_form (tok_bytes t) (tail ts) open (tok_offset t))))))))
+
+; ((Ctor type...) arg...) -- the ( of the head is already consumed, and
+; hopen is its offset. Spec 5.6.
+(def parse_typed_ctor ((ts (list Token)) (open int) (hopen int)) PExpr
+  (if (is_empty ts)
+      (PEErr hopen "unclosed (")
+      (let t (head ts)
+        (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
+            (PEErr (tok_offset t)
+              "a constructor written with its type is ((Constructor type...) arguments...)")
+            (match (parse_types (tail ts) (nil Ty) hopen)
+              ((PTsErr o m) (PEErr o m))
+              ((PTsOk tys rest)
+                (if (is_empty tys)
+                    (PEErr hopen
+                      (append "((" (append (tok_bytes t)
+                        ") ...) needs at least one type argument")))
+                    (match (parse_args rest (nil Expr))
+                      ((PAErr eo m) (PEErr eo m))
+                      ((PAOk args rest2)
+                        (PEOk (ECtor open (tok_bytes t) tys args) rest2))))))))))
 
 (def dispatch_form ((n (list int)) (ts (list Token)) (open int) (o int)) PExpr
   (if (list_eq n "if") (parse_if ts open)
@@ -311,7 +391,7 @@
 (def parse_ctor_call ((n (list int)) (ts (list Token)) (open int)) PExpr
   (match (parse_args ts (nil Expr))
     ((PAErr eo m) (PEErr eo m))
-    ((PAOk args rest) (PEOk (ECtor open n args) rest))))
+    ((PAOk args rest) (PEOk (ECtor open n (nil Ty) args) rest))))
 
 ; (match subject arm...) where each arm is ((Ctor name...) result).
 (def parse_match ((ts (list Token)) (open int)) PExpr
@@ -532,14 +612,50 @@
   (if (is_empty ts)
       (PDErr open "unclosed (")
       (let t (head ts)
+        (if (tok_is_lparen t)
+            (parse_data_header (tail ts) open (tok_offset t))
+            (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
+                (PDErr (tok_offset t) "a data declaration needs an uppercase type name")
+                (parse_data_body (tok_bytes t) (nil (list int)) (tail ts) open))))))
+
+; (data (Name Param...) ctor...) -- the ( of the header is already consumed,
+; and hopen is its offset.
+(def parse_data_header ((ts (list Token)) (open int) (hopen int)) PDecl
+  (if (is_empty ts)
+      (PDErr hopen "unclosed (")
+      (let t (head ts)
         (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
             (PDErr (tok_offset t) "a data declaration needs an uppercase type name")
-            (match (parse_ctors (tail ts) (nil Ctor) open)
-              ((PCsErr o m) (PDErr o m))
-              ((PCsOk cs rest)
-                (if (is_empty cs)
-                    (PDErr open "a data type needs at least one constructor")
-                    (PDOk (DData open (tok_bytes t) cs) rest))))))))
+            (match (parse_ty_params (tail ts) (nil (list int)) hopen)
+              ((PNsErr o m) (PDErr o m))
+              ((PNsOk ps rest)
+                (if (is_empty ps)
+                    (PDErr hopen
+                      (append "(" (append (tok_bytes t)
+                        (append ") needs at least one type parameter; "
+                          (append "a type without parameters is declared (data "
+                            (append (tok_bytes t) " ...)"))))))
+                    (parse_data_body (tok_bytes t) ps rest open))))))))
+
+(def parse_ty_params ((ts (list Token)) (acc (list (list int))) (open int))
+    PNames
+  (if (is_empty ts)
+      (PNsErr open "unclosed ( in a data declaration")
+      (let t (head ts)
+        (if (tok_is_rparen t)
+            (PNsOk (rev_strs_onto acc (nil (list int))) (tail ts))
+            (if (and (tok_is_name t) (name_is_upper (tok_bytes t)))
+                (parse_ty_params (tail ts) (cons (tok_bytes t) acc) open)
+                (PNsErr (tok_offset t) "a type parameter is an uppercase name"))))))
+
+(def parse_data_body ((n (list int)) (ps (list (list int))) (ts (list Token))
+                      (open int)) PDecl
+  (match (parse_ctors ts (nil Ctor) open)
+    ((PCsErr o m) (PDErr o m))
+    ((PCsOk cs rest)
+      (if (is_empty cs)
+          (PDErr open "a data type needs at least one constructor")
+          (PDOk (DData open n ps cs) rest)))))
 
 (def parse_ctors ((ts (list Token)) (acc (list Ctor)) (open int)) PCtors
   (if (is_empty ts)

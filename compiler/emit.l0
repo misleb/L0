@@ -218,7 +218,7 @@
     ((EVar o n) (set_add n acc))
     ((EIf o c a b) (fv_onto c (fv_onto a (fv_onto b acc))))
     ((ELet o n v body) (fv_onto v (set_union (set_del n (fv body)) acc)))
-    ((ECtor o n args) (fv_list args acc))
+    ((ECtor o n tys args) (fv_list args acc))
     ((EMatch o s arms) (fv_onto s (fv_arms arms acc)))
     ((ECall o n args) (fv_list args acc))))
 
@@ -277,7 +277,7 @@
     ((EVar o n) (finish tl (emit_use n env live st)))
     ((EIf o c a b) (emit_if c a b env live tl st))
     ((ELet o n v body) (emit_let n v body env live tl st))
-    ((ECtor o n args) (finish tl (emit_ctor n args env live st)))
+    ((ECtor o n tys args) (finish tl (emit_ctor n tys args env live st)))
     ((EMatch o subject arms) (emit_match subject arms env live tl st))
     ((ECall o n args) (emit_call n args env live tl st))))
 
@@ -394,7 +394,7 @@
     ((ENil o t) "")
     ((EIf o c a b) "")
     ((ELet o n v b) "")
-    ((ECtor o n a) "")
+    ((ECtor o n ts a) "")
     ((EMatch o s a) "")
     ((ECall o n a) "")))
 
@@ -542,7 +542,7 @@
             ((EVar o2 n2) (NotRowUpdate))
             ((EIf o2 c2 a2 b2) (NotRowUpdate))
             ((ELet o2 n2 v2 b2) (NotRowUpdate))
-            ((ECtor o2 n2 a2) (NotRowUpdate))
+            ((ECtor o2 n2 t2 a2) (NotRowUpdate))
             ((EMatch o2 s2 a2) (NotRowUpdate)))
           (NotRowUpdate)))
     ((EInt o v) (NotRowUpdate))
@@ -552,7 +552,7 @@
     ((EVar o n) (NotRowUpdate))
     ((EIf o c a b) (NotRowUpdate))
     ((ELet o n v b) (NotRowUpdate))
-    ((ECtor o n a) (NotRowUpdate))
+    ((ECtor o n ts a) (NotRowUpdate))
     ((EMatch o s a) (NotRowUpdate))))
 
 (def length_exprs ((es (list Expr))) int
@@ -577,7 +577,7 @@
         ((EVar o2 n2) false)
         ((EIf o2 c2 a2 b2) false)
         ((ELet o2 n2 v3 b3) false)
-        ((ECtor o2 n2 a2) false)
+        ((ECtor o2 n2 t2 a2) false)
         ((EMatch o2 s2 a2) false)
         ((ECall o2 n2 a2) false)))
     ((EBool o v) false)
@@ -586,7 +586,7 @@
     ((EVar o n) false)
     ((EIf o c x y) false)
     ((ELet o n v b) false)
-    ((ECtor o n x) false)
+    ((ECtor o n ts x) false)
     ((EMatch o s x) false)
     ((ECall o n x) false)))
 
@@ -604,7 +604,7 @@
                  ((EVar o n) "0")
                  ((EIf o c a b) "0")
                  ((ELet o n e b) "0")
-                 ((ECtor o n a) "0")
+                 ((ECtor o n ts a) "0")
                  ((EMatch o s a) "0")
                  ((ECall o n a) "0"))
                (lookup_operand (var_name y) (env_binds env)))
@@ -715,31 +715,37 @@
     ((DataFound dd) (data_max_fields dd))
     ((DataMissing) 0)))
 
-(def emit_ctor ((n (list int)) (args (list Expr)) (env Env)
+; tys are the type arguments, if the construction wrote them; otherwise the
+; arguments' types give them, as the checker found. Spec 5.6.
+(def emit_ctor ((n (list int)) (tys (list Ty)) (args (list Expr)) (env Env)
                 (live (list (list int))) (st Emit)) EmitVal
   (match (find_ctor n (ctx_ctors (env_ctx env)))
     ((CtorMissing) (Val "0" (TyInt) st))
     ((CtorFound ci)
       (match (emit_args args env live (nil bool) st)
-        ((Ops ops ts ws st1) (emit_ctor_block ci ops (env_ctx env) st1))))))
+        ((Ops ops ts ws st1)
+          (emit_ctor_block ci
+            (TyData (ctor_type_name ci) (ctor_type_args ci tys ts))
+            ops (env_ctx env) st1))))))
 
 ; A data block's layout mask has bit k set when word k is a pointer. Word 0
-; is the tag, so field i is word i + 1. Spec 10.1.
+; is the tag, so field i is word i + 1. A field whose declared type is a
+; parameter is a pointer or not as the value's type says. Spec 10.1.
 (def ctor_mask ((fts (list Ty)) (bit int) (acc int)) int
   (if (is_empty fts)
       acc
       (ctor_mask (tail fts) (mul bit 2)
         (if (ty_is_ptr (head fts)) (add acc bit) acc))))
 
-(def emit_ctor_block ((ci CtorInfo) (ops (list (list int))) (ctx Ctx)
+; dt is the type of the value being built.
+(def emit_ctor_block ((ci CtorInfo) (dt Ty) (ops (list (list int))) (ctx Ctx)
                       (st Emit)) EmitVal
   (match (emit_rt_call "l0_new_data"
            (cons (digits (ctor_tag ci))
              (two_ops (digits (ctor_block_width ci ctx))
-                      (digits (ctor_mask (ctor_fields ci) 2 0)))) st)
+                      (digits (ctor_mask (ctor_fields_at ci dt) 2 0)))) st)
     ((Val blk t st1)
-      (Val blk (TyData (ctor_type_name ci))
-        (emit_field_stores blk ops 0 st1)))))
+      (Val blk dt (emit_field_stores blk ops 0 st1)))))
 
 (def emit_field_stores ((blk (list int)) (ops (list (list int))) (i int)
                         (st Emit)) Emit
@@ -769,25 +775,28 @@
               (if (if (is_empty sn) false (still_held sn env slive))
                   (emit_match_dispatch id slot
                     (lookup_operand sn (env_binds env)) arms
-                    (Mx env live tl farms false (is_read_only sn env)) st1)
+                    (Mx env live tl farms false (is_read_only sn env)
+                        (lookup_type sn (env_binds env))) st1)
                   (match (emit_expr subject env slive false st1)
                     ((Val sv svt st2)
                       (emit_match_dispatch id slot sv arms
-                        (Mx env live tl farms true false) st2)))))))))))
+                        (Mx env live tl farms true false svt) st2)))))))))))
 
 ; What every arm of one match shares: the environment, what is live after
 ; the match, whether it is in tail position, the names any arm uses,
-; whether the subject came with a reference, and whether it is a read-only
-; parameter, which outlives the whole call.
+; whether the subject came with a reference, whether it is a read-only
+; parameter, which outlives the whole call, and the subject's type, which
+; gives the fields theirs.
 (data MatchCx
-  (Mx Env (list (list int)) bool (list (list int)) bool bool))
+  (Mx Env (list (list int)) bool (list (list int)) bool bool Ty))
 
-(def mx_env ((m MatchCx)) Env (match m ((Mx e l t f o r) e)))
-(def mx_live ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o r) l)))
-(def mx_tl ((m MatchCx)) bool (match m ((Mx e l t f o r) t)))
-(def mx_farms ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o r) f)))
-(def mx_owned ((m MatchCx)) bool (match m ((Mx e l t f o r) o)))
-(def mx_read_only ((m MatchCx)) bool (match m ((Mx e l t f o r) r)))
+(def mx_env ((m MatchCx)) Env (match m ((Mx e l t f o r s) e)))
+(def mx_live ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o r s) l)))
+(def mx_tl ((m MatchCx)) bool (match m ((Mx e l t f o r s) t)))
+(def mx_farms ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o r s) f)))
+(def mx_owned ((m MatchCx)) bool (match m ((Mx e l t f o r s) o)))
+(def mx_read_only ((m MatchCx)) bool (match m ((Mx e l t f o r s) r)))
+(def mx_subject_ty ((m MatchCx)) Ty (match m ((Mx e l t f o r s) s)))
 
 (def arm_label ((id (list int)) (k int)) (list int)
   (append "A" (append id (append "_" (digits k)))))
@@ -850,7 +859,8 @@
     ((A o cn names body)
       (let bfv (fv body)
         (let st1 (emit_line (append lbl ":") st)
-          (match (emit_field_loads sv names (arm_field_tys cn (mx_env mx)) 0 bfv
+          (match (emit_field_loads sv names
+                   (arm_field_tys cn (mx_subject_ty mx) (mx_env mx)) 0 bfv
                    (if (mx_read_only mx) (ReadOnlySubject body) (OtherSubject))
                    (mx_env mx) st1)
             ((EnvSt env2 st2)
@@ -868,10 +878,8 @@
                           (emit_line (append "  br label %" lend)
                             (emit_store v slot st4))))))))))))))
 
-(def arm_field_tys ((cn (list int)) (env Env)) (list Ty)
-  (match (find_ctor cn (ctx_ctors (env_ctx env)))
-    ((CtorFound ci) (ctor_fields ci))
-    ((CtorMissing) (nil Ty))))
+(def arm_field_tys ((cn (list int)) (st Ty) (env Env)) (list Ty)
+  (arm_fields cn st (ctx_ctors (env_ctx env))))
 
 ; The arm's body, when the subject is a read-only parameter, which outlives
 ; the whole call.
@@ -1013,7 +1021,7 @@
     ((EIf o c a b) (tail_callees b pn bs (tail_callees a pn bs acc)))
     ((ELet o n v body) (tail_callees body pn bs acc))
     ((ENil o t) acc)
-    ((ECtor o n args) acc)
+    ((ECtor o n tys args) acc)
     ((EMatch o s arms) (arm_callees arms pn bs acc))
     ((ECall o n args)
       (if (any_eq n bs) acc (cons (fn_sym n pn) acc)))))
@@ -1038,7 +1046,7 @@
   (if (is_empty ds)
       (nil Node)
       (match (head ds)
-        ((DData o n cs) (graph_nodes (tail ds) pre ppre pprog bpre bprog))
+        ((DData o n tps cs) (graph_nodes (tail ds) pre ppre pprog bpre bprog))
         ((DDef o n ps ret body)
           (let inpre (lt o pre)
             (cons (Nd (def_sym n inpre) (length_params ps)
@@ -1214,7 +1222,7 @@
   (if (is_empty ds)
       (nil RoFn)
       (match (head ds)
-        ((DData o n cs) (ro_fns (tail ds) pre ppre pprog bpre bprog))
+        ((DData o n tps cs) (ro_fns (tail ds) pre ppre pprog bpre bprog))
         ((DDef o n ps ret body)
           (let inpre (lt o pre)
             (let sym (def_sym n inpre)
@@ -1309,7 +1317,7 @@
           (if (ro_ok p t c x) (if (ro_ok p t a x) (ro_ok p t b x) false) false))
         ((ELet o n v body)
           (if (ro_ok p t v x) (if (list_eq n p) true (ro_ok p t body x)) false))
-        ((ECtor o n args) (ro_ok_args p t args (nil bool) x))
+        ((ECtor o n tys args) (ro_ok_args p t args (nil bool) x))
         ((EMatch o s arms)
           (if (list_eq (var_name s) p)
               (ro_ok_fields p t arms x)
@@ -1355,15 +1363,18 @@
       true
       (match (head arms)
         ((A o cn names body)
-          (if (if (ro_fields_ok names (arm_fields cn (rx_cs x)) body x)
+          (if (if (ro_fields_ok names (arm_fields cn t (rx_cs x)) body x)
                   (if (any_eq p names) true (ro_ok p t body x))
                   false)
               (ro_ok_fields p t (tail arms) x)
               false)))))
 
-(def arm_fields ((cn (list int)) (cs (list CtorInfo))) (list Ty)
+; The field types of the constructor cn, for a subject of type st: a field
+; whose declared type is a parameter has the type st gives it, which is what
+; decides whether it is a pointer.
+(def arm_fields ((cn (list int)) (st Ty) (cs (list CtorInfo))) (list Ty)
   (match (find_ctor cn cs)
-    ((CtorFound ci) (ctor_fields ci))
+    ((CtorFound ci) (ctor_fields_at ci st))
     ((CtorMissing) (nil Ty))))
 
 ; A later field of the same name hides an earlier one, which then cannot be
@@ -1390,8 +1401,8 @@
       (match (head todo)
         ((Rf s ps flags body pn bs)
           (ro_demotions (tail todo) fs table cs
-            (ro_tail_demote body (ro_names ps flags) fs bs pn
-                            (Rx table bs pn cs) acc))))))
+            (ro_tail_demote body (ro_names ps flags) (params_to_env ps (nil Bind))
+                            fs bs pn (Rx table bs pn cs) acc))))))
 
 ; The names of the pointer parameters whose flags are set: read-only.
 (def ro_names ((ps (list Param)) (flags (list bool))) (list (list int))
@@ -1404,44 +1415,63 @@
               (ro_names (tail ps) (flag_tail flags)))))))
 
 ; ok is the caller's read-only parameters not hidden at e by a let or field.
-(def ro_tail_demote ((e Expr) (ok (list (list int))) (fs (list RoFn))
-                     (bs (list (list int))) (pn (list (list int))) (x RoCx)
-                     (acc (list Demote))) (list Demote)
+; tys gives each name in ok its type, the latest binding of a name first.
+(def ro_tail_demote ((e Expr) (ok (list (list int))) (tys (list Bind))
+                     (fs (list RoFn)) (bs (list (list int)))
+                     (pn (list (list int))) (x RoCx) (acc (list Demote)))
+    (list Demote)
   (match e
     ((EInt o v) acc)
     ((EBool o v) acc)
     ((EStr o s) acc)
     ((ENil o t) acc)
     ((EVar o n) acc)
-    ((ECtor o n args) acc)
+    ((ECtor o n ts args) acc)
     ((EIf o c a b)
-      (ro_tail_demote b ok fs bs pn x (ro_tail_demote a ok fs bs pn x acc)))
-    ((ELet o n v body) (ro_tail_demote body (set_del n ok) fs bs pn x acc))
+      (ro_tail_demote b ok tys fs bs pn x
+        (ro_tail_demote a ok tys fs bs pn x acc)))
+    ((ELet o n v body) (ro_tail_demote body (set_del n ok) tys fs bs pn x acc))
     ((EMatch o s arms)
-      (ro_arms_demote arms ok (any_eq (var_name s) ok) fs bs pn x acc))
+      (ro_arms_demote arms ok tys
+        (if (any_eq (var_name s) ok) (SubjectOk (bind_ty (var_name s) tys)) (SubjectOther))
+        fs bs pn x acc))
     ((ECall o n args)
       (if (any_eq n bs)
           acc
           (let g (fn_sym n pn)
             (ro_args_demote g args (read_only_of g (rx_pads x)) ok 0 acc))))))
 
+; Whether a match's subject is one of the read-only names, and if so its type.
+(data RoSubject
+  (SubjectOk Ty)
+  (SubjectOther))
+
+(def bind_ty ((n (list int)) (tys (list Bind))) Ty
+  (match (find_bind n tys)
+    ((TyFound t) t)
+    ((TyMissing) (TyInt))))
+
 ; A match on a read-only parameter binds each pointer field its arm only
 ; reads as read-only too (emit_field_loads), so a tail call may pass those.
-(def ro_arms_demote ((arms (list Arm)) (ok (list (list int))) (subj_ok bool)
-                     (fs (list RoFn)) (bs (list (list int)))
+(def ro_arms_demote ((arms (list Arm)) (ok (list (list int))) (tys (list Bind))
+                     (subj RoSubject) (fs (list RoFn)) (bs (list (list int)))
                      (pn (list (list int))) (x RoCx) (acc (list Demote)))
     (list Demote)
   (if (is_empty arms)
       acc
       (match (head arms)
         ((A o cn names body)
-          (ro_arms_demote (tail arms) ok subj_ok fs bs pn x
-            (ro_tail_demote body
-              (if subj_ok
-                  (set_union (ro_read_fields names (arm_fields cn (rx_cs x)) body x)
-                             (set_del_all names ok))
-                  (set_del_all names ok))
-              fs bs pn x acc))))))
+          (ro_arms_demote (tail arms) ok tys subj fs bs pn x
+            (match subj
+              ((SubjectOther)
+                (ro_tail_demote body (set_del_all names ok) tys fs bs pn x acc))
+              ((SubjectOk st)
+                (let fts (arm_fields cn st (rx_cs x))
+                  (ro_tail_demote body
+                    (set_union (ro_read_fields names fts body x)
+                               (set_del_all names ok))
+                    (bind_fields names fts tys)
+                    fs bs pn x acc)))))))))
 
 ; The pointer fields of an arm, not hidden by a later one of the same name,
 ; that its body only reads.
@@ -1535,7 +1565,7 @@
 ; Spec 10.2 and 10.3.
 (def emit_fn ((d Decl) (sc Scope) (st Emit)) Emit
   (match d
-    ((DData o n cs) st)
+    ((DData o n tps cs) st)
     ((DDef o n ps ret body)
       (let sym (def_sym n (sc_is_prelude sc))
         (let k (pad_of sym (sc_pads sc))
@@ -1680,7 +1710,7 @@
   (if (is_empty ds)
       2
       (match (head ds)
-        ((DData o n cs) (ret_kind (tail ds)))
+        ((DData o n tps cs) (ret_kind (tail ds)))
         ((DDef o n ps ret body)
           (if (list_eq n "main")
               (if (is_empty ps)

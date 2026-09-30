@@ -204,9 +204,11 @@ what:
   becomes a compile error at every site that must handle it
 - there is no type inference, so every expression's type is determined by itself
   and never by context
-- `list` and `array` are the only parametric type constructors, and every
-  builtin over them takes its element type from an argument, so no
-  unification is needed anywhere
+- no unification is needed anywhere: every builtin over `list` and `array`
+  takes its element type from an argument, and a construction of a
+  parametric `data` type takes its type arguments from its arguments or has
+  them written, `((None int))`. Functions do not take type parameters
+  (roadmap 0038 proposes them)
 - there are no function values, so name resolution is purely syntactic
 
 ### Ambiguities

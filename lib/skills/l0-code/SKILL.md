@@ -116,6 +116,23 @@ Recursion replaces both loops and iteration combinators.
 **There are no exceptions.** A function that can fail returns a `data` type
 with a case per outcome; see `Parsed` in `l0 examples`.
 
+**A `data` type may take type parameters; a function may not.** Declare the
+shape once and use it at every type it holds, instead of one type per element
+type:
+
+```
+(data (Result T E) (Ok T) (Err E))      ; (Result int (list int)) is a type
+(Ok 5)                                  ; wrong: nothing says what E is
+((Ok int (list int)) 5)                 ; right
+```
+
+A construction takes its type from its arguments, as `cons` does, so
+`(Just 5)` needs nothing more. A constructor whose fields leave a parameter
+out, such as `(None)`, is written with the type's arguments first,
+`((None int))`, as `nil` is. See `Maybe` in `l0 examples`. Functions are
+still written once per type, so a helper over `(Maybe int)` does not work on
+`(Maybe bool)`.
+
 **`and` and `or` are strict.** Both arguments are always evaluated, so they do
 not guard against errors. This still calls `head` on an empty list:
 

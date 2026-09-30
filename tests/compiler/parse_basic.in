@@ -24,3 +24,8 @@
 
 (def build ((n int)) Tree (Branch (Leaf n) (Leaf 0)))
 (def shapes ((i int)) (list Shape) (cons (Dot) (nil Shape)))
+
+(data (Result T E) (Ok T) (Err E))
+(def parsed ((r (Result (list int) (Pair int bool)))) (Option (list int))
+  (match r ((Ok s) (Some s)) ((Err e) ((None (list int))))))
+(def fail ((i int)) (Result int (list int)) ((Err int (list int)) "no"))

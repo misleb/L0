@@ -9,3 +9,6 @@
 (def sum_tree ((t Tree)) int (match t ((Leaf n) n) ((Branch l r) (add (sum_tree l) (sum_tree r)))))
 (def build ((n int)) Tree (Branch (Leaf n) (Leaf 0)))
 (def shapes ((i int)) (list Shape) (cons (Dot) (nil Shape)))
+(data (Result T E) (Ok T) (Err E))
+(def parsed ((r (Result (list int) (Pair int bool)))) (Option (list int)) (match r ((Ok s) (Some s)) ((Err e) ((None (list int))))))
+(def fail ((i int)) (Result int (list int)) ((Err int (list int)) "no"))

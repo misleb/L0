@@ -1,0 +1,5 @@
+lib/prelude.l0
+compiler/lex.l0
+compiler/parse.l0
+compiler/check.l0
+tests/compiler/fmt.l0

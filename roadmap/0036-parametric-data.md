@@ -1,7 +1,7 @@
 # 0036: Data types take type parameters
 
 Kind: language
-Status: queued
+Status: done, changelog "Data types take type parameters"; Linux runs owed
 Needs: 0035
 
 ## Why
@@ -49,3 +49,29 @@ opt.l0:1:7: error: a data declaration needs an uppercase type name
 ## Log
 
 - 2026-09-30: queued from 0035.
+- 2026-09-30: done. The form 0035 left open is `((None int))`: `((` begins
+  no expression, so the parser needs no table of type names, and `(None
+  int)` could not tell `(None (Pair int bool))` from a construction. It may
+  be written for any constructor of a parametric type, and must be for one
+  that does not determine every parameter. A parameter hides a data type of
+  the same name within its declaration.
+  - parser: `TyData` carries arguments, `DData` parameters, `ECtor` the
+    written type arguments; types `(Name type...)`
+  - checker: `ty_problem` replaces `unknown_ty` and also reports a wrong
+    number of arguments; one-way `match_ty` finds a construction's type;
+    `match` binds fields at substituted types. The emitter shares
+    `ctor_type_args` and `ctor_fields_at` with it, so masks come from the
+    bindings the checker accepted
+  - emitter: the read-only analysis needed exact field types, not just the
+    masks. With a field left as `T`, `(head rows)` for `rows` of type `(list
+    (list int))` would count as a read yielding no pointer, and a caller
+    would free a row it had just been handed. `ro_tail_demote` now carries
+    each read-only name's type for that; `tests/io/parametric_data.l0`'s
+    `first_row` is the case
+  - tests: `tests/compiler/check_params` (34 snippets, stage 0 and compiled
+    agree), `tests/io/parametric_data` under `L0_RC_CHECK` (masks 4 and 2
+    for the two `Pair`s, 10 for `(Tree int)`'s `Node`), `parse_basic`
+    round-trips the syntax; `check_errors` re-blessed for one reworded
+    message, `expected list, array, or a data type name after ( in a type`
+  - both suites green, fixpoint holds, seed refreshed. Linux runs owed:
+    the emitter changed and Docker was not running

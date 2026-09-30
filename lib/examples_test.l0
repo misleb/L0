@@ -49,6 +49,10 @@
     ((Ok v rest) (check_true "should have failed" false))
     ((Bad msg) (check_str "message" msg "expected a digit"))))
 
+(def test_first_even_or () int
+  (add (check_int "found" (first_even_or (cons 3 (cons 8 (nil int))) 0) 8)
+       (check_int "fallback" (first_even_or (cons 3 (nil int)) -1) -1)))
+
 ; A test that must die with a runtime error names it in expect_NAME, with the
 ; same NAME. It passes only if it dies with exactly that error.
 (def test_head_of_nothing () int

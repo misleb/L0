@@ -71,8 +71,11 @@
         (append " " (append (fmt_expr v)
           (append " " (append (fmt_expr body) ")")))))))
     ((ENil o elem) (append "(nil " (append (fmt_ty elem) ")")))
-    ((ECtor o n args)
-      (append "(" (append n (append (fmt_args args) ")"))))
+    ((ECtor o n tys args)
+      (if (is_empty tys)
+          (append "(" (append n (append (fmt_args args) ")")))
+          (append "((" (append n (append (fmt_field_tys tys)
+            (append ")" (append (fmt_args args) ")")))))))
     ((EMatch o subject arms)
       (append "(match " (append (fmt_expr subject)
         (append (fmt_arms arms) ")"))))
@@ -123,8 +126,10 @@
 
 (def fmt_decl ((d Decl)) (list int)
   (match d
-    ((DData o n cs)
-      (append "(data " (append n (append (fmt_ctors cs) ")"))))
+    ((DData o n tps cs)
+      (append "(data "
+        (append (if (is_empty tps) n (append "(" (append n (append (fmt_names tps) ")"))))
+          (append (fmt_ctors cs) ")"))))
     ((DDef o n ps ret body)
       (append "(def " (append n
         (append " (" (append (fmt_params ps)

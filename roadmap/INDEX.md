@@ -16,14 +16,13 @@ the library and the text programs.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0036](0036-parametric-data.md) data types take type parameters — queued
-2. [0037](0037-library-type-names.md) a program's types do not collide with
-   the library's — queued, needs 0036
+1. [0037](0037-library-type-names.md) a program's types do not collide with
+   the library's — queued
 
 ## Other open items
 
 - [0038](0038-parametric-functions.md) functions take type parameters —
-  proposed, needs 0036
+  proposed, waiting for programs that use 0036
 
 ## Done and dropped
 
@@ -109,3 +108,5 @@ Changes to the language, strictly in order. At most one is active.
 - [0035](0035-type-parameters.md) research: how L0 gets type parameters —
   done; parametric data (0036), then library type names (0037), then
   parametric functions (0038)
+- [0036](0036-parametric-data.md) data types take type parameters — done,
+  changelog "Data types take type parameters"; Linux runs owed
