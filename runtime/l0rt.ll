@@ -8,9 +8,10 @@
 ; calls libc through file descriptors rather than FILE*, uses no varargs, no
 ; signal handling, and no struct whose layout libc defines. pthread_attr_t is
 ; an opaque buffer larger than any platform's, and a FILE or DIR pointer is
-; only handed back to libc, never read. The only struct it reads is struct
+; only handed back to libc, never read. The only structs it reads are struct
 ; rlimit, two 64-bit words everywhere, with RLIMIT_STACK = 3 on both macOS
-; and Linux.
+; and Linux, and struct timespec, two 64-bit words everywhere, with
+; CLOCK_MONOTONIC_RAW = 4 on both.
 
 declare i64 @read(i32, ptr, i64)
 declare i64 @write(i32, ptr, i64)
@@ -21,6 +22,7 @@ declare void @free(ptr)
 declare ptr @getenv(ptr)
 declare i64 @strtol(ptr, ptr, i32)
 declare i32 @getrlimit(i32, ptr)
+declare i32 @clock_gettime(i32, ptr)
 declare i32 @pthread_attr_init(ptr)
 declare i32 @pthread_attr_setstacksize(ptr, i64)
 declare i32 @pthread_create(ptr, ptr, ptr, ptr)
@@ -2023,6 +2025,27 @@ bstep:
   br label %bl
 done:
   ret i64 %acc
+}
+
+; ------------------------------------------------------------------- clock
+
+; Spec section 6.7. Clock 4 is CLOCK_MONOTONIC_RAW on both macOS and Linux;
+; CLOCK_MONOTONIC is not, and Linux's 6 is a coarse clock, not an error.
+define i64 @l0_clock_ns() {
+entry:
+  %ts = alloca [2 x i64], align 8
+  %rc = call i32 @clock_gettime(i32 4, ptr %ts)
+  %failed = icmp ne i32 %rc, 0
+  br i1 %failed, label %none, label %read
+none:
+  ret i64 -5
+read:
+  %s = load i64, ptr %ts
+  %np = getelementptr i64, ptr %ts, i64 1
+  %n = load i64, ptr %np
+  %sn = mul i64 %s, 1000000000
+  %t = add i64 %sn, %n
+  ret i64 %t
 }
 
 ; ------------------------------------------------------------------- input

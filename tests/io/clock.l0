@@ -1,0 +1,27 @@
+; clock_ns reads a monotonic clock in nanoseconds: readings are never
+; negative and never go back, and two either side of a read that waits
+; measure the wait. clock.sh sends the input a second after reading
+; "ready", which the program writes after its first reading.
+
+(def never_back ((n int) (prev int)) bool
+  (if (eq n 0)
+      true
+      (let t (clock_ns)
+        (if (lt t prev) false (never_back (sub n 1) t)))))
+
+(def say ((s (list int)) (status int)) int
+  (let w (write_line s) status))
+
+(def main () int
+  (let r (write_line "ready")
+    (let t0 (clock_ns)
+      (let b (read_byte)
+        (let t1 (clock_ns)
+          (let ms (div (sub t1 t0) 1000000)
+            (if (lt t0 0)
+                (say (append "a negative reading: " (digits t0)) 1)
+                (if (not (never_back 100000 t1))
+                    (say "a reading went back" 1)
+                    (if (if (lt ms 900) true (gt ms 20000))
+                        (say (append "the wait took " (append (digits ms) " ms")) 1)
+                        (say "ok" 0))))))))))

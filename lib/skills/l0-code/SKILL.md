@@ -1,6 +1,6 @@
 ---
 name: l0-code
-description: Read, write, and edit L0 source code (.l0 files). Covers L0 syntax, the standard library, the idioms that keep generated output linear rather than quadratic, the mandatory l0 check validation loop, and the testing convention. Use whenever creating or modifying .l0 files, reading L0 code, diagnosing L0 type errors, or writing tests. Also use when a shipped skill is wrong or incomplete and the improvement should go back to L0.
+description: Read, write, and edit L0 source code (.l0 files). Covers L0 syntax, the standard library, the idioms that keep generated output linear rather than quadratic, the mandatory l0 check validation loop, and the testing convention. Use whenever creating or modifying .l0 files, reading L0 code, diagnosing L0 type errors, or writing tests. Also use when this skill, the spec, or l0 doc is wrong or incomplete, to report the correction so it can go back to L0.
 ---
 
 # Writing L0
@@ -18,7 +18,10 @@ and they matter more than everything else in this file:
    signal.
 
 Read the specification before writing L0 for the first time in a session;
-`l0 spec --path` says where it is, and it is short. Then skim the examples,
+`l0 spec --path` says where it is. Sections 1 to 9 and 11 are the language,
+and all of them matter. Section 10 is how the compiler and runtime work, and
+you need only its memory rules, in 10.3, which the section on memory below
+summarises. Then skim the examples,
 `l0 examples --path`, which are working programs and their tests. All of
 this comes from the installed toolchain, so it describes the compiler you
 are using.
@@ -121,8 +124,9 @@ not guard against errors. This still calls `head` on an empty list:
 (if (is_empty xs) false (gt (head xs) 0))    ; right
 ```
 
-**`eq` compares integers only.** Comparing lists uses `list_eq` from the
-standard library; comparing data values needs a function you write.
+**`eq` compares integers only.** Comparing two `(list int)` uses `list_eq`
+from the standard library; comparing anything else, such as lists of lists,
+data values, or `bytes`, needs a function you write.
 
 **A name in call position is never a local.** `(f 1)` always means a builtin
 or a `def`, so a parameter named `f` cannot be called and does not shadow a
@@ -216,8 +220,9 @@ file and tested there:
 ```
 
 The return type may be `(list int)` for raw bytes, or `int` or `bool`, which
-are printed as a decimal or as `true`/`false`. Nothing is written until `main`
-returns, and all of stdin is read before it starts.
+are printed as a decimal or as `true`/`false`. All of stdin is read before
+`main` starts, and the result is written after it returns, so this form
+cannot prompt, and cannot show anything before its input has ended.
 
 The second takes nothing, reads and writes as it goes, and returns the exit
 status. Use it when a program must write before its input ends, such as a
@@ -273,13 +278,14 @@ tests especially. Nothing changes a bytes value.
 Writes are held back, so a write failure shows up only later: `file_close`,
 or `file_flush` on a file kept open, returns a negative number if any byte
 written to the file was lost; check it. For standard output, which is never
-closed, call `(flush 1)` once at the end, as a Unix filter does, and turn -5
-into a message and a nonzero status:
+closed, call `(file_flush (IoFile 1))` once at the end, as a Unix filter
+does, and turn a negative result into a message and a nonzero status. Here
+`run`, in the program's own file, does the work and returns the exit status:
 
 ```
 (def main () int
-  (let st (copy_input 0)
-    (if (lt (flush 1) 0)
+  (let st (run (args))
+    (if (lt (file_flush (IoFile 1)) 0)
         (let w (write_err "prog: write error\n") 1)
         st)))
 ```
@@ -378,10 +384,24 @@ fine. What copies, silently, with correct results:
 To check a loop, run the program with `L0_ARRAY_STATS=1`: it reports on
 standard error how many updates copied.
 
-Factor reads into small functions freely: a function that only reads its
-list, data, array, or bytes parameters, and returns nothing taken out of them,
-costs no reference counting to call, so there is no reason to inline such
-a helper by hand.
+**Timing part of a program.** `(clock_ns)` reads a clock in nanoseconds
+that never goes back (spec section 6.7). Only differences mean anything:
+bind a reading with `let` before the part and another after, since `let`
+is what fixes when each happens, and write `(sub t1 t0)` to standard error
+so standard output stays the program's own. One run can then report every
+phase, instead of one build per phase timed from outside.
+
+Factor reads into small functions freely. A parameter of list, data, array,
+or bytes type costs no reference counting to pass when the function only
+reads it: with `is_empty`, `array_len`, `bytes_len`, `bytes_get`, or `head`
+or `array_get` of an int or bool element, by matching on it and reading its
+fields the same way, or by passing that same parameter on to another
+function that only reads it. So an index loop over an array or bytes, which
+passes the array itself to its next iteration, is free to call, and there is
+no reason to inline such a helper by hand. A function that walks a list by
+passing `(tail xs)` on does not qualify, because `tail` hands out part of the
+list: it costs a count per step, which is cheap but not nothing. Spec
+section 10.3 has the rule in full.
 
 Don't read input into an `(array int)`: its length is unknown until the end,
 so the array doubles as it fills and briefly holds two copies, about as
@@ -402,8 +422,9 @@ l0 test wordfreq.l0 wordfreq_test.l0                 # every test, as TAP
 l0 test wordfreq.l0 wordfreq_test.l0 --match parse   # only names containing "parse"
 ```
 
-A test is `(def test_NAME () int ...)`, with its name and `()` on the line it
-starts. There is no list of tests to maintain: `l0 test` finds them, builds
+A test is `(def test_NAME () int ...)`, with `(def test_NAME ()` at the very
+start of a line, unindented, since that is how `l0 test` finds it. There is
+no list of tests to maintain: `l0 test` finds them, builds
 the files once with the assertions linked, and runs each test in its own
 process. It prints `ok N - test_NAME` or `not ok N - test_NAME` with what went
 wrong underneath, and exits nonzero if any failed. `l0 check --test` checks
@@ -425,8 +446,18 @@ which runs them in order:
 The assertions are `check_int`, `check_bool`, `check_true`, `check_str`, and
 `check_strs`, each taking a name, what the code computed, and what it should
 be. A failing string is shown as an L0 literal you can paste back, with the
-first byte where it differs. For a data type, `match` on it inside the test
-and name the case that should not happen.
+first byte where it differs. For a data type, `match` on it inside the test,
+and in the arm that should not happen return `(fail_because NAME WHY)`,
+which reports the assertion as failed for the reason given:
+
+```
+(def test_parses () int
+  (match (parse_digits "42" 0 false)
+    ((Ok v rest) (check_int "value" v 42))
+    ((Bad msg) (fail_because "value" msg))))
+```
+
+`pass` and `fail` are there for writing an assertion of your own.
 
 **Keep each test to one to three assertions, and write many tests.** Long
 chains of nested assertions are where closing parentheses get miscounted.
@@ -439,17 +470,37 @@ that code must fail, give the test an `expect_NAME` with the same NAME:
 (def expect_empty_head () (list int) "head of empty list")
 ```
 
+The test passes only if the program exits with status 70 and standard error
+is exactly `l0: runtime error: ` followed by the message `expect_NAME`
+returns. Spec section 8 lists every message: `division by zero`, `modulo by
+zero`, `head of empty list`, `tail of empty list`, `array index out of
+range`, `negative array length`, and `byte index out of range`, and from the
+host `stack exhausted`, `heap exhausted`, and `write failed`.
+
 **Golden files** hold expected output too long to write inline:
 `(check_file "name" got "path/to/expected.txt")`, with the path relative to
 where `l0 test` runs. `l0 test --bless` writes the files instead of comparing,
 and lists each one it wrote. Blessing turns whatever the code does now into
 what is correct, so read the diff of every file it touched.
 
-**Property tests** use `rand_next` and `rand_below` (see `l0 doc test`), which
-give the same sequence on every run, so a failure reproduces. Check a
-property over a few hundred inputs, such as two implementations agreeing, or
-parsing what was printed.
+**Property tests** use `rand_next`, `rand_below`, and `rand_bytes` (see `l0
+doc test`), which give the same sequence on every run, so a failure
+reproduces. Check a property over a few hundred inputs, such as two
+implementations agreeing, or parsing what was printed.
 
 A test that uses `arg` sees `l0 test`'s arguments, not yours. Test a whole
 program by putting its logic in functions and testing those, or by running it
 with `l0 run` and comparing what it writes.
+
+## When this skill, or L0, is wrong
+
+If the checker or a test contradicts this skill, `l0 doc`, or the examples,
+the documentation is wrong; if it contradicts the specification, the
+compiler is. Either way, write code the checker accepts and the tests pass
+on, and tell the user plainly: name the file, quote what it says, and say
+what it should say, or what the compiler did instead. Do the same when the
+documentation is silent about something you needed, or L0 cannot express
+it. Do not just correct your project's copy in
+`.cursor/skills/`: `l0 init` overwrites it, and every other project keeps
+the mistake. L0 and its documentation are fixed in L0's own repository, and
+a report that names the file and the correction is what lets that happen.

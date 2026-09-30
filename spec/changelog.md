@@ -7,6 +7,83 @@ New entries go at the top.
 
 ---
 
+## Runtime error messages are specified, and stale references fixed
+
+**Section 8 now gives each runtime error its message,** and the line it is
+written in: `l0: runtime error: ` and the message. The seven a builtin raises
+are in a table, and the three the host raises, `stack exhausted`, `heap
+exhausted`, and `write failed`, are named where they are described. "There
+are exactly seven runtime errors" had become false by that section's own
+next paragraphs, which reported three more in the same form.
+
+**Why the messages belong in the spec.** `l0 test` passes a test with an
+`expect_NAME` only if standard error is exactly `l0: runtime error:` and the
+message `expect_NAME` returns. An agent outside this repository has the
+spec, `l0 doc`, and the examples, but not `runtime/l0rt.ll`, so it could
+learn one message, from the skill's example, and had to guess the other
+nine. The messages are the ones the runtime and stage 0 already write, so
+neither implementation changed.
+
+**Editorial fixes, with no change to the language.** The expression grammar
+labelled literals with sections 3.1 to 3.3, which do not exist. Section 5.5
+listed `int`, `bool`, and lists as invalid `match` subjects, omitting arrays
+and `bytes`. Section 6.3 pointed at `lib/io.l0`, a path an installed
+project does not have, where `l0 doc IoOpened` works everywhere. The title
+said "v1" though the language has changed a great deal since, which left a
+reader unsure which language it described; it now says the changelog, not a
+version number, records change. "There is no other documentation" was false
+for an agent with `l0 doc` and the examples; there is no other
+*specification*.
+
+---
+
+## A clock
+
+**A new builtin, `clock_ns`** (section 6.7): nanoseconds on a monotonic
+clock, never negative and never decreasing while the program runs, or -5 if
+the host has none. Only differences between readings mean anything. Reading
+it is an effect, which section 8 now names beside I/O as something an
+implementation may not move or remove.
+
+**The blocker.** No L0 program could tell how long anything took, so every
+timing in the repository was taken from outside, and finding where a program
+spent its time meant building it once per stage. Roadmap item 0028's sort was
+cut off after each stage by `roadmap/0028/text/exp/stage.l0` and each cut
+timed by the shell and subtracted; its mst needed three extra programs for
+the same (`roadmap/0028/algorithms/mst/bench/`); 0014's kvstore measured one
+process per operation. With the clock, one run reports each stage.
+
+**Why monotonic, and only that.** Every use so far is a duration, and a wall
+clock is wrong for durations, since it jumps when the system's time is set.
+A date is a different builtin, with its own questions (time zones, leap
+seconds), and waits for a program that needs one.
+
+**Why nanoseconds in an int.** An int holds 292 years of nanoseconds, so
+there is no unit to choose per use and no overflow in any run, and the name
+says the unit so that no reader has to look it up.
+
+**Why no promise about where it starts, or how fine it is.** Hosts differ in
+both, and a program that needs either is comparing readings across runs or
+machines, which a monotonic clock cannot support anyway. The one promise
+beyond order, never negative, is what lets -5 mean the clock could not be
+read.
+
+**How the runtime reads it on every host with one text.** The runtime must
+not depend on anything whose shape differs between operating systems.
+`clock_gettime` is the POSIX call, but `CLOCK_MONOTONIC` is 1 on Linux and 6
+on macOS, and on Linux 6 is a coarse clock rather than an invalid one, so no
+fallback order is safe. `CLOCK_MONOTONIC_RAW` is 4 on both, and `struct
+timespec` is two 64-bit words on both, so the runtime asks for clock 4. The
+raw clock is also not slewed by time synchronization, so a difference is
+the time the hardware counted. It keeps counting while the machine sleeps on
+macOS and stops on Linux, which is why section 6.7 leaves that to the host.
+
+**Why not in the library, or a timing helper.** A clock cannot be written in
+L0; a helper that formats a duration can, and none is added until two
+programs want the same one.
+
+---
+
 ## The library reads a whole input into bytes, and no language change for it
 
 **`lib/io.l0` gains `read_input`, `file_read_all`, and `file_write_bytes`,**

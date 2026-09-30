@@ -41,6 +41,7 @@ declare i64 @l0_bytes_get(i64, i64)
 declare i64 @l0_bytes_from_list(i64)
 declare i64 @l0_bytes_to_list(i64)
 declare i64 @l0_write_bytes(i64, i64, i64, i64)
+declare i64 @l0_clock_ns()
 
 @l0_main_ret_kind = global i64 0
 

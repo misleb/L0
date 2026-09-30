@@ -77,7 +77,10 @@
   (let bd (push (check_source (m "(bytes_len (read_bytes true))")) bc)
   (let be (push (check_source (both "(def f ((bytes bytes)) int (bytes_len bytes))")) bd)
   (let bf (push (check_source "(def main () bytes (read_bytes 0))") be)
-    (rev bf))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let bg (push (check_source (m "(clock_ns 1)")) bf)
+  (let bh (push (check_source (m "(head (clock_ns))")) bg)
+  (let bi (push (check_source (m "(sub (clock_ns) (clock_ns))")) bh)
+    (rev bi)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

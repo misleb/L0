@@ -102,3 +102,4 @@ Changes to the language, strictly in order. At most one is active.
 - [0033](0033-bytes-library-and-programs.md) tooling: the library reads into
   bytes, and the text programs use it — done, changelog "The library reads a
   whole input into bytes, and no language change for it"; Linux runs owed
+- [0034](0034-clock.md) a clock — done, changelog "A clock"; Linux runs owed

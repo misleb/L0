@@ -40,7 +40,7 @@ tools/l0 run FILE.l0 [MORE.l0 ...] [-- ARGS] < input-bytes
 ```
 
 Not `build/l0i run`: the frozen stage-0 interpreter knows nothing added
-since, so it rejects the I/O builtins, files, arrays, and bytes.
+since, so it rejects the I/O builtins, files, arrays, bytes, and the clock.
 
 Then `tools/test.sh` before considering any change done.
 

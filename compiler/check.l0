@@ -121,11 +121,12 @@
 (def bi_bool_bool ((i int)) (list (list int)) (split_spaces "and or"))
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
 
-; The effects of spec 6.2 to 6.4. Those in bi_io take and return only ints,
-; so need_all checks them; bi_path take only byte lists, paths or bytes to
-; read, and return an int; bi_to_list take an int and return a byte list.
+; The effects of spec 6.2 to 6.4 and 6.7. Those in bi_io take and return
+; only ints, so need_all checks them; bi_path take only byte lists, paths or
+; bytes to read, and return an int; bi_to_list take an int and return a byte
+; list.
 (def bi_io ((i int)) (list (list int))
-  (split_spaces "read_byte write_byte read_from write_to close flush arg_count open_buffer"))
+  (split_spaces "read_byte write_byte read_from write_to close flush arg_count open_buffer clock_ns"))
 (def bi_path ((i int)) (list (list int))
   (split_spaces "open_read open_write open_append rename open_bytes"))
 (def bi_to_list ((i int)) (list (list int)) (split_spaces "arg buffer_bytes"))
@@ -151,7 +152,7 @@
   (if (is_empty xs) ys (cons (head xs) (names_then (tail xs) ys))))
 
 (def builtin_arity ((n (list int))) int
-  (if (any_eq n (split_spaces "read_byte arg_count open_buffer"))
+  (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns"))
       0
       (if (any_eq n (split_spaces
             "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list"))

@@ -54,3 +54,6 @@ parse error at offset 12: expected list or array after ( in a type
 46: an argument of read_bytes must be int, but this is bool
 ok
 0: a main with no parameters must return int
+35: clock_ns takes 0 arguments, but got 1
+35: head must be a list, but this is int
+ok

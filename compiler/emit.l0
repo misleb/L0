@@ -922,7 +922,7 @@
 ; Spec 10.3.
 (def io_names ((i int)) (list (list int))
   (split_spaces
-    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes"))
+    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes clock_ns"))
 
 (def rt_names ((i int)) (list (list int))
   (append_strs (split_spaces "div mod head tail is_empty array_len array_get array_set")
@@ -1673,7 +1673,8 @@
       (append "declare i64 @l0_bytes_get(i64, i64)\n"
         (append "declare i64 @l0_bytes_from_list(i64)\n"
           (append "declare i64 @l0_bytes_to_list(i64)\n"
-            "declare i64 @l0_write_bytes(i64, i64, i64, i64)\n\n"))))))
+            (append "declare i64 @l0_write_bytes(i64, i64, i64, i64)\n"
+              "declare i64 @l0_clock_ns()\n\n")))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)
