@@ -894,10 +894,11 @@
 ;
 ; Function names get one seen-set per group, because a program function
 ; sharing a name with a prelude function is shadowing rather than a collision.
-; Type and constructor names get a single set spanning both groups, since
-; those names are not grouped. Constructors share one namespace because a
-; match arm names a constructor without naming its type, so the constructor
-; alone determines it. Spec 7.1.
+; Type and constructor names get a single set spanning both groups, which is
+; per group all the same: group_upper has already renamed every prelude one
+; the program also declares. Constructors of different types share one
+; namespace because a match arm names a constructor without naming its type,
+; so the constructor alone determines it. Spec 7.1.
 (def check_dups ((ds (list Decl)) (pre int) (fpre (list (list int)))
                  (fprog (list (list int))) (tseen (list (list int)))
                  (cseen (list (list int))) (acc (list Diag))) (list Diag)
@@ -1058,7 +1059,8 @@
 ; Declarations before the prelude boundary are the prelude, the rest are the
 ; program, and the difference is only in which function names each can see.
 ; Type and constructor tables are built from every declaration in both views,
-; since those names are not grouped. Spec 7.1.
+; since group_upper has already made the names each group sees distinct.
+; Spec 7.1.
 
 (def prelude_decls ((ds (list Decl)) (pre int) (acc (list Decl))) (list Decl)
   (if (is_empty ds)
@@ -1099,13 +1101,15 @@
 ; prelude, which makes every declaration a program declaration and every rule
 ; below collapse to the flat namespace L0 had before groups existed.
 (def check_program ((ds (list Decl)) (want_main bool) (pre int)) (list Diag)
+  (check_grouped (group_upper ds pre) want_main pre))
+
+(def check_grouped ((ds (list Decl)) (want_main bool) (pre int)) (list Diag)
   (let uds (program_decls ds pre (nil Decl))
     (rev_diags_onto
       (check_decls ds (prelude_view ds pre) (program_view ds pre) pre
         (check_widths ds
-          (check_reserved uds
-            (check_dups ds pre (nil (list int)) (nil (list int))
-                        (nil (list int)) (nil (list int)) (nil Diag)))))
+          (check_dups ds pre (nil (list int)) (nil (list int))
+                      (nil (list int)) (nil (list int)) (nil Diag))))
       (check_main uds want_main))))
 
 ; ------------------------------------------------------ constructor widths
@@ -1134,38 +1138,120 @@
                   " fields, and at most 31 are allowed")))))
               (too_wide o (tail cs)))))))
 
-; ------------------------------------------------ names reserved for the prelude
+; ------------------------------------------------ upper names per group
 ;
-; Upper names beginning with Io and an uppercase letter belong to the prelude,
-; so that it can gain types without breaking programs that already used the
-; name. Only program declarations are checked. Spec 7.1.
+; A program's type or constructor shadows the prelude's of the same name, and
+; a prelude declaration sees only the prelude's. Spec 7.1. Rather than
+; resolve per group wherever an upper name is looked up, every upper name in
+; a prelude declaration that the program also declares is renamed to one no
+; source can write, so from here on the two are simply different names. A
+; prelude reference to a type only the program declares is renamed too, and
+; so is reported as unknown. A data declaration's own parameters are never
+; renamed: they hide a type of the same name (spec 3).
 
-(def is_reserved_upper ((n (list int))) bool
-  (if (starts_with n "Io")
-      (let r (drop_n n 2)
-        (if (is_empty r) false (is_upper (head r))))
-      false))
+(def group_upper ((ds (list Decl)) (pre int)) (list Decl)
+  (if (eq pre 0)
+      ds
+      (let uds (program_decls ds pre (nil Decl))
+        (let tns (declared_types uds (nil (list int)))
+          (let cns (declared_ctors uds (nil (list int)))
+            (if (and (is_empty tns) (is_empty cns))
+                ds
+                (rename_prelude ds pre tns cns (nil Decl))))))))
 
-(def check_reserved ((ds (list Decl)) (acc (list Diag))) (list Diag)
+(def declared_types ((ds (list Decl)) (acc (list (list int))))
+    (list (list int))
   (if (is_empty ds)
       acc
-      (check_reserved (tail ds) (prepend_diags (reserved_in (head ds)) acc))))
+      (declared_types (tail ds)
+        (if (is_def (head ds)) acc (cons (decl_name (head ds)) acc)))))
 
-(def reserved_in ((d Decl)) (list Diag)
+(def declared_ctors ((ds (list Decl)) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty ds)
+      acc
+      (declared_ctors (tail ds) (add_ctor_names (decl_ctors (head ds)) acc))))
+
+(def rename_prelude ((ds (list Decl)) (pre int) (tns (list (list int)))
+                     (cns (list (list int))) (acc (list Decl))) (list Decl)
+  (if (is_empty ds)
+      (rev_decls_onto acc (nil Decl))
+      (rename_prelude (tail ds) pre tns cns
+        (cons (if (in_prelude (head ds) pre)
+                  (rn_decl (head ds) tns cns)
+                  (head ds))
+              acc))))
+
+(def rn_name ((n (list int)) (ns (list (list int)))) (list int)
+  (if (any_eq n ns) (append "prelude's " n) n))
+
+(def rn_decl ((d Decl) (tns (list (list int))) (cns (list (list int)))) Decl
   (match d
-    ((DDef o n ps ret body) (nil Diag))
+    ((DDef o n ps ret body)
+      (DDef o n (rn_params ps tns) (rn_ty ret tns (nil (list int)))
+            (rn_expr body tns cns)))
     ((DData o n tps cs)
-      (if (is_reserved_upper n)
-          (one_diag o (reserved_msg "type" n))
-          (reserved_ctor o cs)))))
+      (DData o (rn_name n tns) tps (rn_ctors cs tns cns tps)))))
 
-(def reserved_ctor ((o int) (cs (list Ctor))) (list Diag)
+(def rn_ctors ((cs (list Ctor)) (tns (list (list int))) (cns (list (list int)))
+               (tps (list (list int)))) (list Ctor)
   (if (is_empty cs)
-      (nil Diag)
-      (if (is_reserved_upper (ctor_decl_name (head cs)))
-          (one_diag o (reserved_msg "constructor" (ctor_decl_name (head cs))))
-          (reserved_ctor o (tail cs)))))
+      (nil Ctor)
+      (match (head cs)
+        ((C o cn fts)
+          (cons (C o (rn_name cn cns) (rn_tys fts tns tps))
+                (rn_ctors (tail cs) tns cns tps))))))
 
-(def reserved_msg ((what (list int)) (n (list int))) (list int)
-  (append what (append " " (append n
-    " has a name reserved for the standard library"))))
+(def rn_params ((ps (list Param)) (tns (list (list int)))) (list Param)
+  (if (is_empty ps)
+      (nil Param)
+      (match (head ps)
+        ((P n t) (cons (P n (rn_ty t tns (nil (list int))))
+                       (rn_params (tail ps) tns))))))
+
+(def rn_ty ((t Ty) (tns (list (list int))) (tps (list (list int)))) Ty
+  (match t
+    ((TyInt) (TyInt))
+    ((TyBool) (TyBool))
+    ((TyList e) (TyList (rn_ty e tns tps)))
+    ((TyData n as)
+      (TyData (if (any_eq n tps) n (rn_name n tns)) (rn_tys as tns tps)))
+    ((TyArray e) (TyArray (rn_ty e tns tps)))
+    ((TyBytes) (TyBytes))))
+
+(def rn_tys ((ts (list Ty)) (tns (list (list int))) (tps (list (list int))))
+    (list Ty)
+  (if (is_empty ts)
+      (nil Ty)
+      (cons (rn_ty (head ts) tns tps) (rn_tys (tail ts) tns tps))))
+
+(def rn_expr ((e Expr) (tns (list (list int))) (cns (list (list int)))) Expr
+  (match e
+    ((EInt o v) (EInt o v))
+    ((EBool o v) (EBool o v))
+    ((EStr o s) (EStr o s))
+    ((EVar o n) (EVar o n))
+    ((EIf o c a b)
+      (EIf o (rn_expr c tns cns) (rn_expr a tns cns) (rn_expr b tns cns)))
+    ((ELet o n v b) (ELet o n (rn_expr v tns cns) (rn_expr b tns cns)))
+    ((ENil o t) (ENil o (rn_ty t tns (nil (list int)))))
+    ((ECtor o n tys args)
+      (ECtor o (rn_name n cns) (rn_tys tys tns (nil (list int)))
+             (rn_exprs args tns cns)))
+    ((EMatch o s arms) (EMatch o (rn_expr s tns cns) (rn_arms arms tns cns)))
+    ((ECall o n args) (ECall o n (rn_exprs args tns cns)))))
+
+(def rn_exprs ((es (list Expr)) (tns (list (list int))) (cns (list (list int))))
+    (list Expr)
+  (if (is_empty es)
+      (nil Expr)
+      (cons (rn_expr (head es) tns cns) (rn_exprs (tail es) tns cns))))
+
+(def rn_arms ((as (list Arm)) (tns (list (list int))) (cns (list (list int))))
+    (list Arm)
+  (if (is_empty as)
+      (nil Arm)
+      (match (head as)
+        ((A o cn ns b)
+          (cons (A o (rn_name cn cns) ns (rn_expr b tns cns))
+                (rn_arms (tail as) tns cns))))))

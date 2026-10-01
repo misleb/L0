@@ -1,0 +1,14 @@
+ok
+237: Ok is a constructor of Reply, not Parsed
+ok
+ok
+126: argument 1 of unbox must be prelude's Box, but this is Box
+127: argument 1 of unbox must be Box, but this is Crate
+0: unknown type prelude's Thing
+28: unknown constructor prelude's Mk
+90: data type Box is already declared
+20: constructor Same is already declared
+ok
+ok
+ok
+ok

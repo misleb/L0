@@ -1,0 +1,79 @@
+; Type and constructor names resolve per group: spec 7.1. Each case is a
+; prelude and a program, checked as one two-group source; one line of
+; diagnostics per case, "ok" for one that checks.
+
+(data GroupCase
+  (GC (list int) (list int)))           ; prelude, program
+
+(def main_is ((body (list int))) (list int)
+  (append "(def main ((input (list int))) int " (append body ")")))
+
+; The prelude of spec 7.1's example.
+(def parsed ((i int)) (list int)
+  (append "(data Parsed (Ok int) (Bad (list int))) "
+    (append "(def parse ((s (list int))) Parsed (Ok 7)) "
+      "(def or_zero ((p Parsed)) int (match p ((Ok n) n) ((Bad m) 0))) ")))
+
+(def boxed ((i int)) (list int)
+  (append "(data Box (Box int)) "
+    "(def unbox ((b Box)) int (match b ((Box n) n))) "))
+
+(def opt ((i int)) (list int)
+  (append "(data (Opt T) (No) (Yes T)) "
+    "(def yes_or ((o (Opt int)) (d int)) int (match o ((No) d) ((Yes v) v))) "))
+
+(def cases ((i int)) (list GroupCase)
+  ; spec 7.1's example: the program's Ok, and the prelude's Parsed passed on
+  (cons (GC (parsed 0)
+            (append "(data Reply (Ok (list int)) (Busy)) "
+              (main_is "(let p (parse \"7\") (match (Ok \"yes\") ((Ok s) (or_zero p)) ((Busy) 1)))")))
+  ; its Ok is not the prelude's, so it cannot take Parsed apart
+  (cons (GC (parsed 0)
+            (append "(data Reply (Ok (list int)) (Busy)) "
+              (main_is "(match (parse \"7\") ((Ok n) n) ((Bad m) 0))")))
+  ; with no Ok of its own, the program uses the prelude's
+  (cons (GC (parsed 0) (main_is "(match (parse \"7\") ((Ok n) n) ((Bad m) 0))"))
+  ; a type of the same name is a different type
+  (cons (GC (boxed 0)
+            (append "(data Box (Box bool)) "
+              (main_is "(match (Box true) ((Box b) (if b 1 0)))")))
+  (cons (GC (boxed 0)
+            (append "(data Box (Box bool)) " (main_is "(unbox (Box true))")))
+  ; the program's constructor of another type, with the prelude's type name
+  (cons (GC (boxed 0)
+            (append "(data Crate (Box int)) " (main_is "(unbox (Box 1))")))
+  ; the prelude cannot see the program's types or constructors
+  (cons (GC "(def f ((t Thing)) int 0) "
+            (append "(data Thing (Thing int)) " (main_is "0")))
+  (cons (GC "(def g ((i int)) int (match (Mk i) ((Mk n) n))) "
+            (append "(data Mine (Mk int)) " (main_is "0")))
+  ; a duplicate within a group is still one
+  (cons (GC (boxed 0)
+            (append "(data Box (Box int)) (data Box (Other int)) " (main_is "0")))
+  (cons (GC "(data A (Same int)) (data B (Same int)) " (main_is "0"))
+  ; a data declaration's own parameter is not renamed
+  (cons (GC (opt 0)
+            (append "(data T (T int)) " (main_is "(yes_or (Yes 4) 0)")))
+  ; a parametric type shadowed by another
+  (cons (GC (opt 0)
+            (append "(data (Opt T) (Nothing) (Just T)) "
+              (main_is "(match (Just 2) ((Nothing) 0) ((Just n) n))")))
+  (cons (GC (opt 0)
+            (append "(data (Opt T) (Nothing) (Just T)) "
+              (main_is "(yes_or (Yes 4) 0)")))
+  ; a program may declare a name beginning Io
+  (cons (GC "(data IoFile (IoFile int)) (def fd ((f IoFile)) int (match f ((IoFile h) h))) "
+            (append "(data IoFile (IoFile (list int))) "
+              (main_is "(match (IoFile \"x\") ((IoFile p) (head p)))")))
+        (nil GroupCase))))))))))))))))
+
+(def run_cases ((cs (list GroupCase)) (acc (list int))) (list int)
+  (if (is_empty cs)
+      (rev acc)
+      (match (head cs)
+        ((GC p s)
+          (run_cases (tail cs)
+            (push (check_source_pre (append p s) true (length p)) acc))))))
+
+(def main ((input (list int))) (list int)
+  (run_cases (cases 0) (nil int)))

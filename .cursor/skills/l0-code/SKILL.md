@@ -123,15 +123,18 @@ them**, and nor may `lib/prelude.l0`: stage 0 runs both and does not know
 them. Line helpers belong in `lib/io.l0`, and tests in `tests/io/`. The same
 goes for the file and argument builtins of spec sections 6.3 and 6.4. When
 `lib/io.l0` is among the files given to `tools/l0check` or `tools/l0c`, it and
-`lib/prelude.l0` are checked as the prelude group, since only the prelude may
-declare the `Io` names spec section 7.1 reserves.
+`lib/prelude.l0` are checked as the prelude group, since a program's
+functions, types, and constructors shadow the prelude's (spec section 7.1).
 
 **Parametric `data` types have the same limit.** `(data (Option T) ...)`,
 `(Option int)`, and `((None int))` are L0 (spec 4 and 5.6), but stage 0
 predates them, so the compiler's sources and `lib/prelude.l0` must not use
 them, and tests of them go in `tests/io/` or, for the checker's verdicts, in
 a `tests/compiler/` stage test such as `check_params`, which gives the
-source to the checker as data.
+source to the checker as data. The same holds for a program that shadows a
+prelude type or constructor (spec 7.1): stage 0 still resolves upper names
+across both groups, so see `tests/io/shadow_types` and
+`tests/compiler/groups`.
 
 ## The one performance rule
 

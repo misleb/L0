@@ -49,6 +49,7 @@
   (let ac (push (check_source (m "(write_byte true)")) ab)
   (let ad (push (check_source (m "(read_byte 1)")) ac)
   (let ae (push (check_source "(def main () bool true)") ad)
+  ; Io names are not reserved (spec 7.1), so these check.
   (let af (push (check_source (both "(data IoThing (Thing int))")) ae)
   (let ag (push (check_source (both "(data Iota (IoB int))")) af)
   (let ah (push (check_source_pre

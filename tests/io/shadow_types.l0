@@ -1,0 +1,39 @@
+; A program's types and constructors shadow the library's: spec 7.1.
+; lib/io.l0 declares a type IoFile, and IoLine with a constructor IoEnd; this
+; program declares its own of both, and still opens a file through the
+; library and reads it, holding the library's IoFile without naming it.
+
+(data IoFile
+  (Named (list int))
+  (Unnamed))
+
+(data Step
+  (IoEnd int)
+  (More (list int)))
+
+(def describe ((f IoFile)) (list int)
+  (match f
+    ((Named n) n)
+    ((Unnamed) "unnamed")))
+
+(def step_text ((s Step)) (list int)
+  (match s
+    ((IoEnd n) (append "end " (digits n)))
+    ((More t) (append "more " t))))
+
+; f is the library's IoFile, which this program cannot write in a signature.
+(def library_read ((path (list int))) (list int)
+  (match (open_in_bytes path)
+    ((IoOpened f)
+      (match (file_read_all f)
+        ((IoBytes b) (append "read " (digits (bytes_len b))))
+        ((IoReadFailed c) "read failed")))
+    ((IoFailed why) why)))
+
+(def main () int
+  (let a (write_line (describe (Named "notes.txt")))
+    (let b (write_line (describe (Unnamed)))
+      (let c (write_line (step_text (IoEnd 3)))
+        (let d (write_line (step_text (More "lines")))
+          (let e (write_line (library_read "one\ntwo\n"))
+            0))))))

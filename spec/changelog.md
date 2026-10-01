@@ -7,6 +7,74 @@ New entries go at the top.
 
 ---
 
+## A program's types shadow the library's, and Io names are no longer reserved
+
+**Type and constructor names resolve per group, as function names do**
+(sections 4, 7, 7.1). In a program declaration an upper name is the
+program's type or constructor if the program declares one, and otherwise
+the prelude's; in a prelude declaration it is only ever the prelude's. Two
+same-named types, one per group, are different types. **The `Io` prefix is
+no longer reserved**: a program may declare `IoFile`, and then has its own.
+Every program that compiled before still compiles; the only program this
+rejects is one whose prelude names a type only the program declares, and no
+prelude here does.
+
+**The blocker.** 0036 made one `Option` or `Result` serve every element
+type, and the library is where one belongs. But type names were global
+across the prelude and the program, and twelve files here already declare
+`Ok`, `Some`, `Pair`, or the like, among them 0014's calc, 0028's json,
+kvstore's tests, `tests/lang/last_use.l0`, and `lib/examples.l0`. Adding
+those names to `lib/io.l0` would have broken all of them with "constructor
+Ok is already declared", which is the breakage 0031 removed for builtins.
+The `Io` reservation was the only way around it, which would have named the
+shared types `IoOption` and `IoResult`.
+
+**Why grouping, when it was weighed and rejected before.** "Files,
+arguments, and names reserved for the standard library" weighed the same
+three answers with the user and chose the reservation, because grouping
+looked like it would touch about 44 resolution sites and override the two
+reasons 7.1 gave for global names. Neither holds:
+
+- 7.1's first reason was that a `match` arm names a constructor without its
+  type, so resolution had to be global for one-level patterns to resolve.
+  Per-group resolution keeps that property: within one group a constructor
+  name still denotes exactly one constructor, so an arm still determines
+  its constructor alone
+- the second was that a checker comparing types by name could not tell two
+  same-named types apart. It does not need to. Before checking, one pass
+  renames every type and constructor in the prelude's declarations that the
+  program also declares to a name no source can write (the prelude's `Ok`
+  becomes `prelude's Ok`). The two are then different names, the checker
+  and emitter compare by name exactly as before, and none of the 44 sites
+  changed. A prelude reference to a type only the program declares is
+  renamed the same way and reported as unknown, which is 7.1's rule that the
+  prelude cannot see the program
+- the reservation also asked every later library area for a prefix of its
+  own, each a breaking change once; grouping makes adding any library type
+  a breaking change never
+
+The cost is what shadowing a function already cost: a program that declares
+its own `Ok` cannot build or match on the library's, and since a `match`
+names every constructor, cannot take the library's type apart at all. It can
+still hold and pass on the library's values. The renamed name appears in
+diagnostics, as in "but this is prelude's Result", which says which type it
+is.
+
+**Why the reservation goes rather than staying beside grouping.** It
+existed so the library could gain types without breaking programs, and
+grouping now guarantees that for every name. Kept, it would be a rule with
+no remaining reason, and the reason a reader could tell the library's types
+by name is kept anyway by the library's own convention: `lib/io.l0` still
+names its types `IoLine`, `IoFile`, and so on.
+
+**Stage 0 is unchanged.** It still resolves type names globally and still
+rejects `Io` names in a program, so a program that shadows a prelude type is
+tested only in the compiled suite (`tests/io/shadow_types`), and the
+checker's verdicts on grouping in a stage test (`tests/compiler/groups`)
+that gives bundles to the compiler as data.
+
+---
+
 ## Data types take type parameters
 
 **A `data` declaration may take type parameters** (sections 3, 4, 5.5, 5.6):

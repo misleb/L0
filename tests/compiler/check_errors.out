@@ -28,8 +28,8 @@
 35: an argument of write_byte must be int, but this is bool
 35: read_byte takes 0 arguments, but got 1
 0: a main with no parameters must return int
-0: type IoThing has a name reserved for the standard library
-0: constructor IoB has a name reserved for the standard library
+ok
+ok
 ok
 35: an argument of open_read must be (list int), but this is int
 0: constructor W has 32 fields, and at most 31 are allowed

@@ -5,9 +5,9 @@
 # 9.1, to stdout. NOMAIN is 1 to relax the requirement for a main.
 #
 # When lib/io.l0 or lib/test.l0 is among the files, they and lib/prelude.l0
-# are made the prelude group, as tools/l0 makes them, since only the prelude
-# may declare the names spec section 7.1 reserves for the standard library,
-# and a program may shadow what the prelude defines. lib/test.l0 joins it
+# are made the prelude group, as tools/l0 makes them, since a program may
+# shadow the functions, types, and constructors the prelude defines (spec
+# section 7.1). lib/test.l0 joins it
 # the way l0 test links it, so a test file checks here as it builds there.
 # Otherwise every file is the program, which is how the compiler itself is
 # built.

@@ -28,9 +28,9 @@
 #
 # Several files are compiled together, because L0 has no module system.
 # The standard library, lib/prelude.l0 and lib/io.l0, is included
-# automatically; pass --no-prelude to suppress it. A function
-# you define shadows a prelude function of the same name, so the prelude can
-# gain functions without breaking a program that already used the name.
+# automatically; pass --no-prelude to suppress it. A function, type, or
+# constructor you define shadows the prelude's of the same name, so the
+# prelude can gain them without breaking a program that already used the name.
 #
 # Paths are relative to wherever you are, so this works from anywhere.
 #

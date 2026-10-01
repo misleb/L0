@@ -4,8 +4,8 @@ ok
 24: function f is already defined
 21: unknown function q
 -1: this program has no main function
-17: data type T is already declared
-17: constructor A is already declared
+ok
+ok
 ok
 56: argument 1 of flush must be (list int), but this is int
 ok

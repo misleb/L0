@@ -154,9 +154,11 @@ Defining `length` when the prelude already has one, or `flush` when it is a
 builtin, is legal rather than a collision: yours is used everywhere in your
 program, with your signature, and the prelude goes on calling its own and
 the builtin, so redefining something the prelude uses internally cannot
-break it, and a builtin added to L0 later cannot break your program. Type
-and constructor names are not shadowable and still have to be unique. Spec
-sections 7 and 7.1.
+break it, and a builtin added to L0 later cannot break your program. Your
+types and constructors win over the library's the same way, `IoFile` or any
+other: the library's are then out of reach, so a `match` on a library type
+one of whose constructors you redeclared cannot be written. Spec sections 7
+and 7.1.
 
 ## The one performance rule
 
@@ -326,10 +328,6 @@ real files or `(IoFile 0)` and `(IoFile 1)`. A test then passes it
 collect what it writes, which `buffer_contents` returns as a string. The code
 cannot tell these from files, so the test runs exactly the code the program
 runs, with no temporary files. Close both with `file_close`.
-
-Type and constructor names beginning with `Io` and an uppercase letter, such
-as `IoFile`, are reserved for the standard library, so name your own types
-something else.
 
 **Memory is reclaimed by reference counting**, with nothing for you to do, but
 how you write a program decides how much it holds. A value is freed at the

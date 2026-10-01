@@ -1722,6 +1722,9 @@
 ; the prelude is library code that happens to be called main, not an entry
 ; point. Spec section 9.
 (def emit_module ((ds (list Decl)) (pre int)) (list int)
+  (emit_grouped (group_upper ds pre) pre))
+
+(def emit_grouped ((ds (list Decl)) (pre int)) (list int)
   (let st0 (Em 0 (push (ir_header 0) (nil int)))
     (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
                 (append (digits (ret_kind (program_decls ds pre (nil Decl))))

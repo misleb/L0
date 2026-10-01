@@ -116,8 +116,9 @@
 ;
 ; A file is an IoFile rather than a bare handle, so the checker can tell one
 ; from any other int. Opening returns IoOpened, whose IoFailed case a match
-; has to handle, so a program cannot forget that opening can fail. Names
-; beginning with Io are reserved for this library; spec section 7.1.
+; has to handle, so a program cannot forget that opening can fail. This
+; library's names begin with Io so a reader can tell them apart; a program
+; that declares one of its own shadows it (spec section 7.1).
 
 ;; An open file. Get one from open_in or open_out, use it with the file_
 ;; functions, and close it with file_close.

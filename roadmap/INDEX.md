@@ -16,13 +16,14 @@ the library and the text programs.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0037](0037-library-type-names.md) a program's types do not collide with
-   the library's — queued
+Empty.
 
 ## Other open items
 
 - [0038](0038-parametric-functions.md) functions take type parameters —
   proposed, waiting for programs that use 0036
+- [0039](0039-library-option-result.md) tooling: the library declares
+  Option and Result — proposed
 
 ## Done and dropped
 
@@ -110,3 +111,6 @@ Changes to the language, strictly in order. At most one is active.
   parametric functions (0038)
 - [0036](0036-parametric-data.md) data types take type parameters — done,
   changelog "Data types take type parameters"; Linux runs owed
+- [0037](0037-library-type-names.md) a program's types do not collide with
+  the library's — done, changelog "A program's types shadow the library's,
+  and Io names are no longer reserved"; Linux runs owed

@@ -1,7 +1,8 @@
 # 0037: A program's types do not collide with the library's
 
 Kind: language
-Status: queued
+Status: done, changelog "A program's types shadow the library's, and Io
+names are no longer reserved"; Linux runs owed
 Needs: 0036
 
 ## Why
@@ -32,3 +33,25 @@ whether the library's general types get names reserved some other way.
 ## Log
 
 - 2026-09-30: queued from 0035, after 0036.
+- 2026-09-30: done. The user chose grouping over a reserved prefix, and to
+  drop the `Io` reservation, which grouping leaves without a reason.
+  - the earlier objection to grouping was about 44 resolution sites; none
+    changed. `group_upper` in `compiler/check.l0` renames every upper name
+    in a prelude declaration that the program also declares to `prelude's
+    X`, skipping a data declaration's own parameters, and both
+    `check_program` and `emit_module` run on the result. The checker's
+    duplicate sets are still single, and are per group because of the
+    renaming
+  - tests: `tests/compiler/groups` (14 cases: spec 7.1's example, a
+    shadowed constructor that cannot take the prelude's type apart, a
+    same-named type as a different type, the prelude not seeing the
+    program, duplicates within a group, a parameter not renamed, an `Io`
+    name); `tests/io/shadow_types` declares its own `IoFile` and `IoEnd`
+    and still opens and reads a file through `lib/io.l0`, under
+    `L0_RC_CHECK`. `check_errors` and `prelude_scope` re-blessed: their
+    four cases asserting a collision or a reserved name now check
+  - found on the way: `tools/l0` uses `lib/l0c`, built from the seed, so
+    trying a compiler change through it needs `L0_COMPILER` or a seed
+    refresh
+  - follow-up proposed as [0039](0039-library-option-result.md): the
+    library can now declare `Option` and `Result` without breaking anyone

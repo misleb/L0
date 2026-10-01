@@ -38,7 +38,8 @@
   ; A main in the prelude is library code that happens to be called main.
   (let f (push (case "(def main ((input (list int))) int 0) " "") e)
 
-  ; Type and constructor names are not grouped, so these still collide.
+  ; Type and constructor names are grouped too, so neither collides; the
+  ; cases of that are in tests/compiler/groups.l0.
   (let g (push (case "(data T (A int)) " (prog "(data T (B int))")) f)
   (let h (push (case "(data T (A int)) " (prog "(data U (A int))")) g)
 
