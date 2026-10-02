@@ -18,6 +18,10 @@ tmp/*
 # tracked, since they are project governance rather than scratch work.
 .cursor/plans/
 
+# Claude Code's per-user settings. .claude/skills and .claude/rules are
+# symlinks into .cursor/ and are tracked.
+.claude/settings.local.json
+
 # macOS and editor noise.
 .DS_Store
 *.swp
