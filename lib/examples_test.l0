@@ -39,15 +39,23 @@
 ; that should not happen is a failure you name.
 (def test_parse_digits () int
   (match (parse_digits "42rest" 0 false)
-    ((Ok v rest)
+    ((Num v rest)
       (add (check_int "value" v 42)
            (check_str "remaining" rest "rest")))
     ((Bad msg) (check_str "should have parsed" msg ""))))
 
 (def test_parse_rejects_letters () int
   (match (parse_digits "x" 0 false)
-    ((Ok v rest) (check_true "should have failed" false))
+    ((Num v rest) (check_true "should have failed" false))
     ((Bad msg) (check_str "message" msg "expected a digit"))))
+
+(def test_parse_number () int
+  (add (match (parse_number "42")
+         ((Ok v) (check_int "value" v 42))
+         ((Err msg) (check_str "should have parsed" msg "")))
+       (match (parse_number "42x")
+         ((Ok v) (check_true "should have failed" false))
+         ((Err msg) (check_str "message" msg "expected only digits")))))
 
 (def test_first_even_or () int
   (add (check_int "found" (first_even_or (cons 3 (cons 8 (nil int))) 0) 8)

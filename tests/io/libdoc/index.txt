@@ -46,7 +46,11 @@
   hex_val ((c int)) int
       The value of c as a hexadecimal digit, 0 to 15, in either case, or -1 if it is not one.
 
-== io: Reading and writing lines, strings, and bytes, command-line arguments, and files.
+== io: Option and Result, for every type they hold; then reading and writing lines, strings, and bytes, command-line arguments, and files.
+  (data (Option T) (None) (Some T))
+      A value that may be missing: (Some x), or (None).
+  (data (Result T E) (Ok T) (Err E))
+      The outcome of something that can fail: (Ok x), or (Err e) saying why.
   read_line () (list int)
       The next line of standard input, including its newline if it has one.
   (data IoLine (IoLine (list int)) (IoEnd) (IoError int))

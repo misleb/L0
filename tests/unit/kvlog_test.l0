@@ -2,11 +2,13 @@
 ; rename_file. Each test uses a store file of its own, in the scratch
 ; directory tools/test.sh --compiled runs this in.
 
-(def show ((l Lookup)) (list int)
+(def show ((l (Result (Option (list int)) (list int)))) (list int)
   (match l
-    ((Found v) (append "found " v))
-    ((Missing) "missing")
-    ((Failed why) (append "failed: " why))))
+    ((Ok found)
+      (match found
+        ((Some v) (append "found " v))
+        ((None) "missing")))
+    ((Err why) (append "failed: " why))))
 
 (def contents ((path (list int))) (list int)
   (match (open_in path)

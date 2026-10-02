@@ -1,6 +1,7 @@
-; Unit tests for spec section 7: a def shadows a builtin of the same name.
-; The library is the prelude group and cannot see these defs, so its own
-; calls still reach the builtins. l0 test runs each test under L0_RC_CHECK,
+; Unit tests for spec section 7: a def shadows a builtin of the same name,
+; and a program's constructor shadows the library's (7.1). The library is the
+; prelude group and cannot see these defs, so its own calls still reach the
+; builtins. l0 test runs each test under L0_RC_CHECK,
 ; so a reference the compiler miscounts fails it.
 
 ; A program written before flush was a builtin.
@@ -40,3 +41,19 @@
   (let s (cons 1 (cons 2 (cons 3 (nil int))))
     (add (check_str "kept" (keep s) (cons 1 (cons 2 (cons 3 (nil int)))))
          (check_str "still held" s (cons 1 (cons 2 (cons 3 (nil int))))))))
+
+; lib/io.l0's Result has a constructor Ok. A program written before it did
+; declares its own, and keeps it, while still using the library's Option.
+(data Reply
+  (Ok (list int))
+  (Busy))
+
+(def reply_text ((r Reply)) (Option (list int))
+  (match r
+    ((Ok s) (Some s))
+    ((Busy) ((None (list int))))))
+
+(def test_own_ok () int
+  (match (reply_text (Ok "yes"))
+    ((Some s) (check_str "the program's Ok" s "yes"))
+    ((None) (check_true "the library's Some" false))))

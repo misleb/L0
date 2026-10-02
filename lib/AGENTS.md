@@ -78,8 +78,8 @@ Anything a ten-line function solves is not a language limitation. A prompt, a
 confirmation, or progress during a run is not one either: write it with a
 `main` that takes no parameters and reads and writes as it goes, as the
 `l0-code` skill shows, and so are files and command-line arguments. Memory is
-reclaimed automatically. A clock, a network, and the environment do not exist
-yet.
+reclaimed automatically, and `clock_ns` times part of a program. A network
+and the environment do not exist yet.
 
 ## Two traps specific to L0
 

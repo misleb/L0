@@ -7,6 +7,64 @@ New entries go at the top.
 
 ---
 
+## The library declares Option and Result, and no language change for it
+
+**`lib/io.l0` declares `(Option T)`, with `None` and `Some`, and `(Result T
+E)`, with `Ok` and `Err`** (roadmap item 0039), exactly as section 4's
+examples write them. Every program now has both without declaring them, and
+one that declares its own `Ok` or `Some` keeps its own (7.1).
+
+**Why these two and no pair.** About ten one-use types across 0014, 0028,
+and the suite are a value or a failure, such as calc's `Lexed`, life's
+`Parsed`, and kvlog's `Loaded`, and two more, kvstore's `Lookup` and
+linediff's `Found`, are a value or nothing; those are the shapes that recur
+with nothing to name. A pair does not recur that
+way: every two-value type here, `Split`, `Updated`, `Interned`, `PJ`'s
+fields, has a name that says what its halves are, and `(Pair Graph int)`
+would say less. A pair waits for a program that wants an array or list of
+them, which dijkstra's heap would be.
+
+**Why `E` is a parameter rather than always a message.** Most errors here
+are a `(list int)` in words, and fixing `E` to that would let `(Ok x)`
+take its type from `x`. But the library's own failures carry an `int` code
+(section 6.3), and a `Result` that cannot hold one would not serve the
+library it lives in. The cost is that neither constructor determines both
+parameters, so every `Ok` and `Err` is written with its type, as in
+`((Ok (list Entry) (list int)) es)`. That is the price section 5.6 already
+names, and parametric functions would not lower it, since a helper making an
+`Err` still has a `T` nothing determines.
+
+**Why the `Io` types do not become `Result`s.** `IoLine` has three cases,
+and `IoOpened` and `IoBytes` are matched by name in every program that opens
+or reads a file. Recasting them would break all of those programs to save no
+line in the library.
+
+**Why no helpers.** Functions do not take type parameters, so an `is_some`
+or `unwrap_or` would be one function per element type, and the library
+cannot know which types programs use. They are the first library functions
+0038 would make possible.
+
+**Why `lib/io.l0`, though they are not I/O.** Stage 0 runs
+`lib/prelude.l0` and does not know type parameters, so the prelude cannot
+hold them, and `lib/io.l0` is the library stage 0 does not run. A new file
+would have to be named in `tools/l0`, `tools/bundle.sh`, the install
+layout, and the sixteen `.extra` files that list `lib/io.l0`, all to change
+one heading of `l0 doc`. The file's header now says that what stage 0
+cannot run, not I/O, decides what goes in it.
+
+**What moved onto them.** `lib/examples.l0` shows the library's `Option` in
+place of its own `Maybe`, and `parse_number` shows a `Result`; its `Parsed`
+renames `Ok` to `Num`, so the examples no longer shadow the library they
+teach. `tests/unit/kvlog.l0` drops `Loaded` and `Lookup`, so `kv_get`
+returns a `(Result (Option (list int)) (list int))`.
+`tests/unit/shadow_test.l0` declares its own `Ok` beside the library's and
+uses the library's `Option` in the same program. 0014's calc and 0028's json
+declare `Err` and `Ok` of their own, and still pass their tests unchanged.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## A program's types shadow the library's, and Io names are no longer reserved
 
 **Type and constructor names resolve per group, as function names do**

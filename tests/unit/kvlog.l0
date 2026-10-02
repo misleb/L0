@@ -11,14 +11,9 @@
 (data Entry
   (Entry (list int) (list int)))        ; key, value
 
-(data Lookup
-  (Found (list int))
-  (Missing)
-  (Failed (list int)))                  ; why, in words
-
-(data Loaded
-  (Loaded (list Entry))                 ; live entries, oldest write first
-  (LoadFailed (list int)))
+; Loading gives the live entries, oldest write first, and a lookup gives the
+; value if the key has one; either fails with why, in words, as a (Result _
+; (list int)) from lib/io.l0.
 
 (def record ((op int) (key (list int)) (value (list int))) (list int)
   (cons op (append key (cons 9 (append value "\n")))))
@@ -40,21 +35,23 @@
 ; --------------------------------------------------------------- reading
 
 ; A store that was never written is empty.
-(def kv_load ((path (list int))) Loaded
+(def kv_load ((path (list int))) (Result (list Entry) (list int))
   (match (open_in path)
     ((IoFailed why)
-      (if (list_eq why (io_error -3)) (Loaded (nil Entry)) (LoadFailed why)))
+      (if (list_eq why (io_error -3))
+          ((Ok (list Entry) (list int)) (nil Entry))
+          ((Err (list Entry) (list int)) why)))
     ((IoOpened f)
       (let r (load_from f (nil Entry))
         (let c (file_close f)
           r)))))
 
 ; live is newest first while reading.
-(def load_from ((f IoFile) (live (list Entry))) Loaded
+(def load_from ((f IoFile) (live (list Entry))) (Result (list Entry) (list int))
   (match (file_next_line f)
     ((IoLine s) (load_from f (apply_record s live)))
-    ((IoEnd) (Loaded (rev_entries live (nil Entry))))
-    ((IoError code) (LoadFailed (io_error code)))))
+    ((IoEnd) ((Ok (list Entry) (list int)) (rev_entries live (nil Entry))))
+    ((IoError code) ((Err (list Entry) (list int)) (io_error code)))))
 
 (def apply_record ((s (list int)) (live (list Entry))) (list Entry)
   (let key (before_tab (tail s) (nil int))
@@ -87,25 +84,26 @@
 (def rev_entries ((es (list Entry)) (acc (list Entry))) (list Entry)
   (if (is_empty es) acc (rev_entries (tail es) (cons (head es) acc))))
 
-(def find_key ((key (list int)) (es (list Entry))) Lookup
+(def find_key ((key (list int)) (es (list Entry))) (Option (list int))
   (if (is_empty es)
-      (Missing)
+      ((None (list int)))
       (if (list_eq (entry_key (head es)) key)
-          (Found (entry_value (head es)))
+          (Some (entry_value (head es)))
           (find_key key (tail es)))))
 
-(def kv_get ((path (list int)) (key (list int))) Lookup
+(def kv_get ((path (list int)) (key (list int)))
+    (Result (Option (list int)) (list int))
   (match (kv_load path)
-    ((Loaded es) (find_key key es))
-    ((LoadFailed why) (Failed why))))
+    ((Ok es) ((Ok (Option (list int)) (list int)) (find_key key es)))
+    ((Err why) ((Err (Option (list int)) (list int)) why))))
 
 ; ------------------------------------------------------------ compacting
 
 ; 0, or 1 with the store unchanged.
 (def kv_compact ((path (list int))) int
   (match (kv_load path)
-    ((LoadFailed why) 1)
-    ((Loaded es) (replace_with path es))))
+    ((Err why) 1)
+    ((Ok es) (replace_with path es))))
 
 (def replace_with ((path (list int)) (es (list Entry))) int
   (let tmp (append path ".tmp")

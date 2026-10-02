@@ -33,3 +33,11 @@ which helpers it needs first.
 ## Log
 
 - 2026-09-30: proposed by 0035.
+- 2026-10-02: 0039 put `Option` and `Result` in the library and moved
+  kvlog and the examples onto them; neither wanted a helper over them, so
+  that is not yet the code this needs. Next: a program item that rewrites
+  code 0035 counted as per-type helpers (0014's paths trie, the array grow
+  helpers in 0028) with parametric data, to show which functions it wants
+  first. Open question it must answer: a generic `rev` or `length` cannot
+  sit beside the prelude's `(list int)` ones in one group, and the prelude
+  cannot hold one while stage 0 runs it.

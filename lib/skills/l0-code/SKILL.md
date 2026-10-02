@@ -114,24 +114,27 @@ Recursion replaces both loops and iteration combinators.
 `data` type; see `Split` in `l0 examples`.
 
 **There are no exceptions.** A function that can fail returns a `data` type
-with a case per outcome; see `Parsed` in `l0 examples`.
+with a case per outcome; see `Parsed` in `l0 examples`. When success is one
+value, the standard library's `Result` is that type (`l0 doc Result`), and
+`Option` is the one for a value that may be missing.
 
 **A `data` type may take type parameters; a function may not.** Declare the
 shape once and use it at every type it holds, instead of one type per element
-type:
+type. The standard library declares `Option` and `Result` this way, so use
+those rather than declaring your own:
 
 ```
-(data (Result T E) (Ok T) (Err E))      ; (Result int (list int)) is a type
+(data (Result T E) (Ok T) (Err E))      ; as the library declares it
 (Ok 5)                                  ; wrong: nothing says what E is
-((Ok int (list int)) 5)                 ; right
+((Ok int (list int)) 5)                 ; right: a (Result int (list int))
 ```
 
 A construction takes its type from its arguments, as `cons` does, so
-`(Just 5)` needs nothing more. A constructor whose fields leave a parameter
+`(Some 5)` needs nothing more. A constructor whose fields leave a parameter
 out, such as `(None)`, is written with the type's arguments first,
-`((None int))`, as `nil` is. See `Maybe` in `l0 examples`. Functions are
-still written once per type, so a helper over `(Maybe int)` does not work on
-`(Maybe bool)`.
+`((None int))`, as `nil` is. See `first_even` and `parse_number` in
+`l0 examples`. Functions are still written once per type, so a helper over
+`(Option int)` does not work on `(Option bool)`.
 
 **`and` and `or` are strict.** Both arguments are always evaluated, so they do
 not guard against errors. This still calls `head` on an empty list:
@@ -425,7 +428,7 @@ an int array takes 8 bytes per byte. Read it with `(read_input)` or
 `(file_read_all f)` into `bytes`, which take one. An `(array bytes)` is a
 compact table of words or lines: build each with `bytes_from_list`.
 
-There is no clock, network, or environment yet.
+There is no network or environment yet.
 
 ## Testing
 

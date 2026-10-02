@@ -1,17 +1,37 @@
-; io.l0 -- lines, strings, bytes, arguments, and files, over the I/O
-; builtins of spec sections 6.2 to 6.4 and 6.6.
+; io.l0 -- Option and Result, then lines, strings, bytes, arguments, and
+; files, over the I/O builtins of spec sections 6.2 to 6.4 and 6.6.
 ;
 ; tools/l0 links this into every program, in the prelude group alongside
-; lib/prelude.l0, so a program may define its own read_line and keep calling
-; it. It is a separate file because the compiler is built from
-; lib/prelude.l0, and the stage-0 interpreter that runs the compiler for
-; tools/l0check does not know the I/O builtins. ;; comments are what l0 doc
-; shows, as in lib/prelude.l0.
+; lib/prelude.l0, so a program may define its own read_line, or its own Ok,
+; and keep using it (spec section 7.1). It is a separate file because the
+; compiler is built from lib/prelude.l0, and the stage-0 interpreter that
+; runs the compiler for tools/l0check knows neither the I/O builtins nor type
+; parameters; that, not I/O, is what decides whether a definition belongs
+; here. ;; comments are what l0 doc shows, as in lib/prelude.l0.
 
-;;; Reading and writing lines, strings, and bytes, command-line arguments, and
-;;; files. Everything here is built on the I/O builtins of spec sections 6.2
-;;; to 6.4 and 6.6, and like them happens in evaluation order: sequence it
-;;; with let.
+;;; Option and Result, for every type they hold; then reading and writing
+;;; lines, strings, and bytes, command-line arguments, and files. The I/O is
+;;; built on the builtins of spec sections 6.2 to 6.4 and 6.6, and like them
+;;; happens in evaluation order: sequence it with let.
+
+; ------------------------------------------------------------ option, result
+
+;; A value that may be missing: (Some x), or (None). (Some x) takes its type
+;; from x, but None says nothing of T, so it is written with its type as nil
+;; is: ((None int)) is an (Option int). Functions do not take type
+;; parameters, so a helper over (Option int) is written for that type.
+(data (Option T)
+  (None)
+  (Some T))
+
+;; The outcome of something that can fail: (Ok x), or (Err e) saying why.
+;; Neither constructor determines both parameters, so both are written with
+;; the type: ((Ok int (list int)) 5) and ((Err int (list int)) "bad") are
+;; each a (Result int (list int)). A program that declares its own Ok or Err
+;; uses its own, and cannot match on this type (spec section 7.1).
+(data (Result T E)
+  (Ok T)
+  (Err E))
 
 ;; The next line of standard input, including its newline if it has one. The
 ;; empty list means end of input: a blank line is "\n", and a last line with

@@ -126,45 +126,55 @@
 ; There are no exceptions. A function that can fail returns a data type with
 ; a case for each outcome, and callers match on it.
 (data Parsed
-  (Ok int (list int))                   ; value, remaining input
+  (Num int (list int))                  ; value, remaining input
   (Bad (list int)))                     ; message
 
 (def parse_digits ((xs (list int)) (acc int) (seen bool)) Parsed
   (if (is_empty xs)
-      (if seen (Ok acc xs) (Bad "expected a digit"))
+      (if seen (Num acc xs) (Bad "expected a digit"))
       (if (is_digit (head xs))
           (parse_digits (tail xs) (add (mul acc 10) (sub (head xs) 48)) true)
-          (if seen (Ok acc xs) (Bad "expected a digit")))))
+          (if seen (Num acc xs) (Bad "expected a digit")))))
 
 (def parse_or_zero ((xs (list int))) int
   (match (parse_digits xs 0 false)
-    ((Ok v rest) v)
+    ((Num v rest) v)
     ((Bad msg) 0)))
+
+; When success is one value, the library's Result is that type already (l0
+; doc Result). Ok says nothing of the error's type, nor Err of the value's,
+; so each is written with the type's arguments, as nil is with its element.
+(def parse_number ((xs (list int))) (Result int (list int))
+  (match (parse_digits xs 0 false)
+    ((Num v rest)
+      (if (is_empty rest)
+          ((Ok int (list int)) v)
+          ((Err int (list int)) "expected only digits")))
+    ((Bad msg) ((Err int (list int)) msg))))
 
 ; ---------------------------------------------------------- type parameters
 
 ; A data type may take type parameters, so one declaration serves every type
-; it holds: (Maybe int) and (Maybe (list int)) are both types. Functions do
-; not take them; each is written at the types it uses.
-(data (Maybe T)
-  (Nothing)
-  (Just T))
+; it holds: (Option int) and (Option (list int)) are both types. The library
+; declares Option as (data (Option T) (None) (Some T)), and a program
+; declares its own the same way. Functions do not take type parameters; each
+; is written at the types it uses.
 
-; (Just x) takes its type from x, as cons takes its type from the list. A
-; constructor whose fields do not mention T is written with the type, as
-; nil is: ((Nothing int)).
-(def first_even ((xs (list int))) (Maybe int)
+; (Some x) takes its type from x, as cons takes its type from the list. A
+; constructor whose fields do not mention T is written with the type, as nil
+; is: ((None int)).
+(def first_even ((xs (list int))) (Option int)
   (if (is_empty xs)
-      ((Nothing int))
+      ((None int))
       (if (eq (mod (head xs) 2) 0)
-          (Just (head xs))
+          (Some (head xs))
           (first_even (tail xs)))))
 
 ; In a match, each field has the subject's type in place of T.
 (def first_even_or ((xs (list int)) (fallback int)) int
   (match (first_even xs)
-    ((Nothing) fallback)
-    ((Just n) n)))
+    ((None) fallback)
+    ((Some n) n)))
 
 ; ------------------------------------------------ reading and writing as you go
 
