@@ -309,24 +309,35 @@ lib_doc() {
         sub(/ +$/, "", d)
         return d
     }
-    function finish(    flat, i, j, name, params, ret, ctors) {
+    # The name a def or data declares, its head starting at i: a bare name,
+    # or the first word of (name T ...) when it takes type parameters. Sets
+    # head_end to the index just past the head.
+    function head_name(s, i,    j) {
+        if (substr(s, i, 1) == "(") {
+            j = word_end(s, i + 1)
+            head_end = group_end(s, i)
+            return substr(s, i + 1, j - i - 1)
+        }
+        head_end = word_end(s, i)
+        return substr(s, i, head_end - i)
+    }
+    function finish(    flat, i, j, name, head, params, ret, ctors) {
         capturing = 0
         n++
         efile[n] = file; edoc[n] = pdoc; eform[n] = form
         flat = tidy(flat_form)
         if (substr(flat, 1, 5) == "(def ") {
-            i = skip_space(flat, 6); j = word_end(flat, i)
-            name = substr(flat, i, j - i)
+            i = skip_space(flat, 6); name = head_name(flat, i); j = head_end
+            head = substr(flat, i, j - i)
             i = skip_space(flat, j); j = group_end(flat, i)
             params = substr(flat, i, j - i)
             i = skip_space(flat, j)
             if (substr(flat, i, 1) == "(") j = group_end(flat, i)
             else j = word_end(flat, i)
             ret = substr(flat, i, j - i)
-            ename[n] = name; esig[n] = name " " params " " ret; ekind[n] = "def"
+            ename[n] = name; esig[n] = head " " params " " ret; ekind[n] = "def"
         } else {
-            i = skip_space(flat, 7); j = word_end(flat, i)
-            name = substr(flat, i, j - i)
+            i = skip_space(flat, 7); name = head_name(flat, i); j = head_end
             ename[n] = name; esig[n] = flat; ekind[n] = "data"
             ctors = " "
             i = skip_space(flat, j)

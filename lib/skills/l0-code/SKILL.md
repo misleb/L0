@@ -235,7 +235,10 @@ l0 doc decimal        # anything whose name or documentation mentions it
 ```
 
 The ones you will reach for constantly are `rev`, `push`, `append`,
-`list_eq`, and `digits`, which is the only way to print a number. The
+`list_eq`, and `digits`, which is the only way to print a number. `rev`,
+`rev_onto`, `append`, and `length` take a list of any type, and
+`array_resize` grows an array of any type, so never write one of them for
+your own element type. The
 builtins, such as `head` and `read_byte`, are in the specification, section
 6, not in `l0 doc`.
 

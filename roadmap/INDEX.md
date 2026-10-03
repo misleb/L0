@@ -12,7 +12,8 @@ one byte per byte needs a packed type, and that adding builtins must first
 stop breaking programs; 0031 and 0032 did both, and 0033 put bytes to use in
 the library and the text programs. Type parameters came next (0035): data
 types take them (0036), a program's types shadow the library's (0037), the
-library declares Option and Result (0039), and functions take them (0038).
+library declares Option and Result (0039), and functions take them (0038),
+so the library's list helpers now take every element type (0040).
 
 ## Language queue
 
@@ -22,8 +23,7 @@ Empty.
 
 ## Other open items
 
-- [0040](0040-library-list-helpers.md) tooling: the library's list helpers
-  work at every element type — proposed
+None.
 
 ## Done and dropped
 
@@ -119,3 +119,6 @@ Empty.
   Result, and no language change for it"
 - [0038](0038-parametric-functions.md) functions take type parameters —
   done, changelog "Functions take type parameters"
+- [0040](0040-library-list-helpers.md) the library's list helpers work at
+  every element type — done, changelog "The library's list helpers take
+  every element type, and no language change for it"

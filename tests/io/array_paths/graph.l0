@@ -79,13 +79,7 @@
 (def room ((edges (array (list Edge))) (n int)) (array (list Edge))
   (if (le n (array_len edges))
       edges
-      (copy_into edges (array_new (mul 2 (array_len edges)) (nil Edge)) 0)))
-
-(def copy_into ((src (array (list Edge))) (dst (array (list Edge))) (i int))
-    (array (list Edge))
-  (if (ge i (array_len src))
-      dst
-      (copy_into src (array_set dst i (array_get src i)) (add i 1))))
+      (array_resize edges (mul 2 (array_len edges)) (nil Edge))))
 
 (def add_edge ((g Graph) (from (list int)) (to (list int)) (w int)) Graph
   (match (intern g from)
@@ -173,7 +167,7 @@
 ; ----------------------------------------------------------------- input
 
 (def fields ((s (list int))) (list (list int))
-  (rev_strs_onto (fields_onto s (nil int) (nil (list int))) (nil (list int))))
+  (rev (fields_onto s (nil int) (nil (list int)))))
 
 (def fields_onto ((s (list int)) (cur (list int)) (acc (list (list int))))
     (list (list int))

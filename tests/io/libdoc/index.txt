@@ -1,14 +1,6 @@
-== prelude: Lists of bytes: reversing, building output, comparing, decimal numbers, slicing lines and words, word tables, and character classes.
-  rev_onto ((xs (list int)) (acc (list int))) (list int)
-      xs reversed, in front of acc: (rev_onto "ab" "cd") is "bacd".
-  rev ((xs (list int))) (list int)
-      xs reversed.
+== prelude: Lists of bytes: building output, comparing, decimal numbers, slicing lines and words, word tables, and character classes.
   push ((chunk (list int)) (acc (list int))) (list int)
       Pushes chunk onto a reversed accumulator: acc with chunk's bytes in front, last byte first.
-  append ((xs (list int)) (ys (list int))) (list int)
-      xs followed by ys.
-  length ((xs (list int))) int
-      The number of elements of xs.
   list_eq ((xs (list int)) (ys (list int))) bool
       Whether xs and ys hold the same bytes in the same order.
   digits ((n int)) (list int)
@@ -27,8 +19,6 @@
       s without its leading spaces, byte 32 only, not tabs or newlines.
   int_prefix ((s (list int)) (acc int)) int
       The number s starts with, in decimal, added to acc times ten per digit, so (int_prefix "42x" 0) is 42 and (int_prefix "x" 0) is 0.
-  rev_strs_onto ((xs (list (list int))) (acc (list (list int)))) (list (list int))
-      xs reversed, in front of acc, for a list of strings: rev_onto for (list (list int)).
   split_spaces ((s (list int))) (list (list int))
       The words of s, split at spaces, in order.
   any_eq ((n (list int)) (candidates (list (list int)))) bool
@@ -46,7 +36,17 @@
   hex_val ((c int)) int
       The value of c as a hexadecimal digit, 0 to 15, in either case, or -1 if it is not one.
 
-== io: Option and Result, for every type they hold; then reading and writing lines, strings, and bytes, command-line arguments, and files.
+== io: Lists and arrays of any type, and Option and Result, for every type they hold; then reading and writing lines, strings, and bytes, command-line arguments, and files.
+  (rev_onto T) ((xs (list T)) (acc (list T))) (list T)
+      xs reversed, in front of acc, for a list of any type: (rev_onto "ab" "cd") is "bacd".
+  (rev T) ((xs (list T))) (list T)
+      xs reversed, for a list of any type.
+  (append T) ((xs (list T)) (ys (list T))) (list T)
+      xs followed by ys, for lists of any type.
+  (length T) ((xs (list T))) int
+      The number of elements of xs, a list of any type.
+  (array_resize T) ((a (array T)) (n int) (fill T)) (array T)
+      An array of n elements of any type: the first n of a, followed by copies of fill if a has fewer.
   (data (Option T) (None) (Some T))
       A value that may be missing: (Some x), or (None).
   (data (Result T E) (Ok T) (Err E))

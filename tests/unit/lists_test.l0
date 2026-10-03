@@ -1,0 +1,71 @@
+; Unit tests for the library's list and array helpers in lib/io.l0, which take
+; type parameters, at element types that are counted and that are not. l0
+; test runs each under L0_RC_CHECK, so a leak or a use of a freed block fails
+; it.
+
+(data Pt
+  (Pt int (list int)))
+
+(def pt_x ((p Pt)) int (match p ((Pt x s) x)))
+
+(def pts () (list Pt)
+  (cons (Pt 1 "a") (cons (Pt 2 "b") (cons (Pt 3 "c") (nil Pt)))))
+
+(def test_rev_bytes () int
+  (add (check_str "abc" (rev "abc") "cba")
+       (check_str "empty" (rev (nil int)) "")))
+
+(def test_rev_strings () int
+  (check_strs "words" (rev (split_spaces "a bb c")) (split_spaces "c bb a")))
+
+(def test_rev_data () int
+  (let r (rev (pts))
+    (add (check_int "first" (pt_x (head r)) 3)
+         (check_int "last" (pt_x (head (tail (tail r)))) 1))))
+
+(def test_rev_onto () int
+  (add (check_str "bytes" (rev_onto "ab" "cd") "bacd")
+       (check_strs "strings" (rev_onto (split_spaces "b a") (split_spaces "c"))
+                   (split_spaces "a b c"))))
+
+(def test_append () int
+  (let bs (append (cons true (nil bool)) (cons false (nil bool)))
+    (add (check_str "bytes" (append "ab" "cd") "abcd")
+      (add (check_strs "strings" (append (split_spaces "a") (split_spaces "b c"))
+                       (split_spaces "a b c"))
+        (add (check_int "bools" (length bs) 2)
+             (check_bool "bools first" (head bs) true))))))
+
+(def test_length () int
+  (add (check_int "empty" (length (nil int)) 0)
+    (add (check_int "bytes" (length "abc") 3)
+      (add (check_int "strings" (length (split_spaces "a b c d")) 4)
+        (add (check_int "data" (length (pts)) 3)
+             (check_int "options" (length (cons (Some 1) (cons ((None int))
+                                    (nil (Option int))))) 2))))))
+
+(def test_resize_grows () int
+  (let a (array_resize (array_new 2 5) 4 0)
+    (add (check_int "len" (array_len a) 4)
+      (add (check_int "kept" (array_get a 1) 5)
+           (check_int "filled" (array_get a 3) 0)))))
+
+(def test_resize_shrinks () int
+  (let a (array_resize (array_set (array_new 3 0) 2 9) 2 7)
+    (add (check_int "len" (array_len a) 2)
+         (check_int "kept" (array_get a 1) 0))))
+
+(def test_resize_from_empty () int
+  (let a (array_resize (array_new 0 "x") 3 "y")
+    (add (check_int "len" (array_len a) 3)
+         (check_str "filled" (array_get a 2) "y"))))
+
+; Resizing copies: the array it was given is unchanged, and both hold the
+; same strings.
+(def test_resize_counted () int
+  (let a (array_set (array_new 2 "a") 1 "b")
+    (let b (array_resize a 4 "z")
+      (add (check_int "old len" (array_len a) 2)
+        (add (check_str "old kept" (array_get a 1) "b")
+          (add (check_str "new kept" (array_get b 1) "b")
+               (check_str "new filled" (array_get b 3) "z")))))))

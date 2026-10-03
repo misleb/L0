@@ -7,6 +7,52 @@ New entries go at the top.
 
 ---
 
+## The library's list helpers take every element type, and no language change for it
+
+**`rev`, `rev_onto`, `append`, and `length` take a list of any type, and
+`array_resize` grows or shrinks an array of any type** (roadmap item 0040).
+The first four were in `lib/prelude.l0` for `(list int)` only, and are now
+in `lib/io.l0` with type parameters, under the same names. `array_resize a
+n fill` is new: the first `n` elements of `a`, then copies of `fill`.
+
+**Why the same names, and what that cost.** A generic `rev` cannot sit
+beside the prelude's in one group, and the prelude cannot hold a generic one,
+since stage 0 runs it as part of the compiler. The other answer was new
+names in `lib/io.l0`, leaving the prelude alone. That would have kept two
+names for one thing forever, and an agent writing `(rev toks)` for a list of
+tokens would still get a type error and have to look up the other name,
+which is the mistake 0038 set out to end. So the four left the prelude, and
+the compiler, which calls them about 200 times and cannot use type
+parameters while stage 0 runs it, keeps `(list int)` copies at the top of
+`compiler/lex.l0`. Every build and stage test of the compiler includes that
+file, so none of their file lists changed. The prelude still calls `rev` and
+`append`, and finds them in `lib/io.l0` in a program's prelude group and in
+`compiler/lex.l0` in the compiler. The cost is that `lib/prelude.l0` no
+longer checks by itself. Only `tests/io/parametric_data` listed it alone, and
+it now lists `lib/io.l0` too.
+
+**Why these five.** 0035 counted reversing, length, appending, indexing, and
+growing an array as the helpers rewritten per element type. The suite's own
+programs had three of them: kvlog's `rev_entries`, array_paths' `count_fields`,
+and graph's `copy_into`, an array grow. All three are gone, and graph's
+`rev_strs_onto` call is now `rev` too. No program here indexes a list, so
+there is no `nth`. Anything that compares elements, such as `strs_eq` in
+`lib/test.l0` or `list_eq`, stays per type, since `eq` takes only `int`.
+`rev_strs_onto` stays in the prelude, which `split_spaces` needs, but is no
+longer documented, since `rev_onto` does its job for programs. Helpers over
+`Option`, which the entry for 0039 said 0038 would make possible, wait for a
+program that wants them.
+
+**`l0 doc` reads a parenthesized head.** It took the name of a declaration
+to be the word after `def` or `data`, so for `(def (rev T) ...)` it found
+none. `l0 doc Option` only worked because `Option` was mistaken for a
+constructor. It now takes the first word inside the head, and shows the head
+as written, `(rev T) ((xs (list T))) (list T)`.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## Functions take type parameters
 
 **A `def` may take type parameters** (sections 3, 4, 4.1, 5.7, 9, 10.2,

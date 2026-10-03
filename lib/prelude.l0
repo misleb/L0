@@ -1,8 +1,11 @@
 ; prelude.l0 -- list and byte-string helpers shared across the compiler.
 ;
-; Everything here operates on (list int). L0's data types are monomorphic and
-; list is its only parametric type constructor, so helpers for lists of
-; tokens, declarations, and so on live next to those types instead.
+; Everything here operates on (list int), because stage 0 runs this file as
+; part of the compiler and knows no type parameters. rev, rev_onto, append,
+; and length, which a list of any type wants, are not here: programs get them
+; from lib/io.l0 at every element type, and the compiler defines (list int)
+; copies of its own in compiler/lex.l0. So this file checks only beside one
+; of those two.
 ;
 ; Output is always built with the reversed-accumulator idiom from spec section
 ; 11.1: push chunks onto a backwards list, reverse exactly once at the end.
@@ -12,19 +15,9 @@
 ; A comment starting ;; documents the definition below it, and is what l0 doc
 ; shows; a definition without one is internal. ;;; describes the file.
 
-;;; Lists of bytes: reversing, building output, comparing, decimal numbers,
-;;; slicing lines and words, word tables, and character classes. A string is
-;;; a (list int) of byte values, so all of these work on strings.
-
-;; xs reversed, in front of acc: (rev_onto "ab" "cd") is "bacd".
-(def rev_onto ((xs (list int)) (acc (list int))) (list int)
-  (if (is_empty xs)
-      acc
-      (rev_onto (tail xs) (cons (head xs) acc))))
-
-;; xs reversed.
-(def rev ((xs (list int))) (list int)
-  (rev_onto xs (nil int)))
+;;; Lists of bytes: building output, comparing, decimal numbers, slicing
+;;; lines and words, word tables, and character classes. A string is a (list
+;;; int) of byte values, so all of these work on strings.
 
 ;; Pushes chunk onto a reversed accumulator: acc with chunk's bytes in front,
 ;; last byte first. Costs the length of the chunk, never of the accumulator.
@@ -34,18 +27,6 @@
   (if (is_empty chunk)
       acc
       (push (tail chunk) (cons (head chunk) acc))))
-
-;; xs followed by ys. It copies xs, so appending in a loop is quadratic: build
-;; anything long with push and rev instead.
-(def append ((xs (list int)) (ys (list int))) (list int)
-  (rev_onto (rev xs) ys))
-
-;; The number of elements of xs.
-(def length ((xs (list int))) int
-  (length_onto xs 0))
-
-(def length_onto ((xs (list int)) (n int)) int
-  (if (is_empty xs) n (length_onto (tail xs) (add n 1))))
 
 ;; Whether xs and ys hold the same bytes in the same order. eq compares only
 ;; integers, so this is how two strings are compared.
@@ -142,8 +123,8 @@
 ; miscounted parentheses. Splitting one space-separated literal keeps the
 ; table flat and readable.
 
-;; xs reversed, in front of acc, for a list of strings: rev_onto for
-;; (list (list int)).
+; rev_onto for (list (list int)), which split_spaces needs and stage 0 cannot
+; get from the generic rev_onto in lib/io.l0.
 (def rev_strs_onto ((xs (list (list int))) (acc (list (list int))))
     (list (list int))
   (if (is_empty xs)

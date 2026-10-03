@@ -50,7 +50,7 @@
 (def load_from ((f IoFile) (live (list Entry))) (Result (list Entry) (list int))
   (match (file_next_line f)
     ((IoLine s) (load_from f (apply_record s live)))
-    ((IoEnd) ((Ok (list Entry) (list int)) (rev_entries live (nil Entry))))
+    ((IoEnd) ((Ok (list Entry) (list int)) (rev live)))
     ((IoError code) ((Err (list Entry) (list int)) (io_error code)))))
 
 (def apply_record ((s (list int)) (live (list Entry))) (list Entry)
@@ -76,13 +76,10 @@
 (def remove_key ((key (list int)) (es (list Entry)) (acc (list Entry)))
     (list Entry)
   (if (is_empty es)
-      (rev_entries acc (nil Entry))
+      (rev acc)
       (if (list_eq (entry_key (head es)) key)
           (remove_key key (tail es) acc)
           (remove_key key (tail es) (cons (head es) acc)))))
-
-(def rev_entries ((es (list Entry)) (acc (list Entry))) (list Entry)
-  (if (is_empty es) acc (rev_entries (tail es) (cons (head es) acc))))
 
 (def find_key ((key (list int)) (es (list Entry))) (Option (list int))
   (if (is_empty es)

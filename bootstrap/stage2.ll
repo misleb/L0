@@ -44,32 +44,6 @@ declare i64 @l0_clock_ns()
 
 @l0_main_ret_kind = global i64 2
 
-define internal i64 @l0_f_rev_onto(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 2)
-  %t6 = musttail call i64 @l0_f_rev_onto(i64 %t3, i64 %t5, i64 0, i64 0, i64 0)
-  ret i64 %t6
-}
-
-define internal i64 @l0_f_rev(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
-entry:
-  call void @l0_stack_check()
-  %t0 = musttail call i64 @l0_f_rev_onto(i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t0
-}
-
 define internal i64 @l0_f_push(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
@@ -87,39 +61,6 @@ Le0:
   %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 2)
   %t6 = musttail call i64 @l0_f_push(i64 %t3, i64 %t5)
   ret i64 %t6
-}
-
-define internal i64 @l0_f_append(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
-entry:
-  call void @l0_stack_check()
-  %t0 = call i64 @l0_f_rev(i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t1 = musttail call i64 @l0_f_rev_onto(i64 %t0, i64 %a1, i64 0, i64 0, i64 0)
-  ret i64 %t1
-}
-
-define internal i64 @l0_f_length(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t0 = musttail call i64 @l0_f_length_onto(i64 %a0, i64 0)
-  ret i64 %t0
-}
-
-define internal i64 @l0_f_length_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  call void @l0_dec(i64 %a0)
-  %t4 = add i64 %a1, 1
-  %t5 = musttail call i64 @l0_f_length_onto(i64 %t3, i64 %t4)
-  ret i64 %t5
 }
 
 define internal i64 @l0_f_list_eq(i64 %a0, i64 %a1) {
@@ -20543,6 +20484,65 @@ entry:
   %t7 = call i64 @l0_f_emit_fns(i64 %a0, i64 %t5, i64 %t6, i64 %a1, i64 %a4)
   %t8 = musttail call i64 @l0_f_emit_text(i64 %t7, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t8
+}
+
+define internal i64 @l0_f_rev_onto(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  ret i64 %a1
+Le0:
+  %t3 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_head(i64 %a0)
+  call void @l0_dec(i64 %a0)
+  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 2)
+  %t6 = musttail call i64 @l0_f_rev_onto(i64 %t3, i64 %t5, i64 0, i64 0, i64 0)
+  ret i64 %t6
+}
+
+define internal i64 @l0_f_rev(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t0 = musttail call i64 @l0_f_rev_onto(i64 %a0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t0
+}
+
+define internal i64 @l0_f_append(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_f_rev(i64 %a0, i64 0, i64 0, i64 0, i64 0)
+  %t1 = musttail call i64 @l0_f_rev_onto(i64 %t0, i64 %a1, i64 0, i64 0, i64 0)
+  ret i64 %t1
+}
+
+define internal i64 @l0_f_length(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t0 = musttail call i64 @l0_f_length_onto(i64 %a0, i64 0)
+  ret i64 %t0
+}
+
+define internal i64 @l0_f_length_onto(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  ret i64 %a1
+Le0:
+  %t3 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t3)
+  call void @l0_dec(i64 %a0)
+  %t4 = add i64 %a1, 1
+  %t5 = musttail call i64 @l0_f_length_onto(i64 %t3, i64 %t4)
+  ret i64 %t5
 }
 
 define internal i64 @l0_f_tok_offset(i64 %a0, i64 %a1) {

@@ -14,7 +14,7 @@
         (step g (fields (take_line line)) lineno))))
 
 (def step ((g Graph) (fs (list (list int))) (lineno int)) int
-  (let n (count_fields fs)
+  (let n (length fs)
     (if (eq n 0)
         (next g (add lineno 1))
         (if (eq n 2)
@@ -34,6 +34,3 @@
   (let w (write_err (append "paths: line " (append (digits lineno)
                       (append ": " (append msg "\n")))))
     1))
-
-(def count_fields ((fs (list (list int)))) int
-  (if (is_empty fs) 0 (add 1 (count_fields (tail fs)))))

@@ -9,6 +9,32 @@
 ; keeps positions to one int and means a future multi-file input bundle only
 ; changes the renderer.
 
+; --------------------------------------------------------------- list helpers
+;
+; rev_onto, rev, append, and length for (list int), which lib/prelude.l0 and
+; every part of the compiler call. Programs get them from lib/io.l0 at every
+; element type, but stage 0 runs the compiler and knows no type parameters,
+; so the compiler keeps its own here, in the file every compiler build and
+; stage test includes.
+
+(def rev_onto ((xs (list int)) (acc (list int))) (list int)
+  (if (is_empty xs)
+      acc
+      (rev_onto (tail xs) (cons (head xs) acc))))
+
+(def rev ((xs (list int))) (list int)
+  (rev_onto xs (nil int)))
+
+; It copies xs, so it is for short strings such as diagnostics only.
+(def append ((xs (list int)) (ys (list int))) (list int)
+  (rev_onto (rev xs) ys))
+
+(def length ((xs (list int))) int
+  (length_onto xs 0))
+
+(def length_onto ((xs (list int)) (n int)) int
+  (if (is_empty xs) n (length_onto (tail xs) (add n 1))))
+
 (data Token
   (TLParen int)                ; offset
   (TRParen int)                ; offset
