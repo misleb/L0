@@ -157,8 +157,7 @@
 ; A data type may take type parameters, so one declaration serves every type
 ; it holds: (Option int) and (Option (list int)) are both types. The library
 ; declares Option as (data (Option T) (None) (Some T)), and a program
-; declares its own the same way. Functions do not take type parameters; each
-; is written at the types it uses.
+; declares its own the same way.
 
 ; (Some x) takes its type from x, as cons takes its type from the list. A
 ; constructor whose fields do not mention T is written with the type, as nil
@@ -175,6 +174,21 @@
   (match (first_even xs)
     ((None) fallback)
     ((Some n) n)))
+
+; A function may take type parameters too, named after it as a data type's
+; are, and then works at every type. A call writes nothing extra: its
+; arguments' types say what T stands for, so every type parameter must
+; appear in some parameter's type. Inside, T is a type of its own, so the
+; body can keep, pass, and return a T, but not compare one, since eq takes
+; only int.
+(def (last_or T) ((xs (list T)) (fallback T)) T
+  (if (is_empty xs)
+      fallback
+      (last_or (tail xs) (head xs))))
+
+; The same function at two types.
+(def last_word_length ((words (list (list int)))) int
+  (length (last_or words "")))
 
 ; ------------------------------------------------ reading and writing as you go
 

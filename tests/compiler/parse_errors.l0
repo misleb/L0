@@ -35,4 +35,10 @@
   (let z (push (try_parse "(def f ((x Foo)) int (match x ((bar) 1)))") y)
   (let aa (push (try_parse "(def f ((x Foo)) int (match x ((Bar) 1 2)))") z)
   (let ab (push (try_parse "(def f ((x array)) int 0)") aa)
-    (rev ab))))))))))))))))))))))))))))))
+  ; a def's type parameters, spec 4.1
+  (let ac (push (try_parse "(def () ((x int)) int 1)") ab)
+  (let ad (push (try_parse "(def (f) ((x int)) int 1)") ac)
+  (let ae (push (try_parse "(def (f t) ((x t)) int 1)") ad)
+  (let af (push (try_parse "(def (F T) ((x T)) int 1)") ae)
+  (let ag (push (try_parse "(def (f T") af)
+    (rev ag)))))))))))))))))))))))))))))))))))

@@ -1,0 +1,61 @@
+; Functions with type parameters: spec 4.1 and 5.7. One line of diagnostics
+; per snippet, "ok" for one that checks. The valid snippets are here too,
+; because what a call's type parameters stand for is only visible through
+; what the checker accepts and rejects.
+
+; Declarations every snippet can use.
+(def decls ((i int)) (list int)
+  (append "(data (Option T) (None) (Some T)) "
+    (append "(data (Pair A B) (Pair A B)) "
+      (append "(def (rev_onto T) ((xs (list T)) (acc (list T))) (list T) "
+        (append "(if (is_empty xs) acc (rev_onto (tail xs) (cons (head xs) acc)))) "
+          "(def (swap A B) ((p (Pair A B))) (Pair B A) (match p ((Pair a b) (Pair b a)))) ")))))
+
+; An expression as the body of main, which returns int.
+(def m ((body (list int))) (list int)
+  (append (decls 0)
+    (append "(def main ((input (list int))) int " (append body ")"))))
+
+; Declarations, with a trivial main.
+(def d ((ds (list int))) (list int)
+  (append (decls 0) (append ds " (def main ((input (list int))) int 0)")))
+
+(def cases ((i int)) (list (list int))
+  (cons (m "(head (rev_onto \"ab\" (nil int)))")
+  (cons (m "(if (head (rev_onto (cons true (nil bool)) (nil bool))) 1 0)")
+  (cons (m "(head (head (rev_onto (cons \"a\" (nil (list int))) (nil (list int)))))")
+  (cons (m "(match (swap (Pair 1 true)) ((Pair b n) (if b n 0)))")
+  ; inside a body, a type parameter is a type of its own
+  (cons (d "(def (one T) ((x T)) (list T) (cons x (nil T)))")
+  (cons (d "(def (opt T) ((x T) (keep bool)) (Option T) (if keep (Some x) ((None T))))")
+  (cons (d "(def (rev T) ((xs (list T))) (list T) (rev_onto xs (nil T)))")
+  (cons (d "(def (fill T) ((n int) (x T)) (array T) (array_new n x))")
+  (cons (d "(def (get T) ((o (Option T)) (dflt T)) T (match o ((None) dflt) ((Some x) x)))")
+  (cons (d "(def (mk A B) ((a A) (b B)) (Pair (list A) B) (Pair (cons a (nil A)) b))")
+  (cons (d "(def (cmp T) ((x T) (y T)) bool (eq x y))")
+  (cons (d "(def (m2 T) ((x T)) int (match x ((None) 0) ((Some v) 1)))")
+  (cons (d "(def (wrong T) ((x T)) int x)")
+  (cons (d "(def (mix A B) ((a A) (b B)) A b)")
+  (cons (d "(def g ((x int)) int x) (def (pass T) ((x T)) int (g x))")
+  ; calls
+  (cons (m "(head (rev_onto \"ab\" (nil bool)))")
+  (cons (m "(head (rev_onto \"ab\"))")
+  (cons (append (d "(def (same T) ((a T) (b T)) int 0)") "(def h ((i int)) int (same 1 true))")
+  (cons (append (d "(def (same T) ((a T) (b T)) int 0)") "(def h ((i int)) int (same (nil int) (nil int)))")
+  (cons (m "(match (swap (Pair 1 true)) ((Pair n b) n))")
+  ; declarations
+  (cons (d "(def (dup T T) ((x T)) T x)")
+  (cons (d "(def (phantom T) ((x int)) int x)")
+  (cons (d "(def (none_of T) ((x int)) (Option T) ((None T)))")
+  (cons (d "(def (args T) ((x (T int))) int 0)")
+  (cons (d "(def (unk T) ((x T)) (list T) (nil U))")
+  (cons (d "(def (f T) ((x T)) int 0) (def g ((y T)) int 0)")
+  (cons (append (decls 0) "(def (main T) ((input (list T))) int 0)")
+  ; a type parameter hides a data type of the same name
+  (cons (d "(data T (Tee int)) (def (id T) ((x T)) T x) (def h ((i int)) int (match (id (Tee 1)) ((Tee n) n)))")
+  (cons (d "(data T (Tee int)) (def g ((t T)) int 0) (def (leak T) ((x T)) int (g x))")
+  (cons (d "(data T (Tee int)) (def (dup T T) ((x T)) T x)")
+        (nil (list int)))))))))))))))))))))))))))))))))
+
+(def main ((input (list int))) (list int)
+  (check_lines (cases 0) (nil int)))

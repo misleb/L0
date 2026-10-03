@@ -29,3 +29,5 @@
 (def parsed ((r (Result (list int) (Pair int bool)))) (Option (list int))
   (match r ((Ok s) (Some s)) ((Err e) ((None (list int))))))
 (def fail ((i int)) (Result int (list int)) ((Err int (list int)) "no"))
+(def (swap A B) ((p (Pair A B))) (Pair B A)
+  (match p ((Pair a b) (Pair b a))))

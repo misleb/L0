@@ -126,12 +126,13 @@ goes for the file and argument builtins of spec sections 6.3 and 6.4. When
 `lib/prelude.l0` are checked as the prelude group, since a program's
 functions, types, and constructors shadow the prelude's (spec section 7.1).
 
-**Parametric `data` types have the same limit.** `(data (Option T) ...)`,
-`(Option int)`, and `((None int))` are L0 (spec 4 and 5.6), but stage 0
-predates them, so the compiler's sources and `lib/prelude.l0` must not use
-them, and tests of them go in `tests/io/` or, for the checker's verdicts, in
-a `tests/compiler/` stage test such as `check_params`, which gives the
-source to the checker as data. The same holds for a program that shadows a
+**Type parameters have the same limit.** `(data (Option T) ...)`,
+`(Option int)`, `((None int))`, and `(def (rev T) ...)` are L0 (spec 4, 4.1,
+and 5.6), but stage 0 predates them, so the compiler's sources and
+`lib/prelude.l0` must not use them, and tests of them go in `tests/io/` or,
+for the checker's verdicts, in a `tests/compiler/` stage test such as
+`check_params` or `check_fn_params`, which gives the source to the checker
+as data. The same holds for a program that shadows a
 prelude type or constructor (spec 7.1): stage 0 still resolves upper names
 across both groups, so see `tests/io/shadow_types` and
 `tests/compiler/groups`.

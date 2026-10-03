@@ -11,8 +11,8 @@ what followed them (0029, 0030, 0025, 0026). 0026 found that holding text
 one byte per byte needs a packed type, and that adding builtins must first
 stop breaking programs; 0031 and 0032 did both, and 0033 put bytes to use in
 the library and the text programs. Type parameters came next (0035): data
-types take them (0036), a program's types shadow the library's (0037), and
-the library declares Option and Result (0039).
+types take them (0036), a program's types shadow the library's (0037), the
+library declares Option and Result (0039), and functions take them (0038).
 
 ## Language queue
 
@@ -22,8 +22,8 @@ Empty.
 
 ## Other open items
 
-- [0038](0038-parametric-functions.md) functions take type parameters —
-  proposed, waiting for programs that use 0036
+- [0040](0040-library-list-helpers.md) tooling: the library's list helpers
+  work at every element type — proposed
 
 ## Done and dropped
 
@@ -117,3 +117,5 @@ Empty.
 - [0039](0039-library-option-result.md) tooling: the library declares
   Option and Result — done, changelog "The library declares Option and
   Result, and no language change for it"
+- [0038](0038-parametric-functions.md) functions take type parameters —
+  done, changelog "Functions take type parameters"

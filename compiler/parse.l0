@@ -44,7 +44,9 @@
   (C int (list int) (list Ty)))         ; offset, name, field types
 
 (data Decl
-  (DDef int (list int) (list Param) Ty Expr)
+  (DDef int (list int) (list (list int)) (list Param) Ty Expr)  ; offset, name,
+                                                ; type parameters, parameters,
+                                                ; return type, body
   (DData int (list int) (list (list int)) (list Ctor)))   ; offset, type name,
                                                           ; parameters, constructors
 
@@ -626,7 +628,8 @@
       (let t (head ts)
         (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
             (PDErr (tok_offset t) "a data declaration needs an uppercase type name")
-            (match (parse_ty_params (tail ts) (nil (list int)) hopen)
+            (match (parse_ty_params (tail ts) (nil (list int)) hopen
+                                    "unclosed ( in a data declaration")
               ((PNsErr o m) (PDErr o m))
               ((PNsOk ps rest)
                 (if (is_empty ps)
@@ -637,15 +640,16 @@
                             (append (tok_bytes t) " ...)"))))))
                     (parse_data_body (tok_bytes t) ps rest open))))))))
 
-(def parse_ty_params ((ts (list Token)) (acc (list (list int))) (open int))
-    PNames
+; unclosed is what to say if the list never ends.
+(def parse_ty_params ((ts (list Token)) (acc (list (list int))) (open int)
+                      (unclosed (list int))) PNames
   (if (is_empty ts)
-      (PNsErr open "unclosed ( in a data declaration")
+      (PNsErr open unclosed)
       (let t (head ts)
         (if (tok_is_rparen t)
             (PNsOk (rev_strs_onto acc (nil (list int))) (tail ts))
             (if (and (tok_is_name t) (name_is_upper (tok_bytes t)))
-                (parse_ty_params (tail ts) (cons (tok_bytes t) acc) open)
+                (parse_ty_params (tail ts) (cons (tok_bytes t) acc) open unclosed)
                 (PNsErr (tok_offset t) "a type parameter is an uppercase name"))))))
 
 (def parse_data_body ((n (list int)) (ps (list (list int))) (ts (list Token))
@@ -694,15 +698,44 @@
   (if (is_empty ts)
       (PDErr open "unclosed (")
       (let t (head ts)
-        (if (not (tok_is_name t))
-            (PDErr (tok_offset t) "expected a function name after def")
-            (if (or (is_reserved (tok_bytes t))
-                    (not (name_is_lower (tok_bytes t))))
-                (PDErr (tok_offset t)
-                  "a function name must be lowercase and not reserved")
-                (parse_def_params (tok_bytes t) (tail ts) open))))))
+        (if (tok_is_lparen t)
+            (parse_def_header (tail ts) open (tok_offset t))
+            (let bad (def_name_problem t)
+              (if (is_empty bad)
+                  (parse_def_params (tok_bytes t) (nil (list int)) (tail ts) open)
+                  (PDErr (tok_offset t) bad)))))))
 
-(def parse_def_params ((n (list int)) (ts (list Token)) (open int)) PDecl
+; What is wrong with t as a function's name, or an empty message.
+(def def_name_problem ((t Token)) (list int)
+  (if (not (tok_is_name t))
+      "expected a function name after def"
+      (if (or (is_reserved (tok_bytes t)) (not (name_is_lower (tok_bytes t))))
+          "a function name must be lowercase and not reserved"
+          "")))
+
+; (def (name Param...) ...) -- the ( of the header is already consumed, and
+; hopen is its offset. Spec 4.1.
+(def parse_def_header ((ts (list Token)) (open int) (hopen int)) PDecl
+  (if (is_empty ts)
+      (PDErr hopen "unclosed (")
+      (let t (head ts)
+        (let bad (def_name_problem t)
+          (if (not (is_empty bad))
+              (PDErr (tok_offset t) bad)
+              (match (parse_ty_params (tail ts) (nil (list int)) hopen
+                                      "unclosed ( in a def's type parameters")
+                ((PNsErr o m) (PDErr o m))
+                ((PNsOk fps rest)
+                  (if (is_empty fps)
+                      (PDErr hopen
+                        (append "(" (append (tok_bytes t)
+                          (append ") needs at least one type parameter; "
+                            (append "a function without them is (def "
+                              (append (tok_bytes t) " ...)"))))))
+                      (parse_def_params (tok_bytes t) fps rest open)))))))))
+
+(def parse_def_params ((n (list int)) (fps (list (list int))) (ts (list Token))
+                       (open int)) PDecl
   (if (is_empty ts)
       (PDErr open "unclosed (")
       (if (not (tok_is_lparen (head ts)))
@@ -710,23 +743,23 @@
             "expected a parameter list, as in ((x int) (y bool))")
           (match (parse_params (tail ts) (nil Param))
             ((PPsErr o m) (PDErr o m))
-            ((PPsOk ps rest) (parse_def_ret n ps rest open))))))
+            ((PPsOk ps rest) (parse_def_ret n fps ps rest open))))))
 
-(def parse_def_ret ((n (list int)) (ps (list Param)) (ts (list Token))
-                    (open int)) PDecl
+(def parse_def_ret ((n (list int)) (fps (list (list int))) (ps (list Param))
+                    (ts (list Token)) (open int)) PDecl
   (match (parse_type ts)
     ((PTErr o m) (PDErr o m))
     ((PTOk ret rest)
       (match (parse_expr rest)
         ((PEErr o m) (PDErr o m))
-        ((PEOk body rest2) (close_decl n ps ret body rest2 open))))))
+        ((PEOk body rest2) (close_decl n fps ps ret body rest2 open))))))
 
-(def close_decl ((n (list int)) (ps (list Param)) (ret Ty) (body Expr)
-                 (ts (list Token)) (open int)) PDecl
+(def close_decl ((n (list int)) (fps (list (list int))) (ps (list Param)) (ret Ty)
+                 (body Expr) (ts (list Token)) (open int)) PDecl
   (if (is_empty ts)
       (PDErr open "unclosed (")
       (if (tok_is_rparen (head ts))
-          (PDOk (DDef open n ps ret body) (tail ts))
+          (PDOk (DDef open n fps ps ret body) (tail ts))
           (PDErr (tok_offset (head ts))
             "a def is (def name (params...) return-type body)"))))
 

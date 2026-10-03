@@ -1,0 +1,8 @@
+; The copies of a function with type parameters and their names: spec 10.2.
+; parametric_fn_names.sh reads the IR this compiles to.
+
+(def (keep_first A B) ((a A) (b B)) A a)
+
+(def main ((input (list int))) int
+  (add (keep_first 1 true)
+       (head (keep_first "x" 2))))

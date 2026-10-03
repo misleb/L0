@@ -7,6 +7,82 @@ New entries go at the top.
 
 ---
 
+## Functions take type parameters
+
+**A `def` may take type parameters** (sections 3, 4, 4.1, 5.7, 9, 10.2,
+10.3): `(def (rev_onto T) ((xs (list T)) (acc (list T))) (list T) ...)`.
+Within the declaration each type parameter is a type of its own, equal only
+to itself, so the body is checked once and is correct at every type. A call
+finds what each type parameter stands for by matching its arguments' types
+against the parameters' types, one way and left to right, as a construction
+does against its fields. Every type parameter must be mentioned by some
+parameter's type, so every call determines them all. `main` takes none.
+Each function compiles to one copy per combination of whether its type
+parameters stand for counted types, named `@l0_f_rev_onto.0` and `.1`.
+
+**The blocker.** Roadmap item 0035 found that most of the code written for
+want of generics is helpers, not declarations: the compiler's `rev_*_onto`,
+`length_*`, `append_*`, and `find_*` walks, about 100 lines, one per element
+type; the prelude's `rev`, `length`, and `append` for `(list int)` only,
+with `rev_strs_onto` beside them and `strs_eq` in `lib/test.l0`; kvlog's
+`rev_entries`; array grow helpers rewritten in five 0028 programs. 0036 and
+0039 removed the duplicated declarations, and none of these. What could not
+be written was the first line of the example above, which the checker
+rejected with `expected a function name after def`.
+
+**Why every type parameter must appear in a parameter's type.** Then a call
+needs nothing written: its arguments already have complete types, and one-way
+matching against the parameters is the rule 5.6 gave constructions, so "every
+expression's type is determined by its parts" still holds with no inference
+and no unification. A function whose result alone mentions a type
+parameter, such as one that builds `((Err T (list int)) why)`, would need
+the types written at each call, as `((None int))` writes them. No program
+here needs one yet, and the rule can be relaxed later without changing the
+meaning of any program that compiles now; the form for writing them,
+`((f int) x)`, is free, since `((` followed by a lower name begins nothing.
+
+**Why a type parameter is a type of its own.** The alternative, checking a
+body once per type it is called at, would make whether a function is correct
+depend on its callers, and would report an error inside a library function
+at a program's call. A type equal only to itself is the smallest rule that
+lets the body be checked alone: a value of it can go anywhere that takes
+every type, and nowhere that takes one. The cost is that a generic function
+cannot compare its elements, since `eq` takes only `int`; with no function
+values, a sort or a map over keys is still written per key type.
+
+**Why one copy per counted-or-not combination.** 0035 found that compiled
+code asks only one thing of a type: whether its values are counted, which
+decides a block's mask, whether a use adds a reference, and whether a read
+yields a pointer. Every copy of a combination asks the same questions and
+gets the same answers whatever the actual types, so it is correct for all of
+them. The other answers were a hidden argument carrying the bit, which would
+make counting a test at run time and thread a value through every call, or a
+copy per actual type, which multiplies code by the types a program uses
+rather than by at most two per parameter. The copies are separate functions
+to the read-only analysis and the tail-call padding, since a parameter that
+is read-only when `T` is `int` may not be when `T` is a list: `(head xs)`
+yields a pointer only then.
+
+**How it is compiled.** A pass between checking and emitting, run only when
+some function takes type parameters, replaces each such function by its
+copies, with each type parameter replaced by `int` or by `(list int)`, which
+stand for their kinds, and renames each call to one of them to the copy its
+arguments' types choose. The emitter and the runtime are unchanged, and so
+is everything compiled from a program that uses no type parameters, the
+compiler among them.
+
+**What is given up.** Of the properties the l0-bootstrap skill lists,
+"functions do not take type parameters" is gone. "No type inference" and "no
+unification anywhere" hold, and so does purely syntactic name resolution.
+
+**Where it can be used.** Stage 0 cannot parse it, so `lib/prelude.l0` and
+the compiler do not use it, and its tests are in the compiled suite. The
+library's list helpers are the first code it makes possible, and are a
+separate item, since the prelude's `rev` and `length` already take the names
+and stage 0 runs the prelude.
+
+---
+
 ## The library declares Option and Result, and no language change for it
 
 **`lib/io.l0` declares `(Option T)`, with `None` and `Some`, and `(Result T

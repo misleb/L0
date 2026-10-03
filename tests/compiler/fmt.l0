@@ -130,8 +130,8 @@
       (append "(data "
         (append (if (is_empty tps) n (append "(" (append n (append (fmt_names tps) ")"))))
           (append (fmt_ctors cs) ")"))))
-    ((DDef o n ps ret body)
-      (append "(def " (append n
+    ((DDef o n fps ps ret body)
+      (append "(def " (append (if (is_empty fps) n (append "(" (append n (append (fmt_names fps) ")"))))
         (append " (" (append (fmt_params ps)
           (append ") " (append (fmt_ty ret)
             (append " " (append (fmt_expr body) ")")))))))))))

@@ -205,10 +205,10 @@ what:
 - there is no type inference, so every expression's type is determined by itself
   and never by context
 - no unification is needed anywhere: every builtin over `list` and `array`
-  takes its element type from an argument, and a construction of a
-  parametric `data` type takes its type arguments from its arguments or has
-  them written, `((None int))`. Functions do not take type parameters
-  (roadmap 0038 proposes them)
+  takes its element type from an argument, a construction of a parametric
+  `data` type takes its type arguments from its arguments or has them
+  written, `((None int))`, and a call of a function with type parameters
+  takes them from its arguments, which must mention every one (spec 4.1)
 - there are no function values, so name resolution is purely syntactic
 
 ### Ambiguities

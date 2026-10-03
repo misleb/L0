@@ -26,3 +26,8 @@ parse error at offset 36: expected a field binding name
 parse error at offset 32: a match pattern starts with a constructor name
 parse error at offset 39: each match arm is ((Constructor names...) result)
 parse error at offset 11: array needs an element type, as in (array int)
+parse error at offset 6: expected a function name after def
+parse error at offset 5: (f) needs at least one type parameter; a function without them is (def f ...)
+parse error at offset 8: a type parameter is an uppercase name
+parse error at offset 6: a function name must be lowercase and not reserved
+parse error at offset 5: unclosed ( in a def's type parameters

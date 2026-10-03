@@ -118,10 +118,10 @@ with a case per outcome; see `Parsed` in `l0 examples`. When success is one
 value, the standard library's `Result` is that type (`l0 doc Result`), and
 `Option` is the one for a value that may be missing.
 
-**A `data` type may take type parameters; a function may not.** Declare the
-shape once and use it at every type it holds, instead of one type per element
-type. The standard library declares `Option` and `Result` this way, so use
-those rather than declaring your own:
+**A `data` type may take type parameters.** Declare the shape once and use
+it at every type it holds, instead of one type per element type. The
+standard library declares `Option` and `Result` this way, so use those
+rather than declaring your own:
 
 ```
 (data (Result T E) (Ok T) (Err E))      ; as the library declares it
@@ -133,8 +133,25 @@ A construction takes its type from its arguments, as `cons` does, so
 `(Some 5)` needs nothing more. A constructor whose fields leave a parameter
 out, such as `(None)`, is written with the type's arguments first,
 `((None int))`, as `nil` is. See `first_even` and `parse_number` in
-`l0 examples`. Functions are still written once per type, so a helper over
-`(Option int)` does not work on `(Option bool)`.
+`l0 examples`.
+
+**A function may take type parameters too,** so write a helper over lists,
+arrays, or `Option` once rather than once per element type:
+
+```
+(def (last_or T) ((xs (list T)) (fallback T)) T
+  (if (is_empty xs) fallback (last_or (tail xs) (head xs))))
+
+(last_or "abc" 0)                       ; an int
+(last_or (split_spaces "a b") "")       ; a (list int)
+```
+
+A call writes no types: its arguments say what `T` is, so every type
+parameter must appear in some parameter's type, and `(def (empty T) ()
+(list T) ...)` is an error. Inside the body `T` is a type of its own, so a
+`T` can be kept, passed, consed, and stored, but not compared with `eq` or
+taken apart with `match`. With no function values, a sort or a lookup that
+compares elements is still written per element type.
 
 **`and` and `or` are strict.** Both arguments are always evaluated, so they do
 not guard against errors. This still calls `head` on an empty list:

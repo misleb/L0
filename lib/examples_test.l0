@@ -57,6 +57,11 @@
          ((Ok v) (check_true "should have failed" false))
          ((Err msg) (check_str "message" msg "expected only digits")))))
 
+(def test_last_or () int
+  (add (check_int "ints" (last_or (cons 1 (cons 2 (nil int))) 0) 2)
+       (add (check_int "empty" (last_or (nil int) -1) -1)
+            (check_int "words" (last_word_length (split_spaces "a bb ccc")) 3))))
+
 (def test_first_even_or () int
   (add (check_int "found" (first_even_or (cons 3 (cons 8 (nil int))) 0) 8)
        (check_int "fallback" (first_even_or (cons 3 (nil int)) -1) -1)))

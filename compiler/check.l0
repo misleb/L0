@@ -8,12 +8,18 @@
 ;
 ; Checking reports at most one error per declaration and then moves to the
 ; next, matching the stage-0 interpreter, so one run surfaces many problems.
+;
+; The one pass here that produces a tree is mono_program, at the end, which
+; the emitter runs on a program that has already checked: it replaces each
+; function with type parameters by its copies (spec 10.2), and needs the
+; checker's types to choose which copy each call reaches.
 
 (data Bind
   (B (list int) Ty))                    ; name, type
 
 (data Sig
-  (S (list int) (list Ty) Ty))          ; name, parameter types, return type
+  (S (list int) (list (list int)) (list Ty) Ty))   ; name, type parameters,
+                                                  ; parameter types, return type
 
 ; A declared data type, with the width of its widest constructor. Blocks are
 ; sized to that width, per spec section 10.1.
@@ -27,11 +33,13 @@
   (CI (list int) (list int) int (list (list int)) (list Ty)))
                                         ; name, type name, tag, parameters, fields
 
-; Everything global that checking an expression needs.
-; The last field is every builtin's name, split once when the context is
+; Everything global that checking an expression needs, and the type
+; parameters of the function being checked, which are types in its body.
+; The fourth field is every builtin's name, split once when the context is
 ; built, since a call to any function has to be told apart from a builtin.
 (data Ctx
-  (Cx (list Sig) (list CtorInfo) (list DataDef) (list (list int))))
+  (Cx (list Sig) (list CtorInfo) (list DataDef) (list (list int))
+      (list (list int))))
 
 (data FindSig
   (SigFound Sig)
@@ -73,10 +81,15 @@
       acc
       (rev_tys_onto (tail xs) (cons (head xs) acc))))
 
-(def ctx_sigs ((c Ctx)) (list Sig) (match c ((Cx s ci dd bn) s)))
-(def ctx_ctors ((c Ctx)) (list CtorInfo) (match c ((Cx s ci dd bn) ci)))
-(def ctx_datas ((c Ctx)) (list DataDef) (match c ((Cx s ci dd bn) dd)))
-(def ctx_builtins ((c Ctx)) (list (list int)) (match c ((Cx s ci dd bn) bn)))
+(def ctx_sigs ((c Ctx)) (list Sig) (match c ((Cx s ci dd bn tp) s)))
+(def ctx_ctors ((c Ctx)) (list CtorInfo) (match c ((Cx s ci dd bn tp) ci)))
+(def ctx_datas ((c Ctx)) (list DataDef) (match c ((Cx s ci dd bn tp) dd)))
+(def ctx_builtins ((c Ctx)) (list (list int)) (match c ((Cx s ci dd bn tp) bn)))
+(def ctx_tparams ((c Ctx)) (list (list int)) (match c ((Cx s ci dd bn tp) tp)))
+
+; The same context, inside a function with type parameters fps.
+(def ctx_in_fn ((c Ctx) (fps (list (list int)))) Ctx
+  (match c ((Cx s ci dd bn tp) (Cx s ci dd bn fps))))
 
 (def is_builtin_in ((n (list int)) (c Ctx)) bool
   (any_eq n (ctx_builtins c)))
@@ -94,7 +107,7 @@
   (if (is_empty sigs)
       (SigMissing)
       (match (head sigs)
-        ((S sn sp sr)
+        ((S sn tps sp sr)
           (if (list_eq n sn)
               (SigFound (head sigs))
               (find_sig n (tail sigs)))))))
@@ -458,7 +471,7 @@
     ((ECall o n args) (check_call o n args env ctx))))
 
 (def check_nil ((o int) (elem Ty) (ctx Ctx)) CTy
-  (let bad (ty_problem elem (ctx_datas ctx) (nil (list int)))
+  (let bad (ty_problem elem (ctx_datas ctx) (ctx_tparams ctx))
     (if (is_empty bad)
         (CTyOk (TyList elem))
         (CTyErr o bad))))
@@ -534,12 +547,16 @@
 
 (def check_user_call ((o int) (n (list int)) (ats (list Ty)) (s Sig)) CTy
   (match s
-    ((S sn sps sr)
+    ((S sn tps sps sr)
       (if (not (eq (length_tys ats) (length_tys sps)))
           (CTyErr o (wrong_arity_msg n (length_tys sps) (length_tys ats)))
-          (match (match_params n ats sps o 1)
-            ((CTyErr eo m) (CTyErr eo m))
-            ((CTyOk ignored) (CTyOk sr)))))))
+          (if (is_empty tps)
+              (match (match_params n ats sps o 1)
+                ((CTyErr eo m) (CTyErr eo m))
+                ((CTyOk ignored) (CTyOk sr)))
+              (match (infer_fields n ats sps tps (nil Bind) o 1)
+                ((BsErr eo m) (CTyErr eo m))
+                ((BsOk bs) (CTyOk (ty_subst sr bs)))))))))
 
 (def match_params ((n (list int)) (ats (list Ty)) (sps (list Ty)) (o int)
                    (i int)) CTy
@@ -586,7 +603,7 @@
     (if (not (eq (length_tys tys) (length_strs ps)))
         (CTyErr o (ty_arity_msg (ctor_type_name ci) (length_strs ps)
                                 (length_tys tys)))
-        (let bad (tys_problem tys (ctx_datas ctx) (nil (list int)))
+        (let bad (tys_problem tys (ctx_datas ctx) (ctx_tparams ctx))
           (if (not (is_empty bad))
               (CTyErr o bad)
               (match (match_params n ats (tys_subst (ctor_fields ci) (zip_binds ps tys))
@@ -640,7 +657,7 @@
   (match (check_expr subject env ctx)
     ((CTyErr eo m) (CTyErr eo m))
     ((CTyOk st)
-      (if (not (ty_is_data st))
+      (if (not (if (ty_is_data st) (not (is_param st (ctx_tparams ctx))) false))
           (CTyErr o (type_msg "the subject of a match" "a data type" st))
           (match (find_data (ty_name st) (ctx_datas ctx))
             ((DataMissing) (CTyErr o (append "unknown type " (ty_name st))))
@@ -755,8 +772,8 @@
       acc
       (match (head ds)
         ((DData o n ps cs) (collect_sigs (tail ds) acc))
-        ((DDef o n ps ret body)
-          (collect_sigs (tail ds) (cons (S n (param_tys ps) ret) acc))))))
+        ((DDef o n fps ps ret body)
+          (collect_sigs (tail ds) (cons (S n fps (param_tys ps) ret) acc))))))
 
 (def max_fields ((cs (list Ctor)) (best int)) int
   (if (is_empty cs)
@@ -770,7 +787,7 @@
   (if (is_empty ds)
       acc
       (match (head ds)
-        ((DDef o n ps ret body) (collect_datas (tail ds) acc))
+        ((DDef o n fps ps ret body) (collect_datas (tail ds) acc))
         ((DData o n tps cs)
           (collect_datas (tail ds) (cons (DD n tps cs (max_fields cs 0)) acc))))))
 
@@ -779,7 +796,7 @@
   (if (is_empty ds)
       acc
       (match (head ds)
-        ((DDef o n ps ret body) (collect_ctor_infos (tail ds) acc))
+        ((DDef o n fps ps ret body) (collect_ctor_infos (tail ds) acc))
         ((DData o n tps cs)
           (collect_ctor_infos (tail ds) (ctor_infos_of n tps cs 0 acc))))))
 
@@ -820,29 +837,54 @@
   (append n (append " declares return type "
     (append (ty_str ret) (append ", but its body is " (ty_str bt))))))
 
-; What is wrong with the first bad parameter or return type, if any.
-(def bad_sig_ty ((ps (list Param)) (ret Ty) (ds (list DataDef))) (list int)
+; What is wrong with the first bad parameter or return type, if any. fps are
+; the function's type parameters.
+(def bad_sig_ty ((ps (list Param)) (ret Ty) (ds (list DataDef))
+                 (fps (list (list int)))) (list int)
   (if (is_empty ps)
-      (ty_problem ret ds (nil (list int)))
+      (ty_problem ret ds fps)
       (match (head ps)
         ((P n t)
-          (let bad (ty_problem t ds (nil (list int)))
-            (if (is_empty bad) (bad_sig_ty (tail ps) ret ds) bad))))))
+          (let bad (ty_problem t ds fps)
+            (if (is_empty bad) (bad_sig_ty (tail ps) ret ds fps) bad))))))
 
 (def check_decl ((d Decl) (ctx Ctx)) (list Diag)
   (match d
     ((DData o n tps cs) (check_data_decl o n tps cs ctx))
-    ((DDef o n ps ret body) (check_def_decl o n ps ret body ctx))))
+    ((DDef o n fps ps ret body)
+      (check_def_decl o n fps ps ret body (ctx_in_fn ctx fps)))))
 
-(def check_def_decl ((o int) (n (list int)) (ps (list Param)) (ret Ty)
-                     (body Expr) (ctx Ctx)) (list Diag)
+(def check_def_decl ((o int) (n (list int)) (fps (list (list int)))
+                     (ps (list Param)) (ret Ty) (body Expr) (ctx Ctx)) (list Diag)
   (let dup (dup_param ps (nil (list int)))
     (if (not (is_empty dup))
         (one_diag o (append "parameter " (append dup " is declared twice")))
-        (let bad (bad_sig_ty ps ret (ctx_datas ctx))
-          (if (not (is_empty bad))
-              (one_diag o bad)
-              (check_body o n ps ret body ctx))))))
+        (let dup2 (dup_name fps (nil (list int)))
+          (if (not (is_empty dup2))
+              (one_diag o (append "type parameter "
+                            (append (as_written dup2) " is declared twice")))
+              (let bad (bad_sig_ty ps ret (ctx_datas ctx) fps)
+                (if (not (is_empty bad))
+                    (one_diag o bad)
+                    (let missing (undetermined fps (param_tys ps))
+                      (if (not (is_empty missing))
+                          (one_diag o (undetermined_fn_msg n missing))
+                          (check_body o n ps ret body ctx))))))))))
+
+; Every type parameter is mentioned by a parameter's type, since that is how
+; a call finds it. Spec 4.1.
+(def undetermined_fn_msg ((n (list int)) (p (list int))) (list int)
+  (append "type parameter " (append (as_written p) (append " of " (append n
+    " is in no parameter's type, so no call could say what it is")))))
+
+; A type parameter's name as its def wrote it, before hide_tparams.
+(def as_written ((p (list int))) (list int)
+  (as_written_from p p))
+
+(def as_written_from ((s (list int)) (p (list int))) (list int)
+  (if (is_empty s)
+      p
+      (if (starts_with s "'s ") (drop_n s 3) (as_written_from (tail s) p))))
 
 (def check_body ((o int) (n (list int)) (ps (list Param)) (ret Ty)
                  (body Expr) (ctx Ctx)) (list Diag)
@@ -876,17 +918,17 @@
 
 (def decl_name ((d Decl)) (list int)
   (match d
-    ((DDef o n ps ret body) n)
+    ((DDef o n fps ps ret body) n)
     ((DData o n tps cs) n)))
 
 (def decl_offset ((d Decl)) int
   (match d
-    ((DDef o n ps ret body) o)
+    ((DDef o n fps ps ret body) o)
     ((DData o n tps cs) o)))
 
 (def is_def ((d Decl)) bool
   (match d
-    ((DDef o n ps ret body) true)
+    ((DDef o n fps ps ret body) true)
     ((DData o n tps cs) false)))
 
 ; Duplicate function names, duplicate type names, and duplicate constructor
@@ -948,7 +990,7 @@
 (def decl_ctors ((d Decl)) (list Ctor)
   (match d
     ((DData o n tps cs) cs)
-    ((DDef o n ps ret body) (nil Ctor))))
+    ((DDef o n fps ps ret body) (nil Ctor))))
 
 (def dup_ctor_name ((cs (list Ctor)) (seen (list (list int)))) (list int)
   (if (is_empty cs)
@@ -1003,12 +1045,14 @@
 ; streams and returns its exit status.
 (def check_main_sig ((s Sig) (o int)) (list Diag)
   (match s
-    ((S n ps ret)
-      (if (is_empty ps)
-          (if (ty_eq ret (TyInt))
-              (nil Diag)
-              (one_diag o "a main with no parameters must return int"))
-          (check_input_main ps ret o)))))
+    ((S n tps ps ret)
+      (if (not (is_empty tps))
+          (one_diag o "main takes no type parameters")
+          (if (is_empty ps)
+              (if (ty_eq ret (TyInt))
+                  (nil Diag)
+                  (one_diag o "a main with no parameters must return int"))
+              (check_input_main ps ret o))))))
 
 (def check_input_main ((ps (list Ty)) (ret Ty) (o int)) (list Diag)
   (if (not (eq (length_tys ps) 1))
@@ -1045,7 +1089,8 @@
   (Cx sigs
       (collect_ctor_infos ds (nil CtorInfo))
       (collect_datas ds (nil DataDef))
-      (builtins_seen (builtin_names 0) sigs)))
+      (builtins_seen (builtin_names 0) sigs)
+      (nil (list int))))
 
 (def builtins_seen ((bs (list (list int))) (sigs (list Sig))) (list (list int))
   (if (is_empty bs)
@@ -1101,7 +1146,7 @@
 ; prelude, which makes every declaration a program declaration and every rule
 ; below collapse to the flat namespace L0 had before groups existed.
 (def check_program ((ds (list Decl)) (want_main bool) (pre int)) (list Diag)
-  (check_grouped (group_upper ds pre) want_main pre))
+  (check_grouped (hide_tparams (group_upper ds pre)) want_main pre))
 
 (def check_grouped ((ds (list Decl)) (want_main bool) (pre int)) (list Diag)
   (let uds (program_decls ds pre (nil Decl))
@@ -1124,7 +1169,7 @@
 
 (def widths_in ((d Decl)) (list Diag)
   (match d
-    ((DDef o n ps ret body) (nil Diag))
+    ((DDef o n fps ps ret body) (nil Diag))
     ((DData o n tps cs) (too_wide o cs))))
 
 (def too_wide ((o int) (cs (list Ctor))) (list Diag)
@@ -1187,9 +1232,9 @@
 
 (def rn_decl ((d Decl) (tns (list (list int))) (cns (list (list int)))) Decl
   (match d
-    ((DDef o n ps ret body)
-      (DDef o n (rn_params ps tns) (rn_ty ret tns (nil (list int)))
-            (rn_expr body tns cns)))
+    ((DDef o n fps ps ret body)
+      (DDef o n fps (rn_params ps tns fps) (rn_ty ret tns fps)
+            (rn_expr body tns cns fps)))
     ((DData o n tps cs)
       (DData o (rn_name n tns) tps (rn_ctors cs tns cns tps)))))
 
@@ -1202,12 +1247,13 @@
           (cons (C o (rn_name cn cns) (rn_tys fts tns tps))
                 (rn_ctors (tail cs) tns cns tps))))))
 
-(def rn_params ((ps (list Param)) (tns (list (list int)))) (list Param)
+(def rn_params ((ps (list Param)) (tns (list (list int))) (tps (list (list int))))
+    (list Param)
   (if (is_empty ps)
       (nil Param)
       (match (head ps)
-        ((P n t) (cons (P n (rn_ty t tns (nil (list int))))
-                       (rn_params (tail ps) tns))))))
+        ((P n t) (cons (P n (rn_ty t tns tps))
+                       (rn_params (tail ps) tns tps))))))
 
 (def rn_ty ((t Ty) (tns (list (list int))) (tps (list (list int)))) Ty
   (match t
@@ -1225,33 +1271,323 @@
       (nil Ty)
       (cons (rn_ty (head ts) tns tps) (rn_tys (tail ts) tns tps))))
 
-(def rn_expr ((e Expr) (tns (list (list int))) (cns (list (list int)))) Expr
+; tps are the type parameters of the def holding e, which are never renamed.
+(def rn_expr ((e Expr) (tns (list (list int))) (cns (list (list int)))
+              (tps (list (list int)))) Expr
   (match e
     ((EInt o v) (EInt o v))
     ((EBool o v) (EBool o v))
     ((EStr o s) (EStr o s))
     ((EVar o n) (EVar o n))
     ((EIf o c a b)
-      (EIf o (rn_expr c tns cns) (rn_expr a tns cns) (rn_expr b tns cns)))
-    ((ELet o n v b) (ELet o n (rn_expr v tns cns) (rn_expr b tns cns)))
-    ((ENil o t) (ENil o (rn_ty t tns (nil (list int)))))
+      (EIf o (rn_expr c tns cns tps) (rn_expr a tns cns tps) (rn_expr b tns cns tps)))
+    ((ELet o n v b) (ELet o n (rn_expr v tns cns tps) (rn_expr b tns cns tps)))
+    ((ENil o t) (ENil o (rn_ty t tns tps)))
     ((ECtor o n tys args)
-      (ECtor o (rn_name n cns) (rn_tys tys tns (nil (list int)))
-             (rn_exprs args tns cns)))
-    ((EMatch o s arms) (EMatch o (rn_expr s tns cns) (rn_arms arms tns cns)))
-    ((ECall o n args) (ECall o n (rn_exprs args tns cns)))))
+      (ECtor o (rn_name n cns) (rn_tys tys tns tps) (rn_exprs args tns cns tps)))
+    ((EMatch o s arms)
+      (EMatch o (rn_expr s tns cns tps) (rn_arms arms tns cns tps)))
+    ((ECall o n args) (ECall o n (rn_exprs args tns cns tps)))))
 
-(def rn_exprs ((es (list Expr)) (tns (list (list int))) (cns (list (list int))))
-    (list Expr)
+(def rn_exprs ((es (list Expr)) (tns (list (list int))) (cns (list (list int)))
+               (tps (list (list int)))) (list Expr)
   (if (is_empty es)
       (nil Expr)
-      (cons (rn_expr (head es) tns cns) (rn_exprs (tail es) tns cns))))
+      (cons (rn_expr (head es) tns cns tps) (rn_exprs (tail es) tns cns tps))))
 
-(def rn_arms ((as (list Arm)) (tns (list (list int))) (cns (list (list int))))
-    (list Arm)
+(def rn_arms ((as (list Arm)) (tns (list (list int))) (cns (list (list int)))
+              (tps (list (list int)))) (list Arm)
   (if (is_empty as)
       (nil Arm)
       (match (head as)
         ((A o cn ns b)
-          (cons (A o (rn_name cn cns) ns (rn_expr b tns cns))
-                (rn_arms (tail as) tns cns))))))
+          (cons (A o (rn_name cn cns) ns (rn_expr b tns cns tps))
+                (rn_arms (tail as) tns cns tps))))))
+
+; ------------------------------------------- a function's type parameters
+;
+; A def's type parameter hides a data type of the same name within the def
+; (spec 4.1). Types compare by name, so one that names a declared data type
+; is renamed throughout its def to a name no source can write, "f's T",
+; and the two can never be taken for each other.
+
+(def hide_tparams ((ds (list Decl))) (list Decl)
+  (let tns (declared_types ds (nil (list int)))
+    (if (no_generic ds) ds (hide_decls ds tns (nil Decl)))))
+
+(def no_generic ((ds (list Decl))) bool
+  (if (is_empty ds)
+      true
+      (match (head ds)
+        ((DData o n tps cs) (no_generic (tail ds)))
+        ((DDef o n fps ps ret body)
+          (if (is_empty fps) (no_generic (tail ds)) false)))))
+
+(def hide_decls ((ds (list Decl)) (tns (list (list int))) (acc (list Decl)))
+    (list Decl)
+  (if (is_empty ds)
+      (rev_decls_onto acc (nil Decl))
+      (hide_decls (tail ds) tns (cons (hide_decl (head ds) tns) acc))))
+
+(def hide_decl ((d Decl) (tns (list (list int)))) Decl
+  (match d
+    ((DData o n tps cs) d)
+    ((DDef o n fps ps ret body)
+      (let bs (hide_binds n fps tns)
+        (if (is_empty bs)
+            d
+            (DDef o n (hidden_names fps bs) (params_inst ps bs) (ty_inst ret bs)
+                  (expr_inst body bs)))))))
+
+; Each of fps that is also a type's name, bound to its hidden name.
+(def hide_binds ((n (list int)) (fps (list (list int))) (tns (list (list int))))
+    (list Bind)
+  (if (is_empty fps)
+      (nil Bind)
+      (if (any_eq (head fps) tns)
+          (cons (B (head fps) (TyData (append n (append "'s " (head fps))) (nil Ty)))
+                (hide_binds n (tail fps) tns))
+          (hide_binds n (tail fps) tns))))
+
+(def hidden_names ((fps (list (list int))) (bs (list Bind))) (list (list int))
+  (if (is_empty fps)
+      fps
+      (cons (match (find_bind (head fps) bs)
+              ((TyFound t) (ty_name t))
+              ((TyMissing) (head fps)))
+            (hidden_names (tail fps) bs))))
+
+; ty_subst, except that a name given arguments is replaced too, by the name
+; it is bound to, so that a type parameter given arguments is still one, and
+; still an error.
+(def ty_inst ((t Ty) (bs (list Bind))) Ty
+  (match t
+    ((TyList e) (TyList (ty_inst e bs)))
+    ((TyArray e) (TyArray (ty_inst e bs)))
+    ((TyData n as)
+      (match (find_bind n bs)
+        ((TyFound x) (if (is_empty as) x (TyData (ty_name x) (tys_inst as bs))))
+        ((TyMissing) (TyData n (tys_inst as bs)))))
+    ((TyInt) t)
+    ((TyBool) t)
+    ((TyBytes) t)))
+
+(def tys_inst ((ts (list Ty)) (bs (list Bind))) (list Ty)
+  (if (is_empty ts) ts (cons (ty_inst (head ts) bs) (tys_inst (tail ts) bs))))
+
+(def params_inst ((ps (list Param)) (bs (list Bind))) (list Param)
+  (if (is_empty ps)
+      ps
+      (match (head ps)
+        ((P n t) (cons (P n (ty_inst t bs)) (params_inst (tail ps) bs))))))
+
+; Every type written in e, in a nil or a construction, with bs applied.
+(def expr_inst ((e Expr) (bs (list Bind))) Expr
+  (match e
+    ((EInt o v) e)
+    ((EBool o v) e)
+    ((EStr o s) e)
+    ((EVar o n) e)
+    ((EIf o c a b) (EIf o (expr_inst c bs) (expr_inst a bs) (expr_inst b bs)))
+    ((ELet o n v b) (ELet o n (expr_inst v bs) (expr_inst b bs)))
+    ((ENil o t) (ENil o (ty_inst t bs)))
+    ((ECtor o n tys args) (ECtor o n (tys_inst tys bs) (exprs_inst args bs)))
+    ((EMatch o s arms) (EMatch o (expr_inst s bs) (arms_inst arms bs)))
+    ((ECall o n args) (ECall o n (exprs_inst args bs)))))
+
+(def exprs_inst ((es (list Expr)) (bs (list Bind))) (list Expr)
+  (if (is_empty es) es (cons (expr_inst (head es) bs) (exprs_inst (tail es) bs))))
+
+(def arms_inst ((as (list Arm)) (bs (list Bind))) (list Arm)
+  (if (is_empty as)
+      as
+      (match (head as)
+        ((A o cn ns b) (cons (A o cn ns (expr_inst b bs)) (arms_inst (tail as) bs))))))
+
+; ------------------------------------------------- copies of a function
+;
+; A function with type parameters is compiled once per combination of
+; whether each stands for a counted type, a list, data, array, or bytes, or
+; for int or bool (spec 10.2). Before emission, each such def is replaced by
+; its copies, with every type parameter replaced by (list int) or int, which
+; stand for their kinds, and every call to one is renamed to the copy its
+; arguments' types choose. The emitter then sees only functions without type
+; parameters, and decides everything a copy's types decide as for any other
+; function. A copy's name has a dot, which no source name has.
+
+(data Mono
+  (Mo Expr Ty))
+
+(data Monos
+  (Mos (list Expr) (list Ty)))
+
+(def mono_program ((ds (list Decl)) (pre int)) (list Decl)
+  (if (no_generic ds)
+      ds
+      (mono_decls ds pre (prelude_view ds pre) (program_view ds pre) (nil Decl))))
+
+(def mono_decls ((ds (list Decl)) (pre int) (pv Ctx) (gv Ctx) (acc (list Decl)))
+    (list Decl)
+  (if (is_empty ds)
+      (rev_decls_onto acc (nil Decl))
+      (mono_decls (tail ds) pre pv gv
+        (mono_decl (head ds) (if (in_prelude (head ds) pre) pv gv) acc))))
+
+; d, or its copies, pushed onto acc.
+(def mono_decl ((d Decl) (ctx Ctx) (acc (list Decl))) (list Decl)
+  (match d
+    ((DData o n tps cs) (cons d acc))
+    ((DDef o n fps ps ret body)
+      (if (is_empty fps)
+          (cons (DDef o n fps ps ret (mono_body body ps ctx)) acc)
+          (mono_copies o n fps ps ret body ctx (copy_kinds fps) acc)))))
+
+(def mono_copies ((o int) (n (list int)) (fps (list (list int))) (ps (list Param))
+                  (ret Ty) (body Expr) (ctx Ctx) (kss (list (list bool)))
+                  (acc (list Decl))) (list Decl)
+  (if (is_empty kss)
+      acc
+      (let bs (kind_binds fps (head kss))
+        (let cps (params_inst ps bs)
+          (mono_copies o n fps ps ret body ctx (tail kss)
+            (cons (DDef o (copy_name n (head kss)) (nil (list int)) cps
+                        (ty_inst ret bs) (mono_body (expr_inst body bs) cps ctx))
+                  acc))))))
+
+; Every combination of kinds for the parameters, true for counted, in the
+; order of their names: 0...0 first.
+(def copy_kinds ((fps (list (list int)))) (list (list bool))
+  (if (is_empty fps)
+      (cons (nil bool) (nil (list bool)))
+      (let rest (copy_kinds (tail fps))
+        (prefix_kinds false rest (prefix_kinds true rest (nil (list bool)))))))
+
+(def prefix_kinds ((k bool) (kss (list (list bool))) (tail_kss (list (list bool))))
+    (list (list bool))
+  (if (is_empty kss)
+      tail_kss
+      (cons (cons k (head kss)) (prefix_kinds k (tail kss) tail_kss))))
+
+(def kind_binds ((fps (list (list int))) (ks (list bool))) (list Bind)
+  (if (is_empty fps)
+      (nil Bind)
+      (cons (B (head fps) (if (head ks) (TyList (TyInt)) (TyInt)))
+            (kind_binds (tail fps) (tail ks)))))
+
+(def copy_name ((n (list int)) (ks (list bool))) (list int)
+  (append n (cons 46 (kind_digits ks))))
+
+(def kind_digits ((ks (list bool))) (list int)
+  (if (is_empty ks) (nil int) (cons (if (head ks) 49 48) (kind_digits (tail ks)))))
+
+; Whether values of type t are counted: spec 10.1 and 10.3.
+(def ty_is_counted ((t Ty)) bool
+  (or (ty_is_list t) (or (ty_is_data t) (or (ty_is_array t) (ty_is_bytes t)))))
+
+; What each type parameter stands for, as kinds, for a call the checker
+; accepted.
+(def kinds_of ((tps (list (list int))) (bs (list Bind))) (list bool)
+  (if (is_empty tps)
+      (nil bool)
+      (cons (match (find_bind (head tps) bs)
+              ((TyFound t) (ty_is_counted t))
+              ((TyMissing) false))
+            (kinds_of (tail tps) bs))))
+
+(def mono_body ((body Expr) (ps (list Param)) (ctx Ctx)) Expr
+  (match (mono_expr body (params_to_env ps (nil Bind)) ctx)
+    ((Mo e t) e)))
+
+; e with every call to a function with type parameters renamed to its copy,
+; and e's type, which the renaming needs: computed as the checker computes
+; it, for an expression the checker accepted.
+(def mono_expr ((e Expr) (env (list Bind)) (ctx Ctx)) Mono
+  (match e
+    ((EInt o v) (Mo e (TyInt)))
+    ((EBool o v) (Mo e (TyBool)))
+    ((EStr o s) (Mo e (TyList (TyInt))))
+    ((ENil o t) (Mo e (TyList t)))
+    ((EVar o n) (Mo e (match (find_bind n env) ((TyFound t) t) ((TyMissing) (TyInt)))))
+    ((EIf o c a b)
+      (match (mono_expr a env ctx)
+        ((Mo a2 at)
+          (Mo (EIf o (mono_e c env ctx) a2 (mono_e b env ctx)) at))))
+    ((ELet o n v b)
+      (match (mono_expr v env ctx)
+        ((Mo v2 vt)
+          (match (mono_expr b (cons (B n vt) env) ctx)
+            ((Mo b2 bt) (Mo (ELet o n v2 b2) bt))))))
+    ((ECtor o n tys args) (mono_ctor o n tys args env ctx))
+    ((EMatch o s arms) (mono_match o s arms env ctx))
+    ((ECall o n args) (mono_call o n args env ctx))))
+
+(def mono_e ((e Expr) (env (list Bind)) (ctx Ctx)) Expr
+  (match (mono_expr e env ctx) ((Mo e2 t) e2)))
+
+(def mono_args ((es (list Expr)) (env (list Bind)) (ctx Ctx)) Monos
+  (if (is_empty es)
+      (Mos es (nil Ty))
+      (match (mono_expr (head es) env ctx)
+        ((Mo e t)
+          (match (mono_args (tail es) env ctx)
+            ((Mos rest ts) (Mos (cons e rest) (cons t ts))))))))
+
+(def mono_ctor ((o int) (n (list int)) (tys (list Ty)) (args (list Expr))
+                (env (list Bind)) (ctx Ctx)) Mono
+  (match (mono_args args env ctx)
+    ((Mos args2 ats)
+      (Mo (ECtor o n tys args2)
+          (match (find_ctor n (ctx_ctors ctx))
+            ((CtorFound ci) (TyData (ctor_type_name ci) (ctor_type_args ci tys ats)))
+            ((CtorMissing) (TyInt)))))))
+
+(def mono_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
+                (ctx Ctx)) Mono
+  (match (mono_args args env ctx)
+    ((Mos args2 ats)
+      (if (is_builtin_in n ctx)
+          (Mo (ECall o n args2)
+              (match (check_builtin n ats o) ((CTyOk t) t) ((CTyErr eo m) (TyInt))))
+          (match (find_sig n (ctx_sigs ctx))
+            ((SigMissing) (Mo (ECall o n args2) (TyInt)))
+            ((SigFound s)
+              (match s
+                ((S sn tps sps sr)
+                  (if (is_empty tps)
+                      (Mo (ECall o n args2) sr)
+                      (match (match_tys sps ats tps (nil Bind))
+                        ((BsOk bs)
+                          (Mo (ECall o (copy_name n (kinds_of tps bs)) args2)
+                              (ty_subst sr bs)))
+                        ((BsErr eo m) (Mo (ECall o n args2) sr))))))))))))
+
+(data MonoArms
+  (MoA (list Arm) Ty))
+
+(def mono_match ((o int) (s Expr) (arms (list Arm)) (env (list Bind)) (ctx Ctx))
+    Mono
+  (match (mono_expr s env ctx)
+    ((Mo s2 st)
+      (match (find_data (ty_name st) (ctx_datas ctx))
+        ((DataMissing) (Mo (EMatch o s2 arms) (TyInt)))
+        ((DataFound dd)
+          (match (mono_arms arms (zip_binds (data_params dd) (ty_args st)) env ctx
+                            (nil Arm) (TyInt))
+            ((MoA as2 t) (Mo (EMatch o s2 as2) t))))))))
+
+; bs binds the data type's parameters to the subject type's arguments.
+(def mono_arms ((arms (list Arm)) (bs (list Bind)) (env (list Bind)) (ctx Ctx)
+                (acc (list Arm)) (t Ty)) MonoArms
+  (if (is_empty arms)
+      (MoA (rev_arms_onto acc (nil Arm)) t)
+      (match (head arms)
+        ((A ao cn names body)
+          (match (mono_expr body (bind_fields names (arm_fields_at cn bs ctx) env)
+                            ctx)
+            ((Mo b2 bt)
+              (mono_arms (tail arms) bs env ctx (cons (A ao cn names b2) acc) bt)))))))
+
+(def arm_fields_at ((cn (list int)) (bs (list Bind)) (ctx Ctx)) (list Ty)
+  (match (find_ctor cn (ctx_ctors ctx))
+    ((CtorFound ci) (tys_subst (ctor_fields ci) bs))
+    ((CtorMissing) (nil Ty))))

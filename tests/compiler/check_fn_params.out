@@ -1,0 +1,30 @@
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+298: an argument of eq must be int, but this is T
+290: the subject of a match must be a data type, but this is T
+266: wrong declares return type int, but its body is T
+266: mix declares return type A, but its body is B
+316: argument 1 of g must be int, but this is T
+307: argument 2 of rev_onto must be (list int), but this is (list bool)
+307: rev_onto takes 2 arguments, but got 1
+359: argument 2 of same must be int, but this is bool
+ok
+266: main declares return type int, but its body is bool
+266: type parameter T is declared twice
+266: type parameter T of phantom is in no parameter's type, so no call could say what it is
+266: type parameter T of none_of is in no parameter's type, so no call could say what it is
+266: type parameter T takes no type arguments
+296: unknown type U
+292: unknown type T
+266: main takes no type parameters
+ok
+333: argument 1 of g must be T, but this is leak's T
+285: type parameter T is declared twice

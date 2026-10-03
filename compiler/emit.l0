@@ -703,7 +703,7 @@
 ; The type a function returns, from its signature.
 (def fn_type ((n (list int)) (env Env)) Ty
   (match (find_sig n (ctx_sigs (env_ctx env)))
-    ((SigFound s) (match s ((S sn ps r) r)))
+    ((SigFound s) (match s ((S sn tps ps r) r)))
     ((SigMissing) (TyInt))))
 
 ; ------------------------------------------------------------ constructors
@@ -1047,7 +1047,7 @@
       (nil Node)
       (match (head ds)
         ((DData o n tps cs) (graph_nodes (tail ds) pre ppre pprog bpre bprog))
-        ((DDef o n ps ret body)
+        ((DDef o n fps ps ret body)
           (let inpre (lt o pre)
             (cons (Nd (def_sym n inpre) (length_params ps)
                       (tail_callees body (if inpre ppre pprog) (if inpre bpre bprog)
@@ -1223,7 +1223,7 @@
       (nil RoFn)
       (match (head ds)
         ((DData o n tps cs) (ro_fns (tail ds) pre ppre pprog bpre bprog))
-        ((DDef o n ps ret body)
+        ((DDef o n fps ps ret body)
           (let inpre (lt o pre)
             (let sym (def_sym n inpre)
               (cons (Rf sym ps
@@ -1566,7 +1566,7 @@
 (def emit_fn ((d Decl) (sc Scope) (st Emit)) Emit
   (match d
     ((DData o n tps cs) st)
-    ((DDef o n ps ret body)
+    ((DDef o n fps ps ret body)
       (let sym (def_sym n (sc_is_prelude sc))
         (let k (pad_of sym (sc_pads sc))
           (let st1 (emit_line
@@ -1711,7 +1711,7 @@
       2
       (match (head ds)
         ((DData o n tps cs) (ret_kind (tail ds)))
-        ((DDef o n ps ret body)
+        ((DDef o n fps ps ret body)
           (if (list_eq n "main")
               (if (is_empty ps)
                   3
@@ -1721,8 +1721,9 @@
 ; The return kind is read off the program's main, not the prelude's: a main in
 ; the prelude is library code that happens to be called main, not an entry
 ; point. Spec section 9.
+; A function with type parameters is emitted as its copies, spec 10.2.
 (def emit_module ((ds (list Decl)) (pre int)) (list int)
-  (emit_grouped (group_upper ds pre) pre))
+  (emit_grouped (mono_program (hide_tparams (group_upper ds pre)) pre) pre))
 
 (def emit_grouped ((ds (list Decl)) (pre int)) (list int)
   (let st0 (Em 0 (push (ir_header 0) (nil int)))

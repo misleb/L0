@@ -1,0 +1,96 @@
+; Functions with type parameters (spec 4.1, 5.7, 10.2). Stage 0 predates
+; them, so this runs in the compiled suite only, with reference counting
+; checked: each copy must count exactly what its kind of type parameter
+; says, so a leak or a double free in either copy fails the test.
+
+(data (Option T)
+  (None)
+  (Some T))
+
+(data (Pair A B)
+  (Pair A B))
+
+(def (rev_onto T) ((xs (list T)) (acc (list T))) (list T)
+  (if (is_empty xs)
+      acc
+      (rev_onto (tail xs) (cons (head xs) acc))))
+
+(def (rev T) ((xs (list T))) (list T)
+  (rev_onto xs (nil T)))
+
+(def (len T) ((xs (list T))) int
+  (if (is_empty xs) 0 (add 1 (len (tail xs)))))
+
+; Only reads xs when T is int or bool; yields a part of it when T is
+; counted, so xs is read-only in one copy and not the other (spec 10.3).
+(def (first_or T) ((xs (list T)) (dflt T)) T
+  (if (is_empty xs) dflt (head xs)))
+
+; A block built in a copy: Pair's fields are pointers as A and B say.
+(def (pair_up A B) ((a A) (b B)) (Pair A (list B))
+  (Pair a (cons b (nil B))))
+
+(def (swap A B) ((p (Pair A B))) (Pair B A)
+  (match p ((Pair a b) (Pair b a))))
+
+(def (find T) ((xs (list T)) (keep (list bool))) (Option T)
+  (if (is_empty xs)
+      ((None T))
+      (if (head keep) (Some (head xs)) (find (tail xs) (tail keep)))))
+
+; Tail calls between copies of different arities, in both directions, so
+; padding (spec 10.2) has to give them one prototype.
+(def (ping T) ((n int) (x T) (acc (list T))) (list T)
+  (if (eq n 0) acc (pong (sub n 1) (cons x acc))))
+
+(def (pong T) ((n int) (acc (list T))) (list T)
+  (if (eq n 0) acc (ping n (head acc) acc)))
+
+(def (fill T) ((n int) (x T)) (array T)
+  (array_new n x))
+
+; A def named like a builtin shadows it here too (spec 7).
+(def (bytes_len T) ((xs (list T))) int
+  (len xs))
+
+(def bools ((i int)) (list bool)
+  (cons true (cons false (cons true (nil bool)))))
+
+(def words ((i int)) (list (list int))
+  (cons "one" (cons "two" (cons "three" (nil (list int))))))
+
+(def show_bool ((b bool)) (list int)
+  (if b "true" "false"))
+
+(def opt_str ((o (Option (list int)))) (list int)
+  (match o ((None) "none") ((Some s) s)))
+
+(def opt_int ((o (Option int))) (list int)
+  (match o ((None) "none") ((Some n) (digits n))))
+
+(def line ((s (list int)) (acc (list int))) (list int)
+  (push "\n" (push s acc)))
+
+(def main ((input (list int))) (list int)
+  (let ws (words 0)
+    (let a (line (rev "abc") (nil int))
+      (let b (line (head (rev ws)) a)
+        (let c (line (show_bool (head (rev (bools 0)))) b)
+          (let d (line (digits (add (len ws) (len "abcd"))) c)
+            (let e (line (first_or ws "none") d)
+              (let f (line (digits (first_or (nil int) 7)) e)
+                (let g (line (head ws) f)
+                  (rest_of_main ws g))))))))))
+
+(def rest_of_main ((ws (list (list int))) (acc (list int))) (list int)
+  (let p (swap (pair_up "left" 5))
+    (match p
+      ((Pair ns s)
+        (let a (line (append s (digits (head ns))) acc)
+          (let b (line (opt_str (find ws (cons false (cons true (nil bool))))) a)
+            (let c (line (opt_int (find "xyz" (cons false (cons false (cons false (nil bool)))))) b)
+              (let d (line (digits (len (ping 5 "w" (nil (list int))))) c)
+                (let e (line (digits (len (ping 3 1 (nil int)))) d)
+                  (let f (line (digits (array_len (fill 4 ws))) e)
+                    (let g (line (digits (bytes_len ws)) f)
+                      (rev g))))))))))))
