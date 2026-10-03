@@ -155,6 +155,9 @@ must include:
 - that it tests what it writes with `tools/l0 test`, as the shipped
   `l0-code` skill describes, so its claims about behavior come with a test
   that shows them
+- the rules in `.cursor/rules/`, which it does not see: scratch work goes
+  in `tmp/` (`local-tmp.mdc`), and files are read and edited with its file
+  tools, not shell commands (`file-tools.mdc`)
 - what to return, below
 
 **Tell program workers to report limits, not route around them.** A worker that
