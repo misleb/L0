@@ -48,19 +48,23 @@ when it is both the one using the language and the one changing it.
 
 ## Status
 
-**L0 compiles itself.** The compiler is written in L0, covers all of L0 v1,
-and reaches a byte-identical self-compilation fixpoint. With `stage0/` removed
-entirely, the checked-in seed rebuilds the compiler from source and the result
-works.
+**L0 compiles itself.** The compiler is written in L0, covers all of L0 as
+`spec/L0.md` describes it, and reaches a byte-identical self-compilation
+fixpoint. With `stage0/` removed entirely, the checked-in seed rebuilds the
+compiler from source and the result works.
 
-- `spec/L0.md` — L0 v1, complete
-- `runtime/l0rt.ll` — allocation, host I/O, and the entry point, as LLVM IR
-  calling libc
+- `spec/L0.md` — the language, and the only specification of it; changes are
+  recorded in `spec/changelog.md` rather than as numbered versions
+- `runtime/l0rt.ll` — allocation and reference counting, host I/O, the clock,
+  and the entry point, as LLVM IR calling libc
 - `compiler/*.l0` — lexer, parser, checker, and emitter, **written in L0**
 - `bootstrap/stage2.ll` — the compiler, compiled, as checked-in LLVM IR text
 - `stage0/l0i.c` — an interpreter in C, now **frozen**: no longer part of the
   bootstrap, kept as an independent oracle for the differential suite
-- `tests/` — 56 golden test cases, plus 51 run again through the compiler
+- `tests/` — golden test cases held to the stage-0 interpreter, and a compiled
+  suite that runs them again through the compiler, along with the programs
+  stage 0 cannot run; `tools/test.sh` and `tools/test.sh --compiled` print
+  how many
 
 ## Quick start
 
@@ -170,9 +174,16 @@ That replaces an earlier arrangement, in which projects elsewhere used an
 installed L0, treated it as read-only, and filed requests back here. It was
 too slow, and it taught the wrong reflex: an agent that cannot change the
 language works around the limitation, the workaround ships, and the pressure
-that should have shaped the language is lost. The compiler itself still
-carries nine near-identical result types for want of generics, because under
-that arrangement a cost paid once per use site never justified a change.
+that should have shaped the language is lost. Under that arrangement a cost
+paid once per use site never justified a change, which is how L0 went so long
+without type parameters.
+
+They exist now, for data types and functions alike, but the compiler still
+carries near-identical result types and a reversing helper per element type,
+because it cannot use them yet. The frozen stage-0 interpreter runs the
+compiler, for `tools/l0check` and the compiler's stage tests, and knows no type
+parameters, so neither the compiler nor `lib/prelude.l0` can be written with
+them while that holds.
 
 A change still has to be earned by code: L0 in this repository that it makes
 possible, or makes harder to get wrong. The spec changes first. `spec/L0.md`
@@ -182,26 +193,39 @@ reasons the "Building the compiler from a fresh clone" section below explains.
 
 ## The standard library
 
-`lib/prelude.l0` is linked into every program automatically. It is the same
-file the compiler itself is built with, so it is exercised continuously rather
-than maintained separately.
+`lib/prelude.l0` and `lib/io.l0` are linked into every program automatically,
+and `l0 test` adds `lib/test.l0`. Together they are the prelude of spec section
+7.1, a group of names separate from the program's. `l0 doc` lists everything
+in them.
+
+The split between the first two files is set by stage 0, not by topic.
+`lib/prelude.l0` is part of the compiler too: the compiler is built from it
+and `compiler/*.l0`, so it is exercised continuously rather than maintained
+separately, and stage 0 runs it whenever it runs the compiler. So it holds
+only what stage 0 can run. Everything else goes in `lib/io.l0`: the I/O
+wrappers, reading a whole input into `bytes` with `read_input`, `Option` and
+`Result`, and `rev`, `rev_onto`, `append`, `length`, and `array_resize`, which
+take type parameters and so work on every element type. The compiler keeps
+`(list int)` copies of the first four in `compiler/lex.l0`, since it cannot
+use type parameters.
 
 It matters more than it might sound: L0 has no `append`, no `length`, and no
-way to render an integer as text among its builtins. Without a prelude, every
+way to render an integer as text among its builtins. Without a library, every
 program reimplements decimal formatting, and gets the most-negative-integer
 case wrong.
 
 Linking it into everything costs nothing, in either of the two senses that
 would otherwise limit how far it can grow.
 
-It costs no space. `main` is the only function emitted with external linkage,
-so LLVM deletes every prelude function a program does not call: a hello-world's
-object file is 1168 bytes rather than the 10704 it took when all 30 of them
-survived.
+It costs no space. Only `main`'s entry point and one global that describes it
+need external linkage (spec section 10.2), and every other function is emitted
+internal, so LLVM deletes every library function a program does not call. A
+hello-world built with the library is the same size as one built with
+`--no-prelude`.
 
-It costs no names either. The prelude is a separate group of names from the
-program, so defining your own `length` is legal — yours is used throughout your
-program, while the prelude goes on calling its own:
+It costs no names either. Because the library is a separate group, defining
+your own `length` is legal — yours is used throughout your program, while the
+library goes on calling its own:
 
 ```
 (def is_digit ((c int)) bool false)        ; shadows the prelude's
@@ -210,21 +234,33 @@ program, while the prelude goes on calling its own:
   (if (is_digit 55) -1 (int_prefix "77" 0)))   ; prints 77, not -1
 ```
 
-That matters because it is what makes adding to the prelude safe. Before it,
-every new prelude function was a potential breaking change for programs that
+Types and constructors are grouped the same way, so a program that declares
+its own `Ok` or `Some` keeps it beside the library's `Result` and `Option`.
+That matters because it is what makes adding to the library safe. Before it,
+every new library name was a potential breaking change for programs that
 had already used the name. Spec section 7.1 has the rule and
 `spec/changelog.md` has the reasoning, including why this is two groups of
 names rather than a module system.
 
 ## What L0 cannot do yet
 
-A program can read and write its standard streams and files, and read its
-command-line arguments, but there is no network, no clock, and no
-environment. Memory is freed by reference counting, but a whole-input `main`
-receives its input as a list built in full before it starts, about 24 bytes
-per input byte, so large inputs call for the streaming form. Lists are the
-only data structure, so indexing is O(n), and
-there are no arrays, maps, floats, modules, or higher-order functions.
+A program can read and write its standard streams and files, read its
+command-line arguments, and time itself on a monotonic clock, but there is no
+network, no environment, and no wall-clock date.
+
+Memory is freed by reference counting. A whole-input `main` still receives its
+input as a list built in full before it starts, a cons cell per byte, but a
+program need not take its input that way: a streaming `main` can read it with
+`read_input` from the library, or the `read_bytes` builtin, into `bytes`,
+which holds about one byte per byte. Arrays give constant-time indexing, and
+update in place when nothing else holds them.
+
+Data types and functions take type parameters, so one `Option`, `Result`, or
+`rev` serves every element type. But a generic function cannot compare its
+elements, since `eq` takes only `int`, and there are no function values to
+pass a comparison in, so a sort, a lookup by key, or a list equality is still
+written once per element type. Nor are there maps, floats, modules, or
+mutable state.
 
 None of these was ruled out. Each is absent because self-compilation never
 demanded it, and a general-purpose L0 will. Memory management and I/O came
@@ -263,9 +299,9 @@ build/l0i run hello.l0        # prints: hi
 
 ## What L0 looks like
 
-Three built-in types (`int`, `bool`, `(list T)`), user-declared tagged unions,
-no loops, no mutation, and no function values. Iteration is recursion, and a
-function's body is a single expression.
+Five built-in types (`int`, `bool`, `(list T)`, `(array T)`, and `bytes`),
+user-declared tagged unions, no loops, no mutation, and no function values.
+Iteration is recursion, and a function's body is a single expression.
 
 ```
 (data Tree
@@ -276,6 +312,20 @@ function's body is a single expression.
   (match t
     ((Leaf n)     n)
     ((Branch l r) (add (sum_tree l) (sum_tree r)))))
+```
+
+Data types and functions may take type parameters. A call finds what each
+stands for from its arguments' types, so no call writes them:
+
+```
+(data (Option T)
+  (None)
+  (Some T))
+
+(def (rev_onto T) ((xs (list T)) (acc (list T))) (list T)
+  (if (is_empty xs)
+      acc
+      (rev_onto (tail xs) (cons (head xs) acc))))
 ```
 
 A program can take its whole input at once: the host reads standard input
@@ -314,26 +364,26 @@ files or linking either.
 Not by judgment, but by a byte-for-byte fixpoint:
 
 ```
-stage0 (C interpreter) + compiler.l0  ->  stage1.ll  ->  stage1
-stage1 + compiler.l0                  ->  stage2.ll  ->  stage2
-stage2 + compiler.l0                  ->  stage3.ll
+start + compiler source   ->  stage1.ll  ->  stage1
+stage1 + compiler source  ->  stage2.ll  ->  stage2
+stage2 + compiler source  ->  stage3.ll
 
 stage2.ll == stage3.ll
 ```
 
-The stage2/stage3 identity is the one that means something: the compiler maps
-its own source to exactly the compiler that produced it.
+The compiler source is `lib/prelude.l0` and `compiler/*.l0`, and the start is
+the checked-in seed, `bootstrap/stage2.ll`. The stage2/stage3 identity is the
+one that means something: the compiler maps its own source to exactly the
+compiler that produced it.
 
-Here all three stages are byte-identical, because stage 0 is an *interpreter*
-running the same `compiler/*.l0` that stage 1 is compiled from. Both compute
-the same pure function of the same input, so `stage1.ll == stage2.ll` is an
-extra check, and a difference would mean the compiler miscompiled itself. That
-equality would not hold if stage 0 were a separate compiler emitting
-equivalent but differently-shaped IR.
-
-When that holds, `stage2.ll` is checked in as a bootstrap seed and `stage0/` is
-**deleted**. From that point L0 has exactly one implementation, written in
-itself, and the language can grow with no host-language work at all.
+The first seed was cut by starting from the stage-0 interpreter instead. Then
+all three stages were byte-identical, because the interpreter ran the same
+source that stage 1 was compiled from, so both computed the same pure function
+of the same input, and `stage1.ll == stage2.ll` was an extra check. That
+equality would not hold if the start were a separate compiler emitting
+equivalent but differently-shaped IR. Since then the bootstrap has started
+from the seed, so the language grows with no host-language work at all, and
+`stage0/` is kept, frozen, only as the oracle described above.
 
 Run the chain with:
 
@@ -343,22 +393,24 @@ tools/bootstrap.sh
 
 ## Building the compiler from a fresh clone
 
-Once `stage0/` is gone, the only bootstrap entry point is `bootstrap/stage2.ll`.
-That file is LLVM IR **text**, so `clang` alone turns it into a working
-compiler — which is what makes deleting the interpreter safe. The seed is a
+The bootstrap entry point is `bootstrap/stage2.ll`. That file is LLVM IR
+**text**, so `clang` alone turns it into a working compiler — which is why the
+interpreter is no longer needed to build anything. The seed is a
 compiler you can build without already having a compiler, and it needs no L0
 tooling, no interpreter, and no prebuilt binary.
 
 ```bash
 tools/build.sh                                  # the runtime, and stage 0
 tools/l0ll bootstrap/stage2.ll build/l0c-seed        # a compiler, from text alone
-cat compiler/*.l0 | build/l0c-seed > build/stage1.ll
+cat lib/prelude.l0 compiler/*.l0 | build/l0c-seed | tail -n +2 > build/stage1.ll
 tools/l0ll build/stage1.ll build/l0c            # the compiler, from its source
 ```
 
 `cat` is the whole of linking, because L0 has no module system and declaration
-order does not matter. `tools/bootstrap.sh` does all of the above and then
-verifies the fixpoint.
+order does not matter. The compiler is built with `lib/prelude.l0`, as every
+program is, and `tail` drops the first line of its output, a tag saying
+whether what follows is IR or diagnostics. `tools/bootstrap.sh` does all of
+the above and then verifies the fixpoint.
 
 **The seed is frozen, so it only knows the language as it was when it was cut.**
 That makes one ordering rule load-bearing: when the compiler gains the ability
@@ -372,7 +424,8 @@ will tell you. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 
 ```
 spec/          L0.md (what the language is) and changelog.md (why)
-runtime/       l0rt.ll, the runtime: allocation, host I/O, entry point
+runtime/       l0rt.ll, the runtime: allocation, reference counting, host
+               I/O, the clock, entry point
 compiler/      the L0 compiler, written in L0
 lib/           the standard library (prelude.l0, io.l0, test.l0), examples,
                and the AGENTS.md and skill `l0 init` copies into a project
@@ -385,7 +438,8 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
 tools/         l0 (the driver), install.sh, build.sh, test.sh, bootstrap.sh
 seeds/         the original seed spec, superseded by spec/
 roadmap/       plans and status for work in progress; never knowledge about L0
-.cursor/skills/  agent instructions for developing L0 itself
+.cursor/skills/  agent instructions for developing L0 itself; .claude/skills
+                 links to it for Claude Code
 ```
 
 The skills under `.cursor/skills/` are for working *on* L0 and refer to the
