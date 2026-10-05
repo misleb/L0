@@ -1,0 +1,11 @@
+; A loop over two bytes parameters it only compares: eq borrows and returns
+; a bool, so both parameters are read-only (spec 10.3) and the loop counts no
+; references, though each eq is a runtime call.
+
+(def count_same ((x bytes) (y bytes) (i int) (n int)) int
+  (if (eq i 0) n (count_same x y (sub i 1) (if (eq x y) (add n 1) n))))
+
+(def main () int
+  (let x (bytes_from_list "abc")
+    (let y (bytes_from_list "abc")
+      (if (eq (count_same x y 1000 0) 1000) 3 1))))

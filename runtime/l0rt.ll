@@ -41,6 +41,7 @@ declare i32 @closedir(ptr)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
+declare i32 @memcmp(ptr, ptr, i64)
 
 ; Defined by the generated IR. Spec section 10.2.
 declare i64 @l0_f_main(i64)
@@ -1411,13 +1412,14 @@ finish:
 @m_brange = private constant [23 x i8] c"byte index out of range"
 
 ; Marks the malloc block m, whose bytes start 16 past it, as a counted bytes
-; value of length n, and returns it.
+; value of length n, and returns it. Mask 2 is what tells bytes from an
+; (array int) to @l0_equal; bit 0, which arrays read, is clear. Spec 10.1.
 define internal i64 @bytes_mark(ptr %m, i64 %n) {
 entry:
   %lv = load i64, ptr @live
   %lv1 = add i64 %lv, 1
   store i64 %lv1, ptr @live
-  store i64 1099511627776, ptr %m
+  store i64 1099511627778, ptr %m
   %lp = getelementptr i64, ptr %m, i64 1
   store i64 %n, ptr %lp
   %b = ptrtoint ptr %lp to i64
@@ -2046,6 +2048,168 @@ read:
   %sn = mul i64 %s, 1000000000
   %t = add i64 %sn, %n
   ret i64 %t
+}
+
+; ---------------------------------------------------------------- equality
+
+; Pairs of blocks @l0_equal has still to compare, so comparing a long list
+; or a deep nesting needs no recursion. Two words a pair.
+@eq_wl = internal global ptr null
+@eq_len = internal global i64 0
+@eq_cap = internal global i64 0
+
+define internal void @eq_push(i64 %a, i64 %b) {
+entry:
+  %n = load i64, ptr @eq_len
+  %cap = load i64, ptr @eq_cap
+  %full = icmp eq i64 %n, %cap
+  br i1 %full, label %grow, label %put
+grow:
+  %none = icmp eq i64 %cap, 0
+  %c2 = mul i64 %cap, 2
+  %c3 = select i1 %none, i64 256, i64 %c2
+  %bytes = mul i64 %c3, 16
+  %old = load ptr, ptr @eq_wl
+  %new = call ptr @realloc(ptr %old, i64 %bytes)
+  %bad = icmp eq ptr %new, null
+  br i1 %bad, label %oom, label %grown
+oom:
+  call void @rt_error(ptr @m_heap, i64 14)
+  unreachable
+grown:
+  store ptr %new, ptr @eq_wl
+  store i64 %c3, ptr @eq_cap
+  br label %put
+put:
+  %arr = load ptr, ptr @eq_wl
+  %i = mul i64 %n, 2
+  %ap = getelementptr i64, ptr %arr, i64 %i
+  store i64 %a, ptr %ap
+  %bp = getelementptr i64, ptr %ap, i64 1
+  store i64 %b, ptr %bp
+  %n1 = add i64 %n, 1
+  store i64 %n1, ptr @eq_len
+  ret void
+}
+
+; Spec sections 6.8 and 10.3: whether the counted values a and b, of one
+; type, are the same, from their blocks alone. The same block, or two empty
+; lists, are the same at once. Otherwise both must be blocks of one size and
+; mask; an array or bytes compares its length and then its elements, and a
+; cons cell or data block its words, the words the mask marks as pointers by
+; queueing the pair. Words are queued last first, so a list's element is
+; compared before its rest and the queue stays as deep as the nesting, not
+; as long as the list.
+define i64 @l0_equal(i64 %a, i64 %b) {
+entry:
+  store i64 0, ptr @eq_len
+  br label %pair
+pair:
+  %x = phi i64 [ %a, %entry ], [ %px, %pop ]
+  %y = phi i64 [ %b, %entry ], [ %py, %pop ]
+  %same = icmp eq i64 %x, %y
+  br i1 %same, label %next, label %differ
+next:
+  %n = load i64, ptr @eq_len
+  %empty = icmp eq i64 %n, 0
+  br i1 %empty, label %yes, label %pop
+pop:
+  %n1 = sub i64 %n, 1
+  store i64 %n1, ptr @eq_len
+  %wl = load ptr, ptr @eq_wl
+  %pi = mul i64 %n1, 2
+  %pxp = getelementptr i64, ptr %wl, i64 %pi
+  %px = load i64, ptr %pxp
+  %pyp = getelementptr i64, ptr %pxp, i64 1
+  %py = load i64, ptr %pyp
+  br label %pair
+yes:
+  ret i64 1
+no:
+  ret i64 0
+differ:
+  %xz = icmp eq i64 %x, 0
+  %yz = icmp eq i64 %y, 0
+  %oneempty = or i1 %xz, %yz
+  br i1 %oneempty, label %no, label %blocks
+blocks:
+  %xhp = sub i64 %x, 8
+  %xhq = inttoptr i64 %xhp to ptr
+  %hx = load i64, ptr %xhq
+  %yhp = sub i64 %y, 8
+  %yhq = inttoptr i64 %yhp to ptr
+  %hy = load i64, ptr %yhq
+  %shx = and i64 %hx, 1099511627775
+  %shy = and i64 %hy, 1099511627775
+  %alike = icmp eq i64 %shx, %shy
+  br i1 %alike, label %kind, label %no
+kind:
+  %mx = and i64 %hx, 4294967295
+  %sx0 = lshr i64 %hx, 32
+  %sx = and i64 %sx0, 255
+  %xq = inttoptr i64 %x to ptr
+  %yq = inttoptr i64 %y to ptr
+  %isarr = icmp eq i64 %sx, 0
+  br i1 %isarr, label %arr, label %scan
+arr:
+  %nx = load i64, ptr %xq
+  %ny = load i64, ptr %yq
+  %samelen = icmp eq i64 %nx, %ny
+  br i1 %samelen, label %arr_kind, label %no
+arr_kind:
+  %ptrs = and i64 %mx, 1
+  %hasp = icmp ne i64 %ptrs, 0
+  br i1 %hasp, label %elems, label %flat
+flat:
+  %xe = getelementptr i64, ptr %xq, i64 1
+  %ye = getelementptr i64, ptr %yq, i64 1
+  %isb = and i64 %mx, 2
+  %isbytes = icmp ne i64 %isb, 0
+  %wbytes = mul i64 %nx, 8
+  %len = select i1 %isbytes, i64 %nx, i64 %wbytes
+  %c = call i32 @memcmp(ptr %xe, ptr %ye, i64 %len)
+  %eqm = icmp eq i32 %c, 0
+  br i1 %eqm, label %next, label %no
+elems:
+  %k = phi i64 [ %nx, %arr_kind ], [ %k1, %elem_next ]
+  %kdone = icmp eq i64 %k, 0
+  br i1 %kdone, label %next, label %elem
+elem:
+  %xkp = getelementptr i64, ptr %xq, i64 %k
+  %xk = load i64, ptr %xkp
+  %ykp = getelementptr i64, ptr %yq, i64 %k
+  %yk = load i64, ptr %ykp
+  %ek = icmp eq i64 %xk, %yk
+  br i1 %ek, label %elem_next, label %elem_push
+elem_push:
+  call void @eq_push(i64 %xk, i64 %yk)
+  br label %elem_next
+elem_next:
+  %k1 = sub i64 %k, 1
+  br label %elems
+scan:
+  %j = phi i64 [ %sx, %kind ], [ %j1, %word_next ]
+  %jdone = icmp eq i64 %j, 0
+  br i1 %jdone, label %next, label %word
+word:
+  %w = sub i64 %j, 1
+  %xwp = getelementptr i64, ptr %xq, i64 %w
+  %xw = load i64, ptr %xwp
+  %ywp = getelementptr i64, ptr %yq, i64 %w
+  %yw = load i64, ptr %ywp
+  %ew = icmp eq i64 %xw, %yw
+  br i1 %ew, label %word_next, label %word_differ
+word_differ:
+  %bits = lshr i64 %mx, %w
+  %bit = and i64 %bits, 1
+  %isptr = icmp ne i64 %bit, 0
+  br i1 %isptr, label %word_push, label %no
+word_push:
+  call void @eq_push(i64 %xw, i64 %yw)
+  br label %word_next
+word_next:
+  %j1 = sub i64 %j, 1
+  br label %scan
 }
 
 ; ------------------------------------------------------------------- input

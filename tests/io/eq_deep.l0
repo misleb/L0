@@ -1,0 +1,35 @@
+; eq on values too long and too deep for a walk that recurses: a list of a
+; million elements, a list of long strings, and a data value nested 100,000
+; deep. eq_deep.sh runs it on a 1 MB stack, where spec 6.8 still promises an
+; answer, since eq uses no more stack than any other call.
+
+(data Nest
+  (Leaf (list int))
+  (In Nest (list int)))
+
+; The list 1 to n, in front of acc.
+(def upto ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (upto (sub n 1) (cons n acc))))
+
+; Leaf wrapped n times, each level holding tag.
+(def nest ((n int) (tag (list int)) (acc Nest)) Nest
+  (if (eq n 0) acc (nest (sub n 1) tag (In acc tag))))
+
+; n copies of s, as one list.
+(def copies ((n int) (s (list int)) (acc (list (list int)))) (list (list int))
+  (if (eq n 0) acc (copies (sub n 1) s (cons s acc))))
+
+(def show ((v bool)) int
+  (write_line (if v "true" "false")))
+
+(def main () int
+  (let a (upto 1000000 (nil int))
+    (let w1 (show (eq a (upto 1000000 (nil int))))
+      (let w2 (show (eq a (upto 999999 (nil int))))
+        (let w3 (show (eq a (upto 999999 (cons 0 (nil int)))))
+          (let s (upto 1000 (nil int))
+            (let w4 (show (eq (copies 1000 s (nil (list int)))
+                              (copies 1000 (upto 1000 (nil int)) (nil (list int)))))
+              (let w5 (show (eq (nest 100000 "t" (Leaf "x")) (nest 100000 "t" (Leaf "x"))))
+                (let w6 (show (eq (nest 100000 "t" (Leaf "x")) (nest 100000 "t" (Leaf "y"))))
+                  0)))))))))

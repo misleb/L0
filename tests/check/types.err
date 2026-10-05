@@ -10,3 +10,4 @@ tests/check/types.l0:13:46: error: and needs bool arguments, but this is int
 tests/check/types.l0:14:44: error: lt compares int values, but this is bool
 tests/check/types.l0:15:53: error: argument 1 of call_arg_wrong must be bool, but this is int
 tests/check/types.l0:16:45: error: call_count_wrong takes 2 arguments, but 1 was given
+tests/check/types.l0:17:43: error: eq compares int values, but this is bool

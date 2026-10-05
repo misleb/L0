@@ -33,6 +33,8 @@
   (cons (d "(def (get T) ((o (Option T)) (dflt T)) T (match o ((None) dflt) ((Some x) x)))")
   (cons (d "(def (mk A B) ((a A) (b B)) (Pair (list A) B) (Pair (cons a (nil A)) b))")
   (cons (d "(def (cmp T) ((x T) (y T)) bool (eq x y))")
+  (cons (d "(def (cmp2 A B) ((x A) (y B)) bool (eq x y))")
+  (cons (d "(def (before T) ((x T) (y T)) bool (lt x y))")
   (cons (d "(def (m2 T) ((x T)) int (match x ((None) 0) ((Some v) 1)))")
   (cons (d "(def (wrong T) ((x T)) int x)")
   (cons (d "(def (mix A B) ((a A) (b B)) A b)")
@@ -55,7 +57,7 @@
   (cons (d "(data T (Tee int)) (def (id T) ((x T)) T x) (def h ((i int)) int (match (id (Tee 1)) ((Tee n) n)))")
   (cons (d "(data T (Tee int)) (def g ((t T)) int 0) (def (leak T) ((x T)) int (g x))")
   (cons (d "(data T (Tee int)) (def (dup T T) ((x T)) T x)")
-        (nil (list int)))))))))))))))))))))))))))))))))
+        (nil (list int)))))))))))))))))))))))))))))))))))
 
 (def main ((input (list int))) (list int)
   (check_lines (cases 0) (nil int)))

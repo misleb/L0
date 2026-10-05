@@ -28,8 +28,9 @@
       acc
       (push (tail chunk) (cons (head chunk) acc))))
 
-;; Whether xs and ys hold the same bytes in the same order. eq compares only
-;; integers, so this is how two strings are compared.
+;; Whether xs and ys hold the same bytes in the same order, as (eq xs ys)
+;; says. It is here for the compiler, which stage 0 runs, and stage 0's eq
+;; takes only integers; a program can write eq.
 (def list_eq ((xs (list int)) (ys (list int))) bool
   (if (is_empty xs)
       (is_empty ys)

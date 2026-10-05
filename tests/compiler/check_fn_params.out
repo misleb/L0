@@ -8,7 +8,9 @@ ok
 ok
 ok
 ok
-298: an argument of eq must be int, but this is T
+ok
+301: the second argument of eq must be A, but this is B
+301: an argument of lt must be int, but this is T
 290: the subject of a match must be a data type, but this is T
 266: wrong declares return type int, but its body is T
 266: mix declares return type A, but its body is B

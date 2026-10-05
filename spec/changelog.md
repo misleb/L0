@@ -7,6 +7,94 @@ New entries go at the top.
 
 ---
 
+## `eq` compares two values of any type
+
+**`(eq a b)` takes two values of any one type** (sections 4.1, 6, 6.6,
+6.8, 10.1, 10.2, 10.3), and is true when they hold the same thing: equal
+integers or bools, lists and arrays of the same length with the same
+elements, bytes with the same bytes, and data values built with the same
+constructor from the same fields. Never by address. `lt`, `le`, `gt`, and
+`ge` stay int-only. At `int` and `bool` it is the `icmp eq` it always was.
+At any other type it calls the new runtime function `@l0_equal`, which
+walks both values from their block headers with a worklist of its own, so
+neither a long list nor a deep nesting uses stack.
+
+**The blocker.** Roadmap item 0041 found that a function with type
+parameters cannot compare its elements:
+
+```
+(def (member T) ((x T) (xs (list T))) bool
+  (if (is_empty xs)
+      false
+      (if (eq x (head xs)) true (member x (tail xs)))))
+```
+
+The checker rejected it with `an argument of eq must be int, but this is
+T`. So every membership test, lookup, and equality over anything but `int`
+was written once per type. 0041 counted about 47 such functions in the
+library, the suite, and the compiler: `list_eq`, `strs_eq`, `bools_eq`,
+`ty_eq`, `any_eq`, `index_of`, and the lookups, sets, and duplicate checks
+built on them. With no function values, nothing could be passed in to do
+the comparing.
+
+**Why `eq` itself, rather than a new name.** No program changes meaning,
+since `eq` on anything but `int` was an error. A separate `equal` would
+leave two names for one idea, and an agent writing `(eq s t)` on two
+strings would still get a type error and have to find the other name. That
+is the trap 0040 avoided by keeping `rev` and `length` under their own names.
+A program that defines its own `eq` still calls its own (section 7).
+
+**Why structural equality, decided at run time.** A function with type
+parameters compiles to one copy per counted-or-not combination (10.2), so
+inside a copy the compiler knows only whether a value is a pointer, not its
+type. Code chosen per type at compile time cannot be written there. The
+block headers can do it:
+- the mask says which words are pointers, and a data block's tag is word 0
+- a data block is cleared when it is made, so the words past a narrower
+  constructor's fields are 0, which 10.1 now promises
+- the empty list is 0, and no other value is
+
+The v1 reason for keeping `eq` int-only (below, in the v1 entry) was that
+the one-word representation keeps no type information. Headers, added for
+reference counting, brought back almost all of it.
+
+The one gap was bytes. A bytes block had exactly the header of an `(array
+int)` of the same length, and its length word counts bytes where the
+array's counts words. Bytes now have mask bit 1, which no array has, and
+every array path in the runtime reads only bit 0, so freeing and copying
+are unchanged.
+
+**The rejected answers.**
+- *A constraint on a type parameter saying it can be compared*, with code
+  chosen per type, needs a hidden argument or a copy per type. The entry
+  for type parameters already rejected both, and while every L0 type can be
+  compared, such a constraint would say nothing.
+- *Function values* give up purely syntactic name resolution and need an
+  exception to the tail-call guarantee. Without closures, comparisons do not
+  compose either: comparing `(list (list int))` would still need a function
+  written for that type. They remain the answer for comparisons that are not
+  structural, such as by one field or case-insensitively, and are a separate
+  question.
+- *Structural ordering and hashing*, a `compare` and a `hash`, use the same
+  walk, but 0041 found that most ordering in the programs here is not
+  structural (wordfreq sorts by count, then word). A `compare` would also
+  make the order of constructors in a declaration observable, so it waits
+  for a program that needs it. A `hash` must be specified exactly, or a
+  program's output would change between versions of L0. One string-keyed
+  hash trie written four times earns it, as a later item.
+
+**What it costs.** `eq` on lists, data, arrays, or bytes takes time in
+proportion to how much of the two values it examines, where it took
+constant time before only on `int`. That is the cost every `list_eq`
+already paid. `eq` reads without consuming, as `is_empty` does, so a
+parameter used only in an `eq` stays read-only (10.3). The compiler's own
+output gains one declaration and nothing else, since every `eq` in it is on
+`int`. Stage 0 still rejects `eq` on anything but `int`, so the compiler
+and `lib/prelude.l0` cannot use it while stage 0 runs them, and its tests
+are in the compiled suite.
+
+---
+
 ## The library's list helpers take every element type, and no language change for it
 
 **`rev`, `rev_onto`, `append`, and `length` take a list of any type, and

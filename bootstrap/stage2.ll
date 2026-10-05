@@ -41,6 +41,7 @@ declare i64 @l0_bytes_from_list(i64)
 declare i64 @l0_bytes_to_list(i64)
 declare i64 @l0_write_bytes(i64, i64, i64, i64)
 declare i64 @l0_clock_ns()
+declare i64 @l0_equal(i64, i64)
 
 @l0_main_ret_kind = global i64 2
 
@@ -1879,22 +1880,19 @@ entry:
 define internal i64 @l0_f_bi_int_int_bool(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
-  %t1 = call i64 @l0_new_cons(i64 101, i64 %t0, i64 2)
+  %t0 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
+  %t1 = call i64 @l0_new_cons(i64 103, i64 %t0, i64 2)
   %t2 = call i64 @l0_new_cons(i64 32, i64 %t1, i64 2)
-  %t3 = call i64 @l0_new_cons(i64 101, i64 %t2, i64 2)
+  %t3 = call i64 @l0_new_cons(i64 116, i64 %t2, i64 2)
   %t4 = call i64 @l0_new_cons(i64 103, i64 %t3, i64 2)
   %t5 = call i64 @l0_new_cons(i64 32, i64 %t4, i64 2)
-  %t6 = call i64 @l0_new_cons(i64 116, i64 %t5, i64 2)
-  %t7 = call i64 @l0_new_cons(i64 103, i64 %t6, i64 2)
+  %t6 = call i64 @l0_new_cons(i64 101, i64 %t5, i64 2)
+  %t7 = call i64 @l0_new_cons(i64 108, i64 %t6, i64 2)
   %t8 = call i64 @l0_new_cons(i64 32, i64 %t7, i64 2)
-  %t9 = call i64 @l0_new_cons(i64 101, i64 %t8, i64 2)
+  %t9 = call i64 @l0_new_cons(i64 116, i64 %t8, i64 2)
   %t10 = call i64 @l0_new_cons(i64 108, i64 %t9, i64 2)
-  %t11 = call i64 @l0_new_cons(i64 32, i64 %t10, i64 2)
-  %t12 = call i64 @l0_new_cons(i64 116, i64 %t11, i64 2)
-  %t13 = call i64 @l0_new_cons(i64 108, i64 %t12, i64 2)
-  %t14 = musttail call i64 @l0_f_split_spaces(i64 %t13, i64 0)
-  ret i64 %t14
+  %t11 = musttail call i64 @l0_f_split_spaces(i64 %t10, i64 0)
+  ret i64 %t11
 }
 
 define internal i64 @l0_f_bi_bool_bool(i64 %a0, i64 %a1) {
@@ -2246,24 +2244,27 @@ entry:
   %t6 = call i64 @l0_f_bi_to_list(i64 0, i64 0)
   %t7 = call i64 @l0_f_bi_array(i64 0, i64 0)
   %t8 = call i64 @l0_f_bi_bytes(i64 0, i64 0)
-  %t9 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
-  %t10 = call i64 @l0_new_cons(i64 111, i64 %t9, i64 2)
-  %t11 = call i64 @l0_new_cons(i64 110, i64 %t10, i64 2)
-  %t12 = call i64 @l0_new_cons(i64 32, i64 %t11, i64 2)
-  %t13 = call i64 @l0_new_cons(i64 103, i64 %t12, i64 2)
-  %t14 = call i64 @l0_new_cons(i64 101, i64 %t13, i64 2)
-  %t15 = call i64 @l0_new_cons(i64 110, i64 %t14, i64 2)
-  %t16 = call i64 @l0_f_split_spaces(i64 %t15, i64 0)
-  %t17 = call i64 @l0_f_names_then(i64 %t8, i64 %t16)
-  %t18 = call i64 @l0_f_names_then(i64 %t7, i64 %t17)
-  %t19 = call i64 @l0_f_names_then(i64 %t6, i64 %t18)
-  %t20 = call i64 @l0_f_names_then(i64 %t5, i64 %t19)
-  %t21 = call i64 @l0_f_names_then(i64 %t4, i64 %t20)
-  %t22 = call i64 @l0_f_names_then(i64 %t3, i64 %t21)
-  %t23 = call i64 @l0_f_names_then(i64 %t2, i64 %t22)
-  %t24 = call i64 @l0_f_names_then(i64 %t1, i64 %t23)
-  %t25 = musttail call i64 @l0_f_names_then(i64 %t0, i64 %t24)
-  ret i64 %t25
+  %t9 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
+  %t10 = call i64 @l0_new_cons(i64 101, i64 %t9, i64 2)
+  %t11 = call i64 @l0_new_cons(i64 32, i64 %t10, i64 2)
+  %t12 = call i64 @l0_new_cons(i64 116, i64 %t11, i64 2)
+  %t13 = call i64 @l0_new_cons(i64 111, i64 %t12, i64 2)
+  %t14 = call i64 @l0_new_cons(i64 110, i64 %t13, i64 2)
+  %t15 = call i64 @l0_new_cons(i64 32, i64 %t14, i64 2)
+  %t16 = call i64 @l0_new_cons(i64 103, i64 %t15, i64 2)
+  %t17 = call i64 @l0_new_cons(i64 101, i64 %t16, i64 2)
+  %t18 = call i64 @l0_new_cons(i64 110, i64 %t17, i64 2)
+  %t19 = call i64 @l0_f_split_spaces(i64 %t18, i64 0)
+  %t20 = call i64 @l0_f_names_then(i64 %t8, i64 %t19)
+  %t21 = call i64 @l0_f_names_then(i64 %t7, i64 %t20)
+  %t22 = call i64 @l0_f_names_then(i64 %t6, i64 %t21)
+  %t23 = call i64 @l0_f_names_then(i64 %t5, i64 %t22)
+  %t24 = call i64 @l0_f_names_then(i64 %t4, i64 %t23)
+  %t25 = call i64 @l0_f_names_then(i64 %t3, i64 %t24)
+  %t26 = call i64 @l0_f_names_then(i64 %t2, i64 %t25)
+  %t27 = call i64 @l0_f_names_then(i64 %t1, i64 %t26)
+  %t28 = musttail call i64 @l0_f_names_then(i64 %t0, i64 %t27)
+  ret i64 %t28
 }
 
 define internal i64 @l0_f_names_then(i64 %a0, i64 %a1) {
@@ -2783,52 +2784,131 @@ Le44:
 define internal i64 @l0_f_check_other_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_f_bi_path(i64 0, i64 0)
+  %t1 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
+  %t2 = call i64 @l0_new_cons(i64 101, i64 %t1, i64 2)
+  call void @l0_inc(i64 %a0)
+  %t3 = call i64 @l0_f_list_eq(i64 %a0, i64 %t2)
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  %t5 = musttail call i64 @l0_f_check_eq(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t5
+Le0:
+  %t7 = call i64 @l0_f_bi_path(i64 0, i64 0)
+  call void @l0_inc(i64 %a0)
+  %t8 = call i64 @l0_f_any_eq(i64 %a0, i64 %t7)
+  %t9 = icmp ne i64 %t8, 0
+  br i1 %t9, label %Lt6, label %Le6
+Lt6:
+  %t10 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t11 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
+  call void @l0_data_set(i64 %t11, i64 0, i64 %t10)
+  %t12 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t13 = musttail call i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t11, i64 %t12, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t13
+Le6:
+  %t15 = call i64 @l0_f_bi_to_list(i64 0, i64 0)
+  call void @l0_inc(i64 %a0)
+  %t16 = call i64 @l0_f_any_eq(i64 %a0, i64 %t15)
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt14, label %Le14
+Lt14:
+  %t18 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t19 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t20 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
+  call void @l0_data_set(i64 %t20, i64 0, i64 %t19)
+  %t21 = musttail call i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t18, i64 %t20, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t21
+Le14:
+  %t23 = call i64 @l0_f_bi_array(i64 0, i64 0)
+  call void @l0_inc(i64 %a0)
+  %t24 = call i64 @l0_f_any_eq(i64 %a0, i64 %t23)
+  %t25 = icmp ne i64 %t24, 0
+  br i1 %t25, label %Lt22, label %Le22
+Lt22:
+  %t26 = musttail call i64 @l0_f_check_array_builtin(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t26
+Le22:
+  %t27 = musttail call i64 @l0_f_check_other_builtin_rest(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t27
+}
+
+define internal i64 @l0_f_check_other_builtin_rest(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_f_bi_bytes(i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t2 = call i64 @l0_f_any_eq(i64 %a0, i64 %t1)
   %t3 = icmp ne i64 %t2, 0
   br i1 %t3, label %Lt0, label %Le0
 Lt0:
-  %t4 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t5 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
-  call void @l0_data_set(i64 %t5, i64 0, i64 %t4)
-  %t6 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t7 = musttail call i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t5, i64 %t6, i64 0, i64 0, i64 0, i64 0)
+  %t4 = musttail call i64 @l0_f_check_bytes_builtin(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t4
+Le0:
+  %t5 = musttail call i64 @l0_f_check_list_builtin(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t5
+}
+
+define internal i64 @l0_f_check_eq(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t1)
+  %t2 = call i64 @l0_head(i64 %t1)
+  call void @l0_inc(i64 %t2)
+  call void @l0_dec(i64 %t1)
+  %t3 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_f_ty_eq(i64 %t2, i64 %t3)
+  %t5 = icmp ne i64 %t4, 0
+  br i1 %t5, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_new_data(i64 1, i64 2, i64 0)
+  %t7 = call i64 @l0_new_data(i64 0, i64 2, i64 2)
+  call void @l0_data_set(i64 %t7, i64 0, i64 %t6)
   ret i64 %t7
 Le0:
-  %t9 = call i64 @l0_f_bi_to_list(i64 0, i64 0)
-  call void @l0_inc(i64 %a0)
-  %t10 = call i64 @l0_f_any_eq(i64 %a0, i64 %t9)
-  %t11 = icmp ne i64 %t10, 0
-  br i1 %t11, label %Lt8, label %Le8
-Lt8:
-  %t12 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t13 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t14 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
-  call void @l0_data_set(i64 %t14, i64 0, i64 %t13)
-  %t15 = musttail call i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t12, i64 %t14, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t15
-Le8:
-  %t17 = call i64 @l0_f_bi_array(i64 0, i64 0)
-  call void @l0_inc(i64 %a0)
-  %t18 = call i64 @l0_f_any_eq(i64 %a0, i64 %t17)
-  %t19 = icmp ne i64 %t18, 0
-  br i1 %t19, label %Lt16, label %Le16
-Lt16:
-  %t20 = musttail call i64 @l0_f_check_array_builtin(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t20
-Le16:
-  %t22 = call i64 @l0_f_bi_bytes(i64 0, i64 0)
-  call void @l0_inc(i64 %a0)
-  %t23 = call i64 @l0_f_any_eq(i64 %a0, i64 %t22)
-  %t24 = icmp ne i64 %t23, 0
-  br i1 %t24, label %Lt21, label %Le21
-Lt21:
-  %t25 = musttail call i64 @l0_f_check_bytes_builtin(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t25
-Le21:
-  %t26 = musttail call i64 @l0_f_check_list_builtin(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t26
+  %t8 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
+  %t9 = call i64 @l0_new_cons(i64 101, i64 %t8, i64 2)
+  %t10 = call i64 @l0_new_cons(i64 32, i64 %t9, i64 2)
+  %t11 = call i64 @l0_new_cons(i64 102, i64 %t10, i64 2)
+  %t12 = call i64 @l0_new_cons(i64 111, i64 %t11, i64 2)
+  %t13 = call i64 @l0_new_cons(i64 32, i64 %t12, i64 2)
+  %t14 = call i64 @l0_new_cons(i64 116, i64 %t13, i64 2)
+  %t15 = call i64 @l0_new_cons(i64 110, i64 %t14, i64 2)
+  %t16 = call i64 @l0_new_cons(i64 101, i64 %t15, i64 2)
+  %t17 = call i64 @l0_new_cons(i64 109, i64 %t16, i64 2)
+  %t18 = call i64 @l0_new_cons(i64 117, i64 %t17, i64 2)
+  %t19 = call i64 @l0_new_cons(i64 103, i64 %t18, i64 2)
+  %t20 = call i64 @l0_new_cons(i64 114, i64 %t19, i64 2)
+  %t21 = call i64 @l0_new_cons(i64 97, i64 %t20, i64 2)
+  %t22 = call i64 @l0_new_cons(i64 32, i64 %t21, i64 2)
+  %t23 = call i64 @l0_new_cons(i64 100, i64 %t22, i64 2)
+  %t24 = call i64 @l0_new_cons(i64 110, i64 %t23, i64 2)
+  %t25 = call i64 @l0_new_cons(i64 111, i64 %t24, i64 2)
+  %t26 = call i64 @l0_new_cons(i64 99, i64 %t25, i64 2)
+  %t27 = call i64 @l0_new_cons(i64 101, i64 %t26, i64 2)
+  %t28 = call i64 @l0_new_cons(i64 115, i64 %t27, i64 2)
+  %t29 = call i64 @l0_new_cons(i64 32, i64 %t28, i64 2)
+  %t30 = call i64 @l0_new_cons(i64 101, i64 %t29, i64 2)
+  %t31 = call i64 @l0_new_cons(i64 104, i64 %t30, i64 2)
+  %t32 = call i64 @l0_new_cons(i64 116, i64 %t31, i64 2)
+  %t33 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t33)
+  %t34 = call i64 @l0_f_ty_str(i64 %t33, i64 0, i64 0, i64 0, i64 0)
+  %t35 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t35)
+  call void @l0_dec(i64 %a0)
+  %t36 = call i64 @l0_head(i64 %t35)
+  call void @l0_inc(i64 %t36)
+  call void @l0_dec(i64 %t35)
+  %t37 = call i64 @l0_f_type_msg(i64 %t32, i64 %t34, i64 %t36, i64 0, i64 0)
+  %t38 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
+  call void @l0_data_set(i64 %t38, i64 0, i64 %a1)
+  call void @l0_data_set(i64 %t38, i64 1, i64 %t37)
+  ret i64 %t38
 }
 
 define internal i64 @l0_f_check_bytes_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
@@ -12361,27 +12441,30 @@ entry:
   %t100 = call i64 @l0_new_cons(i64 112, i64 %t99, i64 2)
   %t101 = call i64 @l0_new_cons(i64 111, i64 %t100, i64 2)
   %t102 = call i64 @l0_new_cons(i64 32, i64 %t101, i64 2)
-  %t103 = call i64 @l0_new_cons(i64 121, i64 %t102, i64 2)
-  %t104 = call i64 @l0_new_cons(i64 116, i64 %t103, i64 2)
-  %t105 = call i64 @l0_new_cons(i64 112, i64 %t104, i64 2)
-  %t106 = call i64 @l0_new_cons(i64 109, i64 %t105, i64 2)
-  %t107 = call i64 @l0_new_cons(i64 101, i64 %t106, i64 2)
-  %t108 = call i64 @l0_new_cons(i64 95, i64 %t107, i64 2)
-  %t109 = call i64 @l0_new_cons(i64 115, i64 %t108, i64 2)
-  %t110 = call i64 @l0_new_cons(i64 105, i64 %t109, i64 2)
-  %t111 = call i64 @l0_new_cons(i64 32, i64 %t110, i64 2)
-  %t112 = call i64 @l0_new_cons(i64 108, i64 %t111, i64 2)
+  %t103 = call i64 @l0_new_cons(i64 113, i64 %t102, i64 2)
+  %t104 = call i64 @l0_new_cons(i64 101, i64 %t103, i64 2)
+  %t105 = call i64 @l0_new_cons(i64 32, i64 %t104, i64 2)
+  %t106 = call i64 @l0_new_cons(i64 121, i64 %t105, i64 2)
+  %t107 = call i64 @l0_new_cons(i64 116, i64 %t106, i64 2)
+  %t108 = call i64 @l0_new_cons(i64 112, i64 %t107, i64 2)
+  %t109 = call i64 @l0_new_cons(i64 109, i64 %t108, i64 2)
+  %t110 = call i64 @l0_new_cons(i64 101, i64 %t109, i64 2)
+  %t111 = call i64 @l0_new_cons(i64 95, i64 %t110, i64 2)
+  %t112 = call i64 @l0_new_cons(i64 115, i64 %t111, i64 2)
   %t113 = call i64 @l0_new_cons(i64 105, i64 %t112, i64 2)
-  %t114 = call i64 @l0_new_cons(i64 97, i64 %t113, i64 2)
-  %t115 = call i64 @l0_new_cons(i64 116, i64 %t114, i64 2)
-  %t116 = call i64 @l0_new_cons(i64 32, i64 %t115, i64 2)
-  %t117 = call i64 @l0_new_cons(i64 100, i64 %t116, i64 2)
-  %t118 = call i64 @l0_new_cons(i64 97, i64 %t117, i64 2)
-  %t119 = call i64 @l0_new_cons(i64 101, i64 %t118, i64 2)
-  %t120 = call i64 @l0_new_cons(i64 104, i64 %t119, i64 2)
-  %t121 = call i64 @l0_f_split_spaces(i64 %t120, i64 0)
-  %t122 = musttail call i64 @l0_f_any_eq(i64 %a0, i64 %t121)
-  ret i64 %t122
+  %t114 = call i64 @l0_new_cons(i64 32, i64 %t113, i64 2)
+  %t115 = call i64 @l0_new_cons(i64 108, i64 %t114, i64 2)
+  %t116 = call i64 @l0_new_cons(i64 105, i64 %t115, i64 2)
+  %t117 = call i64 @l0_new_cons(i64 97, i64 %t116, i64 2)
+  %t118 = call i64 @l0_new_cons(i64 116, i64 %t117, i64 2)
+  %t119 = call i64 @l0_new_cons(i64 32, i64 %t118, i64 2)
+  %t120 = call i64 @l0_new_cons(i64 100, i64 %t119, i64 2)
+  %t121 = call i64 @l0_new_cons(i64 97, i64 %t120, i64 2)
+  %t122 = call i64 @l0_new_cons(i64 101, i64 %t121, i64 2)
+  %t123 = call i64 @l0_new_cons(i64 104, i64 %t122, i64 2)
+  %t124 = call i64 @l0_f_split_spaces(i64 %t123, i64 0)
+  %t125 = musttail call i64 @l0_f_any_eq(i64 %a0, i64 %t124)
+  ret i64 %t125
 }
 
 define internal i64 @l0_f_emit_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
@@ -15393,6 +15476,48 @@ Le0:
 }
 
 define internal i64 @l0_f_emit_op(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
+entry:
+  call void @l0_stack_check()
+  %r1 = alloca i64
+  %t2 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
+  %t3 = call i64 @l0_new_cons(i64 101, i64 %t2, i64 2)
+  call void @l0_inc(i64 %a0)
+  %t4 = call i64 @l0_f_list_eq(i64 %a0, i64 %t3)
+  %t5 = icmp ne i64 %t4, 0
+  br i1 %t5, label %Lt1, label %Le1
+Lt1:
+  %t6 = call i64 @l0_head(i64 %a2)
+  call void @l0_inc(i64 %t6)
+  %t7 = call i64 @l0_f_ty_is_ptr(i64 %t6)
+  call void @l0_dec(i64 %t6)
+  store i64 %t7, ptr %r1
+  br label %Lx1
+Le1:
+  store i64 0, ptr %r1
+  br label %Lx1
+Lx1:
+  %t8 = load i64, ptr %r1
+  %t9 = icmp ne i64 %t8, 0
+  br i1 %t9, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a0)
+  %t10 = call i64 @l0_new_cons(i64 108, i64 0, i64 2)
+  %t11 = call i64 @l0_new_cons(i64 97, i64 %t10, i64 2)
+  %t12 = call i64 @l0_new_cons(i64 117, i64 %t11, i64 2)
+  %t13 = call i64 @l0_new_cons(i64 113, i64 %t12, i64 2)
+  %t14 = call i64 @l0_new_cons(i64 101, i64 %t13, i64 2)
+  %t15 = call i64 @l0_new_cons(i64 95, i64 %t14, i64 2)
+  %t16 = call i64 @l0_new_cons(i64 48, i64 %t15, i64 2)
+  %t17 = call i64 @l0_new_cons(i64 108, i64 %t16, i64 2)
+  %t18 = musttail call i64 @l0_f_emit_rt_call(i64 %t17, i64 %a1, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t18
+Le0:
+  %t19 = musttail call i64 @l0_f_emit_op_plain(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t19
+}
+
+define internal i64 @l0_f_emit_op_plain(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_f_arith_ops(i64 0, i64 0)
@@ -20272,40 +20397,73 @@ entry:
   %t217 = call i64 @l0_new_cons(i64 101, i64 %t216, i64 2)
   %t218 = call i64 @l0_new_cons(i64 100, i64 %t217, i64 2)
   %t219 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
-  %t220 = call i64 @l0_new_cons(i64 10, i64 %t219, i64 2)
-  %t221 = call i64 @l0_new_cons(i64 41, i64 %t220, i64 2)
-  %t222 = call i64 @l0_new_cons(i64 40, i64 %t221, i64 2)
-  %t223 = call i64 @l0_new_cons(i64 115, i64 %t222, i64 2)
-  %t224 = call i64 @l0_new_cons(i64 110, i64 %t223, i64 2)
-  %t225 = call i64 @l0_new_cons(i64 95, i64 %t224, i64 2)
-  %t226 = call i64 @l0_new_cons(i64 107, i64 %t225, i64 2)
-  %t227 = call i64 @l0_new_cons(i64 99, i64 %t226, i64 2)
-  %t228 = call i64 @l0_new_cons(i64 111, i64 %t227, i64 2)
-  %t229 = call i64 @l0_new_cons(i64 108, i64 %t228, i64 2)
-  %t230 = call i64 @l0_new_cons(i64 99, i64 %t229, i64 2)
-  %t231 = call i64 @l0_new_cons(i64 95, i64 %t230, i64 2)
-  %t232 = call i64 @l0_new_cons(i64 48, i64 %t231, i64 2)
-  %t233 = call i64 @l0_new_cons(i64 108, i64 %t232, i64 2)
-  %t234 = call i64 @l0_new_cons(i64 64, i64 %t233, i64 2)
-  %t235 = call i64 @l0_new_cons(i64 32, i64 %t234, i64 2)
-  %t236 = call i64 @l0_new_cons(i64 52, i64 %t235, i64 2)
-  %t237 = call i64 @l0_new_cons(i64 54, i64 %t236, i64 2)
-  %t238 = call i64 @l0_new_cons(i64 105, i64 %t237, i64 2)
-  %t239 = call i64 @l0_new_cons(i64 32, i64 %t238, i64 2)
-  %t240 = call i64 @l0_new_cons(i64 101, i64 %t239, i64 2)
-  %t241 = call i64 @l0_new_cons(i64 114, i64 %t240, i64 2)
-  %t242 = call i64 @l0_new_cons(i64 97, i64 %t241, i64 2)
-  %t243 = call i64 @l0_new_cons(i64 108, i64 %t242, i64 2)
-  %t244 = call i64 @l0_new_cons(i64 99, i64 %t243, i64 2)
-  %t245 = call i64 @l0_new_cons(i64 101, i64 %t244, i64 2)
-  %t246 = call i64 @l0_new_cons(i64 100, i64 %t245, i64 2)
-  %t247 = call i64 @l0_f_append(i64 %t218, i64 %t246, i64 0, i64 0, i64 0)
-  %t248 = call i64 @l0_f_append(i64 %t170, i64 %t247, i64 0, i64 0, i64 0)
-  %t249 = call i64 @l0_f_append(i64 %t135, i64 %t248, i64 0, i64 0, i64 0)
-  %t250 = call i64 @l0_f_append(i64 %t98, i64 %t249, i64 0, i64 0, i64 0)
-  %t251 = call i64 @l0_f_append(i64 %t62, i64 %t250, i64 0, i64 0, i64 0)
-  %t252 = musttail call i64 @l0_f_append(i64 %t31, i64 %t251, i64 0, i64 0, i64 0)
-  ret i64 %t252
+  %t220 = call i64 @l0_new_cons(i64 41, i64 %t219, i64 2)
+  %t221 = call i64 @l0_new_cons(i64 40, i64 %t220, i64 2)
+  %t222 = call i64 @l0_new_cons(i64 115, i64 %t221, i64 2)
+  %t223 = call i64 @l0_new_cons(i64 110, i64 %t222, i64 2)
+  %t224 = call i64 @l0_new_cons(i64 95, i64 %t223, i64 2)
+  %t225 = call i64 @l0_new_cons(i64 107, i64 %t224, i64 2)
+  %t226 = call i64 @l0_new_cons(i64 99, i64 %t225, i64 2)
+  %t227 = call i64 @l0_new_cons(i64 111, i64 %t226, i64 2)
+  %t228 = call i64 @l0_new_cons(i64 108, i64 %t227, i64 2)
+  %t229 = call i64 @l0_new_cons(i64 99, i64 %t228, i64 2)
+  %t230 = call i64 @l0_new_cons(i64 95, i64 %t229, i64 2)
+  %t231 = call i64 @l0_new_cons(i64 48, i64 %t230, i64 2)
+  %t232 = call i64 @l0_new_cons(i64 108, i64 %t231, i64 2)
+  %t233 = call i64 @l0_new_cons(i64 64, i64 %t232, i64 2)
+  %t234 = call i64 @l0_new_cons(i64 32, i64 %t233, i64 2)
+  %t235 = call i64 @l0_new_cons(i64 52, i64 %t234, i64 2)
+  %t236 = call i64 @l0_new_cons(i64 54, i64 %t235, i64 2)
+  %t237 = call i64 @l0_new_cons(i64 105, i64 %t236, i64 2)
+  %t238 = call i64 @l0_new_cons(i64 32, i64 %t237, i64 2)
+  %t239 = call i64 @l0_new_cons(i64 101, i64 %t238, i64 2)
+  %t240 = call i64 @l0_new_cons(i64 114, i64 %t239, i64 2)
+  %t241 = call i64 @l0_new_cons(i64 97, i64 %t240, i64 2)
+  %t242 = call i64 @l0_new_cons(i64 108, i64 %t241, i64 2)
+  %t243 = call i64 @l0_new_cons(i64 99, i64 %t242, i64 2)
+  %t244 = call i64 @l0_new_cons(i64 101, i64 %t243, i64 2)
+  %t245 = call i64 @l0_new_cons(i64 100, i64 %t244, i64 2)
+  %t246 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
+  %t247 = call i64 @l0_new_cons(i64 10, i64 %t246, i64 2)
+  %t248 = call i64 @l0_new_cons(i64 41, i64 %t247, i64 2)
+  %t249 = call i64 @l0_new_cons(i64 52, i64 %t248, i64 2)
+  %t250 = call i64 @l0_new_cons(i64 54, i64 %t249, i64 2)
+  %t251 = call i64 @l0_new_cons(i64 105, i64 %t250, i64 2)
+  %t252 = call i64 @l0_new_cons(i64 32, i64 %t251, i64 2)
+  %t253 = call i64 @l0_new_cons(i64 44, i64 %t252, i64 2)
+  %t254 = call i64 @l0_new_cons(i64 52, i64 %t253, i64 2)
+  %t255 = call i64 @l0_new_cons(i64 54, i64 %t254, i64 2)
+  %t256 = call i64 @l0_new_cons(i64 105, i64 %t255, i64 2)
+  %t257 = call i64 @l0_new_cons(i64 40, i64 %t256, i64 2)
+  %t258 = call i64 @l0_new_cons(i64 108, i64 %t257, i64 2)
+  %t259 = call i64 @l0_new_cons(i64 97, i64 %t258, i64 2)
+  %t260 = call i64 @l0_new_cons(i64 117, i64 %t259, i64 2)
+  %t261 = call i64 @l0_new_cons(i64 113, i64 %t260, i64 2)
+  %t262 = call i64 @l0_new_cons(i64 101, i64 %t261, i64 2)
+  %t263 = call i64 @l0_new_cons(i64 95, i64 %t262, i64 2)
+  %t264 = call i64 @l0_new_cons(i64 48, i64 %t263, i64 2)
+  %t265 = call i64 @l0_new_cons(i64 108, i64 %t264, i64 2)
+  %t266 = call i64 @l0_new_cons(i64 64, i64 %t265, i64 2)
+  %t267 = call i64 @l0_new_cons(i64 32, i64 %t266, i64 2)
+  %t268 = call i64 @l0_new_cons(i64 52, i64 %t267, i64 2)
+  %t269 = call i64 @l0_new_cons(i64 54, i64 %t268, i64 2)
+  %t270 = call i64 @l0_new_cons(i64 105, i64 %t269, i64 2)
+  %t271 = call i64 @l0_new_cons(i64 32, i64 %t270, i64 2)
+  %t272 = call i64 @l0_new_cons(i64 101, i64 %t271, i64 2)
+  %t273 = call i64 @l0_new_cons(i64 114, i64 %t272, i64 2)
+  %t274 = call i64 @l0_new_cons(i64 97, i64 %t273, i64 2)
+  %t275 = call i64 @l0_new_cons(i64 108, i64 %t274, i64 2)
+  %t276 = call i64 @l0_new_cons(i64 99, i64 %t275, i64 2)
+  %t277 = call i64 @l0_new_cons(i64 101, i64 %t276, i64 2)
+  %t278 = call i64 @l0_new_cons(i64 100, i64 %t277, i64 2)
+  %t279 = call i64 @l0_f_append(i64 %t245, i64 %t278, i64 0, i64 0, i64 0)
+  %t280 = call i64 @l0_f_append(i64 %t218, i64 %t279, i64 0, i64 0, i64 0)
+  %t281 = call i64 @l0_f_append(i64 %t170, i64 %t280, i64 0, i64 0, i64 0)
+  %t282 = call i64 @l0_f_append(i64 %t135, i64 %t281, i64 0, i64 0, i64 0)
+  %t283 = call i64 @l0_f_append(i64 %t98, i64 %t282, i64 0, i64 0, i64 0)
+  %t284 = call i64 @l0_f_append(i64 %t62, i64 %t283, i64 0, i64 0, i64 0)
+  %t285 = musttail call i64 @l0_f_append(i64 %t31, i64 %t284, i64 0, i64 0, i64 0)
+  ret i64 %t285
 }
 
 define internal i64 @l0_f_ret_kind(i64 %a0) {

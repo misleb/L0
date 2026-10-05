@@ -494,7 +494,7 @@
   (fn_sym n (env_prelude env)))
 
 (def is_borrowing ((n (list int))) bool
-  (any_eq n (split_spaces "head tail is_empty open_read open_write open_append rename open_bytes array_len array_get bytes_len bytes_get write_bytes")))
+  (any_eq n (split_spaces "head tail is_empty eq open_read open_write open_append rename open_bytes array_len array_get bytes_len bytes_get write_bytes")))
 
 ; A call to a function in tail position is a tail call, spec 8, and nothing
 ; may come between it and the ret. Nothing does: live is empty there, so the
@@ -655,9 +655,9 @@
           (append (fmt_ops (pad_ops ops (pad_of sym (env_pads env)))) ")"))))
     st))
 
-; head, tail, is_empty, array_len, array_get, open_bytes, bytes_len,
+; head, tail, is_empty, eq, array_len, array_get, open_bytes, bytes_len,
 ; bytes_get, write_bytes, and the builtins taking paths read their list,
-; array, and bytes arguments without consuming them.
+; data, array, and bytes arguments without consuming them.
 ; Their result gains a reference if it is a pointer, and then each argument
 ; that came with a reference is released, in order: every one but a variable
 ; still live afterwards, which was read without one.
@@ -952,9 +952,16 @@
   (if (le i 0) (head xs) (nth_str (tail xs) (sub i 1))))
 
 ; A builtin. ts are the arguments' types; emit_call sets the result's type
-; afterwards.
+; afterwards. eq on counted values compares them in the runtime, and on int
+; or bool is icmp like the other comparisons. Spec 6.8 and 10.3.
 (def emit_op ((n (list int)) (ops (list (list int))) (ts (list Ty))
               (st Emit)) EmitVal
+  (if (if (list_eq n "eq") (ty_is_ptr (head ts)) false)
+      (emit_rt_call "l0_equal" ops st)
+      (emit_op_plain n ops ts st)))
+
+(def emit_op_plain ((n (list int)) (ops (list (list int))) (ts (list Ty))
+                    (st Emit)) EmitVal
   (if (any_eq n (arith_ops 0))
       (emit_binop n (head ops) (head (tail ops)) st)
       (if (ge (index_of n (cmp_names 0)) 0)
@@ -1704,7 +1711,8 @@
         (append "declare i64 @l0_bytes_from_list(i64)\n"
           (append "declare i64 @l0_bytes_to_list(i64)\n"
             (append "declare i64 @l0_write_bytes(i64, i64, i64, i64)\n"
-              "declare i64 @l0_clock_ns()\n\n")))))))
+              (append "declare i64 @l0_clock_ns()\n"
+                "declare i64 @l0_equal(i64, i64)\n\n"))))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

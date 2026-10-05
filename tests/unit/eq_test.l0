@@ -1,0 +1,104 @@
+; Unit tests for eq on every kind of value, spec section 6.8. l0 test runs
+; each under L0_RC_CHECK, so an eq that consumed or leaked an argument fails
+; it.
+
+; Constructors of different widths, so a narrow one leaves padding words.
+(data Shape
+  (Dot)
+  (Seg int int)
+  (Poly (list int) (array int) bytes))
+
+(data Pt
+  (Pt int (list int)))
+
+(def (member T) ((x T) (xs (list T))) bool
+  (if (is_empty xs)
+      false
+      (if (eq x (head xs)) true (member x (tail xs)))))
+
+(def b3 ((s (list int))) bytes (bytes_from_list s))
+
+(def test_ints_and_bools () int
+  (add (check_bool "3 3" (eq 3 3) true)
+    (add (check_bool "3 4" (eq 3 4) false)
+      (add (check_bool "true true" (eq true true) true)
+        (add (check_bool "false false" (eq false false) true)
+             (check_bool "true false" (eq true false) false))))))
+
+(def test_strings () int
+  (add (check_bool "built two ways" (eq "ab" (cons 97 "b")) true)
+    (add (check_bool "different" (eq "ab" "ac") false)
+      (add (check_bool "prefix" (eq "ab" "abc") false)
+        (add (check_bool "longer" (eq "abc" "ab") false)
+          (add (check_bool "both empty" (eq "" (nil int)) true)
+               (check_bool "one empty" (eq "" "a") false)))))))
+
+(def test_nested_lists () int
+  (add (check_bool "same words" (eq (split_spaces "a bb c") (split_spaces "a  bb c"))
+                   true)
+    (add (check_bool "one word differs" (eq (split_spaces "a bb c") (split_spaces "a bc c"))
+                     false)
+      (add (check_bool "empty words" (eq (nil (list int)) (split_spaces "  ")) true)
+           (check_bool "bools" (eq (cons true (nil bool)) (cons false (nil bool)))
+                       false)))))
+
+(def test_data () int
+  (add (check_bool "same Some" (eq (Some "x") (Some "x")) true)
+    (add (check_bool "different Some" (eq (Some "x") (Some "y")) false)
+      (add (check_bool "None None" (eq ((None int)) ((None int))) true)
+        (add (check_bool "None Some" (eq ((None int)) (Some 0)) false)
+          (add (check_bool "Ok Err" (eq ((Ok int int) 1) ((Err int int) 1)) false)
+               (check_bool "fields" (eq (Pt 1 "a") (Pt 1 "b")) false)))))))
+
+(def test_constructor_widths () int
+  (let p (Poly "ab" (array_new 2 7) (b3 "cd"))
+    (add (check_bool "Dot Dot" (eq (Dot) (Dot)) true)
+      (add (check_bool "Seg Seg" (eq (Seg 1 2) (Seg 1 2)) true)
+        (add (check_bool "Seg Dot" (eq (Seg 0 0) (Dot)) false)
+          (add (check_bool "Poly Poly" (eq p (Poly "ab" (array_new 2 7) (b3 "cd"))) true)
+            (add (check_bool "Poly array differs"
+                   (eq p (Poly "ab" (array_set (array_new 2 7) 1 8) (b3 "cd"))) false)
+                 (check_bool "Poly bytes differ" (eq p (Poly "ab" (array_new 2 7) (b3 "ce")))
+                             false))))))))
+
+(def test_arrays () int
+  (add (check_bool "ints" (eq (array_new 3 1) (array_set (array_new 3 1) 2 1)) true)
+    (add (check_bool "ints differ" (eq (array_new 3 1) (array_set (array_new 3 1) 2 0)) false)
+      (add (check_bool "lengths" (eq (array_new 2 1) (array_new 3 1)) false)
+        (add (check_bool "empty" (eq (array_new 0 1) (array_new 0 5)) true)
+          (add (check_bool "strings" (eq (array_new 2 "ab") (array_set (array_new 2 "ab") 0 "ab"))
+                           true)
+            (add (check_bool "strings differ"
+                   (eq (array_new 2 "ab") (array_set (array_new 2 "ab") 1 "a")) false)
+                 (check_bool "empty strings" (eq (array_new 0 "a") (array_new 0 "b"))
+                             true))))))))
+
+(def test_bytes () int
+  (add (check_bool "same" (eq (b3 "abc") (b3 "abc")) true)
+    (add (check_bool "differ" (eq (b3 "abc") (b3 "abd")) false)
+      (add (check_bool "lengths" (eq (b3 "ab") (b3 "abc")) false)
+        (add (check_bool "empty" (eq (b3 "") (b3 "")) true)
+          (add (check_bool "array of bytes" (eq (array_new 2 (b3 "x")) (array_new 2 (b3 "x")))
+                           true)
+               (check_bool "array of bytes differ"
+                 (eq (array_new 2 (b3 "x")) (array_set (array_new 2 (b3 "x")) 0 (b3 "y")))
+                 false)))))))
+
+; A value is the same as itself, including when both arguments are one
+; binding, which then lends its reference twice.
+(def test_same_binding () int
+  (let s (split_spaces "a b")
+    (let p (Pt 1 "z")
+      (add (check_bool "list" (eq s s) true)
+        (add (check_bool "data" (eq p p) true)
+             (check_str "still usable" (head (tail s)) "b"))))))
+
+; Both copies of a generic function: T uncounted, and T counted.
+(def test_generic () int
+  (add (check_bool "int" (member 3 (cons 1 (cons 3 (nil int)))) true)
+    (add (check_bool "int absent" (member 4 (cons 1 (cons 3 (nil int)))) false)
+      (add (check_bool "string" (member "bb" (split_spaces "a bb c")) true)
+        (add (check_bool "string absent" (member "b" (split_spaces "a bb c")) false)
+          (add (check_bool "data" (member (Some 2) (cons ((None int)) (cons (Some 2) (nil (Option int)))))
+                           true)
+               (check_bool "empty" (member "a" (nil (list int))) false)))))))

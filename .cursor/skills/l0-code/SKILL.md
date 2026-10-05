@@ -106,9 +106,13 @@ Use nested `if` instead:
 (if (is_empty xs) false (gt (head xs) 0))
 ```
 
-**`eq` compares integers only.** Comparing lists or data values needs a function
-written in L0; see `list_eq` in
-[tests/lib/assert.l0](../../../tests/lib/assert.l0).
+**`eq` compares two values of any one type** (spec 6.8), lists, data, arrays,
+and bytes by what they hold, but stage 0 predates that and accepts only `int`.
+So the compiler's sources, `lib/prelude.l0`, and anything in `tests/lang/`
+compare lists with a function such as `list_eq` in
+[tests/lib/assert.l0](../../../tests/lib/assert.l0), and `eq` on anything
+else is tested in `tests/unit/` or `tests/io/`. `lt`, `le`, `gt`, and `ge`
+take only `int` everywhere.
 
 **A name in call position is never a local.** `(f 1)` always means a builtin or
 a `def`, so a parameter named `f` cannot be called and does not shadow a

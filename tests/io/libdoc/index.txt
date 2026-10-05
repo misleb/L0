@@ -2,7 +2,7 @@
   push ((chunk (list int)) (acc (list int))) (list int)
       Pushes chunk onto a reversed accumulator: acc with chunk's bytes in front, last byte first.
   list_eq ((xs (list int)) (ys (list int))) bool
-      Whether xs and ys hold the same bytes in the same order.
+      Whether xs and ys hold the same bytes in the same order, as (eq xs ys) says.
   digits ((n int)) (list int)
       n in decimal, with a leading - if negative: (digits -42) is "-42".
   drop_n ((xs (list int)) (n int)) (list int)

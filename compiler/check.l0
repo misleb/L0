@@ -285,7 +285,7 @@
 ; --------------------------------------------------------------- builtins
 
 (def bi_int_int_int ((i int)) (list (list int)) (split_spaces "add sub mul div mod"))
-(def bi_int_int_bool ((i int)) (list (list int)) (split_spaces "lt le gt ge eq"))
+(def bi_int_int_bool ((i int)) (list (list int)) (split_spaces "lt le gt ge"))
 (def bi_bool_bool ((i int)) (list (list int)) (split_spaces "and or"))
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
 
@@ -313,7 +313,7 @@
             (names_then (bi_path 0)
               (names_then (bi_to_list 0)
                 (names_then (bi_array 0)
-                  (names_then (bi_bytes 0) (split_spaces "neg not")))))))))))
+                  (names_then (bi_bytes 0) (split_spaces "neg not eq")))))))))))
 
 (def names_then ((xs (list (list int))) (ys (list (list int))))
     (list (list int))
@@ -361,15 +361,28 @@
                           (check_other_builtin n ats o))))))))
 
 (def check_other_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
-  (if (any_eq n (bi_path 0))
-      (need_all n ats o (TyList (TyInt)) (TyInt))
-      (if (any_eq n (bi_to_list 0))
-          (need_all n ats o (TyInt) (TyList (TyInt)))
-          (if (any_eq n (bi_array 0))
-              (check_array_builtin n ats o)
-              (if (any_eq n (bi_bytes 0))
-                  (check_bytes_builtin n ats o)
-                  (check_list_builtin n ats o))))))
+  (if (list_eq n "eq")
+      (check_eq ats o)
+      (if (any_eq n (bi_path 0))
+          (need_all n ats o (TyList (TyInt)) (TyInt))
+          (if (any_eq n (bi_to_list 0))
+              (need_all n ats o (TyInt) (TyList (TyInt)))
+              (if (any_eq n (bi_array 0))
+                  (check_array_builtin n ats o)
+                  (check_other_builtin_rest n ats o))))))
+
+(def check_other_builtin_rest ((n (list int)) (ats (list Ty)) (o int)) CTy
+  (if (any_eq n (bi_bytes 0))
+      (check_bytes_builtin n ats o)
+      (check_list_builtin n ats o)))
+
+; eq takes two values of any one type, which the first determines, as cons's
+; list does. Spec 6.8.
+(def check_eq ((ats (list Ty)) (o int)) CTy
+  (if (ty_eq (head (tail ats)) (head ats))
+      (CTyOk (TyBool))
+      (CTyErr o (type_msg "the second argument of eq" (ty_str (head ats))
+                          (head (tail ats))))))
 
 ; The bytes builtins are not polymorphic: each argument has one type.
 (def check_bytes_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy

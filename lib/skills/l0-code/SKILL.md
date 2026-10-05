@@ -149,9 +149,10 @@ arrays, or `Option` once rather than once per element type:
 A call writes no types: its arguments say what `T` is, so every type
 parameter must appear in some parameter's type, and `(def (empty T) ()
 (list T) ...)` is an error. Inside the body `T` is a type of its own, so a
-`T` can be kept, passed, consed, and stored, but not compared with `eq` or
-taken apart with `match`. With no function values, a sort or a lookup that
-compares elements is still written per element type.
+`T` can be kept, passed, consed, stored, and compared with `eq`, but not
+ordered with `lt` or taken apart with `match`. So a membership test or a
+lookup is written once, but with no function values, a sort, which orders
+its elements, is still written per element type.
 
 **`and` and `or` are strict.** Both arguments are always evaluated, so they do
 not guard against errors. This still calls `head` on an empty list:
@@ -161,9 +162,13 @@ not guard against errors. This still calls `head` on an empty list:
 (if (is_empty xs) false (gt (head xs) 0))    ; right
 ```
 
-**`eq` compares integers only.** Comparing two `(list int)` uses `list_eq`
-from the standard library; comparing anything else, such as lists of lists,
-data values, or `bytes`, needs a function you write.
+**`eq` compares two values of any one type by what they hold:** `(eq "ab"
+(cons 97 "b"))` and `(eq (Some "x") (Some "x"))` are true, and so is `eq` on
+two lists of strings, two arrays, or two `bytes` with the same contents. Both
+arguments must have the same type. There is no ordering but on integers:
+`lt`, `le`, `gt`, and `ge` take only `int`, so a sort over strings needs a
+comparison you write. A comparison that is not by contents, such as by one
+field or ignoring case, is a function you write too.
 
 **A name in call position is never a local.** `(f 1)` always means a builtin
 or a `def`, so a parameter named `f` cannot be called and does not shadow a

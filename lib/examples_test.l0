@@ -62,6 +62,12 @@
        (add (check_int "empty" (last_or (nil int) -1) -1)
             (check_int "words" (last_word_length (split_spaces "a bb ccc")) 3))))
 
+(def test_count_of () int
+  (add (check_int "ints" (count_of 2 (cons 2 (cons 1 (cons 2 (nil int)))) 0) 2)
+    (add (check_int "strings" (count_of "b" (split_spaces "a b b") 0) 2)
+         (check_int "data" (count_of ((None int)) (cons (Some 1) (cons ((None int))
+                             (nil (Option int)))) 0) 1))))
+
 (def test_first_even_or () int
   (add (check_int "found" (first_even_or (cons 3 (cons 8 (nil int))) 0) 8)
        (check_int "fallback" (first_even_or (cons 3 (nil int)) -1) -1)))

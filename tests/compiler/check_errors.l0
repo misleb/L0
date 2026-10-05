@@ -73,7 +73,7 @@
   (let ay (push (check_source (both "(def f ((a (vec int))) int 0)")) ax)
   (let az (push (check_source (m "(bytes_get \"abc\" 0)")) ay)
   (let ba (push (check_source (m "(bytes_len (bytes_from_list \"a\") 1)")) az)
-  (let bb (push (check_source (m "(if (eq (bytes_from_list \"a\") (bytes_from_list \"a\")) 1 0)")) ba)
+  (let bb (push (check_source (m "(if (eq (bytes_from_list \"a\") \"a\") 1 0)")) ba)
   (let bc (push (check_source (m "(write_bytes 1 (bytes_from_list \"a\") 0 true)")) bb)
   (let bd (push (check_source (m "(bytes_len (read_bytes true))")) bc)
   (let be (push (check_source (both "(def f ((bytes bytes)) int (bytes_len bytes))")) bd)

@@ -179,8 +179,8 @@
 ; are, and then works at every type. A call writes nothing extra: its
 ; arguments' types say what T stands for, so every type parameter must
 ; appear in some parameter's type. Inside, T is a type of its own, so the
-; body can keep, pass, and return a T, but not compare one, since eq takes
-; only int.
+; body can keep, pass, and return a T, and compare two with eq, but not
+; order them, since lt takes only int.
 (def (last_or T) ((xs (list T)) (fallback T)) T
   (if (is_empty xs)
       fallback
@@ -189,6 +189,14 @@
 ; The same function at two types.
 (def last_word_length ((words (list (list int)))) int
   (length (last_or words "")))
+
+; eq compares two values of any one type by what they hold, so one count
+; serves ints, strings, and data values alike: (count_of "b" (split_spaces
+; "a b b")) is 2.
+(def (count_of T) ((x T) (xs (list T)) (n int)) int
+  (if (is_empty xs)
+      n
+      (count_of x (tail xs) (if (eq x (head xs)) (add n 1) n))))
 
 ; ------------------------------------------------ reading and writing as you go
 

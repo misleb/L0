@@ -256,11 +256,11 @@ which holds about one byte per byte. Arrays give constant-time indexing, and
 update in place when nothing else holds them.
 
 Data types and functions take type parameters, so one `Option`, `Result`, or
-`rev` serves every element type. But a generic function cannot compare its
-elements, since `eq` takes only `int`, and there are no function values to
-pass a comparison in, so a sort, a lookup by key, or a list equality is still
-written once per element type. Nor are there maps, floats, modules, or
-mutable state.
+`rev` serves every element type, and `eq` compares two values of any type
+by what they hold, so a membership test or a lookup by key is written once.
+But only integers can be ordered, and there are no function values to pass
+a comparison in, so a sort is still written once per element type. Nor are
+there maps, floats, modules, or mutable state.
 
 None of these was ruled out. Each is absent because self-compilation never
 demanded it, and a general-purpose L0 will. Memory management and I/O came

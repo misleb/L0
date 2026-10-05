@@ -13,7 +13,9 @@ stop breaking programs; 0031 and 0032 did both, and 0033 put bytes to use in
 the library and the text programs. Type parameters came next (0035): data
 types take them (0036), a program's types shadow the library's (0037), the
 library declares Option and Result (0039), and functions take them (0038),
-so the library's list helpers now take every element type (0040).
+so the library's list helpers now take every element type (0040). 0041
+found that a generic function could not compare its elements, and `eq` now
+compares two values of any type (0042).
 
 ## Language queue
 
@@ -122,3 +124,7 @@ None.
 - [0040](0040-library-list-helpers.md) the library's list helpers work at
   every element type — done, changelog "The library's list helpers take
   every element type, and no language change for it"
+- [0041](0041-comparing-any-type.md) research: how L0 compares values of any
+  type — done; `eq` on any type first (0042)
+- [0042](0042-eq-any-type.md) `eq` compares two values of any type — done,
+  changelog "`eq` compares two values of any type"
