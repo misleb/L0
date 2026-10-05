@@ -61,12 +61,12 @@
 
 (def main () int
   (let mode (arg 0)
-    (if (list_eq mode "checked")
+    (if (eq mode "checked")
         (checked)
-        (if (list_eq mode "unchecked")
+        (if (eq mode "unchecked")
             (unchecked)
-            (if (list_eq mode "sticky")
+            (if (eq mode "sticky")
                 (sticky)
-                (if (list_eq mode "file")
+                (if (eq mode "file")
                     (file_mode (arg 1))
                     (let e (write_err "usage: write_failure MODE [PATH]\n") 2)))))))

@@ -21,10 +21,6 @@
       The number s starts with, in decimal, added to acc times ten per digit, so (int_prefix "42x" 0) is 42 and (int_prefix "x" 0) is 0.
   split_spaces ((s (list int))) (list (list int))
       The words of s, split at spaces, in order.
-  any_eq ((n (list int)) (candidates (list (list int)))) bool
-      Whether n is one of candidates.
-  index_of ((n (list int)) (candidates (list (list int)))) int
-      The position of n in candidates, counting from 0, or -1 if it is not there.
   is_space ((c int)) bool
       Whether c is a space, tab, newline, or carriage return.
   is_digit ((c int)) bool
@@ -45,6 +41,10 @@
       xs followed by ys, for lists of any type.
   (length T) ((xs (list T))) int
       The number of elements of xs, a list of any type.
+  (any_eq T) ((x T) (xs (list T))) bool
+      Whether x is one of xs, by eq, for a list of any type.
+  (index_of T) ((x T) (xs (list T))) int
+      The position of the first element of xs that is x, by eq, counting from 0, or -1 if there is none, for a list of any type.
   (array_resize T) ((a (array T)) (n int) (fill T)) (array T)
       An array of n elements of any type: the first n of a, followed by copies of fill if a has fewer.
   (data (Option T) (None) (Some T))

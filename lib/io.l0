@@ -43,6 +43,24 @@
 (def (length_onto T) ((xs (list T)) (n int)) int
   (if (is_empty xs) n (length_onto (tail xs) (add n 1))))
 
+;; Whether x is one of xs, by eq, for a list of any type. With split_spaces it
+;; tests a word against a table: (any_eq "if" (split_spaces "def if let")).
+(def (any_eq T) ((x T) (xs (list T))) bool
+  (if (is_empty xs)
+      false
+      (if (eq x (head xs)) true (any_eq x (tail xs)))))
+
+;; The position of the first element of xs that is x, by eq, counting from 0,
+;; or -1 if there is none, for a list of any type. With two word tables, maps
+;; a name in one to the same position in the other.
+(def (index_of T) ((x T) (xs (list T))) int
+  (index_of_from x xs 0))
+
+(def (index_of_from T) ((x T) (xs (list T)) (i int)) int
+  (if (is_empty xs)
+      -1
+      (if (eq x (head xs)) i (index_of_from x (tail xs) (add i 1)))))
+
 ;; An array of n elements of any type: the first n of a, followed by copies
 ;; of fill if a has fewer. This is how an array grows, as in (array_resize a
 ;; (mul 2 (array_len a)) x); it costs n, and a negative n is a runtime error.

@@ -182,8 +182,11 @@ resulting error points at the start of the form rather than the mistake.
 Three fixes, in order of preference:
 
 **Test membership with a word table instead of an `or` chain.** `split_spaces`
-and `any_eq` in [lib/prelude.l0](../../../lib/prelude.l0) turn a
-ten-deep nest into one flat line:
+in [lib/prelude.l0](../../../lib/prelude.l0) and `any_eq` turn a ten-deep nest
+into one flat line. `any_eq` and `index_of` are generic in
+[lib/io.l0](../../../lib/io.l0), and the compiler has string copies of its own
+at the top of [compiler/lex.l0](../../../compiler/lex.l0), since stage 0 runs
+it:
 
 ```
 (def is_reserved ((n (list int))) bool

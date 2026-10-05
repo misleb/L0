@@ -11,11 +11,6 @@
 (data Pt
   (Pt int (list int)))
 
-(def (member T) ((x T) (xs (list T))) bool
-  (if (is_empty xs)
-      false
-      (if (eq x (head xs)) true (member x (tail xs)))))
-
 (def b3 ((s (list int))) bytes (bytes_from_list s))
 
 (def test_ints_and_bools () int
@@ -93,12 +88,13 @@
         (add (check_bool "data" (eq p p) true)
              (check_str "still usable" (head (tail s)) "b"))))))
 
-; Both copies of a generic function: T uncounted, and T counted.
+; Both copies of a generic function, the library's any_eq: T uncounted, and
+; T counted.
 (def test_generic () int
-  (add (check_bool "int" (member 3 (cons 1 (cons 3 (nil int)))) true)
-    (add (check_bool "int absent" (member 4 (cons 1 (cons 3 (nil int)))) false)
-      (add (check_bool "string" (member "bb" (split_spaces "a bb c")) true)
-        (add (check_bool "string absent" (member "b" (split_spaces "a bb c")) false)
-          (add (check_bool "data" (member (Some 2) (cons ((None int)) (cons (Some 2) (nil (Option int)))))
+  (add (check_bool "int" (any_eq 3 (cons 1 (cons 3 (nil int)))) true)
+    (add (check_bool "int absent" (any_eq 4 (cons 1 (cons 3 (nil int)))) false)
+      (add (check_bool "string" (any_eq "bb" (split_spaces "a bb c")) true)
+        (add (check_bool "string absent" (any_eq "b" (split_spaces "a bb c")) false)
+          (add (check_bool "data" (any_eq (Some 2) (cons ((None int)) (cons (Some 2) (nil (Option int)))))
                            true)
-               (check_bool "empty" (member "a" (nil (list int))) false)))))))
+               (check_bool "empty" (any_eq "a" (nil (list int))) false)))))))

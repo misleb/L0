@@ -107,7 +107,7 @@
       0
       (let field (rand_bytes s (rand_below s 40))
         (let text (append "x," (append (quote_field field (cons 34 (nil int))) ",y\n"))
-          (if (list_eq (col text 2) (append field "\n"))
+          (if (eq (col text 2) (append field "\n"))
               (round_trips (rand_next (rand_next s)) (sub runs 1))
               (check_str "round trip" (col text 2) (append field "\n")))))))
 

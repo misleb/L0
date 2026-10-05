@@ -44,6 +44,18 @@
              (check_int "options" (length (cons (Some 1) (cons ((None int))
                                     (nil (Option int))))) 2))))))
 
+(def test_index_of () int
+  (add (check_int "word" (index_of "c" (split_spaces "a b c")) 2)
+    (add (check_int "first of two" (index_of 7 (cons 7 (cons 7 (nil int)))) 0)
+      (add (check_int "absent" (index_of "d" (split_spaces "a b c")) -1)
+        (add (check_int "data" (index_of (Pt 2 "b") (pts)) 1)
+             (check_int "empty" (index_of true (nil bool)) -1))))))
+
+(def test_any_eq () int
+  (add (check_bool "word" (any_eq "if" (split_spaces "def if let")) true)
+    (add (check_bool "absent" (any_eq "in" (split_spaces "def if let")) false)
+         (check_bool "data" (any_eq (Pt 3 "c") (pts)) true))))
+
 (def test_resize_grows () int
   (let a (array_resize (array_new 2 5) 4 0)
     (add (check_int "len" (array_len a) 4)

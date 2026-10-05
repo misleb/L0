@@ -117,7 +117,7 @@
 
 ;; 0 if got equals want, and 1 otherwise, reporting both.
 (def check_bool ((name (list int)) (got bool) (want bool)) int
-  (if (if got want (not want))
+  (if (eq got want)
       (pass name)
       (fail name (show_bool got) (show_bool want))))
 
@@ -128,7 +128,7 @@
 ;; 0 if got and want hold the same bytes, and 1 otherwise, showing both as L0
 ;; literals and the first byte where they differ.
 (def check_str ((name (list int)) (got (list int)) (want (list int))) int
-  (if (list_eq got want)
+  (if (eq got want)
       (pass name)
       (let r (fail name (show_str got) (show_str want))
         (let w (write_line (append "  first difference at byte "
@@ -139,18 +139,9 @@
 ;; otherwise, showing both.
 (def check_strs ((name (list int)) (got (list (list int)))
                  (want (list (list int)))) int
-  (if (strs_eq got want)
+  (if (eq got want)
       (pass name)
       (fail name (show_strs got) (show_strs want))))
-
-(def strs_eq ((a (list (list int))) (b (list (list int)))) bool
-  (if (is_empty a)
-      (is_empty b)
-      (if (is_empty b)
-          false
-          (if (list_eq (head a) (head b))
-              (strs_eq (tail a) (tail b))
-              false))))
 
 ; ------------------------------------------------------------- golden files
 
@@ -159,7 +150,7 @@
 ;; writes got to the file instead, and passes. Read the diff of every blessed
 ;; file: blessing turns whatever the code does now into what is correct.
 (def check_file ((name (list int)) (got (list int)) (path (list int))) int
-  (if (list_eq (arg 1) "--bless")
+  (if (eq (arg 1) "--bless")
       (bless_file name got path)
       (compare_file name got path)))
 

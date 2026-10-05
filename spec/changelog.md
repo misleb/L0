@@ -7,6 +7,31 @@ New entries go at the top.
 
 ---
 
+## The library compares with eq, and no language change for it
+
+**`any_eq` and `index_of` take a value and a list of any type** (roadmap
+item 0043), under the same names, in `lib/io.l0`. They compare with `eq`,
+so `(any_eq 3 xs)` and `(index_of (Some 2) os)` work as `(any_eq "if"
+words)` always did. `lib/test.l0`'s `check_str`, `check_strs`, and
+`check_bool` compare with `eq` too, and `strs_eq`, its copy of `list_eq` one
+level up, is gone. The suite's programs (kvlog, graph.l0, write_failure,
+array_myers, csvcol_test) call `eq` in place of `list_eq`.
+
+**Why the same names, and what that cost.** As for `rev` in 0040: a generic
+`any_eq` cannot sit beside the prelude's in one group, and the prelude
+cannot hold one while stage 0 runs it. So the two left `lib/prelude.l0`, and
+the compiler, which calls them about 57 times on names, keeps its string
+copies at the top of `compiler/lex.l0` beside its `rev`. The argument order
+is unchanged, the value first and the list second, so no call changed.
+
+**Why `list_eq` stays.** The prelude and the compiler compare strings with
+it about 70 times, and stage 0's `eq` takes only integers. Its
+documentation says a program can write `eq`.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## `eq` compares two values of any type
 
 **`(eq a b)` takes two values of any one type** (sections 4.1, 6, 6.6,

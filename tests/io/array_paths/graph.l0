@@ -37,7 +37,7 @@
   (if (is_empty b)
       -1
       (match (head b)
-        ((Named n id) (if (list_eq n name) id (bucket_find (tail b) name))))))
+        ((Named n id) (if (eq n name) id (bucket_find (tail b) name))))))
 
 (def nm_add ((m NameMap) (k int) (x Named)) NameMap
   (match m
@@ -127,7 +127,7 @@
 
 ; The shortest distance from one name to another, or -1 if there is no path.
 (def shortest ((g Graph) (from (list int)) (to (list int))) int
-  (if (list_eq from to)
+  (if (eq from to)
       0
       (let a (node_id g from)
         (let b (node_id g to)

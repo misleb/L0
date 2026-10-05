@@ -29,7 +29,7 @@
 (def main () int
   (let big (int_prefix (arg 0) 0)
     (let v (run 1 big (array_new (add big 1) 0))
-      (let w (write_line (digits (if (list_eq (arg 1) "sum")
+      (let w (write_line (digits (if (eq (arg 1) "sum")
                                      (total v 0 0)
                                      (array_get v 0))))
         0))))

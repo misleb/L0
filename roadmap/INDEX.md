@@ -15,7 +15,8 @@ types take them (0036), a program's types shadow the library's (0037), the
 library declares Option and Result (0039), and functions take them (0038),
 so the library's list helpers now take every element type (0040). 0041
 found that a generic function could not compare its elements, and `eq` now
-compares two values of any type (0042).
+compares two values of any type (0042), which the library and the suite
+now use (0043).
 
 ## Language queue
 
@@ -128,3 +129,6 @@ None.
   type — done; `eq` on any type first (0042)
 - [0042](0042-eq-any-type.md) `eq` compares two values of any type — done,
   changelog "`eq` compares two values of any type"
+- [0043](0043-library-onto-eq.md) the library and the suite's programs use
+  `eq` — done, changelog "The library compares with eq, and no language
+  change for it"
