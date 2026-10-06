@@ -219,6 +219,38 @@
     ((None) 0)
     ((Some n) n)))
 
+; map_keys lists every key, in the table's order, which hash decides: the
+; same on every run, but not the order the keys went in. map_remove takes a
+; key out. Here every word seen only once is dropped, leaving how many
+; different words were repeated.
+(def without_singletons ((m (Map (list int) int)) (ks (list (list int))))
+    (Map (list int) int)
+  (if (is_empty ks)
+      m
+      (without_singletons
+        (if (eq (match (map_get m (head ks)) ((None) 0) ((Some n) n)) 1)
+            (map_remove m (head ks))
+            m)
+        (tail ks))))
+
+(def repeated_words ((text (list int))) int
+  (let m (word_counts (split_spaces text) ((MapEmpty (list int) int)))
+    (map_size (without_singletons m (map_keys m)))))
+
+; A map works at a type parameter too, since its keys need only eq and hash.
+; Here a map to bool serves as a set, to count distinct elements of any type.
+(def (distinct_count T) ((xs (list T))) int
+  (map_size (as_set xs ((MapEmpty T bool)))))
+
+(def (as_set T) ((xs (list T)) (s (Map T bool))) (Map T bool)
+  (if (is_empty xs) s (as_set (tail xs) (map_put s (head xs) true))))
+
+; hash, which the map is built on, gives a value of any type an int, the
+; same for values eq calls the same, and never negative, so (mod (hash k) n)
+; is a slot from 0 to n - 1 for a key of any type (spec section 6.9).
+(def (slot_of K) ((key K) (n int)) int
+  (mod (hash key) n))
+
 ; ------------------------------------------------ reading and writing as you go
 
 ; read_line and write_str are in the standard library (l0 doc io), built on the

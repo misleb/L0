@@ -401,7 +401,10 @@ returns the map with `k` mapped to `v`, `(map_get m k)` an `Option`, and
 `map_has`, `map_remove`, `map_size`, `map_keys`, and `map_values` the rest.
 Any type can be a key. Like an array, a map changes in place while nothing
 else holds it and is copied whole when something does, so thread one map
-through a loop and keep no other name for the old one.
+through a loop and keep no other name for the old one. `map_keys` lists in
+the table's order, the same on every run but not the order of insertion.
+See `word_counts`, `repeated_words`, and `distinct_count`, a map at a type
+parameter used as a set, in `l0 examples`.
 
 **Arrays.** For anything indexed by a small integer — counts by byte,
 distances by node — use `(array T)`, not a list or a tree of your own: `(array_new

@@ -131,6 +131,10 @@ the file and argument builtins of spec sections 6.3 and 6.4. When
 `lib/io.l0` is among the files given to `tools/l0check` or `tools/l0c`, it and
 `lib/prelude.l0` are checked as the prelude group, since a program's
 functions, types, and constructors shadow the prelude's (spec section 7.1).
+Opening a file gives an `(IoOpened OpenFault)` or `(IoOpened CreateFault)`,
+whose `((IoFailed fault why) ...)` arm has the failure as a case and as
+words: test the case with `eq`, as `kvlog`'s `kv_load` does with `(eq fault
+(OpenMissing))`, never the words. `tests/io/open_faults` shows each case.
 
 **Type parameters have the same limit in tests.** `(data (Option T) ...)`,
 `(Option int)`, `((None int))`, and `(def (rev T) ...)` are L0 (spec 4, 4.1,
@@ -197,7 +201,13 @@ too, so the compiler calls the same ones a program does:
 ```
 
 `index_of` does the same for dispatch tables, mapping a name to a position so
-two parallel tables can be indexed together.
+two parallel tables can be indexed together. For a table that is looked up
+often or grows, such as a symbol table or counts by word, use the prelude's
+`(Map K V)` (`tools/l0 doc Map`) rather than a list of pairs or a trie of your
+own: any type can be a key, the empty map is written `((MapEmpty K V))`,
+and it changes in place while nothing else holds it. The compiler keeps its
+pad table in one (`pad_map` in [compiler/emit.l0](../../../compiler/emit.l0)),
+and `tests/unit/map_test.l0` tests it.
 
 **Collapse a `match` to a predicate.** `match` has no wildcard, so inspecting
 a six-constructor type inline costs six lines every time. Write the match once
