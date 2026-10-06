@@ -79,14 +79,6 @@
 (def head_offset ((ts (list Token)) (fallback int)) int
   (if (is_empty ts) fallback (tok_offset (head ts))))
 
-(def rev_tokens_onto ((xs (list Token)) (acc (list Token))) (list Token)
-  (if (is_empty xs)
-      acc
-      (rev_tokens_onto (tail xs) (cons (head xs) acc))))
-
-(def rev_tokens ((xs (list Token))) (list Token)
-  (rev_tokens_onto xs (nil Token)))
-
 ; ------------------------------------------------------------------ trivia
 
 (def skip_trivia ((src (list int)) (off int)) Cursor
@@ -271,7 +263,7 @@
             ((Scanned t rest2 off2) (lex_onto rest2 off2 (cons t acc))))))))
 
 (def lex ((src (list int))) (list Token)
-  (rev_tokens (lex_onto src 0 (nil Token))))
+  (rev (lex_onto src 0 (nil Token))))
 
 ; First error token in a stream, if any. The parser uses this to report
 ; lexical problems before attempting to build an AST.

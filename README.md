@@ -178,13 +178,13 @@ that should have shaped the language is lost. Under that arrangement a cost
 paid once per use site never justified a change, which is how L0 went so long
 without type parameters.
 
-They exist now, for data types and functions alike, but the compiler still
-carries near-identical result types and a reversing helper per element type.
-Until recently it could not use them: the frozen stage-0 interpreter ran the
-compiler, for `tools/l0check` and the compiler's stage tests, and knows no type
-parameters. The tools now build the compiler with the seed instead, so the
-compiler and `lib/prelude.l0` may use anything the seed compiles, and moving
-them onto type parameters is under way.
+They exist now, for data types and functions alike, and the compiler is
+written with them too. For a while it could not be: the frozen stage-0
+interpreter ran the compiler, for `tools/l0check` and the compiler's stage
+tests, and knows no type parameters, so the compiler carried near-identical
+result types and a reversing helper per element type. The tools now build the
+compiler with the seed instead, so the compiler and `lib/prelude.l0` may use
+anything the seed compiles, and the copies are gone.
 
 A change still has to be earned by code: L0 in this repository that it makes
 possible, or makes harder to get wrong. The spec changes first. `spec/L0.md`

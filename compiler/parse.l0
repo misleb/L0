@@ -3,10 +3,8 @@
 ; Parsing stops at the first error in a declaration, which is reported with
 ; the byte offset of the token that caused it.
 ;
-; Note the family of near-identical result types below. One parametric
-; Result type would do for all of them (spec 4), but the compiler could not
-; use parametric data types while the interpreted suite ran its source under
-; stage 0, which predates them. Nothing does now.
+; Every parsing function returns a (Parsed T): what it parsed and the tokens
+; after it, or where it failed and why.
 
 ; Within a data declaration that takes parameters, a parameter is a TyData
 ; with its name and no arguments, and substitution (check.l0) replaces it.
@@ -96,24 +94,6 @@
     ((TyArray e) (nil Ty))
     ((TyBytes) (nil Ty))))
 
-(def ty_eq ((a Ty) (b Ty)) bool
-  (if (not (eq (ty_kind a) (ty_kind b)))
-      false
-      (if (or (ty_is_list a) (ty_is_array a))
-          (ty_eq (ty_elem a) (ty_elem b))
-          (if (ty_is_data a)
-              (if (list_eq (ty_name a) (ty_name b))
-                  (tys_eq (ty_args a) (ty_args b))
-                  false)
-              true))))
-
-(def tys_eq ((as (list Ty)) (bs (list Ty))) bool
-  (if (is_empty as)
-      (is_empty bs)
-      (if (is_empty bs)
-          false
-          (if (ty_eq (head as) (head bs)) (tys_eq (tail as) (tail bs)) false))))
-
 ; Renders a type as spec-legal source text, for diagnostics.
 (def ty_str ((t Ty)) (list int)
   (match t
@@ -131,41 +111,13 @@
       ""
       (append " " (append (ty_str (head ts)) (tys_str (tail ts))))))
 
-(data PTy
-  (PTOk Ty (list Token))
-  (PTErr int (list int)))
-
-(data PTys
-  (PTsOk (list Ty) (list Token))
-  (PTsErr int (list int)))
-
-(data PExpr
-  (PEOk Expr (list Token))
-  (PEErr int (list int)))
-
-(data PArgs
-  (PAOk (list Expr) (list Token))
-  (PAErr int (list int)))
-
-(data PParams
-  (PPsOk (list Param) (list Token))
-  (PPsErr int (list int)))
-
-(data PArms
-  (PAsOk (list Arm) (list Token))
-  (PAsErr int (list int)))
-
-(data PCtors
-  (PCsOk (list Ctor) (list Token))
-  (PCsErr int (list int)))
-
-(data PNames
-  (PNsOk (list (list int)) (list Token))
-  (PNsErr int (list int)))
-
-(data PDecl
-  (PDOk Decl (list Token))
-  (PDErr int (list int)))
+; What a parsing function parsed, and the tokens after it; or the offset of
+; the token it failed at, and why. Not a Result: success carries the rest of
+; the tokens beside the value, and failure an offset beside the message, and
+; Ok and Err hold one value each.
+(data (Parsed T)
+  (POk T (list Token))
+  (PErr int (list int)))
 
 ; A diagnostic: byte offset and message. Defined here rather than in check.l0
 ; because the parser produces them too. Declaration order across files does
@@ -193,292 +145,265 @@
 (def name_is_upper ((n (list int))) bool
   (if (is_empty n) false (is_upper (head n))))
 
-(def rev_exprs_onto ((xs (list Expr)) (acc (list Expr))) (list Expr)
-  (if (is_empty xs)
-      acc
-      (rev_exprs_onto (tail xs) (cons (head xs) acc))))
-
-(def rev_params_onto ((xs (list Param)) (acc (list Param))) (list Param)
-  (if (is_empty xs)
-      acc
-      (rev_params_onto (tail xs) (cons (head xs) acc))))
-
-(def rev_decls_onto ((xs (list Decl)) (acc (list Decl))) (list Decl)
-  (if (is_empty xs)
-      acc
-      (rev_decls_onto (tail xs) (cons (head xs) acc))))
-
-(def rev_arms_onto ((xs (list Arm)) (acc (list Arm))) (list Arm)
-  (if (is_empty xs)
-      acc
-      (rev_arms_onto (tail xs) (cons (head xs) acc))))
-
-(def rev_ctors_onto ((xs (list Ctor)) (acc (list Ctor))) (list Ctor)
-  (if (is_empty xs)
-      acc
-      (rev_ctors_onto (tail xs) (cons (head xs) acc))))
-
-(def rev_tys_list_onto ((xs (list Ty)) (acc (list Ty))) (list Ty)
-  (if (is_empty xs)
-      acc
-      (rev_tys_list_onto (tail xs) (cons (head xs) acc))))
-
 ; ------------------------------------------------------------------- types
 
-(def parse_type ((ts (list Token))) PTy
+(def parse_type ((ts (list Token))) (Parsed Ty)
   (if (is_empty ts)
-      (PTErr 0 "expected a type")
+      ((PErr Ty) 0 "expected a type")
       (let t (head ts)
         (if (tok_is_err t)
-            (PTErr (tok_offset t) (tok_bytes t))
+            ((PErr Ty) (tok_offset t) (tok_bytes t))
             (if (tok_is_name t)
                 (parse_type_name t (tail ts))
                 (if (tok_is_lparen t)
                     (parse_list_type (tail ts) (tok_offset t))
-                    (PTErr (tok_offset t)
+                    ((PErr Ty) (tok_offset t)
                       "expected a type: int, bool, bytes, (list T), or (array T)")))))))
 
 ; An uppercase name is a declared data type. Whether it was actually
 ; declared is the checker's business, not the parser's.
-(def parse_type_name ((t Token) (rest (list Token))) PTy
+(def parse_type_name ((t Token) (rest (list Token))) (Parsed Ty)
   (let n (tok_bytes t)
-    (if (list_eq n "int")
-        (PTOk (TyInt) rest)
-        (if (list_eq n "bool")
-            (PTOk (TyBool) rest)
-            (if (list_eq n "bytes")
-                (PTOk (TyBytes) rest)
+    (if (eq n "int")
+        (POk (TyInt) rest)
+        (if (eq n "bool")
+            (POk (TyBool) rest)
+            (if (eq n "bytes")
+                (POk (TyBytes) rest)
                 (parse_type_other t n rest))))))
 
-(def parse_type_other ((t Token) (n (list int)) (rest (list Token))) PTy
+(def parse_type_other ((t Token) (n (list int)) (rest (list Token))) (Parsed Ty)
   (if (any_eq n (split_spaces "list array"))
-      (PTErr (tok_offset t)
+      ((PErr Ty) (tok_offset t)
         (append n (append " needs an element type, as in (" (append n " int)"))))
       (if (name_is_upper n)
-          (PTOk (TyData n (nil Ty)) rest)
-          (PTErr (tok_offset t)
+          (POk (TyData n (nil Ty)) rest)
+          ((PErr Ty) (tok_offset t)
             (append "unknown type " (append n
               ": a type is int, bool, bytes, (list T), (array T), or a data type, whose name starts uppercase"))))))
 
-(def parse_list_type ((ts (list Token)) (open int)) PTy
+(def parse_list_type ((ts (list Token)) (open int)) (Parsed Ty)
   (if (is_empty ts)
-      (PTErr open "unclosed ( in a type")
+      ((PErr Ty) open "unclosed ( in a type")
       (let t (head ts)
         (if (and (tok_is_name t) (name_is_upper (tok_bytes t)))
             (parse_data_type (tok_bytes t) (tail ts) open)
             (if (not (and (tok_is_name t)
-                          (or (list_eq (tok_bytes t) "list")
-                              (list_eq (tok_bytes t) "array"))))
-                (PTErr (tok_offset t)
+                          (or (eq (tok_bytes t) "list")
+                              (eq (tok_bytes t) "array"))))
+                ((PErr Ty) (tok_offset t)
                   "expected list, array, or a data type name after ( in a type")
                 (match (parse_type (tail ts))
-                  ((PTErr o m) (PTErr o m))
-                  ((PTOk elem rest)
-                    (close_list_type (list_eq (tok_bytes t) "array") elem rest
+                  ((PErr o m) ((PErr Ty) o m))
+                  ((POk elem rest)
+                    (close_list_type (eq (tok_bytes t) "array") elem rest
                                      open))))))))
 
 ; (Name type...) -- a data type given its arguments. Whether it takes that
 ; many is the checker's business.
-(def parse_data_type ((n (list int)) (ts (list Token)) (open int)) PTy
+(def parse_data_type ((n (list int)) (ts (list Token)) (open int)) (Parsed Ty)
   (match (parse_types ts (nil Ty) open)
-    ((PTsErr o m) (PTErr o m))
-    ((PTsOk as rest)
+    ((PErr o m) ((PErr Ty) o m))
+    ((POk as rest)
       (if (is_empty as)
-          (PTErr open
+          ((PErr Ty) open
             (append "(" (append n (append " ...) needs at least one type argument; "
               (append "a type without parameters is written " n)))))
-          (PTOk (TyData n as) rest)))))
+          (POk (TyData n as) rest)))))
 
 ; Types up to and including the closing ).
-(def parse_types ((ts (list Token)) (acc (list Ty)) (open int)) PTys
+(def parse_types ((ts (list Token)) (acc (list Ty)) (open int))
+    (Parsed (list Ty))
   (if (is_empty ts)
-      (PTsErr open "unclosed ( in a type")
+      ((PErr (list Ty)) open "unclosed ( in a type")
       (if (tok_is_rparen (head ts))
-          (PTsOk (rev_tys_list_onto acc (nil Ty)) (tail ts))
+          (POk (rev_onto acc (nil Ty)) (tail ts))
           (match (parse_type ts)
-            ((PTErr o m) (PTsErr o m))
-            ((PTOk t rest) (parse_types rest (cons t acc) open))))))
+            ((PErr o m) ((PErr (list Ty)) o m))
+            ((POk t rest) (parse_types rest (cons t acc) open))))))
 
-(def close_list_type ((arr bool) (elem Ty) (rest (list Token)) (open int)) PTy
+(def close_list_type ((arr bool) (elem Ty) (rest (list Token)) (open int))
+    (Parsed Ty)
   (if (is_empty rest)
-      (PTErr open "unclosed ( in a type")
+      ((PErr Ty) open "unclosed ( in a type")
       (if (tok_is_rparen (head rest))
-          (PTOk (if arr (TyArray elem) (TyList elem)) (tail rest))
-          (PTErr (tok_offset (head rest))
+          (POk (if arr (TyArray elem) (TyList elem)) (tail rest))
+          ((PErr Ty) (tok_offset (head rest))
             (if arr
                 "(array ...) takes exactly one element type"
                 "(list ...) takes exactly one element type")))))
 
 ; ------------------------------------------------------------- expressions
 
-(def parse_expr ((ts (list Token))) PExpr
+(def parse_expr ((ts (list Token))) (Parsed Expr)
   (if (is_empty ts)
-      (PEErr 0 "expected an expression")
+      ((PErr Expr) 0 "expected an expression")
       (let t (head ts)
         (if (tok_is_err t)
-            (PEErr (tok_offset t) (tok_bytes t))
+            ((PErr Expr) (tok_offset t) (tok_bytes t))
             (if (tok_is_int t)
-                (PEOk (EInt (tok_offset t) (tok_int t)) (tail ts))
+                (POk (EInt (tok_offset t) (tok_int t)) (tail ts))
                 (if (tok_is_str t)
-                    (PEOk (EStr (tok_offset t) (tok_bytes t)) (tail ts))
+                    (POk (EStr (tok_offset t) (tok_bytes t)) (tail ts))
                     (if (tok_is_name t)
                         (parse_atom_name t (tail ts))
                         (if (tok_is_lparen t)
                             (parse_form (tail ts) (tok_offset t))
-                            (PEErr (tok_offset t)
+                            ((PErr Expr) (tok_offset t)
                               "unexpected ) where an expression was expected")))))))))
 
-(def parse_atom_name ((t Token) (rest (list Token))) PExpr
+(def parse_atom_name ((t Token) (rest (list Token))) (Parsed Expr)
   (let n (tok_bytes t)
     (let o (tok_offset t)
-      (if (list_eq n "true")
-          (PEOk (EBool o true) rest)
-          (if (list_eq n "false")
-              (PEOk (EBool o false) rest)
+      (if (eq n "true")
+          (POk (EBool o true) rest)
+          (if (eq n "false")
+              (POk (EBool o false) rest)
               (if (name_is_upper n)
-                  (PEErr o "uppercase names are types and constructors, not values")
+                  ((PErr Expr) o "uppercase names are types and constructors, not values")
                   (if (is_reserved n)
-                      (PEErr o "this word is reserved and is not a value here")
-                      (PEOk (EVar o n) rest))))))))
+                      ((PErr Expr) o "this word is reserved and is not a value here")
+                      (POk (EVar o n) rest))))))))
 
 ; A parenthesised form: the ( is already consumed and open is its offset.
-(def parse_form ((ts (list Token)) (open int)) PExpr
+(def parse_form ((ts (list Token)) (open int)) (Parsed Expr)
   (if (is_empty ts)
-      (PEErr open "unclosed (")
+      ((PErr Expr) open "unclosed (")
       (let t (head ts)
         (if (tok_is_err t)
-            (PEErr (tok_offset t) (tok_bytes t))
+            ((PErr Expr) (tok_offset t) (tok_bytes t))
             (if (tok_is_lparen t)
                 (parse_typed_ctor (tail ts) open (tok_offset t))
                 (if (not (tok_is_name t))
-                    (PEErr (tok_offset t)
+                    ((PErr Expr) (tok_offset t)
                       "expected a function or special form name after (")
                     (dispatch_form (tok_bytes t) (tail ts) open (tok_offset t))))))))
 
 ; ((Ctor type...) arg...) -- the ( of the head is already consumed, and
 ; hopen is its offset. Spec 5.6.
-(def parse_typed_ctor ((ts (list Token)) (open int) (hopen int)) PExpr
+(def parse_typed_ctor ((ts (list Token)) (open int) (hopen int)) (Parsed Expr)
   (if (is_empty ts)
-      (PEErr hopen "unclosed (")
+      ((PErr Expr) hopen "unclosed (")
       (let t (head ts)
         (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
-            (PEErr (tok_offset t)
+            ((PErr Expr) (tok_offset t)
               "a constructor written with its type is ((Constructor type...) arguments...)")
             (match (parse_types (tail ts) (nil Ty) hopen)
-              ((PTsErr o m) (PEErr o m))
-              ((PTsOk tys rest)
+              ((PErr o m) ((PErr Expr) o m))
+              ((POk tys rest)
                 (if (is_empty tys)
-                    (PEErr hopen
+                    ((PErr Expr) hopen
                       (append "((" (append (tok_bytes t)
                         ") ...) needs at least one type argument")))
                     (match (parse_args rest (nil Expr))
-                      ((PAErr eo m) (PEErr eo m))
-                      ((PAOk args rest2)
-                        (PEOk (ECtor open (tok_bytes t) tys args) rest2))))))))))
+                      ((PErr eo m) ((PErr Expr) eo m))
+                      ((POk args rest2)
+                        (POk (ECtor open (tok_bytes t) tys args) rest2))))))))))
 
-(def dispatch_form ((n (list int)) (ts (list Token)) (open int) (o int)) PExpr
-  (if (list_eq n "if") (parse_if ts open)
-  (if (list_eq n "let") (parse_let ts open)
-  (if (list_eq n "nil") (parse_nil ts open)
-  (if (list_eq n "match") (parse_match ts open)
-  (if (or (list_eq n "def") (list_eq n "data"))
-      (PEErr o "this can only appear at the top level")
-  (if (or (list_eq n "true") (list_eq n "false"))
-      (PEErr o "this is not a function")
+(def dispatch_form ((n (list int)) (ts (list Token)) (open int) (o int))
+    (Parsed Expr)
+  (if (eq n "if") (parse_if ts open)
+  (if (eq n "let") (parse_let ts open)
+  (if (eq n "nil") (parse_nil ts open)
+  (if (eq n "match") (parse_match ts open)
+  (if (or (eq n "def") (eq n "data"))
+      ((PErr Expr) o "this can only appear at the top level")
+  (if (or (eq n "true") (eq n "false"))
+      ((PErr Expr) o "this is not a function")
   (if (name_is_upper n)
       (parse_ctor_call n ts open)
       (parse_call n ts open o)))))))))
 
 ; (Ctor arg...) -- arguments are ordinary expressions.
-(def parse_ctor_call ((n (list int)) (ts (list Token)) (open int)) PExpr
+(def parse_ctor_call ((n (list int)) (ts (list Token)) (open int)) (Parsed Expr)
   (match (parse_args ts (nil Expr))
-    ((PAErr eo m) (PEErr eo m))
-    ((PAOk args rest) (PEOk (ECtor open n (nil Ty) args) rest))))
+    ((PErr eo m) ((PErr Expr) eo m))
+    ((POk args rest) (POk (ECtor open n (nil Ty) args) rest))))
 
 ; (match subject arm...) where each arm is ((Ctor name...) result).
-(def parse_match ((ts (list Token)) (open int)) PExpr
+(def parse_match ((ts (list Token)) (open int)) (Parsed Expr)
   (match (need_expr ts open "match needs a subject and at least one arm")
-    ((PEErr o m) (PEErr o m))
-    ((PEOk subject rest)
+    ((PErr o m) ((PErr Expr) o m))
+    ((POk subject rest)
       (match (parse_arms rest (nil Arm) open)
-        ((PAsErr o m) (PEErr o m))
-        ((PAsOk arms rest2)
+        ((PErr o m) ((PErr Expr) o m))
+        ((POk arms rest2)
           (if (is_empty arms)
-              (PEErr open "match needs a subject and at least one arm")
-              (PEOk (EMatch open subject arms) rest2)))))))
+              ((PErr Expr) open "match needs a subject and at least one arm")
+              (POk (EMatch open subject arms) rest2)))))))
 
-(def parse_arms ((ts (list Token)) (acc (list Arm)) (open int)) PArms
+(def parse_arms ((ts (list Token)) (acc (list Arm)) (open int))
+    (Parsed (list Arm))
   (if (is_empty ts)
-      (PAsErr open "unclosed ( in a match")
+      ((PErr (list Arm)) open "unclosed ( in a match")
       (if (tok_is_rparen (head ts))
-          (PAsOk (rev_arms_onto acc (nil Arm)) (tail ts))
+          (POk (rev_onto acc (nil Arm)) (tail ts))
           (match (parse_arm ts)
-            ((PAsErr o m) (PAsErr o m))
-            ((PAsOk got rest)
-              (parse_arms rest (cons (head got) acc) open))))))
+            ((PErr o m) ((PErr (list Arm)) o m))
+            ((POk got rest)
+              (parse_arms rest (cons got acc) open))))))
 
-; Returns a single-element list so it can share the PArms result type.
-(def parse_arm ((ts (list Token))) PArms
+(def parse_arm ((ts (list Token))) (Parsed Arm)
   (let t (head ts)
     (if (not (tok_is_lparen t))
-        (PAsErr (tok_offset t)
+        ((PErr Arm) (tok_offset t)
           "each match arm is ((Constructor names...) result)")
         (parse_arm_pattern (tail ts) (tok_offset t)))))
 
-(def parse_arm_pattern ((ts (list Token)) (open int)) PArms
+(def parse_arm_pattern ((ts (list Token)) (open int)) (Parsed Arm)
   (if (is_empty ts)
-      (PAsErr open "unclosed ( in a match arm")
+      ((PErr Arm) open "unclosed ( in a match arm")
       (if (not (tok_is_lparen (head ts)))
-          (PAsErr (tok_offset (head ts))
+          ((PErr Arm) (tok_offset (head ts))
             "a match pattern is (Constructor names...)")
           (parse_arm_ctor (tail ts) open))))
 
-(def parse_arm_ctor ((ts (list Token)) (open int)) PArms
+(def parse_arm_ctor ((ts (list Token)) (open int)) (Parsed Arm)
   (if (is_empty ts)
-      (PAsErr open "unclosed ( in a match pattern")
+      ((PErr Arm) open "unclosed ( in a match pattern")
       (let t (head ts)
         (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
-            (PAsErr (tok_offset t) "a match pattern starts with a constructor name")
+            ((PErr Arm) (tok_offset t) "a match pattern starts with a constructor name")
             (match (parse_binders (tail ts) (nil (list int)) open)
-              ((PNsErr o m) (PAsErr o m))
-              ((PNsOk names rest)
+              ((PErr o m) ((PErr Arm) o m))
+              ((POk names rest)
                 (parse_arm_body (tok_bytes t) names rest open)))))))
 
 (def parse_binders ((ts (list Token)) (acc (list (list int))) (open int))
-    PNames
+    (Parsed (list (list int)))
   (if (is_empty ts)
-      (PNsErr open "unclosed ( in a match pattern")
+      ((PErr (list (list int))) open "unclosed ( in a match pattern")
       (let t (head ts)
         (if (tok_is_rparen t)
-            (PNsOk (rev acc) (tail ts))
+            (POk (rev acc) (tail ts))
             (if (not (tok_is_name t))
-                (PNsErr (tok_offset t) "expected a field binding name")
+                ((PErr (list (list int))) (tok_offset t) "expected a field binding name")
                 (if (or (is_reserved (tok_bytes t))
                         (not (name_is_lower (tok_bytes t))))
-                    (PNsErr (tok_offset t)
+                    ((PErr (list (list int))) (tok_offset t)
                       "a field binding name must be lowercase and not reserved")
                     (parse_binders (tail ts) (cons (tok_bytes t) acc) open)))))))
 
 (def parse_arm_body ((cname (list int)) (names (list (list int)))
-                     (ts (list Token)) (open int)) PArms
+                     (ts (list Token)) (open int)) (Parsed Arm)
   (match (need_expr ts open "each match arm is ((Constructor names...) result)")
-    ((PEErr o m) (PAsErr o m))
-    ((PEOk body rest)
+    ((PErr o m) ((PErr Arm) o m))
+    ((POk body rest)
       (if (is_empty rest)
-          (PAsErr open "unclosed ( in a match arm")
+          ((PErr Arm) open "unclosed ( in a match arm")
           (if (tok_is_rparen (head rest))
-              (PAsOk (cons (A open cname names body) (nil Arm)) (tail rest))
-              (PAsErr (tok_offset (head rest))
+              (POk (A open cname names body) (tail rest))
+              ((PErr Arm) (tok_offset (head rest))
                 "each match arm is ((Constructor names...) result)"))))))
 
 ; Parses a required subexpression of a fixed-arity form. Hitting the closing
 ; ) here means the form is short, which deserves the arity message rather
 ; than a bare complaint about an unexpected parenthesis.
-(def need_expr ((ts (list Token)) (open int) (msg (list int))) PExpr
+(def need_expr ((ts (list Token)) (open int) (msg (list int))) (Parsed Expr)
   (if (is_empty ts)
-      (PEErr open "unclosed (")
+      ((PErr Expr) open "unclosed (")
       (if (tok_is_rparen (head ts))
-          (PEErr (tok_offset (head ts)) msg)
+          ((PErr Expr) (tok_offset (head ts)) msg)
           (parse_expr ts))))
 
 (def if_arity ((ignored int)) (list int)
@@ -487,153 +412,156 @@
 (def let_arity ((ignored int)) (list int)
   "let takes exactly 3 parts: (let name value body)")
 
-(def parse_if ((ts (list Token)) (open int)) PExpr
+(def parse_if ((ts (list Token)) (open int)) (Parsed Expr)
   (match (need_expr ts open (if_arity 0))
-    ((PEErr o m) (PEErr o m))
-    ((PEOk c rest1)
+    ((PErr o m) ((PErr Expr) o m))
+    ((POk c rest1)
       (match (need_expr rest1 open (if_arity 0))
-        ((PEErr o m) (PEErr o m))
-        ((PEOk a rest2)
+        ((PErr o m) ((PErr Expr) o m))
+        ((POk a rest2)
           (match (need_expr rest2 open (if_arity 0))
-            ((PEErr o m) (PEErr o m))
-            ((PEOk b rest3)
+            ((PErr o m) ((PErr Expr) o m))
+            ((POk b rest3)
               (close_form (EIf open c a b) rest3 open (if_arity 0)))))))))
 
-(def parse_let ((ts (list Token)) (open int)) PExpr
+(def parse_let ((ts (list Token)) (open int)) (Parsed Expr)
   (if (is_empty ts)
-      (PEErr open "let needs a name, a value, and a body")
+      ((PErr Expr) open "let needs a name, a value, and a body")
       (let t (head ts)
         (if (not (tok_is_name t))
-            (PEErr (tok_offset t) "expected a name after let")
+            ((PErr Expr) (tok_offset t) "expected a name after let")
             (if (or (is_reserved (tok_bytes t))
                     (not (name_is_lower (tok_bytes t))))
-                (PEErr (tok_offset t)
+                ((PErr Expr) (tok_offset t)
                   "a let binding name must be lowercase and not reserved")
                 (parse_let_value (tok_bytes t) (tail ts) open))))))
 
-(def parse_let_value ((n (list int)) (ts (list Token)) (open int)) PExpr
+(def parse_let_value ((n (list int)) (ts (list Token)) (open int)) (Parsed Expr)
   (match (need_expr ts open (let_arity 0))
-    ((PEErr o m) (PEErr o m))
-    ((PEOk v rest1)
+    ((PErr o m) ((PErr Expr) o m))
+    ((POk v rest1)
       (match (need_expr rest1 open (let_arity 0))
-        ((PEErr o m) (PEErr o m))
-        ((PEOk body rest2)
+        ((PErr o m) ((PErr Expr) o m))
+        ((POk body rest2)
           (close_form (ELet open n v body) rest2 open (let_arity 0)))))))
 
-(def parse_nil ((ts (list Token)) (open int)) PExpr
+(def parse_nil ((ts (list Token)) (open int)) (Parsed Expr)
   (match (parse_type ts)
-    ((PTErr o m) (PEErr o m))
-    ((PTOk elem rest)
+    ((PErr o m) ((PErr Expr) o m))
+    ((POk elem rest)
       (close_form (ENil open elem) rest open
         "nil takes exactly one element type, as in (nil int)"))))
 
-(def parse_call ((n (list int)) (ts (list Token)) (open int) (o int)) PExpr
+(def parse_call ((n (list int)) (ts (list Token)) (open int) (o int))
+    (Parsed Expr)
   (if (not (name_is_lower n))
-      (PEErr o "a function name must be lowercase")
+      ((PErr Expr) o "a function name must be lowercase")
       (match (parse_args ts (nil Expr))
-        ((PAErr eo m) (PEErr eo m))
-        ((PAOk args rest) (PEOk (ECall open n args) rest)))))
+        ((PErr eo m) ((PErr Expr) eo m))
+        ((POk args rest) (POk (ECall open n args) rest)))))
 
-(def parse_args ((ts (list Token)) (acc (list Expr))) PArgs
+(def parse_args ((ts (list Token)) (acc (list Expr))) (Parsed (list Expr))
   (if (is_empty ts)
-      (PAErr 0 "unclosed ( in a call")
+      ((PErr (list Expr)) 0 "unclosed ( in a call")
       (if (tok_is_rparen (head ts))
-          (PAOk (rev_exprs_onto acc (nil Expr)) (tail ts))
+          (POk (rev_onto acc (nil Expr)) (tail ts))
           (match (parse_expr ts)
-            ((PEErr o m) (PAErr o m))
-            ((PEOk e rest) (parse_args rest (cons e acc)))))))
+            ((PErr o m) ((PErr (list Expr)) o m))
+            ((POk e rest) (parse_args rest (cons e acc)))))))
 
 ; Requires the closing ) of a fixed-arity form.
-(def close_form ((e Expr) (ts (list Token)) (open int) (msg (list int))) PExpr
+(def close_form ((e Expr) (ts (list Token)) (open int) (msg (list int)))
+    (Parsed Expr)
   (if (is_empty ts)
-      (PEErr open "unclosed (")
+      ((PErr Expr) open "unclosed (")
       (if (tok_is_rparen (head ts))
-          (PEOk e (tail ts))
-          (PEErr (tok_offset (head ts)) msg))))
+          (POk e (tail ts))
+          ((PErr Expr) (tok_offset (head ts)) msg))))
 
 ; ------------------------------------------------------------ declarations
 
-(def parse_params ((ts (list Token)) (acc (list Param))) PParams
+(def parse_params ((ts (list Token)) (acc (list Param))) (Parsed (list Param))
   (if (is_empty ts)
-      (PPsErr 0 "unclosed ( in a parameter list")
+      ((PErr (list Param)) 0 "unclosed ( in a parameter list")
       (if (tok_is_rparen (head ts))
-          (PPsOk (rev_params_onto acc (nil Param)) (tail ts))
+          (POk (rev_onto acc (nil Param)) (tail ts))
           (if (not (tok_is_lparen (head ts)))
-              (PPsErr (tok_offset (head ts)) "each parameter is (name type)")
+              ((PErr (list Param)) (tok_offset (head ts)) "each parameter is (name type)")
               (parse_param (tail ts) acc (tok_offset (head ts)))))))
 
-(def parse_param ((ts (list Token)) (acc (list Param)) (open int)) PParams
+(def parse_param ((ts (list Token)) (acc (list Param)) (open int))
+    (Parsed (list Param))
   (if (is_empty ts)
-      (PPsErr open "unclosed ( in a parameter")
+      ((PErr (list Param)) open "unclosed ( in a parameter")
       (let t (head ts)
         (if (not (tok_is_name t))
-            (PPsErr (tok_offset t) "expected a parameter name")
+            ((PErr (list Param)) (tok_offset t) "expected a parameter name")
             (if (or (is_reserved (tok_bytes t))
                     (not (name_is_lower (tok_bytes t))))
-                (PPsErr (tok_offset t)
+                ((PErr (list Param)) (tok_offset t)
                   "a parameter name must be lowercase and not reserved")
                 (parse_param_type (tok_bytes t) (tail ts) acc open))))))
 
 (def parse_param_type ((n (list int)) (ts (list Token)) (acc (list Param))
-                       (open int)) PParams
+                       (open int)) (Parsed (list Param))
   (match (parse_type ts)
-    ((PTErr o m) (PPsErr o m))
-    ((PTOk ty rest)
+    ((PErr o m) ((PErr (list Param)) o m))
+    ((POk ty rest)
       (if (is_empty rest)
-          (PPsErr open "unclosed ( in a parameter")
+          ((PErr (list Param)) open "unclosed ( in a parameter")
           (if (tok_is_rparen (head rest))
               (parse_params (tail rest) (cons (P n ty) acc))
-              (PPsErr (tok_offset (head rest)) "each parameter is (name type)"))))))
+              ((PErr (list Param)) (tok_offset (head rest)) "each parameter is (name type)"))))))
 
-(def parse_decl ((ts (list Token))) PDecl
+(def parse_decl ((ts (list Token))) (Parsed Decl)
   (if (is_empty ts)
-      (PDErr 0 "expected a declaration")
+      ((PErr Decl) 0 "expected a declaration")
       (let t (head ts)
         (if (tok_is_err t)
-            (PDErr (tok_offset t) (tok_bytes t))
+            ((PErr Decl) (tok_offset t) (tok_bytes t))
             (if (not (tok_is_lparen t))
-                (PDErr (tok_offset t) "expected a top-level (def ...)")
+                ((PErr Decl) (tok_offset t) "expected a top-level (def ...)")
                 (parse_decl_head (tail ts) (tok_offset t)))))))
 
-(def parse_decl_head ((ts (list Token)) (open int)) PDecl
+(def parse_decl_head ((ts (list Token)) (open int)) (Parsed Decl)
   (if (is_empty ts)
-      (PDErr open "unclosed (")
+      ((PErr Decl) open "unclosed (")
       (let t (head ts)
         (if (not (tok_is_name t))
-            (PDErr (tok_offset t) "expected def at the top level")
-            (if (list_eq (tok_bytes t) "data")
+            ((PErr Decl) (tok_offset t) "expected def at the top level")
+            (if (eq (tok_bytes t) "data")
                 (parse_data_name (tail ts) open)
-                (if (not (list_eq (tok_bytes t) "def"))
-                    (PDErr (tok_offset t)
+                (if (not (eq (tok_bytes t) "def"))
+                    ((PErr Decl) (tok_offset t)
                       "expected a top-level (def ...) or (data ...)")
                     (parse_def_name (tail ts) open)))))))
 
 ; ---------------------------------------------------- data declarations
 
-(def parse_data_name ((ts (list Token)) (open int)) PDecl
+(def parse_data_name ((ts (list Token)) (open int)) (Parsed Decl)
   (if (is_empty ts)
-      (PDErr open "unclosed (")
+      ((PErr Decl) open "unclosed (")
       (let t (head ts)
         (if (tok_is_lparen t)
             (parse_data_header (tail ts) open (tok_offset t))
             (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
-                (PDErr (tok_offset t) "a data declaration needs an uppercase type name")
+                ((PErr Decl) (tok_offset t) "a data declaration needs an uppercase type name")
                 (parse_data_body (tok_bytes t) (nil (list int)) (tail ts) open))))))
 
 ; (data (Name Param...) ctor...) -- the ( of the header is already consumed,
 ; and hopen is its offset.
-(def parse_data_header ((ts (list Token)) (open int) (hopen int)) PDecl
+(def parse_data_header ((ts (list Token)) (open int) (hopen int)) (Parsed Decl)
   (if (is_empty ts)
-      (PDErr hopen "unclosed (")
+      ((PErr Decl) hopen "unclosed (")
       (let t (head ts)
         (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
-            (PDErr (tok_offset t) "a data declaration needs an uppercase type name")
+            ((PErr Decl) (tok_offset t) "a data declaration needs an uppercase type name")
             (match (parse_ty_params (tail ts) (nil (list int)) hopen
                                     "unclosed ( in a data declaration")
-              ((PNsErr o m) (PDErr o m))
-              ((PNsOk ps rest)
+              ((PErr o m) ((PErr Decl) o m))
+              ((POk ps rest)
                 (if (is_empty ps)
-                    (PDErr hopen
+                    ((PErr Decl) hopen
                       (append "(" (append (tok_bytes t)
                         (append ") needs at least one type parameter; "
                           (append "a type without parameters is declared (data "
@@ -642,68 +570,67 @@
 
 ; unclosed is what to say if the list never ends.
 (def parse_ty_params ((ts (list Token)) (acc (list (list int))) (open int)
-                      (unclosed (list int))) PNames
+                      (unclosed (list int))) (Parsed (list (list int)))
   (if (is_empty ts)
-      (PNsErr open unclosed)
+      ((PErr (list (list int))) open unclosed)
       (let t (head ts)
         (if (tok_is_rparen t)
-            (PNsOk (rev acc) (tail ts))
+            (POk (rev acc) (tail ts))
             (if (and (tok_is_name t) (name_is_upper (tok_bytes t)))
                 (parse_ty_params (tail ts) (cons (tok_bytes t) acc) open unclosed)
-                (PNsErr (tok_offset t) "a type parameter is an uppercase name"))))))
+                ((PErr (list (list int))) (tok_offset t) "a type parameter is an uppercase name"))))))
 
 (def parse_data_body ((n (list int)) (ps (list (list int))) (ts (list Token))
-                      (open int)) PDecl
+                      (open int)) (Parsed Decl)
   (match (parse_ctors ts (nil Ctor) open)
-    ((PCsErr o m) (PDErr o m))
-    ((PCsOk cs rest)
+    ((PErr o m) ((PErr Decl) o m))
+    ((POk cs rest)
       (if (is_empty cs)
-          (PDErr open "a data type needs at least one constructor")
-          (PDOk (DData open n ps cs) rest)))))
+          ((PErr Decl) open "a data type needs at least one constructor")
+          (POk (DData open n ps cs) rest)))))
 
-(def parse_ctors ((ts (list Token)) (acc (list Ctor)) (open int)) PCtors
+(def parse_ctors ((ts (list Token)) (acc (list Ctor)) (open int))
+    (Parsed (list Ctor))
   (if (is_empty ts)
-      (PCsErr open "unclosed ( in a data declaration")
+      ((PErr (list Ctor)) open "unclosed ( in a data declaration")
       (if (tok_is_rparen (head ts))
-          (PCsOk (rev_ctors_onto acc (nil Ctor)) (tail ts))
+          (POk (rev_onto acc (nil Ctor)) (tail ts))
           (if (not (tok_is_lparen (head ts)))
-              (PCsErr (tok_offset (head ts))
+              ((PErr (list Ctor)) (tok_offset (head ts))
                 "a constructor is (Name field-types...)")
               (match (parse_ctor (tail ts) (tok_offset (head ts)))
-                ((PCsErr o m) (PCsErr o m))
-                ((PCsOk got rest)
-                  (parse_ctors rest (cons (head got) acc) open)))))))
+                ((PErr o m) ((PErr (list Ctor)) o m))
+                ((POk got rest)
+                  (parse_ctors rest (cons got acc) open)))))))
 
-; Returns a single-element list so it can share the PCtors result type.
-(def parse_ctor ((ts (list Token)) (open int)) PCtors
+(def parse_ctor ((ts (list Token)) (open int)) (Parsed Ctor)
   (if (is_empty ts)
-      (PCsErr open "unclosed ( in a constructor")
+      ((PErr Ctor) open "unclosed ( in a constructor")
       (let t (head ts)
         (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
-            (PCsErr (tok_offset t) "a constructor is (Name field-types...)")
+            ((PErr Ctor) (tok_offset t) "a constructor is (Name field-types...)")
             (parse_ctor_fields (tok_bytes t) (tail ts) (nil Ty) open)))))
 
 (def parse_ctor_fields ((n (list int)) (ts (list Token)) (acc (list Ty))
-                        (open int)) PCtors
+                        (open int)) (Parsed Ctor)
   (if (is_empty ts)
-      (PCsErr open "unclosed ( in a constructor")
+      ((PErr Ctor) open "unclosed ( in a constructor")
       (if (tok_is_rparen (head ts))
-          (PCsOk (cons (C open n (rev_tys_list_onto acc (nil Ty))) (nil Ctor))
-                 (tail ts))
+          (POk (C open n (rev_onto acc (nil Ty))) (tail ts))
           (match (parse_type ts)
-            ((PTErr o m) (PCsErr o m))
-            ((PTOk ty rest) (parse_ctor_fields n rest (cons ty acc) open))))))
+            ((PErr o m) ((PErr Ctor) o m))
+            ((POk ty rest) (parse_ctor_fields n rest (cons ty acc) open))))))
 
-(def parse_def_name ((ts (list Token)) (open int)) PDecl
+(def parse_def_name ((ts (list Token)) (open int)) (Parsed Decl)
   (if (is_empty ts)
-      (PDErr open "unclosed (")
+      ((PErr Decl) open "unclosed (")
       (let t (head ts)
         (if (tok_is_lparen t)
             (parse_def_header (tail ts) open (tok_offset t))
             (let bad (def_name_problem t)
               (if (is_empty bad)
                   (parse_def_params (tok_bytes t) (nil (list int)) (tail ts) open)
-                  (PDErr (tok_offset t) bad)))))))
+                  ((PErr Decl) (tok_offset t) bad)))))))
 
 ; What is wrong with t as a function's name, or an empty message.
 (def def_name_problem ((t Token)) (list int)
@@ -715,19 +642,19 @@
 
 ; (def (name Param...) ...) -- the ( of the header is already consumed, and
 ; hopen is its offset. Spec 4.1.
-(def parse_def_header ((ts (list Token)) (open int) (hopen int)) PDecl
+(def parse_def_header ((ts (list Token)) (open int) (hopen int)) (Parsed Decl)
   (if (is_empty ts)
-      (PDErr hopen "unclosed (")
+      ((PErr Decl) hopen "unclosed (")
       (let t (head ts)
         (let bad (def_name_problem t)
           (if (not (is_empty bad))
-              (PDErr (tok_offset t) bad)
+              ((PErr Decl) (tok_offset t) bad)
               (match (parse_ty_params (tail ts) (nil (list int)) hopen
                                       "unclosed ( in a def's type parameters")
-                ((PNsErr o m) (PDErr o m))
-                ((PNsOk fps rest)
+                ((PErr o m) ((PErr Decl) o m))
+                ((POk fps rest)
                   (if (is_empty fps)
-                      (PDErr hopen
+                      ((PErr Decl) hopen
                         (append "(" (append (tok_bytes t)
                           (append ") needs at least one type parameter; "
                             (append "a function without them is (def "
@@ -735,32 +662,32 @@
                       (parse_def_params (tok_bytes t) fps rest open)))))))))
 
 (def parse_def_params ((n (list int)) (fps (list (list int))) (ts (list Token))
-                       (open int)) PDecl
+                       (open int)) (Parsed Decl)
   (if (is_empty ts)
-      (PDErr open "unclosed (")
+      ((PErr Decl) open "unclosed (")
       (if (not (tok_is_lparen (head ts)))
-          (PDErr (tok_offset (head ts))
+          ((PErr Decl) (tok_offset (head ts))
             "expected a parameter list, as in ((x int) (y bool))")
           (match (parse_params (tail ts) (nil Param))
-            ((PPsErr o m) (PDErr o m))
-            ((PPsOk ps rest) (parse_def_ret n fps ps rest open))))))
+            ((PErr o m) ((PErr Decl) o m))
+            ((POk ps rest) (parse_def_ret n fps ps rest open))))))
 
 (def parse_def_ret ((n (list int)) (fps (list (list int))) (ps (list Param))
-                    (ts (list Token)) (open int)) PDecl
+                    (ts (list Token)) (open int)) (Parsed Decl)
   (match (parse_type ts)
-    ((PTErr o m) (PDErr o m))
-    ((PTOk ret rest)
+    ((PErr o m) ((PErr Decl) o m))
+    ((POk ret rest)
       (match (parse_expr rest)
-        ((PEErr o m) (PDErr o m))
-        ((PEOk body rest2) (close_decl n fps ps ret body rest2 open))))))
+        ((PErr o m) ((PErr Decl) o m))
+        ((POk body rest2) (close_decl n fps ps ret body rest2 open))))))
 
 (def close_decl ((n (list int)) (fps (list (list int))) (ps (list Param)) (ret Ty)
-                 (body Expr) (ts (list Token)) (open int)) PDecl
+                 (body Expr) (ts (list Token)) (open int)) (Parsed Decl)
   (if (is_empty ts)
-      (PDErr open "unclosed (")
+      ((PErr Decl) open "unclosed (")
       (if (tok_is_rparen (head ts))
-          (PDOk (DDef open n fps ps ret body) (tail ts))
-          (PDErr (tok_offset (head ts))
+          (POk (DDef open n fps ps ret body) (tail ts))
+          ((PErr Decl) (tok_offset (head ts))
             "a def is (def name (params...) return-type body)"))))
 
 ; ------------------------------------------------------- error recovery
@@ -775,8 +702,8 @@
               false
               (let t (head (tail ts))
                 (and (tok_is_name t)
-                     (or (list_eq (tok_bytes t) "def")
-                         (list_eq (tok_bytes t) "data"))))))))
+                     (or (eq (tok_bytes t) "def")
+                         (eq (tok_bytes t) "data"))))))))
 
 ; Skips forward to the next top-level declaration so that one bad
 ; declaration does not hide every later one. Callers always drop at least
@@ -791,10 +718,10 @@
 (def parse_decls ((ts (list Token)) (acc (list Decl)) (diags (list Diag)))
     PProg
   (if (is_empty ts)
-      (PP (rev_decls_onto acc (nil Decl)) (rev_diags_onto diags (nil Diag)))
+      (PP (rev_onto acc (nil Decl)) (rev_onto diags (nil Diag)))
       (match (parse_decl ts)
-        ((PDOk d rest) (parse_decls rest (cons d acc) diags))
-        ((PDErr o m)
+        ((POk d rest) (parse_decls rest (cons d acc) diags))
+        ((PErr o m)
           (parse_decls (resync (tail ts)) acc (cons (D o m) diags))))))
 
 (def parse_program ((ts (list Token))) PProg

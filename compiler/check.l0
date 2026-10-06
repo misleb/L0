@@ -41,45 +41,14 @@
   (Cx (list Sig) (list CtorInfo) (list DataDef) (list (list int))
       (list (list int))))
 
-(data FindSig
-  (SigFound Sig)
-  (SigMissing))
-
-(data FindTy
-  (TyFound Ty)
-  (TyMissing))
-
-(data FindCtor
-  (CtorFound CtorInfo)
-  (CtorMissing))
-
-(data FindData
-  (DataFound DataDef)
-  (DataMissing))
-
-; Either the type of an expression, or the first error found in it.
-(data CTy
-  (CTyOk Ty)
-  (CTyErr int (list int)))
-
-(data CTys
-  (CTysOk (list Ty))
-  (CTysErr int (list int)))
-
-; What a data type's parameters stand for so far, or why they cannot.
-(data Binds
-  (BsOk (list Bind))
-  (BsErr int (list int)))
-
-(def rev_diags_onto ((xs (list Diag)) (acc (list Diag))) (list Diag)
-  (if (is_empty xs)
-      acc
-      (rev_diags_onto (tail xs) (cons (head xs) acc))))
-
-(def rev_tys_onto ((xs (list Ty)) (acc (list Ty))) (list Ty)
-  (if (is_empty xs)
-      acc
-      (rev_tys_onto (tail xs) (cons (head xs) acc))))
+; What checking found, or the first error in it, as an offset and a message:
+; the type of an expression, the types of a list of them, or what a data
+; type's parameters stand for so far. Not a Result, whose Err holds one value,
+; since then every error would be wrapped in a Diag here and taken apart
+; again by a match of its own, patterns being one level deep.
+(data (Checked T)
+  (COk T)
+  (CErr int (list int)))
 
 (def ctx_sigs ((c Ctx)) (list Sig) (match c ((Cx s ci dd bn tp) s)))
 (def ctx_ctors ((c Ctx)) (list CtorInfo) (match c ((Cx s ci dd bn tp) ci)))
@@ -96,38 +65,38 @@
 
 ; ---------------------------------------------------------------- lookups
 
-(def find_bind ((n (list int)) (env (list Bind))) FindTy
+(def find_bind ((n (list int)) (env (list Bind))) (Option Ty)
   (if (is_empty env)
-      (TyMissing)
+      ((None Ty))
       (match (head env)
         ((B bn bt)
-          (if (list_eq n bn) (TyFound bt) (find_bind n (tail env)))))))
+          (if (eq n bn) (Some bt) (find_bind n (tail env)))))))
 
-(def find_sig ((n (list int)) (sigs (list Sig))) FindSig
+(def find_sig ((n (list int)) (sigs (list Sig))) (Option Sig)
   (if (is_empty sigs)
-      (SigMissing)
+      ((None Sig))
       (match (head sigs)
         ((S sn tps sp sr)
-          (if (list_eq n sn)
-              (SigFound (head sigs))
+          (if (eq n sn)
+              (Some (head sigs))
               (find_sig n (tail sigs)))))))
 
-(def find_ctor ((n (list int)) (cs (list CtorInfo))) FindCtor
+(def find_ctor ((n (list int)) (cs (list CtorInfo))) (Option CtorInfo)
   (if (is_empty cs)
-      (CtorMissing)
+      ((None CtorInfo))
       (match (head cs)
         ((CI cn tn tag ps fts)
-          (if (list_eq n cn)
-              (CtorFound (head cs))
+          (if (eq n cn)
+              (Some (head cs))
               (find_ctor n (tail cs)))))))
 
-(def find_data ((n (list int)) (ds (list DataDef))) FindData
+(def find_data ((n (list int)) (ds (list DataDef))) (Option DataDef)
   (if (is_empty ds)
-      (DataMissing)
+      ((None DataDef))
       (match (head ds)
         ((DD dn ps cs mf)
-          (if (list_eq n dn)
-              (DataFound (head ds))
+          (if (eq n dn)
+              (Some (head ds))
               (find_data n (tail ds)))))))
 
 (def ctor_tag ((c CtorInfo)) int (match c ((CI cn tn tag ps fts) tag)))
@@ -150,8 +119,8 @@
     ((TyData n as)
       (if (is_empty as)
           (match (find_bind n bs)
-            ((TyFound x) x)
-            ((TyMissing) t))
+            ((Some x) x)
+            ((None) t))
           (TyData n (tys_subst as bs))))
     ((TyInt) t)
     ((TyBool) t)
@@ -174,8 +143,8 @@
   (if (is_empty ps)
       (nil Ty)
       (cons (match (find_bind (head ps) bs)
-              ((TyFound t) t)
-              ((TyMissing) (TyInt)))
+              ((Some t) t)
+              ((None) (TyInt)))
             (args_of (tail ps) bs))))
 
 (def is_param ((t Ty) (ps (list (list int)))) bool
@@ -186,30 +155,31 @@
 ; Matches a field's declared type against an argument's type, one way: the
 ; argument's type is complete, and a parameter in the field's type binds to
 ; the part of it in the same position, or must equal what it is bound to.
-(def match_ty ((pat Ty) (at Ty) (ps (list (list int))) (bs (list Bind))) Binds
+(def match_ty ((pat Ty) (at Ty) (ps (list (list int))) (bs (list Bind)))
+    (Checked (list Bind))
   (if (is_param pat ps)
       (match (find_bind (ty_name pat) bs)
-        ((TyFound t) (if (ty_eq t at) (BsOk bs) (BsErr 0 "")))
-        ((TyMissing) (BsOk (cons (B (ty_name pat) at) bs))))
+        ((Some t) (if (eq t at) (COk bs) ((CErr (list Bind)) 0 "")))
+        ((None) (COk (cons (B (ty_name pat) at) bs))))
       (if (not (eq (ty_kind pat) (ty_kind at)))
-          (BsErr 0 "")
+          ((CErr (list Bind)) 0 "")
           (if (or (ty_is_list pat) (ty_is_array pat))
               (match_ty (ty_elem pat) (ty_elem at) ps bs)
               (if (ty_is_data pat)
-                  (if (list_eq (ty_name pat) (ty_name at))
+                  (if (eq (ty_name pat) (ty_name at))
                       (match_tys (ty_args pat) (ty_args at) ps bs)
-                      (BsErr 0 ""))
-                  (BsOk bs))))))
+                      ((CErr (list Bind)) 0 ""))
+                  (COk bs))))))
 
 (def match_tys ((pats (list Ty)) (ats (list Ty)) (ps (list (list int)))
-                (bs (list Bind))) Binds
+                (bs (list Bind))) (Checked (list Bind))
   (if (is_empty pats)
-      (if (is_empty ats) (BsOk bs) (BsErr 0 ""))
+      (if (is_empty ats) (COk bs) ((CErr (list Bind)) 0 ""))
       (if (is_empty ats)
-          (BsErr 0 "")
+          ((CErr (list Bind)) 0 "")
           (match (match_ty (head pats) (head ats) ps bs)
-            ((BsErr o m) (BsErr o m))
-            ((BsOk bs2) (match_tys (tail pats) (tail ats) ps bs2))))))
+            ((CErr o m) ((CErr (list Bind)) o m))
+            ((COk bs2) (match_tys (tail pats) (tail ats) ps bs2))))))
 
 ; The type arguments a construction gives its data type: those written, or
 ; else those its arguments' types determine. Only for a construction the
@@ -218,8 +188,8 @@
   (if (not (is_empty tys))
       tys
       (match (match_tys (ctor_fields ci) ats (ctor_params ci) (nil Bind))
-        ((BsOk bs) (args_of (ctor_params ci) bs))
-        ((BsErr o m) (nil Ty)))))
+        ((COk bs) (args_of (ctor_params ci) bs))
+        ((CErr o m) (nil Ty)))))
 
 ; A constructor's field types for a value of type t.
 (def ctor_fields_at ((ci CtorInfo) (t Ty)) (list Ty)
@@ -230,7 +200,7 @@
       (ty_mentions n (ty_elem t))
       (if (ty_is_data t)
           (if (is_empty (ty_args t))
-              (list_eq (ty_name t) n)
+              (eq (ty_name t) n)
               (tys_mention n (ty_args t)))
           false)))
 
@@ -267,10 +237,10 @@
                   (append "type parameter " (append (ty_name t)
                     " takes no type arguments")))
               (match (find_data (ty_name t) ds)
-                ((DataMissing) (append "unknown type " (ty_name t)))
-                ((DataFound d)
-                  (let want (length_strs (data_params d))
-                    (let got (length_tys (ty_args t))
+                ((None) (append "unknown type " (ty_name t)))
+                ((Some d)
+                  (let want (length (data_params d))
+                    (let got (length (ty_args t))
                       (if (eq want got)
                           (tys_problem (ty_args t) ds ps)
                           (ty_arity_msg (ty_name t) want got))))))))))
@@ -325,7 +295,7 @@
       (if (any_eq n (split_spaces
             "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list"))
           1
-          (if (list_eq n "array_set") 3 (if (list_eq n "write_bytes") 4 2)))))
+          (if (eq n "array_set") 3 (if (eq n "write_bytes") 4 2)))))
 
 (def plural ((n int) (word (list int))) (list int)
   (if (eq n 1) word (append word "s")))
@@ -339,29 +309,23 @@
   (append what (append " must be " (append want
     (append ", but this is " (ty_str got))))))
 
-(def length_tys ((ts (list Ty))) int
-  (if (is_empty ts) 0 (add 1 (length_tys (tail ts)))))
-
-(def length_strs ((ts (list (list int)))) int
-  (if (is_empty ts) 0 (add 1 (length_strs (tail ts)))))
-
-(def check_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
-  (if (not (eq (length_tys ats) (builtin_arity n)))
-      (CTyErr o (wrong_arity_msg n (builtin_arity n) (length_tys ats)))
+(def check_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
+  (if (not (eq (length ats) (builtin_arity n)))
+      ((CErr Ty) o (wrong_arity_msg n (builtin_arity n) (length ats)))
       (if (any_eq n (bi_int_int_int 0))
           (need_all n ats o (TyInt) (TyInt))
           (if (any_eq n (bi_int_int_bool 0))
               (need_all n ats o (TyInt) (TyBool))
               (if (any_eq n (bi_bool_bool 0))
                   (need_all n ats o (TyBool) (TyBool))
-                  (if (or (list_eq n "neg") (any_eq n (bi_io 0)))
+                  (if (or (eq n "neg") (any_eq n (bi_io 0)))
                       (need_all n ats o (TyInt) (TyInt))
-                      (if (list_eq n "not")
+                      (if (eq n "not")
                           (need_all n ats o (TyBool) (TyBool))
                           (check_other_builtin n ats o))))))))
 
-(def check_other_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
-  (if (list_eq n "eq")
+(def check_other_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
+  (if (eq n "eq")
       (check_eq ats o)
       (if (any_eq n (bi_path 0))
           (need_all n ats o (TyList (TyInt)) (TyInt))
@@ -371,30 +335,31 @@
                   (check_array_builtin n ats o)
                   (check_other_builtin_rest n ats o))))))
 
-(def check_other_builtin_rest ((n (list int)) (ats (list Ty)) (o int)) CTy
+(def check_other_builtin_rest ((n (list int)) (ats (list Ty)) (o int))
+    (Checked Ty)
   (if (any_eq n (bi_bytes 0))
       (check_bytes_builtin n ats o)
       (check_list_builtin n ats o)))
 
 ; eq takes two values of any one type, which the first determines, as cons's
 ; list does. Spec 6.8.
-(def check_eq ((ats (list Ty)) (o int)) CTy
-  (if (ty_eq (head (tail ats)) (head ats))
-      (CTyOk (TyBool))
-      (CTyErr o (type_msg "the second argument of eq" (ty_str (head ats))
+(def check_eq ((ats (list Ty)) (o int)) (Checked Ty)
+  (if (eq (head (tail ats)) (head ats))
+      (COk (TyBool))
+      ((CErr Ty) o (type_msg "the second argument of eq" (ty_str (head ats))
                           (head (tail ats))))))
 
 ; The bytes builtins are not polymorphic: each argument has one type.
-(def check_bytes_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
-  (if (list_eq n "read_bytes")
+(def check_bytes_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
+  (if (eq n "read_bytes")
       (need_each n ats o (cons (TyInt) (nil Ty)) (TyBytes))
-      (if (list_eq n "bytes_len")
+      (if (eq n "bytes_len")
           (need_each n ats o (cons (TyBytes) (nil Ty)) (TyInt))
-          (if (list_eq n "bytes_get")
+          (if (eq n "bytes_get")
               (need_each n ats o (cons (TyBytes) (cons (TyInt) (nil Ty))) (TyInt))
-              (if (list_eq n "bytes_from_list")
+              (if (eq n "bytes_from_list")
                   (need_each n ats o (cons (TyList (TyInt)) (nil Ty)) (TyBytes))
-                  (if (list_eq n "bytes_to_list")
+                  (if (eq n "bytes_to_list")
                       (need_each n ats o (cons (TyBytes) (nil Ty)) (TyList (TyInt)))
                       (need_each n ats o
                         (cons (TyInt) (cons (TyBytes) (cons (TyInt) (cons (TyInt) (nil Ty)))))
@@ -403,78 +368,79 @@
 ; Each argument against the type in the same position of wants, which is as
 ; long, since the arity was checked first.
 (def need_each ((n (list int)) (ats (list Ty)) (o int) (wants (list Ty)) (res Ty))
-    CTy
+    (Checked Ty)
   (if (is_empty ats)
-      (CTyOk res)
-      (if (ty_eq (head ats) (head wants))
+      (COk res)
+      (if (eq (head ats) (head wants))
           (need_each n (tail ats) o (tail wants) res)
-          (CTyErr o (type_msg (append "an argument of " n) (ty_str (head wants))
+          ((CErr Ty) o (type_msg (append "an argument of " n) (ty_str (head wants))
                               (head ats))))))
 
 ; The array builtins are polymorphic in the element type as the list ones
 ; are: array_new's element argument determines it, and every other takes the
 ; array first.
-(def check_array_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
-  (if (list_eq n "array_new")
-      (if (ty_eq (head ats) (TyInt))
-          (CTyOk (TyArray (head (tail ats))))
-          (CTyErr o (type_msg "the length given to array_new" "int" (head ats))))
+(def check_array_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
+  (if (eq n "array_new")
+      (if (eq (head ats) (TyInt))
+          (COk (TyArray (head (tail ats))))
+          ((CErr Ty) o (type_msg "the length given to array_new" "int" (head ats))))
       (let a (head ats)
         (if (not (ty_is_array a))
-            (CTyErr o (type_msg (append "the first argument of " n) "an array" a))
-            (if (list_eq n "array_len")
-                (CTyOk (TyInt))
-                (if (not (ty_eq (head (tail ats)) (TyInt)))
-                    (CTyErr o (type_msg (append "the index given to " n) "int"
+            ((CErr Ty) o (type_msg (append "the first argument of " n) "an array" a))
+            (if (eq n "array_len")
+                (COk (TyInt))
+                (if (not (eq (head (tail ats)) (TyInt)))
+                    ((CErr Ty) o (type_msg (append "the index given to " n) "int"
                                         (head (tail ats))))
-                    (if (list_eq n "array_get")
-                        (CTyOk (ty_elem a))
+                    (if (eq n "array_get")
+                        (COk (ty_elem a))
                         (check_array_set a (head (tail (tail ats))) o))))))))
 
-(def check_array_set ((a Ty) (x Ty) (o int)) CTy
-  (if (ty_eq x (ty_elem a))
-      (CTyOk a)
-      (CTyErr o (type_msg "the element stored in an array" (ty_str (ty_elem a)) x))))
+(def check_array_set ((a Ty) (x Ty) (o int)) (Checked Ty)
+  (if (eq x (ty_elem a))
+      (COk a)
+      ((CErr Ty) o (type_msg "the element stored in an array" (ty_str (ty_elem a)) x))))
 
-(def need_all ((n (list int)) (ats (list Ty)) (o int) (want Ty) (res Ty)) CTy
+(def need_all ((n (list int)) (ats (list Ty)) (o int) (want Ty) (res Ty))
+    (Checked Ty)
   (if (is_empty ats)
-      (CTyOk res)
-      (if (ty_eq (head ats) want)
+      (COk res)
+      (if (eq (head ats) want)
           (need_all n (tail ats) o want res)
-          (CTyErr o (type_msg (append "an argument of " n) (ty_str want)
+          ((CErr Ty) o (type_msg (append "an argument of " n) (ty_str want)
                               (head ats))))))
 
 ; cons, head, tail, and is_empty are polymorphic in the element type, which
 ; the list argument determines. No inference is needed anywhere.
-(def check_list_builtin ((n (list int)) (ats (list Ty)) (o int)) CTy
-  (if (list_eq n "cons")
+(def check_list_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
+  (if (eq n "cons")
       (check_cons ats o)
       (let a (head ats)
         (if (not (ty_is_list a))
-            (CTyErr o (type_msg n "a list" a))
-            (if (list_eq n "head")
-                (CTyOk (ty_elem a))
-                (if (list_eq n "tail")
-                    (CTyOk a)
-                    (CTyOk (TyBool))))))))
+            ((CErr Ty) o (type_msg n "a list" a))
+            (if (eq n "head")
+                (COk (ty_elem a))
+                (if (eq n "tail")
+                    (COk a)
+                    (COk (TyBool))))))))
 
-(def check_cons ((ats (list Ty)) (o int)) CTy
+(def check_cons ((ats (list Ty)) (o int)) (Checked Ty)
   (let x (head ats)
     (let xs (head (tail ats))
       (if (not (ty_is_list xs))
-          (CTyErr o (type_msg "the second argument of cons" "a list" xs))
-          (if (ty_eq x (ty_elem xs))
-              (CTyOk xs)
-              (CTyErr o (type_msg "the element consed onto a list"
+          ((CErr Ty) o (type_msg "the second argument of cons" "a list" xs))
+          (if (eq x (ty_elem xs))
+              (COk xs)
+              ((CErr Ty) o (type_msg "the element consed onto a list"
                                   (ty_str (ty_elem xs)) x)))))))
 
 ; ------------------------------------------------------------ expressions
 
-(def check_expr ((e Expr) (env (list Bind)) (ctx Ctx)) CTy
+(def check_expr ((e Expr) (env (list Bind)) (ctx Ctx)) (Checked Ty)
   (match e
-    ((EInt o v) (CTyOk (TyInt)))
-    ((EBool o v) (CTyOk (TyBool)))
-    ((EStr o s) (CTyOk (TyList (TyInt))))
+    ((EInt o v) (COk (TyInt)))
+    ((EBool o v) (COk (TyBool)))
+    ((EStr o s) (COk (TyList (TyInt))))
     ((ENil o elem) (check_nil o elem ctx))
     ((EVar o n) (check_var o n env ctx))
     ((EIf o c a b) (check_if o c a b env ctx))
@@ -483,101 +449,102 @@
     ((EMatch o subject arms) (check_match o subject arms env ctx))
     ((ECall o n args) (check_call o n args env ctx))))
 
-(def check_nil ((o int) (elem Ty) (ctx Ctx)) CTy
+(def check_nil ((o int) (elem Ty) (ctx Ctx)) (Checked Ty)
   (let bad (ty_problem elem (ctx_datas ctx) (ctx_tparams ctx))
     (if (is_empty bad)
-        (CTyOk (TyList elem))
-        (CTyErr o bad))))
+        (COk (TyList elem))
+        ((CErr Ty) o bad))))
 
-(def check_var ((o int) (n (list int)) (env (list Bind)) (ctx Ctx)) CTy
+(def check_var ((o int) (n (list int)) (env (list Bind)) (ctx Ctx)) (Checked Ty)
   (match (find_bind n env)
-    ((TyFound t) (CTyOk t))
-    ((TyMissing)
+    ((Some t) (COk t))
+    ((None)
       (if (or (is_builtin_in n ctx) (sig_exists n (ctx_sigs ctx)))
-          (CTyErr o (append n " is a function, and L0 has no function values"))
-          (CTyErr o (append "unknown variable " n))))))
+          ((CErr Ty) o (append n " is a function, and L0 has no function values"))
+          ((CErr Ty) o (append "unknown variable " n))))))
 
 (def sig_exists ((n (list int)) (sigs (list Sig))) bool
   (match (find_sig n sigs)
-    ((SigFound s) true)
-    ((SigMissing) false)))
+    ((Some s) true)
+    ((None) false)))
 
 (def if_branch_msg ((at Ty) (bt Ty)) (list int)
   (append "the branches of an if must have the same type, but then is "
     (append (ty_str at) (append " and else is " (ty_str bt)))))
 
 (def check_if ((o int) (c Expr) (a Expr) (b Expr) (env (list Bind))
-               (ctx Ctx)) CTy
+               (ctx Ctx)) (Checked Ty)
   (match (check_expr c env ctx)
-    ((CTyErr eo m) (CTyErr eo m))
-    ((CTyOk ct)
-      (if (not (ty_eq ct (TyBool)))
-          (CTyErr o (type_msg "the condition of an if" "bool" ct))
+    ((CErr eo m) ((CErr Ty) eo m))
+    ((COk ct)
+      (if (not (eq ct (TyBool)))
+          ((CErr Ty) o (type_msg "the condition of an if" "bool" ct))
           (check_if_branches o a b env ctx)))))
 
 (def check_if_branches ((o int) (a Expr) (b Expr) (env (list Bind))
-                        (ctx Ctx)) CTy
+                        (ctx Ctx)) (Checked Ty)
   (match (check_expr a env ctx)
-    ((CTyErr eo m) (CTyErr eo m))
-    ((CTyOk at)
+    ((CErr eo m) ((CErr Ty) eo m))
+    ((COk at)
       (match (check_expr b env ctx)
-        ((CTyErr eo m) (CTyErr eo m))
-        ((CTyOk bt)
-          (if (ty_eq at bt)
-              (CTyOk at)
-              (CTyErr o (if_branch_msg at bt))))))))
+        ((CErr eo m) ((CErr Ty) eo m))
+        ((COk bt)
+          (if (eq at bt)
+              (COk at)
+              ((CErr Ty) o (if_branch_msg at bt))))))))
 
 (def check_let ((o int) (n (list int)) (v Expr) (body Expr) (env (list Bind))
-                (ctx Ctx)) CTy
+                (ctx Ctx)) (Checked Ty)
   (match (check_expr v env ctx)
-    ((CTyErr eo m) (CTyErr eo m))
-    ((CTyOk vt) (check_expr body (cons (B n vt) env) ctx))))
+    ((CErr eo m) ((CErr Ty) eo m))
+    ((COk vt) (check_expr body (cons (B n vt) env) ctx))))
 
 (def check_args ((args (list Expr)) (env (list Bind)) (ctx Ctx)
-                 (acc (list Ty))) CTys
+                 (acc (list Ty))) (Checked (list Ty))
   (if (is_empty args)
-      (CTysOk (rev_tys_onto acc (nil Ty)))
+      (COk (rev_onto acc (nil Ty)))
       (match (check_expr (head args) env ctx)
-        ((CTyErr o m) (CTysErr o m))
-        ((CTyOk t) (check_args (tail args) env ctx (cons t acc))))))
+        ((CErr o m) ((CErr (list Ty)) o m))
+        ((COk t) (check_args (tail args) env ctx (cons t acc))))))
 
 (def check_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
-                 (ctx Ctx)) CTy
+                 (ctx Ctx)) (Checked Ty)
   (match (check_args args env ctx (nil Ty))
-    ((CTysErr eo m) (CTyErr eo m))
-    ((CTysOk ats)
+    ((CErr eo m) ((CErr Ty) eo m))
+    ((COk ats)
       (if (is_builtin_in n ctx)
           (check_builtin n ats o)
           (match (find_sig n (ctx_sigs ctx))
-            ((SigMissing) (check_call_missing o n env))
-            ((SigFound s) (check_user_call o n ats s)))))))
+            ((None) (check_call_missing o n env))
+            ((Some s) (check_user_call o n ats s)))))))
 
-(def check_call_missing ((o int) (n (list int)) (env (list Bind))) CTy
+(def check_call_missing ((o int) (n (list int)) (env (list Bind))) (Checked Ty)
   (match (find_bind n env)
-    ((TyFound t)
-      (CTyErr o (append n " is a local value, and L0 cannot call a value")))
-    ((TyMissing) (CTyErr o (append "unknown function " n)))))
+    ((Some t)
+      ((CErr Ty) o (append n " is a local value, and L0 cannot call a value")))
+    ((None) ((CErr Ty) o (append "unknown function " n)))))
 
-(def check_user_call ((o int) (n (list int)) (ats (list Ty)) (s Sig)) CTy
+(def check_user_call ((o int) (n (list int)) (ats (list Ty)) (s Sig))
+    (Checked Ty)
   (match s
     ((S sn tps sps sr)
-      (if (not (eq (length_tys ats) (length_tys sps)))
-          (CTyErr o (wrong_arity_msg n (length_tys sps) (length_tys ats)))
+      (if (not (eq (length ats) (length sps)))
+          ((CErr Ty) o (wrong_arity_msg n (length sps) (length ats)))
           (if (is_empty tps)
               (match (match_params n ats sps o 1)
-                ((CTyErr eo m) (CTyErr eo m))
-                ((CTyOk ignored) (CTyOk sr)))
+                ((CErr eo m) ((CErr Ty) eo m))
+                ((COk ignored) (COk sr)))
               (match (infer_fields n ats sps tps (nil Bind) o 1)
-                ((BsErr eo m) (CTyErr eo m))
-                ((BsOk bs) (CTyOk (ty_subst sr bs)))))))))
+                ((CErr eo m) ((CErr Ty) eo m))
+                ((COk bs) (COk (ty_subst sr bs)))))))))
 
 (def match_params ((n (list int)) (ats (list Ty)) (sps (list Ty)) (o int)
-                   (i int)) CTy
+                   (i int)) (Checked Ty)
   (if (is_empty ats)
-      (CTyOk (TyInt))
-      (if (ty_eq (head ats) (head sps))
+      (COk (TyInt))
+      (if (eq (head ats) (head sps))
           (match_params n (tail ats) (tail sps) o (add i 1))
-          (CTyErr o (type_msg
+          ((CErr Ty) o (type_msg
             (append "argument " (append (digits i) (append " of " n)))
             (ty_str (head sps)) (head ats))))))
 
@@ -585,57 +552,57 @@
 
 ; tys are the type arguments, if the construction wrote them. Spec 5.6.
 (def check_ctor_expr ((o int) (n (list int)) (tys (list Ty)) (args (list Expr))
-                      (env (list Bind)) (ctx Ctx)) CTy
+                      (env (list Bind)) (ctx Ctx)) (Checked Ty)
   (match (find_ctor n (ctx_ctors ctx))
-    ((CtorMissing) (CTyErr o (append "unknown constructor " n)))
-    ((CtorFound ci)
+    ((None) ((CErr Ty) o (append "unknown constructor " n)))
+    ((Some ci)
       (match (check_args args env ctx (nil Ty))
-        ((CTysErr eo m) (CTyErr eo m))
-        ((CTysOk ats) (check_ctor_fields o n tys ats ci ctx))))))
+        ((CErr eo m) ((CErr Ty) eo m))
+        ((COk ats) (check_ctor_fields o n tys ats ci ctx))))))
 
 (def check_ctor_fields ((o int) (n (list int)) (tys (list Ty)) (ats (list Ty))
-                        (ci CtorInfo) (ctx Ctx)) CTy
+                        (ci CtorInfo) (ctx Ctx)) (Checked Ty)
   (let fts (ctor_fields ci)
-    (if (not (eq (length_tys ats) (length_tys fts)))
-        (CTyErr o (append n (append " takes " (append (digits (length_tys fts))
-          (append " " (append (plural (length_tys fts) "field")
-            (append ", but got " (digits (length_tys ats)))))))))
+    (if (not (eq (length ats) (length fts)))
+        ((CErr Ty) o (append n (append " takes " (append (digits (length fts))
+          (append " " (append (plural (length fts) "field")
+            (append ", but got " (digits (length ats)))))))))
         (if (not (is_empty tys))
             (check_ctor_written o n tys ats ci ctx)
             (if (is_empty (ctor_params ci))
                 (match (match_params n ats fts o 1)
-                  ((CTyErr eo m) (CTyErr eo m))
-                  ((CTyOk ignored)
-                    (CTyOk (TyData (ctor_type_name ci) (nil Ty)))))
+                  ((CErr eo m) ((CErr Ty) eo m))
+                  ((COk ignored)
+                    (COk (TyData (ctor_type_name ci) (nil Ty)))))
                 (check_ctor_inferred o n ats ci))))))
 
 ; ((C type...) arg...): the types are the data type's arguments.
 (def check_ctor_written ((o int) (n (list int)) (tys (list Ty)) (ats (list Ty))
-                         (ci CtorInfo) (ctx Ctx)) CTy
+                         (ci CtorInfo) (ctx Ctx)) (Checked Ty)
   (let ps (ctor_params ci)
-    (if (not (eq (length_tys tys) (length_strs ps)))
-        (CTyErr o (ty_arity_msg (ctor_type_name ci) (length_strs ps)
-                                (length_tys tys)))
+    (if (not (eq (length tys) (length ps)))
+        ((CErr Ty) o (ty_arity_msg (ctor_type_name ci) (length ps)
+                                (length tys)))
         (let bad (tys_problem tys (ctx_datas ctx) (ctx_tparams ctx))
           (if (not (is_empty bad))
-              (CTyErr o bad)
+              ((CErr Ty) o bad)
               (match (match_params n ats (tys_subst (ctor_fields ci) (zip_binds ps tys))
                                    o 1)
-                ((CTyErr eo m) (CTyErr eo m))
-                ((CTyOk ignored) (CTyOk (TyData (ctor_type_name ci) tys)))))))))
+                ((CErr eo m) ((CErr Ty) eo m))
+                ((COk ignored) (COk (TyData (ctor_type_name ci) tys)))))))))
 
 ; (C arg...) of a type with parameters: the arguments' types say what the
 ; parameters stand for, so the constructor must mention every one.
 (def check_ctor_inferred ((o int) (n (list int)) (ats (list Ty)) (ci CtorInfo))
-    CTy
+    (Checked Ty)
   (let ps (ctor_params ci)
     (let missing (undetermined ps (ctor_fields ci))
       (if (not (is_empty missing))
-          (CTyErr o (undetermined_msg n missing (ctor_type_name ci) ps))
+          ((CErr Ty) o (undetermined_msg n missing (ctor_type_name ci) ps))
           (match (infer_fields n ats (ctor_fields ci) ps (nil Bind) o 1)
-            ((BsErr eo m) (CTyErr eo m))
-            ((BsOk bs)
-              (CTyOk (TyData (ctor_type_name ci) (args_of ps bs)))))))))
+            ((CErr eo m) ((CErr Ty) eo m))
+            ((COk bs)
+              (COk (TyData (ctor_type_name ci) (args_of ps bs)))))))))
 
 (def undetermined_msg ((n (list int)) (p (list int)) (tn (list int))
                        (ps (list (list int)))) (list int)
@@ -653,41 +620,42 @@
 ; Each argument against its field, left to right, so a parameter an earlier
 ; argument bound is reported against the type it was bound to.
 (def infer_fields ((n (list int)) (ats (list Ty)) (fts (list Ty))
-                   (ps (list (list int))) (bs (list Bind)) (o int) (i int)) Binds
+                   (ps (list (list int))) (bs (list Bind)) (o int) (i int))
+    (Checked (list Bind))
   (if (is_empty ats)
-      (BsOk bs)
+      (COk bs)
       (match (match_ty (head fts) (head ats) ps bs)
-        ((BsOk bs2) (infer_fields n (tail ats) (tail fts) ps bs2 o (add i 1)))
-        ((BsErr eo m)
-          (BsErr o (type_msg
+        ((COk bs2) (infer_fields n (tail ats) (tail fts) ps bs2 o (add i 1)))
+        ((CErr eo m)
+          ((CErr (list Bind)) o (type_msg
             (append "argument " (append (digits i) (append " of " n)))
             (ty_str (ty_subst (head fts) bs)) (head ats)))))))
 
 ; ------------------------------------------------------------------ match
 
 (def check_match ((o int) (subject Expr) (arms (list Arm)) (env (list Bind))
-                  (ctx Ctx)) CTy
+                  (ctx Ctx)) (Checked Ty)
   (match (check_expr subject env ctx)
-    ((CTyErr eo m) (CTyErr eo m))
-    ((CTyOk st)
+    ((CErr eo m) ((CErr Ty) eo m))
+    ((COk st)
       (if (not (if (ty_is_data st) (not (is_param st (ctx_tparams ctx))) false))
-          (CTyErr o (type_msg "the subject of a match" "a data type" st))
+          ((CErr Ty) o (type_msg "the subject of a match" "a data type" st))
           (match (find_data (ty_name st) (ctx_datas ctx))
-            ((DataMissing) (CTyErr o (append "unknown type " (ty_name st))))
-            ((DataFound dd)
+            ((None) ((CErr Ty) o (append "unknown type " (ty_name st))))
+            ((Some dd)
               (check_arms o arms dd (zip_binds (data_params dd) (ty_args st))
                           env ctx)))))))
 
 ; bs binds the data type's parameters to the subject type's arguments.
 (def check_arms ((o int) (arms (list Arm)) (dd DataDef) (bs (list Bind))
-                 (env (list Bind)) (ctx Ctx)) CTy
+                 (env (list Bind)) (ctx Ctx)) (Checked Ty)
   (match (check_each_arm arms dd bs env ctx (nil (list int)))
-    ((CTyErr eo m) (CTyErr eo m))
-    ((CTyOk armty)
+    ((CErr eo m) ((CErr Ty) eo m))
+    ((COk armty)
       (let missing (missing_ctor (data_ctors dd) (seen_ctors arms))
         (if (is_empty missing)
-            (CTyOk armty)
-            (CTyErr o (append "match on " (append (data_name dd)
+            (COk armty)
+            ((CErr Ty) o (append "match on " (append (data_name dd)
               (append " is missing an arm for " missing)))))))))
 
 (def data_name ((d DataDef)) (list int) (match d ((DD n ps cs mf) n)))
@@ -710,24 +678,26 @@
 ; Checks every arm, requiring they all have the same type. dups carries the
 ; constructors already seen, which is what makes a repeated arm an error.
 (def check_each_arm ((arms (list Arm)) (dd DataDef) (bs (list Bind))
-                     (env (list Bind)) (ctx Ctx) (dups (list (list int)))) CTy
+                     (env (list Bind)) (ctx Ctx) (dups (list (list int))))
+    (Checked Ty)
   (if (is_empty arms)
-      (CTyOk (TyInt))
+      (COk (TyInt))
       (match (check_one_arm (head arms) dd bs env ctx dups)
-        ((CTyErr eo m) (CTyErr eo m))
-        ((CTyOk t) (check_rest_arms t arms dd bs env ctx dups)))))
+        ((CErr eo m) ((CErr Ty) eo m))
+        ((COk t) (check_rest_arms t arms dd bs env ctx dups)))))
 
 (def check_rest_arms ((t Ty) (arms (list Arm)) (dd DataDef) (bs (list Bind))
-                      (env (list Bind)) (ctx Ctx) (dups (list (list int)))) CTy
+                      (env (list Bind)) (ctx Ctx) (dups (list (list int))))
+    (Checked Ty)
   (if (is_empty (tail arms))
-      (CTyOk t)
+      (COk t)
       (match (check_each_arm (tail arms) dd bs env ctx
                (cons (arm_ctor_name (head arms)) dups))
-        ((CTyErr eo m) (CTyErr eo m))
-        ((CTyOk rest)
-          (if (ty_eq t rest)
-              (CTyOk t)
-              (CTyErr (arm_offset (head (tail arms)))
+        ((CErr eo m) ((CErr Ty) eo m))
+        ((COk rest)
+          (if (eq t rest)
+              (COk t)
+              ((CErr Ty) (arm_offset (head (tail arms)))
                 (append "all match arms must have the same type, but one is "
                   (append (ty_str t) (append " and another is "
                     (ty_str rest))))))))))
@@ -735,31 +705,31 @@
 (def arm_offset ((a Arm)) int (match a ((A o cn ns b) o)))
 
 (def check_one_arm ((a Arm) (dd DataDef) (bs (list Bind)) (env (list Bind))
-                    (ctx Ctx) (dups (list (list int)))) CTy
+                    (ctx Ctx) (dups (list (list int)))) (Checked Ty)
   (match a
     ((A o cn names body)
       (if (any_eq cn dups)
-          (CTyErr o (append cn " already has an arm in this match"))
+          ((CErr Ty) o (append cn " already has an arm in this match"))
           (match (find_ctor cn (ctx_ctors ctx))
-            ((CtorMissing) (CTyErr o (append "unknown constructor " cn)))
-            ((CtorFound ci)
+            ((None) ((CErr Ty) o (append "unknown constructor " cn)))
+            ((Some ci)
               (check_arm_binds o cn names body ci dd bs env ctx)))))))
 
 (def check_arm_binds ((o int) (cn (list int)) (names (list (list int)))
                       (body Expr) (ci CtorInfo) (dd DataDef) (bs (list Bind))
-                      (env (list Bind)) (ctx Ctx)) CTy
-  (if (not (list_eq (ctor_type_name ci) (data_name dd)))
-      (CTyErr o (append cn (append " is a constructor of "
+                      (env (list Bind)) (ctx Ctx)) (Checked Ty)
+  (if (not (eq (ctor_type_name ci) (data_name dd)))
+      ((CErr Ty) o (append cn (append " is a constructor of "
         (append (ctor_type_name ci) (append ", not " (data_name dd))))))
-      (if (not (eq (length_strs names) (length_tys (ctor_fields ci))))
-          (CTyErr o (append cn (append " has "
-            (append (digits (length_tys (ctor_fields ci)))
-              (append " " (append (plural (length_tys (ctor_fields ci)) "field")
+      (if (not (eq (length names) (length (ctor_fields ci))))
+          ((CErr Ty) o (append cn (append " has "
+            (append (digits (length (ctor_fields ci)))
+              (append " " (append (plural (length (ctor_fields ci)) "field")
                 (append ", but this pattern binds "
-                  (digits (length_strs names)))))))))
+                  (digits (length names)))))))))
           (let dup (dup_name names (nil (list int)))
             (if (not (is_empty dup))
-                (CTyErr o (append dup " is bound twice in the same pattern"))
+                ((CErr Ty) o (append dup " is bound twice in the same pattern"))
                 (check_expr body
                   (bind_fields names (tys_subst (ctor_fields ci) bs) env)
                   ctx))))))
@@ -793,7 +763,7 @@
       best
       (match (head cs)
         ((C o n fts)
-          (let w (length_tys fts)
+          (let w (length fts)
             (max_fields (tail cs) (if (gt w best) w best)))))))
 
 (def collect_datas ((ds (list Decl)) (acc (list DataDef))) (list DataDef)
@@ -902,9 +872,9 @@
 (def check_body ((o int) (n (list int)) (ps (list Param)) (ret Ty)
                  (body Expr) (ctx Ctx)) (list Diag)
   (match (check_expr body (params_to_env ps (nil Bind)) ctx)
-    ((CTyErr eo m) (one_diag eo m))
-    ((CTyOk bt)
-      (if (ty_eq bt ret)
+    ((CErr eo m) (one_diag eo m))
+    ((COk bt)
+      (if (eq bt ret)
           (nil Diag)
           (one_diag o (ret_mismatch_msg n ret bt))))))
 
@@ -1048,11 +1018,11 @@
 ; required, and a wrong one is reported where it is declared. Spec 9.1.
 (def check_main ((uds (list Decl)) (want_main bool)) (list Diag)
   (match (find_sig "main" (collect_sigs uds (nil Sig)))
-    ((SigMissing)
+    ((None)
       (if want_main
           (one_diag -1 "this program has no main function")
           (nil Diag)))
-    ((SigFound s) (check_main_sig s (main_offset uds)))))
+    ((Some s) (check_main_sig s (main_offset uds)))))
 
 ; The two forms of spec 9: a function of the whole input, or a program that
 ; streams and returns its exit status.
@@ -1062,15 +1032,15 @@
       (if (not (is_empty tps))
           (one_diag o "main takes no type parameters")
           (if (is_empty ps)
-              (if (ty_eq ret (TyInt))
+              (if (eq ret (TyInt))
                   (nil Diag)
                   (one_diag o "a main with no parameters must return int"))
               (check_input_main ps ret o))))))
 
 (def check_input_main ((ps (list Ty)) (ret Ty) (o int)) (list Diag)
-  (if (not (eq (length_tys ps) 1))
+  (if (not (eq (length ps) 1))
       (one_diag o (main_params_msg 0))
-      (if (not (ty_eq (head ps) (TyList (TyInt))))
+      (if (not (eq (head ps) (TyList (TyInt))))
           (one_diag o (main_params_msg 0))
           (if (main_ret_ok ret)
               (nil Diag)
@@ -1087,11 +1057,11 @@
           (main_offset (tail ds)))))
 
 (def is_main_def ((d Decl)) bool
-  (if (is_def d) (list_eq (decl_name d) "main") false))
+  (if (is_def d) (eq (decl_name d) "main") false))
 
 (def main_ret_ok ((t Ty)) bool
-  (or (ty_eq t (TyInt))
-      (or (ty_eq t (TyBool)) (ty_eq t (TyList (TyInt))))))
+  (or (eq t (TyInt))
+      (or (eq t (TyBool)) (eq t (TyList (TyInt))))))
 
 (def build_ctx ((ds (list Decl))) Ctx
   (sigs_ctx (collect_sigs ds (nil Sig)) ds))
@@ -1122,20 +1092,15 @@
 
 (def prelude_decls ((ds (list Decl)) (pre int) (acc (list Decl))) (list Decl)
   (if (is_empty ds)
-      (rev_decls_onto acc (nil Decl))
+      (rev_onto acc (nil Decl))
       (prelude_decls (tail ds) pre
         (if (in_prelude (head ds) pre) (cons (head ds) acc) acc))))
 
 (def program_decls ((ds (list Decl)) (pre int) (acc (list Decl))) (list Decl)
   (if (is_empty ds)
-      (rev_decls_onto acc (nil Decl))
+      (rev_onto acc (nil Decl))
       (program_decls (tail ds) pre
         (if (in_prelude (head ds) pre) acc (cons (head ds) acc)))))
-
-(def append_sigs ((xs (list Sig)) (ys (list Sig))) (list Sig)
-  (if (is_empty xs)
-      ys
-      (cons (head xs) (append_sigs (tail xs) ys))))
 
 ; A prelude declaration sees prelude functions only.
 (def prelude_view ((ds (list Decl)) (pre int)) Ctx
@@ -1145,7 +1110,7 @@
 ; match, so putting the program's signatures ahead of the prelude's is the
 ; whole of shadowing.
 (def program_view ((ds (list Decl)) (pre int)) Ctx
-  (sigs_ctx (append_sigs
+  (sigs_ctx (append
               (collect_sigs (program_decls ds pre (nil Decl)) (nil Sig))
               (collect_sigs (prelude_decls ds pre (nil Decl)) (nil Sig)))
             ds))
@@ -1163,7 +1128,7 @@
 
 (def check_grouped ((ds (list Decl)) (want_main bool) (pre int)) (list Diag)
   (let uds (program_decls ds pre (nil Decl))
-    (rev_diags_onto
+    (rev_onto
       (check_decls ds (prelude_view ds pre) (program_view ds pre) pre
         (check_widths ds
           (check_dups ds pre (nil (list int)) (nil (list int))
@@ -1190,9 +1155,9 @@
       (nil Diag)
       (match (head cs)
         ((C co cn fts)
-          (if (gt (length_tys fts) 31)
+          (if (gt (length fts) 31)
               (one_diag o (append "constructor " (append cn (append " has "
-                (append (digits (length_tys fts))
+                (append (digits (length fts))
                   " fields, and at most 31 are allowed")))))
               (too_wide o (tail cs)))))))
 
@@ -1233,7 +1198,7 @@
 (def rename_prelude ((ds (list Decl)) (pre int) (tns (list (list int)))
                      (cns (list (list int))) (acc (list Decl))) (list Decl)
   (if (is_empty ds)
-      (rev_decls_onto acc (nil Decl))
+      (rev_onto acc (nil Decl))
       (rename_prelude (tail ds) pre tns cns
         (cons (if (in_prelude (head ds) pre)
                   (rn_decl (head ds) tns cns)
@@ -1339,7 +1304,7 @@
 (def hide_decls ((ds (list Decl)) (tns (list (list int))) (acc (list Decl)))
     (list Decl)
   (if (is_empty ds)
-      (rev_decls_onto acc (nil Decl))
+      (rev_onto acc (nil Decl))
       (hide_decls (tail ds) tns (cons (hide_decl (head ds) tns) acc))))
 
 (def hide_decl ((d Decl) (tns (list (list int)))) Decl
@@ -1366,8 +1331,8 @@
   (if (is_empty fps)
       fps
       (cons (match (find_bind (head fps) bs)
-              ((TyFound t) (ty_name t))
-              ((TyMissing) (head fps)))
+              ((Some t) (ty_name t))
+              ((None) (head fps)))
             (hidden_names (tail fps) bs))))
 
 ; ty_subst, except that a name given arguments is replaced too, by the name
@@ -1379,8 +1344,8 @@
     ((TyArray e) (TyArray (ty_inst e bs)))
     ((TyData n as)
       (match (find_bind n bs)
-        ((TyFound x) (if (is_empty as) x (TyData (ty_name x) (tys_inst as bs))))
-        ((TyMissing) (TyData n (tys_inst as bs)))))
+        ((Some x) (if (is_empty as) x (TyData (ty_name x) (tys_inst as bs))))
+        ((None) (TyData n (tys_inst as bs)))))
     ((TyInt) t)
     ((TyBool) t)
     ((TyBytes) t)))
@@ -1442,7 +1407,7 @@
 (def mono_decls ((ds (list Decl)) (pre int) (pv Ctx) (gv Ctx) (acc (list Decl)))
     (list Decl)
   (if (is_empty ds)
-      (rev_decls_onto acc (nil Decl))
+      (rev_onto acc (nil Decl))
       (mono_decls (tail ds) pre pv gv
         (mono_decl (head ds) (if (in_prelude (head ds) pre) pv gv) acc))))
 
@@ -1503,8 +1468,8 @@
   (if (is_empty tps)
       (nil bool)
       (cons (match (find_bind (head tps) bs)
-              ((TyFound t) (ty_is_counted t))
-              ((TyMissing) false))
+              ((Some t) (ty_is_counted t))
+              ((None) false))
             (kinds_of (tail tps) bs))))
 
 (def mono_body ((body Expr) (ps (list Param)) (ctx Ctx)) Expr
@@ -1520,7 +1485,7 @@
     ((EBool o v) (Mo e (TyBool)))
     ((EStr o s) (Mo e (TyList (TyInt))))
     ((ENil o t) (Mo e (TyList t)))
-    ((EVar o n) (Mo e (match (find_bind n env) ((TyFound t) t) ((TyMissing) (TyInt)))))
+    ((EVar o n) (Mo e (match (find_bind n env) ((Some t) t) ((None) (TyInt)))))
     ((EIf o c a b)
       (match (mono_expr a env ctx)
         ((Mo a2 at)
@@ -1551,8 +1516,8 @@
     ((Mos args2 ats)
       (Mo (ECtor o n tys args2)
           (match (find_ctor n (ctx_ctors ctx))
-            ((CtorFound ci) (TyData (ctor_type_name ci) (ctor_type_args ci tys ats)))
-            ((CtorMissing) (TyInt)))))))
+            ((Some ci) (TyData (ctor_type_name ci) (ctor_type_args ci tys ats)))
+            ((None) (TyInt)))))))
 
 (def mono_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
                 (ctx Ctx)) Mono
@@ -1560,19 +1525,19 @@
     ((Mos args2 ats)
       (if (is_builtin_in n ctx)
           (Mo (ECall o n args2)
-              (match (check_builtin n ats o) ((CTyOk t) t) ((CTyErr eo m) (TyInt))))
+              (match (check_builtin n ats o) ((COk t) t) ((CErr eo m) (TyInt))))
           (match (find_sig n (ctx_sigs ctx))
-            ((SigMissing) (Mo (ECall o n args2) (TyInt)))
-            ((SigFound s)
+            ((None) (Mo (ECall o n args2) (TyInt)))
+            ((Some s)
               (match s
                 ((S sn tps sps sr)
                   (if (is_empty tps)
                       (Mo (ECall o n args2) sr)
                       (match (match_tys sps ats tps (nil Bind))
-                        ((BsOk bs)
+                        ((COk bs)
                           (Mo (ECall o (copy_name n (kinds_of tps bs)) args2)
                               (ty_subst sr bs)))
-                        ((BsErr eo m) (Mo (ECall o n args2) sr))))))))))))
+                        ((CErr eo m) (Mo (ECall o n args2) sr))))))))))))
 
 (data MonoArms
   (MoA (list Arm) Ty))
@@ -1582,8 +1547,8 @@
   (match (mono_expr s env ctx)
     ((Mo s2 st)
       (match (find_data (ty_name st) (ctx_datas ctx))
-        ((DataMissing) (Mo (EMatch o s2 arms) (TyInt)))
-        ((DataFound dd)
+        ((None) (Mo (EMatch o s2 arms) (TyInt)))
+        ((Some dd)
           (match (mono_arms arms (zip_binds (data_params dd) (ty_args st)) env ctx
                             (nil Arm) (TyInt))
             ((MoA as2 t) (Mo (EMatch o s2 as2) t))))))))
@@ -1592,7 +1557,7 @@
 (def mono_arms ((arms (list Arm)) (bs (list Bind)) (env (list Bind)) (ctx Ctx)
                 (acc (list Arm)) (t Ty)) MonoArms
   (if (is_empty arms)
-      (MoA (rev_arms_onto acc (nil Arm)) t)
+      (MoA (rev_onto acc (nil Arm)) t)
       (match (head arms)
         ((A ao cn names body)
           (match (mono_expr body (bind_fields names (arm_fields_at cn bs ctx) env)
@@ -1602,5 +1567,5 @@
 
 (def arm_fields_at ((cn (list int)) (bs (list Bind)) (ctx Ctx)) (list Ty)
   (match (find_ctor cn (ctx_ctors ctx))
-    ((CtorFound ci) (tys_subst (ctor_fields ci) bs))
-    ((CtorMissing) (nil Ty))))
+    ((Some ci) (tys_subst (ctor_fields ci) bs))
+    ((None) (nil Ty))))

@@ -39,21 +39,15 @@
 (def fe_start ((f FileEntry)) int (match f ((FE s p) s)))
 (def fe_path ((f FileEntry)) (list int) (match f ((FE s p) p)))
 
-(def rev_entries_onto ((xs (list FileEntry)) (acc (list FileEntry)))
-    (list FileEntry)
-  (if (is_empty xs)
-      acc
-      (rev_entries_onto (tail xs) (cons (head xs) acc))))
-
 (def parse_entry ((ln (list int))) FileEntry
   (FE (int_prefix ln 0) (skip_spaces (skip_digits ln))))
 
 (def parse_entries ((s (list int)) (acc (list FileEntry)) (want_main bool)
                     (pre int)) Bundle
   (if (is_empty s)
-      (Bnd (rev_entries_onto acc (nil FileEntry)) (nil int) want_main pre)
+      (Bnd (rev_onto acc (nil FileEntry)) (nil int) want_main pre)
       (if (starts_with s "#source")
-          (Bnd (rev_entries_onto acc (nil FileEntry)) (drop_line s)
+          (Bnd (rev_onto acc (nil FileEntry)) (drop_line s)
                want_main pre)
           (parse_header_line s acc want_main pre))))
 
@@ -151,15 +145,10 @@
     ((Bnd entries src want_main pre)
       (match (parse_program (lex src))
         ((PP ds perrs)
-          (let all (append_diags perrs (check_program ds want_main pre))
+          (let all (append perrs (check_program ds want_main pre))
             (if (is_empty all)
                 (append "O\n" (emit_module ds pre))
                 (failure src entries all))))))))
-
-(def append_diags ((xs (list Diag)) (ys (list Diag))) (list Diag)
-  (if (is_empty xs)
-      ys
-      (cons (head xs) (append_diags (tail xs) ys))))
 
 (def main ((input (list int))) (list int)
   (compile input))

@@ -7,6 +7,39 @@ New entries go at the top.
 
 ---
 
+## The compiler is written with type parameters and eq, and no language change for it
+
+**The compiler's copies are gone** (roadmap item 0047). Its 19 per-type
+`rev`, `length`, and `append` functions (`rev_decls_onto`, `length_tys`,
+`append_sigs`, and the rest) are calls to the prelude's generic ones. It
+compares with `eq` where it called `list_eq` 73 times, and where it had
+written `ty_eq`, `tys_eq`, and `bools_eq`, which compared exactly what `eq`
+compares, since a `Ty` holds no positions. The checker's `FindSig`,
+`FindTy`, `FindCtor`, and `FindData` are `Option`. Its `CTy`, `CTys`, and
+`Binds` are one `(Checked T)`, and the parser's nine result types, `PTy`
+through `PDecl`, are one `(Parsed T)`; with that, `parse_arm` and
+`parse_ctor` return an arm and a constructor rather than a list of one,
+which they did only to share a list's result type.
+
+**Why `Checked` and `Parsed`, not `Result`.** Each carries two fields where
+`Result`'s constructors carry one: a parser's success is a value and the
+tokens after it, and every failure is an offset and a message. As a
+`Result`, every error would be built as `(D o m)` inside an `Err` and taken
+apart by a second `match`, since patterns are one level deep, and the
+parser's successes would need a pair type the library does not have. A
+failure is built as `((CErr Ty) o m)` or `((PErr Expr) o m)`, its type
+written as `None`'s is, and matched as `((CErr o m) ...)`.
+
+**What it cost.** Nothing visible: the compiler emits the same bytes as
+before on its own source and on every program and failing program in
+`tests/lang`, `tests/check`, and `tests/io` (checked against the seed it
+replaced), and compiles itself in the same 0.15 s. Its IR shrank from
+1,167,452 bytes to 1,157,183, and its source by 149 lines.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## The prelude takes back the generic definitions, and no language change for it
 
 **`lib/prelude.l0` holds every definition that does no I/O** (roadmap item

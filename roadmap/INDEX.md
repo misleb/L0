@@ -19,15 +19,17 @@ compares two values of any type (0042), which the library and the suite
 now use (0043). The compiler and the prelude could use neither, since stage
 0 still ran their source; 0044 found that only the tools required it, and
 the tools no longer do (0045). The prelude has taken back the generic
-definitions, which the compiler now calls (0046), and the compiler's own
-per-type copies are next (0047).
+definitions, which the compiler now calls (0046), and the compiler is
+written with type parameters and `eq` throughout (0047). Left from 0041's
+candidates, each waiting for a program that needs it: a specified `hash`
+with a library map (the hash tries written four times), `compare`, and
+function values. 0045's Linux runs are owed.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0047](0047-compiler-uses-generics.md) the compiler uses type parameters
-   and eq — queued, next
+Empty.
 
 ## Other open items
 
@@ -148,3 +150,6 @@ None.
 - [0046](0046-prelude-generics.md) the prelude takes back the generic
   definitions — done, changelog "The prelude takes back the generic
   definitions, and no language change for it"
+- [0047](0047-compiler-uses-generics.md) the compiler uses type parameters
+  and eq — done, changelog "The compiler is written with type parameters
+  and eq, and no language change for it"

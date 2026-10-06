@@ -79,21 +79,21 @@
       "0"
       (match (head binds)
         ((EB bn op t ro)
-          (if (list_eq n bn) op (lookup_operand n (tail binds)))))))
+          (if (eq n bn) op (lookup_operand n (tail binds)))))))
 
 (def lookup_type ((n (list int)) (binds (list EBind))) Ty
   (if (is_empty binds)
       (TyInt)
       (match (head binds)
         ((EB bn op t ro)
-          (if (list_eq n bn) t (lookup_type n (tail binds)))))))
+          (if (eq n bn) t (lookup_type n (tail binds)))))))
 
 (def lookup_read_only ((n (list int)) (binds (list EBind))) bool
   (if (is_empty binds)
       false
       (match (head binds)
         ((EB bn op t ro)
-          (if (list_eq n bn) ro (lookup_read_only n (tail binds)))))))
+          (if (eq n bn) ro (lookup_read_only n (tail binds)))))))
 
 (def is_read_only ((n (list int)) (env Env)) bool
   (lookup_read_only n (env_binds env)))
@@ -192,7 +192,7 @@
 (def set_del ((n (list int)) (s (list (list int)))) (list (list int))
   (if (is_empty s)
       s
-      (if (list_eq n (head s)) (tail s) (cons (head s) (set_del n (tail s))))))
+      (if (eq n (head s)) (tail s) (cons (head s) (set_del n (tail s))))))
 
 (def set_del_all ((ns (list (list int))) (s (list (list int)))) (list (list int))
   (if (is_empty ns) s (set_del_all (tail ns) (set_del (head ns) s))))
@@ -436,7 +436,7 @@
 (def emit_nonvars ((args (list Expr)) (env Env) (vlive (list (list int)))
                    (st Emit) (acc (list EArg))) EArgs
   (if (is_empty args)
-      (EAs (rev_eargs acc (nil EArg)) st)
+      (EAs (rev_onto acc (nil EArg)) st)
       (if (is_empty (var_name (head args)))
           (match (emit_expr (head args) env (fv_nonvars (tail args) vlive) false st)
             ((Val v t st1)
@@ -446,7 +446,7 @@
 (def emit_vars ((args (list Expr)) (env Env) (live (list (list int)))
                 (borrows (list bool)) (st Emit) (acc (list EArg))) EArgs
   (if (is_empty args)
-      (EAs (rev_eargs acc (nil EArg)) st)
+      (EAs (rev_onto acc (nil EArg)) st)
       (let n (var_name (head args))
         (if (is_empty n)
             (emit_vars (tail args) env live (flag_tail borrows) st acc)
@@ -474,13 +474,10 @@
 (def merge_args ((args (list Expr)) (nvs (list EArg)) (vs (list EArg))
                  (acc (list EArg))) (list EArg)
   (if (is_empty args)
-      (rev_eargs acc (nil EArg))
+      (rev_onto acc (nil EArg))
       (if (is_empty (var_name (head args)))
           (merge_args (tail args) (tail nvs) vs (cons (head nvs) acc))
           (merge_args (tail args) nvs (tail vs) (cons (head vs) acc)))))
-
-(def rev_eargs ((xs (list EArg)) (acc (list EArg))) (list EArg)
-  (if (is_empty xs) acc (rev_eargs (tail xs) (cons (head xs) acc))))
 
 (def ops_of ((as (list EArg)) (st Emit)) EmitOps
   (if (is_empty as)
@@ -518,7 +515,7 @@
 ; Only when array_set and array_get are the builtins, which a def may
 ; shadow. Spec 7.
 (def row_update ((n (list int)) (args (list Expr)) (c Ctx)) RowUpdate
-  (if (if (list_eq n "array_set") (eq (length_exprs args) 3) false)
+  (if (if (eq n "array_set") (eq (length args) 3) false)
       (if (if (is_builtin_in "array_set" c) (is_builtin_in "array_get" c) false)
           (row_update_of (head args) (head (tail args)) (head (tail (tail args))))
           (NotRowUpdate))
@@ -527,10 +524,10 @@
 (def row_update_of ((g Expr) (y Expr) (inner Expr)) RowUpdate
   (match inner
     ((ECall o n args)
-      (if (if (list_eq n "array_set") (eq (length_exprs args) 3) false)
+      (if (if (eq n "array_set") (eq (length args) 3) false)
           (match (head args)
             ((ECall o2 n2 args2)
-              (if (if (list_eq n2 "array_get") (eq (length_exprs args2) 2) false)
+              (if (if (eq n2 "array_get") (eq (length args2) 2) false)
                   (if (if (same_var g (head args2)) (same_index y (head (tail args2))) false)
                       (RowUpdate (var_name g) y (head (tail args)) (head (tail (tail args))))
                       (NotRowUpdate))
@@ -555,11 +552,8 @@
     ((ECtor o n ts a) (NotRowUpdate))
     ((EMatch o s a) (NotRowUpdate))))
 
-(def length_exprs ((es (list Expr))) int
-  (if (is_empty es) 0 (add 1 (length_exprs (tail es)))))
-
 (def same_var ((a Expr) (b Expr)) bool
-  (if (is_empty (var_name a)) false (list_eq (var_name a) (var_name b))))
+  (if (is_empty (var_name a)) false (eq (var_name a) (var_name b))))
 
 ; The same variable, or the same integer literal, so that one evaluation is
 ; the same as two.
@@ -683,7 +677,7 @@
 (def builtin_type ((n (list int)) (ts (list Ty))) Ty
   (if (any_eq n (split_spaces "lt le gt ge eq and or not is_empty"))
       (TyBool)
-      (if (list_eq n "cons")
+      (if (eq n "cons")
           (head (tail ts))
           (if (any_eq n (split_spaces "head array_get"))
               (ty_elem (head ts))
@@ -694,17 +688,17 @@
 (def builtin_type_rest ((n (list int)) (ts (list Ty))) Ty
   (if (any_eq n (split_spaces "arg buffer_bytes"))
       (TyList (TyInt))
-      (if (list_eq n "array_new")
+      (if (eq n "array_new")
           (TyArray (head (tail ts)))
           (if (any_eq n (split_spaces "read_bytes bytes_from_list"))
               (TyBytes)
-              (if (list_eq n "bytes_to_list") (TyList (TyInt)) (TyInt))))))
+              (if (eq n "bytes_to_list") (TyList (TyInt)) (TyInt))))))
 
 ; The type a function returns, from its signature.
 (def fn_type ((n (list int)) (env Env)) Ty
   (match (find_sig n (ctx_sigs (env_ctx env)))
-    ((SigFound s) (match s ((S sn tps ps r) r)))
-    ((SigMissing) (TyInt))))
+    ((Some s) (match s ((S sn tps ps r) r)))
+    ((None) (TyInt))))
 
 ; ------------------------------------------------------------ constructors
 
@@ -712,16 +706,16 @@
 ; 10.1, so every value of a type has the same layout.
 (def ctor_block_width ((ci CtorInfo) (ctx Ctx)) int
   (match (find_data (ctor_type_name ci) (ctx_datas ctx))
-    ((DataFound dd) (data_max_fields dd))
-    ((DataMissing) 0)))
+    ((Some dd) (data_max_fields dd))
+    ((None) 0)))
 
 ; tys are the type arguments, if the construction wrote them; otherwise the
 ; arguments' types give them, as the checker found. Spec 5.6.
 (def emit_ctor ((n (list int)) (tys (list Ty)) (args (list Expr)) (env Env)
                 (live (list (list int))) (st Emit)) EmitVal
   (match (find_ctor n (ctx_ctors (env_ctx env)))
-    ((CtorMissing) (Val "0" (TyInt) st))
-    ((CtorFound ci)
+    ((None) (Val "0" (TyInt) st))
+    ((Some ci)
       (match (emit_args args env live (nil bool) st)
         ((Ops ops ts ws st1)
           (emit_ctor_block ci
@@ -803,8 +797,8 @@
 
 (def arm_tag ((a Arm) (env Env)) int
   (match (find_ctor (arm_ctor_name a) (ctx_ctors (env_ctx env)))
-    ((CtorFound ci) (ctor_tag ci))
-    ((CtorMissing) 0)))
+    ((Some ci) (ctor_tag ci))
+    ((None) 0)))
 
 (def switch_entries ((arms (list Arm)) (env Env) (id (list int)) (k int))
     (list int)
@@ -933,20 +927,16 @@
     "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes clock_ns"))
 
 (def rt_names ((i int)) (list (list int))
-  (append_strs (split_spaces "div mod head tail is_empty array_len array_get array_set")
+  (append (split_spaces "div mod head tail is_empty array_len array_get array_set")
                (io_names 0)))
 (def rt_syms ((i int)) (list (list int))
-  (append_strs (split_spaces "l0_div l0_mod l0_head l0_tail l0_is_empty l0_array_len l0_array_get l0_array_set")
+  (append (split_spaces "l0_div l0_mod l0_head l0_tail l0_is_empty l0_array_len l0_array_get l0_array_set")
                (l0_prefixed (io_names 0))))
 
 (def l0_prefixed ((ns (list (list int)))) (list (list int))
   (if (is_empty ns)
       ns
       (cons (append "l0_" (head ns)) (l0_prefixed (tail ns)))))
-
-(def append_strs ((xs (list (list int))) (ys (list (list int))))
-    (list (list int))
-  (if (is_empty xs) ys (cons (head xs) (append_strs (tail xs) ys))))
 
 (def nth_str ((xs (list (list int))) (i int)) (list int)
   (if (le i 0) (head xs) (nth_str (tail xs) (sub i 1))))
@@ -956,7 +946,7 @@
 ; or bool is icmp like the other comparisons. Spec 6.8 and 10.3.
 (def emit_op ((n (list int)) (ops (list (list int))) (ts (list Ty))
               (st Emit)) EmitVal
-  (if (if (list_eq n "eq") (ty_is_ptr (head ts)) false)
+  (if (if (eq n "eq") (ty_is_ptr (head ts)) false)
       (emit_rt_call "l0_equal" ops st)
       (emit_op_plain n ops ts st)))
 
@@ -974,17 +964,17 @@
 
 (def emit_op_rest ((n (list int)) (ops (list (list int))) (ts (list Ty))
                    (st Emit)) EmitVal
-  (if (list_eq n "neg")
+  (if (eq n "neg")
       (emit_binop "sub" "0" (head ops) st)
-      (if (list_eq n "not")
+      (if (eq n "not")
           (emit_binop "xor" (head ops) "1" st)
-          (if (list_eq n "array_new")
+          (if (eq n "array_new")
               (emit_rt_call "l0_array_new"
-                (append_strs ops
+                (append ops
                   (one_op (if (ty_is_ptr (head (tail ts))) "1" "0")))
                 st)
               (emit_rt_call "l0_new_cons"
-                (append_strs ops (one_op (cons_mask (ty_elem (head (tail ts))))))
+                (append ops (one_op (cons_mask (ty_elem (head (tail ts))))))
                 st)))))
 
 ; ------------------------------------------------------------- tail calls
@@ -1012,7 +1002,7 @@
 (def fn_sym ((n (list int)) (pnames (list (list int)))) (list int)
   (if (any_eq n pnames)
       (append "l0_p_" n)
-      (if (list_eq n "main") "l0_f_main.body" (append "l0_f_" n))))
+      (if (eq n "main") "l0_f_main.body" (append "l0_f_" n))))
 
 (def def_sym ((n (list int)) (inpre bool)) (list int)
   (if inpre (append "l0_p_" n) (fn_sym n (nil (list int)))))
@@ -1042,9 +1032,6 @@
         ((A o cn names body)
           (arm_callees (tail arms) pn bs (tail_callees body pn bs acc))))))
 
-(def length_params ((ps (list Param))) int
-  (if (is_empty ps) 0 (add 1 (length_params (tail ps)))))
-
 ; Every function of both groups, in declaration order. ppre and pprog are the
 ; prelude names each group's calls reach, and bpre and bprog its builtins.
 (def graph_nodes ((ds (list Decl)) (pre int) (ppre (list (list int)))
@@ -1056,7 +1043,7 @@
         ((DData o n tps cs) (graph_nodes (tail ds) pre ppre pprog bpre bprog))
         ((DDef o n fps ps ret body)
           (let inpre (lt o pre)
-            (cons (Nd (def_sym n inpre) (length_params ps)
+            (cons (Nd (def_sym n inpre) (length ps)
                       (tail_callees body (if inpre ppre pprog) (if inpre bpre bprog)
                                     (nil (list int))))
                   (graph_nodes (tail ds) pre ppre pprog bpre bprog)))))))
@@ -1100,7 +1087,7 @@
 ; which leaves each function with its component's widest.
 (def spread ((es (list Edge)) (ks (list int))) (list int)
   (let next (spread_once es ks)
-    (if (list_eq next ks) ks (spread es next))))
+    (if (eq next ks) ks (spread es next))))
 
 (def spread_once ((es (list Edge)) (ks (list int))) (list int)
   (if (is_empty es)
@@ -1182,7 +1169,7 @@
   (if (is_empty ps)
       0
       (match (head ps)
-        ((Pd n k ro) (if (list_eq s n) k (pad_in s (tail ps)))))))
+        ((Pd n k ro) (if (eq s n) k (pad_in s (tail ps)))))))
 
 ; Which parameters of the function s are read-only, spec 10.3; empty for a
 ; symbol not in the table.
@@ -1193,7 +1180,7 @@
   (if (is_empty ps)
       (nil bool)
       (match (head ps)
-        ((Pd n k ro) (if (list_eq s n) ro (read_only_in s (tail ps)))))))
+        ((Pd n k ro) (if (eq s n) ro (read_only_in s (tail ps)))))))
 
 ; ------------------------------------------------------ read-only parameters
 ;
@@ -1234,7 +1221,7 @@
           (let inpre (lt o pre)
             (let sym (def_sym n inpre)
               (cons (Rf sym ps
-                        (if (list_eq sym "l0_f_main.body")
+                        (if (eq sym "l0_f_main.body")
                             (nil bool)
                             (all_set ps))
                         body (if inpre ppre pprog) (if inpre bpre bprog))
@@ -1250,18 +1237,9 @@
 (def ro_same ((a (list RoFn)) (b (list RoFn))) bool
   (if (is_empty a)
       true
-      (if (bools_eq (rf_flags (head a)) (rf_flags (head b)))
+      (if (eq (rf_flags (head a)) (rf_flags (head b)))
           (ro_same (tail a) (tail b))
           false)))
-
-(def bools_eq ((a (list bool)) (b (list bool))) bool
-  (if (is_empty a)
-      (is_empty b)
-      (if (is_empty b)
-          false
-          (if (eq (if (head a) 1 0) (if (head b) 1 0))
-              (bools_eq (tail a) (tail b))
-              false))))
 
 ; The flag table is built once per pass, since every body consults it.
 (def ro_pass ((fs (list RoFn)) (cs (list CtorInfo))) (list RoFn)
@@ -1319,14 +1297,14 @@
         ((EBool o v) true)
         ((EStr o s) true)
         ((ENil o ty) true)
-        ((EVar o n) (not (list_eq n p)))
+        ((EVar o n) (not (eq n p)))
         ((EIf o c a b)
           (if (ro_ok p t c x) (if (ro_ok p t a x) (ro_ok p t b x) false) false))
         ((ELet o n v body)
-          (if (ro_ok p t v x) (if (list_eq n p) true (ro_ok p t body x)) false))
+          (if (ro_ok p t v x) (if (eq n p) true (ro_ok p t body x)) false))
         ((ECtor o n tys args) (ro_ok_args p t args (nil bool) x))
         ((EMatch o s arms)
-          (if (list_eq (var_name s) p)
+          (if (eq (var_name s) p)
               (ro_ok_fields p t arms x)
               (if (ro_ok p t s x) (ro_ok_arms p t arms x) false)))
         ((ECall o n args)
@@ -1341,14 +1319,14 @@
 (def reads_no_pointer ((n (list int)) (t Ty)) bool
   (if (any_eq n (split_spaces "head array_get"))
       (not (ty_is_ptr (ty_elem t)))
-      (if (list_eq n "tail") false (is_borrowing n))))
+      (if (eq n "tail") false (is_borrowing n))))
 
 ; p may be an operand itself only where the flag is set.
 (def ro_ok_args ((p (list int)) (t Ty) (args (list Expr)) (flags (list bool))
                  (x RoCx)) bool
   (if (is_empty args)
       true
-      (if (if (list_eq (var_name (head args)) p)
+      (if (if (eq (var_name (head args)) p)
               (flag_head flags)
               (ro_ok p t (head args) x))
           (ro_ok_args p t (tail args) (flag_tail flags) x)
@@ -1381,8 +1359,8 @@
 ; decides whether it is a pointer.
 (def arm_fields ((cn (list int)) (st Ty) (cs (list CtorInfo))) (list Ty)
   (match (find_ctor cn cs)
-    ((CtorFound ci) (ctor_fields_at ci st))
-    ((CtorMissing) (nil Ty))))
+    ((Some ci) (ctor_fields_at ci st))
+    ((None) (nil Ty))))
 
 ; A later field of the same name hides an earlier one, which then cannot be
 ; used at all.
@@ -1455,8 +1433,8 @@
 
 (def bind_ty ((n (list int)) (tys (list Bind))) Ty
   (match (find_bind n tys)
-    ((TyFound t) t)
-    ((TyMissing) (TyInt))))
+    ((Some t) t)
+    ((None) (TyInt))))
 
 ; A match on a read-only parameter binds each pointer field its arm only
 ; reads as read-only too (emit_field_loads), so a tail call may pass those.
@@ -1519,7 +1497,7 @@
       flags
       (match (head ds)
         ((Dm g j)
-          (ro_clear s (if (list_eq g s) (set_bool flags j false) flags) (tail ds))))))
+          (ro_clear s (if (eq g s) (set_bool flags j false) flags) (tail ds))))))
 
 (def set_bool ((xs (list bool)) (i int) (v bool)) (list bool)
   (if (is_empty xs)
@@ -1603,7 +1581,7 @@
 ; functions are never the entry point, however they are named. Spec 10.2.
 (def emit_entry ((n (list int)) (ps (list Param)) (k int) (sc Scope)
                  (st Emit)) Emit
-  (if (or (sc_is_prelude sc) (not (list_eq n "main")))
+  (if (or (sc_is_prelude sc) (not (eq n "main")))
       st
       (let ops (pad_ops (if (is_empty ps) (nil (list int)) (one_op "%a0")) k)
         (emit_line ""
@@ -1720,10 +1698,10 @@
       (match (head ds)
         ((DData o n tps cs) (ret_kind (tail ds)))
         ((DDef o n fps ps ret body)
-          (if (list_eq n "main")
+          (if (eq n "main")
               (if (is_empty ps)
                   3
-                  (if (ty_eq ret (TyInt)) 0 (if (ty_eq ret (TyBool)) 1 2)))
+                  (if (eq ret (TyInt)) 0 (if (eq ret (TyBool)) 1 2)))
               (ret_kind (tail ds)))))))
 
 ; The return kind is read off the program's main, not the prelude's: a main in

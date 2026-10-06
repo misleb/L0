@@ -106,8 +106,8 @@
       (push (tail chunk) (cons (head chunk) acc))))
 
 ;; Whether xs and ys hold the same bytes in the same order, as (eq xs ys)
-;; says. It is here for the compiler, written while stage 0 ran it and
-;; stage 0's eq took only integers; a program can write eq.
+;; says. It is from before eq compared lists, and stays for the programs that
+;; call it; new code can write eq.
 (def list_eq ((xs (list int)) (ys (list int))) bool
   (if (is_empty xs)
       (is_empty ys)

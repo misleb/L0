@@ -64,7 +64,7 @@ Le0:
   ret i64 %t6
 }
 
-define internal i64 @l0_f_rev_onto.1(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev_onto.1(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -80,7 +80,7 @@ Le0:
   call void @l0_inc(i64 %t4)
   call void @l0_dec(i64 %a0)
   %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_onto.1(i64 %t3, i64 %t5)
+  %t6 = musttail call i64 @l0_f_rev_onto.1(i64 %t3, i64 %t5, i64 0, i64 0, i64 0)
   ret i64 %t6
 }
 
@@ -91,10 +91,10 @@ entry:
   ret i64 %t0
 }
 
-define internal i64 @l0_f_rev.1(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rev.1(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = musttail call i64 @l0_f_rev_onto.1(i64 %a0, i64 0)
+  %t0 = musttail call i64 @l0_f_rev_onto.1(i64 %a0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t0
 }
 
@@ -106,11 +106,11 @@ entry:
   ret i64 %t1
 }
 
-define internal i64 @l0_f_append.1(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_append.1(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_f_rev.1(i64 %a0, i64 0)
-  %t1 = musttail call i64 @l0_f_rev_onto.1(i64 %t0, i64 %a1)
+  %t0 = call i64 @l0_f_rev.1(i64 %a0, i64 0, i64 0, i64 0, i64 0)
+  %t1 = musttail call i64 @l0_f_rev_onto.1(i64 %t0, i64 %a1, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
 
@@ -758,11 +758,11 @@ Le8:
   ret i64 %t24
 }
 
-define internal i64 @l0_f_split_spaces(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_split_spaces(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_f_split_spaces_onto(i64 %a0, i64 0, i64 0)
-  %t1 = musttail call i64 @l0_f_rev.1(i64 %t0, i64 0)
+  %t1 = musttail call i64 @l0_f_rev.1(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
 
@@ -872,46 +872,6 @@ Lt13:
   ret i64 %t21
 Le13:
   ret i64 -1
-}
-
-define internal i64 @l0_f_rev_diags_onto(i64 %a0, i64 %a1, i64 %a2) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_diags_onto(i64 %t3, i64 %t5, i64 0)
-  ret i64 %t6
-}
-
-define internal i64 @l0_f_rev_tys_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_tys_onto(i64 %t3, i64 %t5)
-  ret i64 %t6
 }
 
 define internal i64 @l0_f_ctx_sigs(i64 %a0) {
@@ -1046,9 +1006,8 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_new_data(i64 1, i64 1, i64 0)
+  %t3 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
   ret i64 %t3
 Le0:
   %t5 = call i64 @l0_head(i64 %a1)
@@ -1061,14 +1020,13 @@ A4_0:
   %t8 = call i64 @l0_data_get(i64 %t5, i64 1)
   call void @l0_inc(i64 %t8)
   call void @l0_dec(i64 %t5)
-  call void @l0_inc(i64 %a0)
-  %t10 = call i64 @l0_f_list_eq(i64 %a0, i64 %t7)
+  %t10 = call i64 @l0_equal(i64 %a0, i64 %t7)
+  call void @l0_dec(i64 %t7)
   %t11 = icmp ne i64 %t10, 0
   br i1 %t11, label %Lt9, label %Le9
 Lt9:
   call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
-  %t12 = call i64 @l0_new_data(i64 0, i64 1, i64 2)
+  %t12 = call i64 @l0_new_data(i64 1, i64 1, i64 2)
   call void @l0_data_set(i64 %t12, i64 0, i64 %t8)
   ret i64 %t12
 Le9:
@@ -1089,9 +1047,8 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_new_data(i64 1, i64 1, i64 0)
+  %t3 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
   ret i64 %t3
 Le0:
   %t5 = call i64 @l0_head(i64 %a1)
@@ -1105,16 +1062,15 @@ A4_0:
   %t9 = call i64 @l0_data_get(i64 %t5, i64 2)
   %t10 = call i64 @l0_data_get(i64 %t5, i64 3)
   call void @l0_dec(i64 %t5)
-  call void @l0_inc(i64 %a0)
-  %t12 = call i64 @l0_f_list_eq(i64 %a0, i64 %t7)
+  %t12 = call i64 @l0_equal(i64 %a0, i64 %t7)
+  call void @l0_dec(i64 %t7)
   %t13 = icmp ne i64 %t12, 0
   br i1 %t13, label %Lt11, label %Le11
 Lt11:
-  call void @l0_dec(i64 %a0)
   %t14 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t14)
   call void @l0_dec(i64 %a1)
-  %t15 = call i64 @l0_new_data(i64 0, i64 1, i64 2)
+  %t15 = call i64 @l0_new_data(i64 1, i64 1, i64 2)
   call void @l0_data_set(i64 %t15, i64 0, i64 %t14)
   ret i64 %t15
 Le11:
@@ -1134,9 +1090,8 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_new_data(i64 1, i64 1, i64 0)
+  %t3 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
   ret i64 %t3
 Le0:
   %t5 = call i64 @l0_head(i64 %a1)
@@ -1151,16 +1106,15 @@ A4_0:
   %t10 = call i64 @l0_data_get(i64 %t5, i64 3)
   %t11 = call i64 @l0_data_get(i64 %t5, i64 4)
   call void @l0_dec(i64 %t5)
-  call void @l0_inc(i64 %a0)
-  %t13 = call i64 @l0_f_list_eq(i64 %a0, i64 %t7)
+  %t13 = call i64 @l0_equal(i64 %a0, i64 %t7)
+  call void @l0_dec(i64 %t7)
   %t14 = icmp ne i64 %t13, 0
   br i1 %t14, label %Lt12, label %Le12
 Lt12:
-  call void @l0_dec(i64 %a0)
   %t15 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t15)
   call void @l0_dec(i64 %a1)
-  %t16 = call i64 @l0_new_data(i64 0, i64 1, i64 2)
+  %t16 = call i64 @l0_new_data(i64 1, i64 1, i64 2)
   call void @l0_data_set(i64 %t16, i64 0, i64 %t15)
   ret i64 %t16
 Le12:
@@ -1180,9 +1134,8 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_new_data(i64 1, i64 1, i64 0)
+  %t3 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
   ret i64 %t3
 Le0:
   %t5 = call i64 @l0_head(i64 %a1)
@@ -1196,16 +1149,15 @@ A4_0:
   %t9 = call i64 @l0_data_get(i64 %t5, i64 2)
   %t10 = call i64 @l0_data_get(i64 %t5, i64 3)
   call void @l0_dec(i64 %t5)
-  call void @l0_inc(i64 %a0)
-  %t12 = call i64 @l0_f_list_eq(i64 %a0, i64 %t7)
+  %t12 = call i64 @l0_equal(i64 %a0, i64 %t7)
+  call void @l0_dec(i64 %t7)
   %t13 = icmp ne i64 %t12, 0
   br i1 %t13, label %Lt11, label %Le11
 Lt11:
-  call void @l0_dec(i64 %a0)
   %t14 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t14)
   call void @l0_dec(i64 %a1)
-  %t15 = call i64 @l0_new_data(i64 0, i64 1, i64 2)
+  %t15 = call i64 @l0_new_data(i64 1, i64 1, i64 2)
   call void @l0_data_set(i64 %t15, i64 0, i64 %t14)
   ret i64 %t15
 Le11:
@@ -1371,8 +1323,9 @@ A0_2:
 Lt10:
   call void @l0_dec(i64 %t9)
   %t14 = call i64 @l0_f_find_bind(i64 %t8, i64 %a1)
+  call void @l0_dec(i64 %t8)
   %t15 = call i64 @l0_data_tag(i64 %t14)
-  switch i64 %t15, label %Ln13 [ i64 0, label %A13_0 i64 1, label %A13_1 ]
+  switch i64 %t15, label %Ln13 [ i64 1, label %A13_0 i64 0, label %A13_1 ]
 A13_0:
   %t16 = call i64 @l0_data_get(i64 %t14, i64 0)
   call void @l0_inc(i64 %t16)
@@ -1483,8 +1436,9 @@ Le0:
   call void @l0_inc(i64 %t4)
   call void @l0_inc(i64 %a1)
   %t5 = call i64 @l0_f_find_bind(i64 %t4, i64 %a1)
+  call void @l0_dec(i64 %t4)
   %t6 = call i64 @l0_data_tag(i64 %t5)
-  switch i64 %t6, label %Ln3 [ i64 0, label %A3_0 i64 1, label %A3_1 ]
+  switch i64 %t6, label %Ln3 [ i64 1, label %A3_0 i64 0, label %A3_1 ]
 A3_0:
   %t7 = call i64 @l0_data_get(i64 %t5, i64 0)
   call void @l0_inc(i64 %t7)
@@ -1549,14 +1503,17 @@ Lt0:
   %t4 = call i64 @l0_f_ty_name(i64 %a0)
   call void @l0_inc(i64 %a3)
   %t5 = call i64 @l0_f_find_bind(i64 %t4, i64 %a3)
+  call void @l0_dec(i64 %t4)
   %t6 = call i64 @l0_data_tag(i64 %t5)
-  switch i64 %t6, label %Ln3 [ i64 0, label %A3_0 i64 1, label %A3_1 ]
+  switch i64 %t6, label %Ln3 [ i64 1, label %A3_0 i64 0, label %A3_1 ]
 A3_0:
   %t7 = call i64 @l0_data_get(i64 %t5, i64 0)
   call void @l0_inc(i64 %t7)
   call void @l0_dec(i64 %t5)
   call void @l0_dec(i64 %a0)
-  %t9 = call i64 @l0_f_ty_eq(i64 %t7, i64 %a1)
+  %t9 = call i64 @l0_equal(i64 %t7, i64 %a1)
+  call void @l0_dec(i64 %t7)
+  call void @l0_dec(i64 %a1)
   %t10 = icmp ne i64 %t9, 0
   br i1 %t10, label %Lt8, label %Le8
 Lt8:
@@ -1618,7 +1575,9 @@ Lt33:
   %t37 = call i64 @l0_f_ty_name(i64 %a0)
   call void @l0_inc(i64 %a1)
   %t38 = call i64 @l0_f_ty_name(i64 %a1)
-  %t39 = call i64 @l0_f_list_eq(i64 %t37, i64 %t38)
+  %t39 = call i64 @l0_equal(i64 %t37, i64 %t38)
+  call void @l0_dec(i64 %t37)
+  call void @l0_dec(i64 %t38)
   %t40 = icmp ne i64 %t39, 0
   br i1 %t40, label %Lt36, label %Le36
 Lt36:
@@ -1791,7 +1750,8 @@ Lt7:
   br i1 %t13, label %Lt10, label %Le10
 Lt10:
   %t14 = call i64 @l0_f_ty_name(i64 %a1)
-  %t15 = musttail call i64 @l0_f_list_eq(i64 %t14, i64 %a0)
+  %t15 = call i64 @l0_equal(i64 %t14, i64 %a0)
+  call void @l0_dec(i64 %t14)
   ret i64 %t15
 Le10:
   %t16 = call i64 @l0_f_ty_args(i64 %a1)
@@ -1799,7 +1759,6 @@ Le10:
   ret i64 %t17
 Le7:
   call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
   ret i64 0
 }
 
@@ -1811,18 +1770,15 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
   ret i64 0
 Le0:
   %t4 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t4)
-  call void @l0_inc(i64 %a0)
   %t5 = call i64 @l0_f_ty_mentions(i64 %a0, i64 %t4)
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
   call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
   ret i64 1
 Le3:
   %t7 = call i64 @l0_tail(i64 %a1)
@@ -1847,6 +1803,7 @@ Le0:
   call void @l0_inc(i64 %t4)
   call void @l0_inc(i64 %a1)
   %t5 = call i64 @l0_f_tys_mention(i64 %t4, i64 %a1)
+  call void @l0_dec(i64 %t4)
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
@@ -2005,8 +1962,9 @@ Le11:
   %t62 = call i64 @l0_f_ty_name(i64 %a0)
   call void @l0_inc(i64 %a1)
   %t63 = call i64 @l0_f_find_data(i64 %t62, i64 %a1)
+  call void @l0_dec(i64 %t62)
   %t64 = call i64 @l0_data_tag(i64 %t63)
-  switch i64 %t64, label %Ln61 [ i64 1, label %A61_0 i64 0, label %A61_1 ]
+  switch i64 %t64, label %Ln61 [ i64 0, label %A61_0 i64 1, label %A61_1 ]
 A61_0:
   call void @l0_dec(i64 %t63)
   call void @l0_dec(i64 %a1)
@@ -2032,10 +1990,10 @@ A61_1:
   call void @l0_inc(i64 %t80)
   call void @l0_dec(i64 %t63)
   %t81 = call i64 @l0_f_data_params(i64 %t80)
-  %t82 = call i64 @l0_f_length_strs(i64 %t81)
+  %t82 = call i64 @l0_f_length.1(i64 %t81, i64 0)
   call void @l0_inc(i64 %a0)
   %t83 = call i64 @l0_f_ty_args(i64 %a0)
-  %t84 = call i64 @l0_f_length_tys(i64 %t83)
+  %t84 = call i64 @l0_f_length.1(i64 %t83, i64 0)
   %t86 = icmp eq i64 %t82, %t84
   %t87 = zext i1 %t86 to i64
   %t88 = icmp ne i64 %t87, 0
@@ -2088,7 +2046,7 @@ Le5:
   ret i64 %t4
 }
 
-define internal i64 @l0_f_bi_int_int_int(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_int_int_int(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 100, i64 0, i64 2)
@@ -2110,11 +2068,11 @@ entry:
   %t16 = call i64 @l0_new_cons(i64 100, i64 %t15, i64 2)
   %t17 = call i64 @l0_new_cons(i64 100, i64 %t16, i64 2)
   %t18 = call i64 @l0_new_cons(i64 97, i64 %t17, i64 2)
-  %t19 = musttail call i64 @l0_f_split_spaces(i64 %t18, i64 0)
+  %t19 = musttail call i64 @l0_f_split_spaces(i64 %t18, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t19
 }
 
-define internal i64 @l0_f_bi_int_int_bool(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_int_int_bool(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
@@ -2128,11 +2086,11 @@ entry:
   %t8 = call i64 @l0_new_cons(i64 32, i64 %t7, i64 2)
   %t9 = call i64 @l0_new_cons(i64 116, i64 %t8, i64 2)
   %t10 = call i64 @l0_new_cons(i64 108, i64 %t9, i64 2)
-  %t11 = musttail call i64 @l0_f_split_spaces(i64 %t10, i64 0)
+  %t11 = musttail call i64 @l0_f_split_spaces(i64 %t10, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t11
 }
 
-define internal i64 @l0_f_bi_bool_bool(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_bool_bool(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 114, i64 0, i64 2)
@@ -2141,11 +2099,11 @@ entry:
   %t3 = call i64 @l0_new_cons(i64 100, i64 %t2, i64 2)
   %t4 = call i64 @l0_new_cons(i64 110, i64 %t3, i64 2)
   %t5 = call i64 @l0_new_cons(i64 97, i64 %t4, i64 2)
-  %t6 = musttail call i64 @l0_f_split_spaces(i64 %t5, i64 0)
+  %t6 = musttail call i64 @l0_f_split_spaces(i64 %t5, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t6
 }
 
-define internal i64 @l0_f_bi_list_ops(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_list_ops(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 121, i64 0, i64 2)
@@ -2171,11 +2129,11 @@ entry:
   %t20 = call i64 @l0_new_cons(i64 110, i64 %t19, i64 2)
   %t21 = call i64 @l0_new_cons(i64 111, i64 %t20, i64 2)
   %t22 = call i64 @l0_new_cons(i64 99, i64 %t21, i64 2)
-  %t23 = musttail call i64 @l0_f_split_spaces(i64 %t22, i64 0)
+  %t23 = musttail call i64 @l0_f_split_spaces(i64 %t22, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t23
 }
 
-define internal i64 @l0_f_bi_io(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_io(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
@@ -2260,11 +2218,11 @@ entry:
   %t79 = call i64 @l0_new_cons(i64 97, i64 %t78, i64 2)
   %t80 = call i64 @l0_new_cons(i64 101, i64 %t79, i64 2)
   %t81 = call i64 @l0_new_cons(i64 114, i64 %t80, i64 2)
-  %t82 = musttail call i64 @l0_f_split_spaces(i64 %t81, i64 0)
+  %t82 = musttail call i64 @l0_f_split_spaces(i64 %t81, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t82
 }
 
-define internal i64 @l0_f_bi_path(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_path(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
@@ -2317,11 +2275,11 @@ entry:
   %t47 = call i64 @l0_new_cons(i64 101, i64 %t46, i64 2)
   %t48 = call i64 @l0_new_cons(i64 112, i64 %t47, i64 2)
   %t49 = call i64 @l0_new_cons(i64 111, i64 %t48, i64 2)
-  %t50 = musttail call i64 @l0_f_split_spaces(i64 %t49, i64 0)
+  %t50 = musttail call i64 @l0_f_split_spaces(i64 %t49, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t50
 }
 
-define internal i64 @l0_f_bi_to_list(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_to_list(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
@@ -2340,11 +2298,11 @@ entry:
   %t13 = call i64 @l0_new_cons(i64 103, i64 %t12, i64 2)
   %t14 = call i64 @l0_new_cons(i64 114, i64 %t13, i64 2)
   %t15 = call i64 @l0_new_cons(i64 97, i64 %t14, i64 2)
-  %t16 = musttail call i64 @l0_f_split_spaces(i64 %t15, i64 0)
+  %t16 = musttail call i64 @l0_f_split_spaces(i64 %t15, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t16
 }
 
-define internal i64 @l0_f_bi_array(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_array(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
@@ -2386,11 +2344,11 @@ entry:
   %t36 = call i64 @l0_new_cons(i64 114, i64 %t35, i64 2)
   %t37 = call i64 @l0_new_cons(i64 114, i64 %t36, i64 2)
   %t38 = call i64 @l0_new_cons(i64 97, i64 %t37, i64 2)
-  %t39 = musttail call i64 @l0_f_split_spaces(i64 %t38, i64 0)
+  %t39 = musttail call i64 @l0_f_split_spaces(i64 %t38, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t39
 }
 
-define internal i64 @l0_f_bi_bytes(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_bi_bytes(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
@@ -2465,22 +2423,22 @@ entry:
   %t69 = call i64 @l0_new_cons(i64 97, i64 %t68, i64 2)
   %t70 = call i64 @l0_new_cons(i64 101, i64 %t69, i64 2)
   %t71 = call i64 @l0_new_cons(i64 114, i64 %t70, i64 2)
-  %t72 = musttail call i64 @l0_f_split_spaces(i64 %t71, i64 0)
+  %t72 = musttail call i64 @l0_f_split_spaces(i64 %t71, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t72
 }
 
 define internal i64 @l0_f_builtin_names(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_f_bi_int_int_int(i64 0, i64 0)
-  %t1 = call i64 @l0_f_bi_int_int_bool(i64 0, i64 0)
-  %t2 = call i64 @l0_f_bi_bool_bool(i64 0, i64 0)
-  %t3 = call i64 @l0_f_bi_list_ops(i64 0, i64 0)
-  %t4 = call i64 @l0_f_bi_io(i64 0, i64 0)
-  %t5 = call i64 @l0_f_bi_path(i64 0, i64 0)
-  %t6 = call i64 @l0_f_bi_to_list(i64 0, i64 0)
-  %t7 = call i64 @l0_f_bi_array(i64 0, i64 0)
-  %t8 = call i64 @l0_f_bi_bytes(i64 0, i64 0)
+  %t0 = call i64 @l0_f_bi_int_int_int(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t1 = call i64 @l0_f_bi_int_int_bool(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t2 = call i64 @l0_f_bi_bool_bool(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t3 = call i64 @l0_f_bi_list_ops(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t4 = call i64 @l0_f_bi_io(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t5 = call i64 @l0_f_bi_path(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t6 = call i64 @l0_f_bi_to_list(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t7 = call i64 @l0_f_bi_array(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t8 = call i64 @l0_f_bi_bytes(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t9 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
   %t10 = call i64 @l0_new_cons(i64 101, i64 %t9, i64 2)
   %t11 = call i64 @l0_new_cons(i64 32, i64 %t10, i64 2)
@@ -2491,7 +2449,7 @@ entry:
   %t16 = call i64 @l0_new_cons(i64 103, i64 %t15, i64 2)
   %t17 = call i64 @l0_new_cons(i64 101, i64 %t16, i64 2)
   %t18 = call i64 @l0_new_cons(i64 110, i64 %t17, i64 2)
-  %t19 = call i64 @l0_f_split_spaces(i64 %t18, i64 0)
+  %t19 = call i64 @l0_f_split_spaces(i64 %t18, i64 0, i64 0, i64 0, i64 0)
   %t20 = call i64 @l0_f_names_then(i64 %t8, i64 %t19)
   %t21 = call i64 @l0_f_names_then(i64 %t7, i64 %t20)
   %t22 = call i64 @l0_f_names_then(i64 %t6, i64 %t21)
@@ -2567,7 +2525,7 @@ entry:
   %t38 = call i64 @l0_new_cons(i64 97, i64 %t37, i64 2)
   %t39 = call i64 @l0_new_cons(i64 101, i64 %t38, i64 2)
   %t40 = call i64 @l0_new_cons(i64 114, i64 %t39, i64 2)
-  %t41 = call i64 @l0_f_split_spaces(i64 %t40, i64 0)
+  %t41 = call i64 @l0_f_split_spaces(i64 %t40, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t42 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t41)
   %t43 = icmp ne i64 %t42, 0
@@ -2757,7 +2715,7 @@ Le0:
   %t223 = call i64 @l0_new_cons(i64 103, i64 %t222, i64 2)
   %t224 = call i64 @l0_new_cons(i64 101, i64 %t223, i64 2)
   %t225 = call i64 @l0_new_cons(i64 110, i64 %t224, i64 2)
-  %t226 = call i64 @l0_f_split_spaces(i64 %t225, i64 0)
+  %t226 = call i64 @l0_f_split_spaces(i64 %t225, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t227 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t226)
   %t228 = icmp ne i64 %t227, 0
@@ -2775,8 +2733,8 @@ Le44:
   %t236 = call i64 @l0_new_cons(i64 114, i64 %t235, i64 2)
   %t237 = call i64 @l0_new_cons(i64 114, i64 %t236, i64 2)
   %t238 = call i64 @l0_new_cons(i64 97, i64 %t237, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t239 = call i64 @l0_f_list_eq(i64 %a0, i64 %t238)
+  %t239 = call i64 @l0_equal(i64 %a0, i64 %t238)
+  call void @l0_dec(i64 %t238)
   %t240 = icmp ne i64 %t239, 0
   br i1 %t240, label %Lt229, label %Le229
 Lt229:
@@ -2794,7 +2752,9 @@ Le229:
   %t250 = call i64 @l0_new_cons(i64 105, i64 %t249, i64 2)
   %t251 = call i64 @l0_new_cons(i64 114, i64 %t250, i64 2)
   %t252 = call i64 @l0_new_cons(i64 119, i64 %t251, i64 2)
-  %t253 = call i64 @l0_f_list_eq(i64 %a0, i64 %t252)
+  %t253 = call i64 @l0_equal(i64 %a0, i64 %t252)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %t252)
   %t254 = icmp ne i64 %t253, 0
   br i1 %t254, label %Lt241, label %Le241
 Lt241:
@@ -2893,47 +2853,11 @@ entry:
   ret i64 %t27
 }
 
-define internal i64 @l0_f_length_tys(i64 %a0) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  call void @l0_dec(i64 %a0)
-  %t4 = call i64 @l0_f_length_tys(i64 %t3)
-  %t5 = add i64 1, %t4
-  ret i64 %t5
-}
-
-define internal i64 @l0_f_length_strs(i64 %a0) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  call void @l0_dec(i64 %a0)
-  %t4 = call i64 @l0_f_length_strs(i64 %t3)
-  %t5 = add i64 1, %t4
-  ret i64 %t5
-}
-
 define internal i64 @l0_f_check_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a1)
-  %t1 = call i64 @l0_f_length_tys(i64 %a1)
+  %t1 = call i64 @l0_f_length.1(i64 %a1, i64 0)
   call void @l0_inc(i64 %a0)
   %t2 = call i64 @l0_f_builtin_arity(i64 %a0)
   %t3 = icmp eq i64 %t1, %t2
@@ -2944,14 +2868,14 @@ entry:
 Lt0:
   call void @l0_inc(i64 %a0)
   %t7 = call i64 @l0_f_builtin_arity(i64 %a0)
-  %t8 = call i64 @l0_f_length_tys(i64 %a1)
+  %t8 = call i64 @l0_f_length.1(i64 %a1, i64 0)
   %t9 = call i64 @l0_f_wrong_arity_msg(i64 %a0, i64 %t7, i64 %t8, i64 0, i64 0)
   %t10 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t10, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t10, i64 1, i64 %t9)
   ret i64 %t10
 Le0:
-  %t12 = call i64 @l0_f_bi_int_int_int(i64 0, i64 0)
+  %t12 = call i64 @l0_f_bi_int_int_int(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t13 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t12)
   %t14 = icmp ne i64 %t13, 0
@@ -2962,7 +2886,7 @@ Lt11:
   %t17 = musttail call i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t15, i64 %t16, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t17
 Le11:
-  %t19 = call i64 @l0_f_bi_int_int_bool(i64 0, i64 0)
+  %t19 = call i64 @l0_f_bi_int_int_bool(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t20 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t19)
   %t21 = icmp ne i64 %t20, 0
@@ -2973,7 +2897,7 @@ Lt18:
   %t24 = musttail call i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t22, i64 %t23, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t24
 Le18:
-  %t26 = call i64 @l0_f_bi_bool_bool(i64 0, i64 0)
+  %t26 = call i64 @l0_f_bi_bool_bool(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t27 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t26)
   %t28 = icmp ne i64 %t27, 0
@@ -2987,9 +2911,9 @@ Le25:
   %t33 = call i64 @l0_new_cons(i64 103, i64 0, i64 2)
   %t34 = call i64 @l0_new_cons(i64 101, i64 %t33, i64 2)
   %t35 = call i64 @l0_new_cons(i64 110, i64 %t34, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t36 = call i64 @l0_f_list_eq(i64 %a0, i64 %t35)
-  %t37 = call i64 @l0_f_bi_io(i64 0, i64 0)
+  %t36 = call i64 @l0_equal(i64 %a0, i64 %t35)
+  call void @l0_dec(i64 %t35)
+  %t37 = call i64 @l0_f_bi_io(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t38 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t37)
   %t39 = or i64 %t36, %t38
@@ -3004,8 +2928,8 @@ Le32:
   %t45 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
   %t46 = call i64 @l0_new_cons(i64 111, i64 %t45, i64 2)
   %t47 = call i64 @l0_new_cons(i64 110, i64 %t46, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t48 = call i64 @l0_f_list_eq(i64 %a0, i64 %t47)
+  %t48 = call i64 @l0_equal(i64 %a0, i64 %t47)
+  call void @l0_dec(i64 %t47)
   %t49 = icmp ne i64 %t48, 0
   br i1 %t49, label %Lt44, label %Le44
 Lt44:
@@ -3023,8 +2947,8 @@ entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
   %t2 = call i64 @l0_new_cons(i64 101, i64 %t1, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t3 = call i64 @l0_f_list_eq(i64 %a0, i64 %t2)
+  %t3 = call i64 @l0_equal(i64 %a0, i64 %t2)
+  call void @l0_dec(i64 %t2)
   %t4 = icmp ne i64 %t3, 0
   br i1 %t4, label %Lt0, label %Le0
 Lt0:
@@ -3032,7 +2956,7 @@ Lt0:
   %t5 = musttail call i64 @l0_f_check_eq(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t5
 Le0:
-  %t7 = call i64 @l0_f_bi_path(i64 0, i64 0)
+  %t7 = call i64 @l0_f_bi_path(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t8 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t7)
   %t9 = icmp ne i64 %t8, 0
@@ -3045,7 +2969,7 @@ Lt6:
   %t13 = musttail call i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t11, i64 %t12, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t13
 Le6:
-  %t15 = call i64 @l0_f_bi_to_list(i64 0, i64 0)
+  %t15 = call i64 @l0_f_bi_to_list(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t16 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t15)
   %t17 = icmp ne i64 %t16, 0
@@ -3058,7 +2982,7 @@ Lt14:
   %t21 = musttail call i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t18, i64 %t20, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t21
 Le14:
-  %t23 = call i64 @l0_f_bi_array(i64 0, i64 0)
+  %t23 = call i64 @l0_f_bi_array(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t24 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t23)
   %t25 = icmp ne i64 %t24, 0
@@ -3074,7 +2998,7 @@ Le22:
 define internal i64 @l0_f_check_other_builtin_rest(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_f_bi_bytes(i64 0, i64 0)
+  %t1 = call i64 @l0_f_bi_bytes(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t2 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -3097,7 +3021,9 @@ entry:
   call void @l0_dec(i64 %t1)
   %t3 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_f_ty_eq(i64 %t2, i64 %t3)
+  %t4 = call i64 @l0_equal(i64 %t2, i64 %t3)
+  call void @l0_dec(i64 %t2)
+  call void @l0_dec(i64 %t3)
   %t5 = icmp ne i64 %t4, 0
   br i1 %t5, label %Lt0, label %Le0
 Lt0:
@@ -3161,8 +3087,8 @@ entry:
   %t8 = call i64 @l0_new_cons(i64 97, i64 %t7, i64 2)
   %t9 = call i64 @l0_new_cons(i64 101, i64 %t8, i64 2)
   %t10 = call i64 @l0_new_cons(i64 114, i64 %t9, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t11 = call i64 @l0_f_list_eq(i64 %a0, i64 %t10)
+  %t11 = call i64 @l0_equal(i64 %a0, i64 %t10)
+  call void @l0_dec(i64 %t10)
   %t12 = icmp ne i64 %t11, 0
   br i1 %t12, label %Lt0, label %Le0
 Lt0:
@@ -3181,8 +3107,8 @@ Le0:
   %t24 = call i64 @l0_new_cons(i64 116, i64 %t23, i64 2)
   %t25 = call i64 @l0_new_cons(i64 121, i64 %t24, i64 2)
   %t26 = call i64 @l0_new_cons(i64 98, i64 %t25, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t27 = call i64 @l0_f_list_eq(i64 %a0, i64 %t26)
+  %t27 = call i64 @l0_equal(i64 %a0, i64 %t26)
+  call void @l0_dec(i64 %t26)
   %t28 = icmp ne i64 %t27, 0
   br i1 %t28, label %Lt17, label %Le17
 Lt17:
@@ -3201,8 +3127,8 @@ Le17:
   %t40 = call i64 @l0_new_cons(i64 116, i64 %t39, i64 2)
   %t41 = call i64 @l0_new_cons(i64 121, i64 %t40, i64 2)
   %t42 = call i64 @l0_new_cons(i64 98, i64 %t41, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t43 = call i64 @l0_f_list_eq(i64 %a0, i64 %t42)
+  %t43 = call i64 @l0_equal(i64 %a0, i64 %t42)
+  call void @l0_dec(i64 %t42)
   %t44 = icmp ne i64 %t43, 0
   br i1 %t44, label %Lt33, label %Le33
 Lt33:
@@ -3229,8 +3155,8 @@ Le33:
   %t64 = call i64 @l0_new_cons(i64 116, i64 %t63, i64 2)
   %t65 = call i64 @l0_new_cons(i64 121, i64 %t64, i64 2)
   %t66 = call i64 @l0_new_cons(i64 98, i64 %t65, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t67 = call i64 @l0_f_list_eq(i64 %a0, i64 %t66)
+  %t67 = call i64 @l0_equal(i64 %a0, i64 %t66)
+  call void @l0_dec(i64 %t66)
   %t68 = icmp ne i64 %t67, 0
   br i1 %t68, label %Lt51, label %Le51
 Lt51:
@@ -3255,8 +3181,8 @@ Le51:
   %t85 = call i64 @l0_new_cons(i64 116, i64 %t84, i64 2)
   %t86 = call i64 @l0_new_cons(i64 121, i64 %t85, i64 2)
   %t87 = call i64 @l0_new_cons(i64 98, i64 %t86, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t88 = call i64 @l0_f_list_eq(i64 %a0, i64 %t87)
+  %t88 = call i64 @l0_equal(i64 %a0, i64 %t87)
+  call void @l0_dec(i64 %t87)
   %t89 = icmp ne i64 %t88, 0
   br i1 %t89, label %Lt74, label %Le74
 Lt74:
@@ -3299,7 +3225,9 @@ Le0:
   call void @l0_inc(i64 %t5)
   %t6 = call i64 @l0_head(i64 %a3)
   call void @l0_inc(i64 %t6)
-  %t7 = call i64 @l0_f_ty_eq(i64 %t5, i64 %t6)
+  %t7 = call i64 @l0_equal(i64 %t5, i64 %t6)
+  call void @l0_dec(i64 %t5)
+  call void @l0_dec(i64 %t6)
   %t8 = icmp ne i64 %t7, 0
   br i1 %t8, label %Lt4, label %Le4
 Lt4:
@@ -3355,8 +3283,8 @@ entry:
   %t7 = call i64 @l0_new_cons(i64 114, i64 %t6, i64 2)
   %t8 = call i64 @l0_new_cons(i64 114, i64 %t7, i64 2)
   %t9 = call i64 @l0_new_cons(i64 97, i64 %t8, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t10 = call i64 @l0_f_list_eq(i64 %a0, i64 %t9)
+  %t10 = call i64 @l0_equal(i64 %a0, i64 %t9)
+  call void @l0_dec(i64 %t9)
   %t11 = icmp ne i64 %t10, 0
   br i1 %t11, label %Lt0, label %Le0
 Lt0:
@@ -3364,7 +3292,9 @@ Lt0:
   %t13 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t13)
   %t14 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t15 = call i64 @l0_f_ty_eq(i64 %t13, i64 %t14)
+  %t15 = call i64 @l0_equal(i64 %t13, i64 %t14)
+  call void @l0_dec(i64 %t13)
+  call void @l0_dec(i64 %t14)
   %t16 = icmp ne i64 %t15, 0
   br i1 %t16, label %Lt12, label %Le12
 Lt12:
@@ -3475,8 +3405,8 @@ Le57:
   %t101 = call i64 @l0_new_cons(i64 114, i64 %t100, i64 2)
   %t102 = call i64 @l0_new_cons(i64 114, i64 %t101, i64 2)
   %t103 = call i64 @l0_new_cons(i64 97, i64 %t102, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t104 = call i64 @l0_f_list_eq(i64 %a0, i64 %t103)
+  %t104 = call i64 @l0_equal(i64 %a0, i64 %t103)
+  call void @l0_dec(i64 %t103)
   %t105 = icmp ne i64 %t104, 0
   br i1 %t105, label %Lt94, label %Le94
 Lt94:
@@ -3494,7 +3424,9 @@ Le94:
   call void @l0_inc(i64 %t110)
   call void @l0_dec(i64 %t109)
   %t111 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t112 = call i64 @l0_f_ty_eq(i64 %t110, i64 %t111)
+  %t112 = call i64 @l0_equal(i64 %t110, i64 %t111)
+  call void @l0_dec(i64 %t110)
+  call void @l0_dec(i64 %t111)
   %t113 = xor i64 %t112, 1
   %t114 = icmp ne i64 %t113, 0
   br i1 %t114, label %Lt108, label %Le108
@@ -3544,7 +3476,9 @@ Le108:
   %t149 = call i64 @l0_new_cons(i64 114, i64 %t148, i64 2)
   %t150 = call i64 @l0_new_cons(i64 114, i64 %t149, i64 2)
   %t151 = call i64 @l0_new_cons(i64 97, i64 %t150, i64 2)
-  %t152 = call i64 @l0_f_list_eq(i64 %a0, i64 %t151)
+  %t152 = call i64 @l0_equal(i64 %a0, i64 %t151)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %t151)
   %t153 = icmp ne i64 %t152, 0
   br i1 %t153, label %Lt142, label %Le142
 Lt142:
@@ -3572,8 +3506,8 @@ entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a0)
   %t1 = call i64 @l0_f_ty_elem(i64 %a0, i64 0)
-  call void @l0_inc(i64 %a1)
-  %t2 = call i64 @l0_f_ty_eq(i64 %a1, i64 %t1)
+  %t2 = call i64 @l0_equal(i64 %a1, i64 %t1)
+  call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
   br i1 %t3, label %Lt0, label %Le0
 Lt0:
@@ -3637,8 +3571,8 @@ Lt0:
 Le0:
   %t5 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t5)
-  call void @l0_inc(i64 %a3)
-  %t6 = call i64 @l0_f_ty_eq(i64 %t5, i64 %a3)
+  %t6 = call i64 @l0_equal(i64 %t5, i64 %a3)
+  call void @l0_dec(i64 %t5)
   %t7 = icmp ne i64 %t6, 0
   br i1 %t7, label %Lt4, label %Le4
 Lt4:
@@ -3683,8 +3617,8 @@ entry:
   %t2 = call i64 @l0_new_cons(i64 110, i64 %t1, i64 2)
   %t3 = call i64 @l0_new_cons(i64 111, i64 %t2, i64 2)
   %t4 = call i64 @l0_new_cons(i64 99, i64 %t3, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t5 = call i64 @l0_f_list_eq(i64 %a0, i64 %t4)
+  %t5 = call i64 @l0_equal(i64 %a0, i64 %t4)
+  call void @l0_dec(i64 %t4)
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt0, label %Le0
 Lt0:
@@ -3716,8 +3650,8 @@ Le9:
   %t23 = call i64 @l0_new_cons(i64 97, i64 %t22, i64 2)
   %t24 = call i64 @l0_new_cons(i64 101, i64 %t23, i64 2)
   %t25 = call i64 @l0_new_cons(i64 104, i64 %t24, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t26 = call i64 @l0_f_list_eq(i64 %a0, i64 %t25)
+  %t26 = call i64 @l0_equal(i64 %a0, i64 %t25)
+  call void @l0_dec(i64 %t25)
   %t27 = icmp ne i64 %t26, 0
   br i1 %t27, label %Lt21, label %Le21
 Lt21:
@@ -3731,7 +3665,9 @@ Le21:
   %t32 = call i64 @l0_new_cons(i64 105, i64 %t31, i64 2)
   %t33 = call i64 @l0_new_cons(i64 97, i64 %t32, i64 2)
   %t34 = call i64 @l0_new_cons(i64 116, i64 %t33, i64 2)
-  %t35 = call i64 @l0_f_list_eq(i64 %a0, i64 %t34)
+  %t35 = call i64 @l0_equal(i64 %a0, i64 %t34)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %t34)
   %t36 = icmp ne i64 %t35, 0
   br i1 %t36, label %Lt30, label %Le30
 Lt30:
@@ -3804,8 +3740,8 @@ Lt3:
 Le3:
   call void @l0_inc(i64 %t2)
   %t43 = call i64 @l0_f_ty_elem(i64 %t2, i64 0)
-  call void @l0_inc(i64 %t0)
-  %t44 = call i64 @l0_f_ty_eq(i64 %t0, i64 %t43)
+  %t44 = call i64 @l0_equal(i64 %t0, i64 %t43)
+  call void @l0_dec(i64 %t43)
   %t45 = icmp ne i64 %t44, 0
   br i1 %t45, label %Lt42, label %Le42
 Lt42:
@@ -3989,10 +3925,9 @@ Le3:
 define internal i64 @l0_f_check_var(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  call void @l0_inc(i64 %a1)
   %t1 = call i64 @l0_f_find_bind(i64 %a1, i64 %a2)
   %t2 = call i64 @l0_data_tag(i64 %t1)
-  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t2, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
   call void @l0_inc(i64 %t3)
@@ -4008,7 +3943,6 @@ A0_1:
   call void @l0_inc(i64 %a3)
   %t6 = call i64 @l0_f_is_builtin_in(i64 %a1, i64 %a3)
   %t7 = call i64 @l0_f_ctx_sigs(i64 %a3)
-  call void @l0_inc(i64 %a1)
   %t8 = call i64 @l0_f_sig_exists(i64 %a1, i64 %t7)
   %t9 = or i64 %t6, %t8
   %t10 = icmp ne i64 %t9, 0
@@ -4096,7 +4030,7 @@ entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_f_find_sig(i64 %a0, i64 %a1)
   %t2 = call i64 @l0_data_tag(i64 %t1)
-  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t2, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
   call void @l0_dec(i64 %t1)
@@ -4217,8 +4151,8 @@ A0_1:
   call void @l0_inc(i64 %t6)
   call void @l0_dec(i64 %t1)
   %t8 = call i64 @l0_new_data(i64 1, i64 2, i64 0)
-  call void @l0_inc(i64 %t6)
-  %t9 = call i64 @l0_f_ty_eq(i64 %t6, i64 %t8)
+  %t9 = call i64 @l0_equal(i64 %t6, i64 %t8)
+  call void @l0_dec(i64 %t8)
   %t10 = xor i64 %t9, 1
   %t11 = icmp ne i64 %t10, 0
   br i1 %t11, label %Lt7, label %Le7
@@ -4307,9 +4241,7 @@ A7_1:
   %t13 = call i64 @l0_data_get(i64 %t8, i64 0)
   call void @l0_inc(i64 %t13)
   call void @l0_dec(i64 %t8)
-  call void @l0_inc(i64 %t6)
-  call void @l0_inc(i64 %t13)
-  %t15 = call i64 @l0_f_ty_eq(i64 %t6, i64 %t13)
+  %t15 = call i64 @l0_equal(i64 %t6, i64 %t13)
   %t16 = icmp ne i64 %t15, 0
   br i1 %t16, label %Lt14, label %Le14
 Lt14:
@@ -4374,7 +4306,7 @@ Lt0:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a2)
-  %t3 = call i64 @l0_f_rev_tys_onto(i64 %a3, i64 0)
+  %t3 = call i64 @l0_f_rev_onto.1(i64 %a3, i64 0, i64 0, i64 0, i64 0)
   %t4 = call i64 @l0_new_data(i64 0, i64 2, i64 2)
   call void @l0_data_set(i64 %t4, i64 0, i64 %t3)
   ret i64 %t4
@@ -4449,10 +4381,9 @@ Lt7:
   ret i64 %t10
 Le7:
   %t12 = call i64 @l0_f_ctx_sigs(i64 %a4)
-  call void @l0_inc(i64 %a1)
   %t13 = call i64 @l0_f_find_sig(i64 %a1, i64 %t12)
   %t14 = call i64 @l0_data_tag(i64 %t13)
-  switch i64 %t14, label %Ln11 [ i64 1, label %A11_0 i64 0, label %A11_1 ]
+  switch i64 %t14, label %Ln11 [ i64 0, label %A11_0 i64 1, label %A11_1 ]
 A11_0:
   call void @l0_dec(i64 %t13)
   call void @l0_dec(i64 %t6)
@@ -4474,10 +4405,9 @@ Ln0:
 define internal i64 @l0_f_check_call_missing(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  call void @l0_inc(i64 %a1)
   %t1 = call i64 @l0_f_find_bind(i64 %a1, i64 %a2)
   %t2 = call i64 @l0_data_tag(i64 %t1)
-  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t2, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
   call void @l0_dec(i64 %t1)
@@ -4574,9 +4504,9 @@ A0_0:
   call void @l0_inc(i64 %t5)
   call void @l0_dec(i64 %a3)
   call void @l0_inc(i64 %a2)
-  %t7 = call i64 @l0_f_length_tys(i64 %a2)
+  %t7 = call i64 @l0_f_length.1(i64 %a2, i64 0)
   call void @l0_inc(i64 %t4)
-  %t8 = call i64 @l0_f_length_tys(i64 %t4)
+  %t8 = call i64 @l0_f_length.1(i64 %t4, i64 0)
   %t9 = icmp eq i64 %t7, %t8
   %t10 = zext i1 %t9 to i64
   %t11 = xor i64 %t10, 1
@@ -4585,8 +4515,8 @@ A0_0:
 Lt6:
   call void @l0_dec(i64 %t3)
   call void @l0_dec(i64 %t5)
-  %t13 = call i64 @l0_f_length_tys(i64 %t4)
-  %t14 = call i64 @l0_f_length_tys(i64 %a2)
+  %t13 = call i64 @l0_f_length.1(i64 %t4, i64 0)
+  %t14 = call i64 @l0_f_length.1(i64 %a2, i64 0)
   %t15 = call i64 @l0_f_wrong_arity_msg(i64 %a1, i64 %t13, i64 %t14, i64 0, i64 0)
   %t16 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t16, i64 0, i64 %a0)
@@ -4666,7 +4596,9 @@ Le0:
   call void @l0_inc(i64 %t6)
   %t7 = call i64 @l0_head(i64 %a2)
   call void @l0_inc(i64 %t7)
-  %t8 = call i64 @l0_f_ty_eq(i64 %t6, i64 %t7)
+  %t8 = call i64 @l0_equal(i64 %t6, i64 %t7)
+  call void @l0_dec(i64 %t6)
+  call void @l0_dec(i64 %t7)
   %t9 = icmp ne i64 %t8, 0
   br i1 %t9, label %Lt5, label %Le5
 Lt5:
@@ -4716,10 +4648,9 @@ entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a5)
   %t1 = call i64 @l0_f_ctx_ctors(i64 %a5)
-  call void @l0_inc(i64 %a1)
   %t2 = call i64 @l0_f_find_ctor(i64 %a1, i64 %t1)
   %t3 = call i64 @l0_data_tag(i64 %t2)
-  switch i64 %t3, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
+  switch i64 %t3, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
 A0_0:
   call void @l0_dec(i64 %t2)
   call void @l0_dec(i64 %a5)
@@ -4790,9 +4721,9 @@ entry:
   call void @l0_inc(i64 %a4)
   %t0 = call i64 @l0_f_ctor_fields(i64 %a4)
   call void @l0_inc(i64 %a3)
-  %t2 = call i64 @l0_f_length_tys(i64 %a3)
+  %t2 = call i64 @l0_f_length.1(i64 %a3, i64 0)
   call void @l0_inc(i64 %t0)
-  %t3 = call i64 @l0_f_length_tys(i64 %t0)
+  %t3 = call i64 @l0_f_length.1(i64 %t0, i64 0)
   %t4 = icmp eq i64 %t2, %t3
   %t5 = zext i1 %t4 to i64
   %t6 = xor i64 %t5, 1
@@ -4810,10 +4741,10 @@ Lt1:
   %t13 = call i64 @l0_new_cons(i64 116, i64 %t12, i64 2)
   %t14 = call i64 @l0_new_cons(i64 32, i64 %t13, i64 2)
   call void @l0_inc(i64 %t0)
-  %t15 = call i64 @l0_f_length_tys(i64 %t0)
+  %t15 = call i64 @l0_f_length.1(i64 %t0, i64 0)
   %t16 = call i64 @l0_f_digits(i64 %t15, i64 0)
   %t17 = call i64 @l0_new_cons(i64 32, i64 0, i64 2)
-  %t18 = call i64 @l0_f_length_tys(i64 %t0)
+  %t18 = call i64 @l0_f_length.1(i64 %t0, i64 0)
   %t19 = call i64 @l0_new_cons(i64 100, i64 0, i64 2)
   %t20 = call i64 @l0_new_cons(i64 108, i64 %t19, i64 2)
   %t21 = call i64 @l0_new_cons(i64 101, i64 %t20, i64 2)
@@ -4830,7 +4761,7 @@ Lt1:
   %t32 = call i64 @l0_new_cons(i64 98, i64 %t31, i64 2)
   %t33 = call i64 @l0_new_cons(i64 32, i64 %t32, i64 2)
   %t34 = call i64 @l0_new_cons(i64 44, i64 %t33, i64 2)
-  %t35 = call i64 @l0_f_length_tys(i64 %a3)
+  %t35 = call i64 @l0_f_length.1(i64 %a3, i64 0)
   %t36 = call i64 @l0_f_digits(i64 %t35, i64 0)
   %t37 = call i64 @l0_f_append.0(i64 %t34, i64 %t36, i64 0, i64 0, i64 0)
   %t38 = call i64 @l0_f_append.0(i64 %t24, i64 %t37, i64 0, i64 0, i64 0)
@@ -4898,9 +4829,9 @@ entry:
   call void @l0_inc(i64 %a4)
   %t0 = call i64 @l0_f_ctor_params(i64 %a4)
   call void @l0_inc(i64 %a2)
-  %t2 = call i64 @l0_f_length_tys(i64 %a2)
+  %t2 = call i64 @l0_f_length.1(i64 %a2, i64 0)
   call void @l0_inc(i64 %t0)
-  %t3 = call i64 @l0_f_length_strs(i64 %t0)
+  %t3 = call i64 @l0_f_length.1(i64 %t0, i64 0)
   %t4 = icmp eq i64 %t2, %t3
   %t5 = zext i1 %t4 to i64
   %t6 = xor i64 %t5, 1
@@ -4911,8 +4842,8 @@ Lt1:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a3)
   %t8 = call i64 @l0_f_ctor_type_name(i64 %a4)
-  %t9 = call i64 @l0_f_length_strs(i64 %t0)
-  %t10 = call i64 @l0_f_length_tys(i64 %a2)
+  %t9 = call i64 @l0_f_length.1(i64 %t0, i64 0)
+  %t10 = call i64 @l0_f_length.1(i64 %a2, i64 0)
   %t11 = call i64 @l0_f_ty_arity_msg(i64 %t8, i64 %t9, i64 %t10, i64 0, i64 0)
   %t12 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t12, i64 0, i64 %a0)
@@ -5324,8 +5255,9 @@ Le7:
   call void @l0_inc(i64 %a4)
   %t54 = call i64 @l0_f_ctx_datas(i64 %a4)
   %t55 = call i64 @l0_f_find_data(i64 %t53, i64 %t54)
+  call void @l0_dec(i64 %t53)
   %t56 = call i64 @l0_data_tag(i64 %t55)
-  switch i64 %t56, label %Ln52 [ i64 1, label %A52_0 i64 0, label %A52_1 ]
+  switch i64 %t56, label %Ln52 [ i64 0, label %A52_0 i64 1, label %A52_1 ]
 A52_0:
   call void @l0_dec(i64 %t55)
   call void @l0_dec(i64 %a2)
@@ -5649,9 +5581,7 @@ A5_1:
   %t15 = call i64 @l0_data_get(i64 %t10, i64 0)
   call void @l0_inc(i64 %t15)
   call void @l0_dec(i64 %t10)
-  call void @l0_inc(i64 %a0)
-  call void @l0_inc(i64 %t15)
-  %t17 = call i64 @l0_f_ty_eq(i64 %a0, i64 %t15)
+  %t17 = call i64 @l0_equal(i64 %a0, i64 %t15)
   %t18 = icmp ne i64 %t17, 0
   br i1 %t18, label %Lt16, label %Le16
 Lt16:
@@ -5830,10 +5760,9 @@ Lt6:
 Le6:
   call void @l0_inc(i64 %a4)
   %t45 = call i64 @l0_f_ctx_ctors(i64 %a4)
-  call void @l0_inc(i64 %t3)
   %t46 = call i64 @l0_f_find_ctor(i64 %t3, i64 %t45)
   %t47 = call i64 @l0_data_tag(i64 %t46)
-  switch i64 %t47, label %Ln44 [ i64 1, label %A44_0 i64 0, label %A44_1 ]
+  switch i64 %t47, label %Ln44 [ i64 0, label %A44_0 i64 1, label %A44_1 ]
 A44_0:
   call void @l0_dec(i64 %t46)
   call void @l0_dec(i64 %t4)
@@ -5886,7 +5815,9 @@ entry:
   %t1 = call i64 @l0_f_ctor_type_name(i64 %a4)
   call void @l0_inc(i64 %a5)
   %t2 = call i64 @l0_f_data_name(i64 %a5)
-  %t3 = call i64 @l0_f_list_eq(i64 %t1, i64 %t2)
+  %t3 = call i64 @l0_equal(i64 %t1, i64 %t2)
+  call void @l0_dec(i64 %t1)
+  call void @l0_dec(i64 %t2)
   %t4 = xor i64 %t3, 1
   %t5 = icmp ne i64 %t4, 0
   br i1 %t5, label %Lt0, label %Le0
@@ -5936,10 +5867,10 @@ Lt0:
 Le0:
   call void @l0_dec(i64 %a5)
   call void @l0_inc(i64 %a2)
-  %t41 = call i64 @l0_f_length_strs(i64 %a2)
+  %t41 = call i64 @l0_f_length.1(i64 %a2, i64 0)
   call void @l0_inc(i64 %a4)
   %t42 = call i64 @l0_f_ctor_fields(i64 %a4)
-  %t43 = call i64 @l0_f_length_tys(i64 %t42)
+  %t43 = call i64 @l0_f_length.1(i64 %t42, i64 0)
   %t44 = icmp eq i64 %t41, %t43
   %t45 = zext i1 %t44 to i64
   %t46 = xor i64 %t45, 1
@@ -5957,11 +5888,11 @@ Lt40:
   %t52 = call i64 @l0_new_cons(i64 32, i64 %t51, i64 2)
   call void @l0_inc(i64 %a4)
   %t53 = call i64 @l0_f_ctor_fields(i64 %a4)
-  %t54 = call i64 @l0_f_length_tys(i64 %t53)
+  %t54 = call i64 @l0_f_length.1(i64 %t53, i64 0)
   %t55 = call i64 @l0_f_digits(i64 %t54, i64 0)
   %t56 = call i64 @l0_new_cons(i64 32, i64 0, i64 2)
   %t57 = call i64 @l0_f_ctor_fields(i64 %a4)
-  %t58 = call i64 @l0_f_length_tys(i64 %t57)
+  %t58 = call i64 @l0_f_length.1(i64 %t57, i64 0)
   %t59 = call i64 @l0_new_cons(i64 100, i64 0, i64 2)
   %t60 = call i64 @l0_new_cons(i64 108, i64 %t59, i64 2)
   %t61 = call i64 @l0_new_cons(i64 101, i64 %t60, i64 2)
@@ -5993,7 +5924,7 @@ Lt40:
   %t87 = call i64 @l0_new_cons(i64 98, i64 %t86, i64 2)
   %t88 = call i64 @l0_new_cons(i64 32, i64 %t87, i64 2)
   %t89 = call i64 @l0_new_cons(i64 44, i64 %t88, i64 2)
-  %t90 = call i64 @l0_f_length_strs(i64 %a2)
+  %t90 = call i64 @l0_f_length.1(i64 %a2, i64 0)
   %t91 = call i64 @l0_f_digits(i64 %t90, i64 0)
   %t92 = call i64 @l0_f_append.0(i64 %t89, i64 %t91, i64 0, i64 0, i64 0)
   %t93 = call i64 @l0_f_append.0(i64 %t64, i64 %t92, i64 0, i64 0, i64 0)
@@ -6205,7 +6136,7 @@ A3_0:
   %t8 = call i64 @l0_data_get(i64 %t4, i64 2)
   call void @l0_inc(i64 %t8)
   call void @l0_dec(i64 %t4)
-  %t9 = call i64 @l0_f_length_tys(i64 %t8)
+  %t9 = call i64 @l0_f_length.1(i64 %t8, i64 0)
   %t10 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t10)
   call void @l0_dec(i64 %a0)
@@ -6904,9 +6835,7 @@ A0_1:
   %t7 = call i64 @l0_data_get(i64 %t2, i64 0)
   call void @l0_inc(i64 %t7)
   call void @l0_dec(i64 %t2)
-  call void @l0_inc(i64 %t7)
-  call void @l0_inc(i64 %a3)
-  %t9 = call i64 @l0_f_ty_eq(i64 %t7, i64 %a3)
+  %t9 = call i64 @l0_equal(i64 %t7, i64 %a3)
   %t10 = icmp ne i64 %t9, 0
   br i1 %t10, label %Lt8, label %Le8
 Lt8:
@@ -7508,8 +7437,9 @@ entry:
   call void @l0_inc(i64 %a0)
   %t5 = call i64 @l0_f_collect_sigs(i64 %a0, i64 0)
   %t6 = call i64 @l0_f_find_sig(i64 %t4, i64 %t5)
+  call void @l0_dec(i64 %t4)
   %t7 = call i64 @l0_data_tag(i64 %t6)
-  switch i64 %t7, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
+  switch i64 %t7, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
 A0_0:
   call void @l0_dec(i64 %t6)
   call void @l0_dec(i64 %a0)
@@ -7624,7 +7554,9 @@ Le6:
 Lt40:
   call void @l0_dec(i64 %t4)
   %t44 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t45 = call i64 @l0_f_ty_eq(i64 %t5, i64 %t44)
+  %t45 = call i64 @l0_equal(i64 %t5, i64 %t44)
+  call void @l0_dec(i64 %t5)
+  call void @l0_dec(i64 %t44)
   %t46 = icmp ne i64 %t45, 0
   br i1 %t46, label %Lt43, label %Le43
 Lt43:
@@ -7684,7 +7616,7 @@ define internal i64 @l0_f_check_input_main(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i
 entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a0)
-  %t1 = call i64 @l0_f_length_tys(i64 %a0)
+  %t1 = call i64 @l0_f_length.1(i64 %a0, i64 0)
   %t2 = icmp eq i64 %t1, 1
   %t3 = zext i1 %t2 to i64
   %t4 = xor i64 %t3, 1
@@ -7703,7 +7635,9 @@ Le0:
   %t10 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
   %t11 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
   call void @l0_data_set(i64 %t11, i64 0, i64 %t10)
-  %t12 = call i64 @l0_f_ty_eq(i64 %t9, i64 %t11)
+  %t12 = call i64 @l0_equal(i64 %t9, i64 %t11)
+  call void @l0_dec(i64 %t9)
+  call void @l0_dec(i64 %t11)
   %t13 = xor i64 %t12, 1
   %t14 = icmp ne i64 %t13, 0
   br i1 %t14, label %Lt8, label %Le8
@@ -7714,6 +7648,7 @@ Lt8:
   ret i64 %t16
 Le8:
   %t18 = call i64 @l0_f_main_ret_ok(i64 %a1)
+  call void @l0_dec(i64 %a1)
   %t19 = icmp ne i64 %t18, 0
   br i1 %t19, label %Lt17, label %Le17
 Lt17:
@@ -7838,7 +7773,7 @@ Lt0:
 Le0:
   %t4 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t4)
-  %t5 = call i64 @l0_f_is_main_def(i64 %t4, i64 0)
+  %t5 = call i64 @l0_f_is_main_def(i64 %t4)
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
@@ -7855,7 +7790,7 @@ Le3:
   ret i64 %t10
 }
 
-define internal i64 @l0_f_is_main_def(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_is_main_def(i64 %a0) {
 entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_f_is_def(i64 %a0)
@@ -7867,7 +7802,9 @@ Lt0:
   %t5 = call i64 @l0_new_cons(i64 105, i64 %t4, i64 2)
   %t6 = call i64 @l0_new_cons(i64 97, i64 %t5, i64 2)
   %t7 = call i64 @l0_new_cons(i64 109, i64 %t6, i64 2)
-  %t8 = musttail call i64 @l0_f_list_eq(i64 %t3, i64 %t7)
+  %t8 = call i64 @l0_equal(i64 %t3, i64 %t7)
+  call void @l0_dec(i64 %t3)
+  call void @l0_dec(i64 %t7)
   ret i64 %t8
 Le0:
   call void @l0_dec(i64 %a0)
@@ -7878,15 +7815,16 @@ define internal i64 @l0_f_main_ret_ok(i64 %a0) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  call void @l0_inc(i64 %a0)
-  %t1 = call i64 @l0_f_ty_eq(i64 %a0, i64 %t0)
+  %t1 = call i64 @l0_equal(i64 %a0, i64 %t0)
+  call void @l0_dec(i64 %t0)
   %t2 = call i64 @l0_new_data(i64 1, i64 2, i64 0)
-  call void @l0_inc(i64 %a0)
-  %t3 = call i64 @l0_f_ty_eq(i64 %a0, i64 %t2)
+  %t3 = call i64 @l0_equal(i64 %a0, i64 %t2)
+  call void @l0_dec(i64 %t2)
   %t4 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
   %t5 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
   call void @l0_data_set(i64 %t5, i64 0, i64 %t4)
-  %t6 = call i64 @l0_f_ty_eq(i64 %a0, i64 %t5)
+  %t6 = call i64 @l0_equal(i64 %a0, i64 %t5)
+  call void @l0_dec(i64 %t5)
   %t7 = or i64 %t3, %t6
   %t8 = or i64 %t1, %t7
   ret i64 %t8
@@ -7933,6 +7871,7 @@ Le0:
   call void @l0_inc(i64 %t4)
   call void @l0_inc(i64 %a1)
   %t5 = call i64 @l0_f_sig_exists(i64 %t4, i64 %a1)
+  call void @l0_dec(i64 %t4)
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
@@ -7960,7 +7899,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = musttail call i64 @l0_f_rev_decls_onto(i64 %a2, i64 0, i64 0, i64 0, i64 0)
+  %t3 = musttail call i64 @l0_f_rev_onto.1(i64 %a2, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t3
 Le0:
   %t4 = call i64 @l0_tail(i64 %a0)
@@ -7996,7 +7935,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = musttail call i64 @l0_f_rev_decls_onto(i64 %a2, i64 0, i64 0, i64 0, i64 0)
+  %t3 = musttail call i64 @l0_f_rev_onto.1(i64 %a2, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t3
 Le0:
   %t4 = call i64 @l0_tail(i64 %a0)
@@ -8024,26 +7963,6 @@ Lx5:
   ret i64 %t12
 }
 
-define internal i64 @l0_f_append_sigs(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_f_append_sigs(i64 %t4, i64 %a1)
-  %t6 = call i64 @l0_new_cons(i64 %t3, i64 %t5, i64 3)
-  ret i64 %t6
-}
-
 define internal i64 @l0_f_prelude_view(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
@@ -8063,21 +7982,21 @@ entry:
   call void @l0_inc(i64 %a0)
   %t2 = call i64 @l0_f_prelude_decls(i64 %a0, i64 %a1, i64 0, i64 0, i64 0)
   %t3 = call i64 @l0_f_collect_sigs(i64 %t2, i64 0)
-  %t4 = call i64 @l0_f_append_sigs(i64 %t1, i64 %t3)
+  %t4 = call i64 @l0_f_append.1(i64 %t1, i64 %t3, i64 0, i64 0, i64 0)
   %t5 = musttail call i64 @l0_f_sigs_ctx(i64 %t4, i64 %a0)
   ret i64 %t5
 }
 
-define internal i64 @l0_f_check_program(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_check_program(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_f_group_upper(i64 %a0, i64 %a2, i64 0, i64 0, i64 0)
   %t1 = call i64 @l0_f_hide_tparams(i64 %t0, i64 0, i64 0, i64 0, i64 0)
-  %t2 = musttail call i64 @l0_f_check_grouped(i64 %t1, i64 %a1, i64 %a2)
+  %t2 = musttail call i64 @l0_f_check_grouped(i64 %t1, i64 %a1, i64 %a2, i64 0, i64 0)
   ret i64 %t2
 }
 
-define internal i64 @l0_f_check_grouped(i64 %a0, i64 %a1, i64 %a2) {
+define internal i64 @l0_f_check_grouped(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a0)
@@ -8092,7 +8011,7 @@ entry:
   %t4 = call i64 @l0_f_check_widths(i64 %a0, i64 %t3)
   %t5 = call i64 @l0_f_check_decls(i64 %a0, i64 %t1, i64 %t2, i64 %a2, i64 %t4)
   %t6 = call i64 @l0_f_check_main(i64 %t0, i64 %a1, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t7 = musttail call i64 @l0_f_rev_diags_onto(i64 %t5, i64 %t6, i64 0)
+  %t7 = musttail call i64 @l0_f_rev_onto.1(i64 %t5, i64 %t6, i64 0, i64 0, i64 0)
   ret i64 %t7
 }
 
@@ -8166,7 +8085,7 @@ A3_0:
   call void @l0_inc(i64 %t8)
   call void @l0_dec(i64 %t4)
   call void @l0_inc(i64 %t8)
-  %t10 = call i64 @l0_f_length_tys(i64 %t8)
+  %t10 = call i64 @l0_f_length.1(i64 %t8, i64 0)
   %t11 = icmp sgt i64 %t10, 31
   %t12 = zext i1 %t11 to i64
   %t13 = icmp ne i64 %t12, 0
@@ -8190,7 +8109,7 @@ Lt9:
   %t28 = call i64 @l0_new_cons(i64 97, i64 %t27, i64 2)
   %t29 = call i64 @l0_new_cons(i64 104, i64 %t28, i64 2)
   %t30 = call i64 @l0_new_cons(i64 32, i64 %t29, i64 2)
-  %t31 = call i64 @l0_f_length_tys(i64 %t8)
+  %t31 = call i64 @l0_f_length.1(i64 %t8, i64 0)
   %t32 = call i64 @l0_f_digits(i64 %t31, i64 0)
   %t33 = call i64 @l0_new_cons(i64 100, i64 0, i64 2)
   %t34 = call i64 @l0_new_cons(i64 101, i64 %t33, i64 2)
@@ -8342,7 +8261,7 @@ Lt0:
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a0)
-  %t3 = musttail call i64 @l0_f_rev_decls_onto(i64 %a4, i64 0, i64 0, i64 0, i64 0)
+  %t3 = musttail call i64 @l0_f_rev_onto.1(i64 %a4, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t3
 Le0:
   %t4 = call i64 @l0_tail(i64 %a0)
@@ -8944,7 +8863,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t3 = musttail call i64 @l0_f_rev_decls_onto(i64 %a2, i64 0, i64 0, i64 0, i64 0)
+  %t3 = musttail call i64 @l0_f_rev_onto.1(i64 %a2, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t3
 Le0:
   %t4 = call i64 @l0_tail(i64 %a0)
@@ -9082,8 +9001,9 @@ Le0:
   call void @l0_inc(i64 %t4)
   call void @l0_inc(i64 %a1)
   %t5 = call i64 @l0_f_find_bind(i64 %t4, i64 %a1)
+  call void @l0_dec(i64 %t4)
   %t6 = call i64 @l0_data_tag(i64 %t5)
-  switch i64 %t6, label %Ln3 [ i64 0, label %A3_0 i64 1, label %A3_1 ]
+  switch i64 %t6, label %Ln3 [ i64 1, label %A3_0 i64 0, label %A3_1 ]
 A3_0:
   %t7 = call i64 @l0_data_get(i64 %t5, i64 0)
   call void @l0_inc(i64 %t7)
@@ -9136,11 +9056,10 @@ A0_2:
   %t9 = call i64 @l0_data_get(i64 %a0, i64 1)
   call void @l0_inc(i64 %t9)
   call void @l0_dec(i64 %a0)
-  call void @l0_inc(i64 %t8)
   call void @l0_inc(i64 %a1)
   %t11 = call i64 @l0_f_find_bind(i64 %t8, i64 %a1)
   %t12 = call i64 @l0_data_tag(i64 %t11)
-  switch i64 %t12, label %Ln10 [ i64 0, label %A10_0 i64 1, label %A10_1 ]
+  switch i64 %t12, label %Ln10 [ i64 1, label %A10_0 i64 0, label %A10_1 ]
 A10_0:
   %t13 = call i64 @l0_data_get(i64 %t11, i64 0)
   call void @l0_inc(i64 %t13)
@@ -9452,7 +9371,7 @@ Lt0:
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a0)
-  %t3 = musttail call i64 @l0_f_rev_decls_onto(i64 %a4, i64 0, i64 0, i64 0, i64 0)
+  %t3 = musttail call i64 @l0_f_rev_onto.1(i64 %a4, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t3
 Le0:
   %t4 = call i64 @l0_tail(i64 %a0)
@@ -9734,8 +9653,9 @@ Le0:
   call void @l0_inc(i64 %t4)
   call void @l0_inc(i64 %a1)
   %t5 = call i64 @l0_f_find_bind(i64 %t4, i64 %a1)
+  call void @l0_dec(i64 %t4)
   %t6 = call i64 @l0_data_tag(i64 %t5)
-  switch i64 %t6, label %Ln3 [ i64 0, label %A3_0 i64 1, label %A3_1 ]
+  switch i64 %t6, label %Ln3 [ i64 1, label %A3_0 i64 0, label %A3_1 ]
 A3_0:
   %t7 = call i64 @l0_data_get(i64 %t5, i64 0)
   call void @l0_inc(i64 %t7)
@@ -9833,8 +9753,9 @@ A0_4:
   call void @l0_dec(i64 %a2)
   %m21 = alloca i64
   %t22 = call i64 @l0_f_find_bind(i64 %t20, i64 %a1)
+  call void @l0_dec(i64 %t20)
   %t23 = call i64 @l0_data_tag(i64 %t22)
-  switch i64 %t23, label %Ln21 [ i64 0, label %A21_0 i64 1, label %A21_1 ]
+  switch i64 %t23, label %Ln21 [ i64 1, label %A21_0 i64 0, label %A21_1 ]
 A21_0:
   %t24 = call i64 @l0_data_get(i64 %t22, i64 0)
   call void @l0_inc(i64 %t24)
@@ -10059,8 +9980,9 @@ A0_0:
   %m6 = alloca i64
   %t7 = call i64 @l0_f_ctx_ctors(i64 %a5)
   %t8 = call i64 @l0_f_find_ctor(i64 %a1, i64 %t7)
+  call void @l0_dec(i64 %a1)
   %t9 = call i64 @l0_data_tag(i64 %t8)
-  switch i64 %t9, label %Ln6 [ i64 0, label %A6_0 i64 1, label %A6_1 ]
+  switch i64 %t9, label %Ln6 [ i64 1, label %A6_0 i64 0, label %A6_1 ]
 A6_0:
   %t10 = call i64 @l0_data_get(i64 %t8, i64 0)
   call void @l0_inc(i64 %t10)
@@ -10144,10 +10066,9 @@ Lm9:
   ret i64 %t17
 Le5:
   %t19 = call i64 @l0_f_ctx_sigs(i64 %a4)
-  call void @l0_inc(i64 %a1)
   %t20 = call i64 @l0_f_find_sig(i64 %a1, i64 %t19)
   %t21 = call i64 @l0_data_tag(i64 %t20)
-  switch i64 %t21, label %Ln18 [ i64 1, label %A18_0 i64 0, label %A18_1 ]
+  switch i64 %t21, label %Ln18 [ i64 0, label %A18_0 i64 1, label %A18_1 ]
 A18_0:
   call void @l0_dec(i64 %t20)
   call void @l0_dec(i64 %t4)
@@ -10253,8 +10174,9 @@ A0_0:
   call void @l0_inc(i64 %a4)
   %t7 = call i64 @l0_f_ctx_datas(i64 %a4)
   %t8 = call i64 @l0_f_find_data(i64 %t6, i64 %t7)
+  call void @l0_dec(i64 %t6)
   %t9 = call i64 @l0_data_tag(i64 %t8)
-  switch i64 %t9, label %Ln5 [ i64 1, label %A5_0 i64 0, label %A5_1 ]
+  switch i64 %t9, label %Ln5 [ i64 0, label %A5_0 i64 1, label %A5_1 ]
 A5_0:
   call void @l0_dec(i64 %t8)
   call void @l0_dec(i64 %t4)
@@ -10313,7 +10235,7 @@ Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_f_rev_arms_onto(i64 %a4, i64 0)
+  %t3 = call i64 @l0_f_rev_onto.1(i64 %a4, i64 0, i64 0, i64 0, i64 0)
   %t4 = call i64 @l0_new_data(i64 0, i64 2, i64 6)
   call void @l0_data_set(i64 %t4, i64 0, i64 %t3)
   call void @l0_data_set(i64 %t4, i64 1, i64 %a5)
@@ -10333,7 +10255,6 @@ A5_0:
   %t11 = call i64 @l0_data_get(i64 %t6, i64 3)
   call void @l0_inc(i64 %t11)
   call void @l0_dec(i64 %t6)
-  call void @l0_inc(i64 %t9)
   call void @l0_inc(i64 %a1)
   call void @l0_inc(i64 %a3)
   %t13 = call i64 @l0_f_arm_fields_at(i64 %t9, i64 %a1, i64 %a3)
@@ -10373,7 +10294,7 @@ entry:
   %t1 = call i64 @l0_f_ctx_ctors(i64 %a2)
   %t2 = call i64 @l0_f_find_ctor(i64 %a0, i64 %t1)
   %t3 = call i64 @l0_data_tag(i64 %t2)
-  switch i64 %t3, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t3, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t4 = call i64 @l0_data_get(i64 %t2, i64 0)
   call void @l0_inc(i64 %t4)
@@ -10565,7 +10486,6 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
   %t3 = call i64 @l0_new_cons(i64 48, i64 0, i64 2)
   ret i64 %t3
@@ -10582,13 +10502,12 @@ A4_0:
   %t9 = call i64 @l0_data_get(i64 %t5, i64 2)
   %t10 = call i64 @l0_data_get(i64 %t5, i64 3)
   call void @l0_dec(i64 %t5)
-  call void @l0_inc(i64 %a0)
-  %t12 = call i64 @l0_f_list_eq(i64 %a0, i64 %t7)
+  %t12 = call i64 @l0_equal(i64 %a0, i64 %t7)
+  call void @l0_dec(i64 %t7)
   %t13 = icmp ne i64 %t12, 0
   br i1 %t13, label %Lt11, label %Le11
 Lt11:
   call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
   ret i64 %t8
 Le11:
   call void @l0_dec(i64 %t8)
@@ -10608,7 +10527,6 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
   %t3 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
   ret i64 %t3
@@ -10625,13 +10543,12 @@ A4_0:
   call void @l0_inc(i64 %t9)
   %t10 = call i64 @l0_data_get(i64 %t5, i64 3)
   call void @l0_dec(i64 %t5)
-  call void @l0_inc(i64 %a0)
-  %t12 = call i64 @l0_f_list_eq(i64 %a0, i64 %t7)
+  %t12 = call i64 @l0_equal(i64 %a0, i64 %t7)
+  call void @l0_dec(i64 %t7)
   %t13 = icmp ne i64 %t12, 0
   br i1 %t13, label %Lt11, label %Le11
 Lt11:
   call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
   ret i64 %t9
 Le11:
   call void @l0_dec(i64 %t9)
@@ -10666,8 +10583,8 @@ A3_0:
   %t8 = call i64 @l0_data_get(i64 %t4, i64 2)
   %t9 = call i64 @l0_data_get(i64 %t4, i64 3)
   call void @l0_dec(i64 %t4)
-  call void @l0_inc(i64 %a0)
-  %t11 = call i64 @l0_f_list_eq(i64 %a0, i64 %t6)
+  %t11 = call i64 @l0_equal(i64 %a0, i64 %t6)
+  call void @l0_dec(i64 %t6)
   %t12 = icmp ne i64 %t11, 0
   br i1 %t12, label %Lt10, label %Le10
 Lt10:
@@ -11052,17 +10969,15 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  call void @l0_dec(i64 %a0)
   ret i64 %a1
 Le0:
   %t4 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t4)
-  call void @l0_inc(i64 %a0)
-  %t5 = call i64 @l0_f_list_eq(i64 %a0, i64 %t4)
+  %t5 = call i64 @l0_equal(i64 %a0, i64 %t4)
+  call void @l0_dec(i64 %t4)
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
-  call void @l0_dec(i64 %a0)
   %t7 = call i64 @l0_tail(i64 %a1)
   call void @l0_inc(i64 %t7)
   call void @l0_dec(i64 %a1)
@@ -11094,6 +11009,7 @@ Le0:
   call void @l0_inc(i64 %t4)
   call void @l0_dec(i64 %a0)
   %t5 = call i64 @l0_f_set_del(i64 %t4, i64 %a1)
+  call void @l0_dec(i64 %t4)
   %t6 = musttail call i64 @l0_f_set_del_all(i64 %t3, i64 %t5)
   ret i64 %t6
 }
@@ -11194,6 +11110,7 @@ A0_6:
   call void @l0_dec(i64 %a0)
   %t24 = call i64 @l0_f_fv(i64 %t23, i64 0)
   %t25 = call i64 @l0_f_set_del(i64 %t21, i64 %t24)
+  call void @l0_dec(i64 %t21)
   %t26 = call i64 @l0_f_set_union(i64 %t25, i64 %a1)
   %t27 = musttail call i64 @l0_f_fv_onto(i64 %t22, i64 %t26)
   ret i64 %t27
@@ -11309,6 +11226,7 @@ Le0:
   call void @l0_inc(i64 %a1)
   %t7 = call i64 @l0_f_env_binds(i64 %a1)
   %t8 = call i64 @l0_f_lookup_type(i64 %t6, i64 %t7)
+  call void @l0_dec(i64 %t6)
   %t9 = call i64 @l0_f_ty_is_ptr(i64 %t8)
   call void @l0_dec(i64 %t8)
   %t10 = icmp ne i64 %t9, 0
@@ -11335,6 +11253,7 @@ Lt4:
   call void @l0_inc(i64 %a1)
   %t17 = call i64 @l0_f_env_binds(i64 %a1)
   %t18 = call i64 @l0_f_lookup_operand(i64 %t16, i64 %t17)
+  call void @l0_dec(i64 %t16)
   %t19 = call i64 @l0_f_emit_dec(i64 %t18, i64 %a2, i64 0, i64 0, i64 0)
   store i64 %t19, ptr %r4
   br label %Lx4
@@ -11400,11 +11319,9 @@ entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a1)
   %t0 = call i64 @l0_f_env_binds(i64 %a1)
-  call void @l0_inc(i64 %a0)
   %t1 = call i64 @l0_f_lookup_operand(i64 %a0, i64 %t0)
   call void @l0_inc(i64 %a1)
   %t2 = call i64 @l0_f_env_binds(i64 %a1)
-  call void @l0_inc(i64 %a0)
   %t3 = call i64 @l0_f_lookup_type(i64 %a0, i64 %t2)
   %r4 = alloca i64
   %r5 = alloca i64
@@ -11571,6 +11488,7 @@ A0_7:
   call void @l0_inc(i64 %t47)
   call void @l0_dec(i64 %a0)
   %t48 = call i64 @l0_f_emit_ctor(i64 %t45, i64 %t46, i64 %t47, i64 %a1, i64 %a2, i64 %a4)
+  call void @l0_dec(i64 %t45)
   %t49 = musttail call i64 @l0_f_finish(i64 %a3, i64 %t48, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t49
 A0_8:
@@ -11600,7 +11518,6 @@ entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a2)
   %t0 = call i64 @l0_f_fv(i64 %a2, i64 0)
-  call void @l0_inc(i64 %a0)
   call void @l0_inc(i64 %t0)
   %t2 = call i64 @l0_f_set_del(i64 %a0, i64 %t0)
   call void @l0_inc(i64 %a4)
@@ -11621,7 +11538,6 @@ A1_0:
   call void @l0_inc(i64 %t6)
   call void @l0_inc(i64 %t7)
   %t9 = call i64 @l0_f_env_bind(i64 %a0, i64 %t6, i64 %t7, i64 %a3)
-  call void @l0_inc(i64 %a0)
   %t10 = call i64 @l0_f_set_del(i64 %a0, i64 %a4)
   %r11 = alloca i64
   %t12 = call i64 @l0_f_ty_is_ptr(i64 %t7)
@@ -12190,7 +12106,7 @@ A6_0:
   %t10 = call i64 @l0_data_get(i64 %t7, i64 1)
   call void @l0_inc(i64 %t10)
   call void @l0_dec(i64 %t7)
-  %t11 = call i64 @l0_f_merge_args(i64 %a0, i64 %t4, i64 %t9, i64 0)
+  %t11 = call i64 @l0_f_merge_args(i64 %a0, i64 %t4, i64 %t9, i64 0, i64 0)
   %t12 = musttail call i64 @l0_f_ops_of(i64 %t11, i64 %t10, i64 0, i64 0, i64 0)
   ret i64 %t12
 Ln6:
@@ -12255,7 +12171,7 @@ Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_f_rev_eargs(i64 %a4, i64 0, i64 0, i64 0)
+  %t3 = call i64 @l0_f_rev_onto.1(i64 %a4, i64 0, i64 0, i64 0, i64 0)
   %t4 = call i64 @l0_new_data(i64 0, i64 2, i64 6)
   call void @l0_data_set(i64 %t4, i64 0, i64 %t3)
   call void @l0_data_set(i64 %t4, i64 1, i64 %a3)
@@ -12318,7 +12234,7 @@ Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_f_rev_eargs(i64 %a5, i64 0, i64 0, i64 0)
+  %t3 = call i64 @l0_f_rev_onto.1(i64 %a5, i64 0, i64 0, i64 0, i64 0)
   %t4 = call i64 @l0_new_data(i64 0, i64 2, i64 6)
   call void @l0_data_set(i64 %t4, i64 0, i64 %t3)
   call void @l0_data_set(i64 %t4, i64 1, i64 %a4)
@@ -12362,6 +12278,7 @@ Lx14:
   %t21 = call i64 @l0_f_flag_head(i64 %a3)
   call void @l0_inc(i64 %a1)
   %t22 = call i64 @l0_f_emit_var_arg(i64 %t6, i64 %a1, i64 %t20, i64 %t21, i64 %a4)
+  call void @l0_dec(i64 %t6)
   %t23 = call i64 @l0_data_tag(i64 %t22)
   switch i64 %t23, label %Ln13 [ i64 0, label %A13_0 ]
 A13_0:
@@ -12386,7 +12303,6 @@ entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a1)
   %t0 = call i64 @l0_f_env_binds(i64 %a1)
-  call void @l0_inc(i64 %a0)
   %t1 = call i64 @l0_f_lookup_operand(i64 %a0, i64 %t0)
   %t2 = call i64 @l0_f_env_binds(i64 %a1)
   %t3 = call i64 @l0_f_lookup_type(i64 %a0, i64 %t2)
@@ -12441,7 +12357,7 @@ Lx16:
   ret i64 %t20
 }
 
-define internal i64 @l0_f_merge_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+define internal i64 @l0_f_merge_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_is_empty(i64 %a0)
@@ -12451,7 +12367,7 @@ Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t3 = musttail call i64 @l0_f_rev_eargs(i64 %a3, i64 0, i64 0, i64 0)
+  %t3 = musttail call i64 @l0_f_rev_onto.1(i64 %a3, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t3
 Le0:
   %t5 = call i64 @l0_head(i64 %a0)
@@ -12471,7 +12387,7 @@ Lt4:
   call void @l0_inc(i64 %t11)
   call void @l0_dec(i64 %a1)
   %t12 = call i64 @l0_new_cons(i64 %t11, i64 %a3, i64 3)
-  %t13 = musttail call i64 @l0_f_merge_args(i64 %t9, i64 %t10, i64 %a2, i64 %t12)
+  %t13 = musttail call i64 @l0_f_merge_args(i64 %t9, i64 %t10, i64 %a2, i64 %t12, i64 0)
   ret i64 %t13
 Le4:
   %t14 = call i64 @l0_tail(i64 %a0)
@@ -12483,28 +12399,8 @@ Le4:
   call void @l0_inc(i64 %t16)
   call void @l0_dec(i64 %a2)
   %t17 = call i64 @l0_new_cons(i64 %t16, i64 %a3, i64 3)
-  %t18 = musttail call i64 @l0_f_merge_args(i64 %t14, i64 %a1, i64 %t15, i64 %t17)
+  %t18 = musttail call i64 @l0_f_merge_args(i64 %t14, i64 %a1, i64 %t15, i64 %t17, i64 0)
   ret i64 %t18
-}
-
-define internal i64 @l0_f_rev_eargs(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_eargs(i64 %t3, i64 %t5, i64 0, i64 0)
-  ret i64 %t6
 }
 
 define internal i64 @l0_f_ops_of(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
@@ -12699,7 +12595,7 @@ entry:
   %t121 = call i64 @l0_new_cons(i64 97, i64 %t120, i64 2)
   %t122 = call i64 @l0_new_cons(i64 101, i64 %t121, i64 2)
   %t123 = call i64 @l0_new_cons(i64 104, i64 %t122, i64 2)
-  %t124 = call i64 @l0_f_split_spaces(i64 %t123, i64 0)
+  %t124 = call i64 @l0_f_split_spaces(i64 %t123, i64 0, i64 0, i64 0, i64 0)
   %t125 = musttail call i64 @l0_f_any_eq.1(i64 %a0, i64 %t124)
   ret i64 %t125
 }
@@ -12709,7 +12605,6 @@ entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a2)
   %t1 = call i64 @l0_f_env_ctx(i64 %a2)
-  call void @l0_inc(i64 %a0)
   call void @l0_inc(i64 %a1)
   %t2 = call i64 @l0_f_row_update(i64 %a0, i64 %a1, i64 %t1)
   %t3 = call i64 @l0_data_tag(i64 %t2)
@@ -12749,12 +12644,13 @@ entry:
   %t8 = call i64 @l0_new_cons(i64 114, i64 %t7, i64 2)
   %t9 = call i64 @l0_new_cons(i64 114, i64 %t8, i64 2)
   %t10 = call i64 @l0_new_cons(i64 97, i64 %t9, i64 2)
-  %t11 = call i64 @l0_f_list_eq(i64 %a0, i64 %t10)
+  %t11 = call i64 @l0_equal(i64 %a0, i64 %t10)
+  call void @l0_dec(i64 %t10)
   %t12 = icmp ne i64 %t11, 0
   br i1 %t12, label %Lt1, label %Le1
 Lt1:
   call void @l0_inc(i64 %a1)
-  %t13 = call i64 @l0_f_length_exprs(i64 %a1)
+  %t13 = call i64 @l0_f_length.1(i64 %a1, i64 0)
   %t14 = icmp eq i64 %t13, 3
   %t15 = zext i1 %t14 to i64
   store i64 %t15, ptr %r1
@@ -12854,12 +12750,14 @@ A0_0:
   %t13 = call i64 @l0_new_cons(i64 114, i64 %t12, i64 2)
   %t14 = call i64 @l0_new_cons(i64 114, i64 %t13, i64 2)
   %t15 = call i64 @l0_new_cons(i64 97, i64 %t14, i64 2)
-  %t16 = call i64 @l0_f_list_eq(i64 %t3, i64 %t15)
+  %t16 = call i64 @l0_equal(i64 %t3, i64 %t15)
+  call void @l0_dec(i64 %t3)
+  call void @l0_dec(i64 %t15)
   %t17 = icmp ne i64 %t16, 0
   br i1 %t17, label %Lt6, label %Le6
 Lt6:
   call void @l0_inc(i64 %t4)
-  %t18 = call i64 @l0_f_length_exprs(i64 %t4)
+  %t18 = call i64 @l0_f_length.1(i64 %t4, i64 0)
   %t19 = icmp eq i64 %t18, 3
   %t20 = zext i1 %t19 to i64
   store i64 %t20, ptr %r6
@@ -12893,12 +12791,14 @@ A23_0:
   %t37 = call i64 @l0_new_cons(i64 114, i64 %t36, i64 2)
   %t38 = call i64 @l0_new_cons(i64 114, i64 %t37, i64 2)
   %t39 = call i64 @l0_new_cons(i64 97, i64 %t38, i64 2)
-  %t40 = call i64 @l0_f_list_eq(i64 %t27, i64 %t39)
+  %t40 = call i64 @l0_equal(i64 %t27, i64 %t39)
+  call void @l0_dec(i64 %t27)
+  call void @l0_dec(i64 %t39)
   %t41 = icmp ne i64 %t40, 0
   br i1 %t41, label %Lt30, label %Le30
 Lt30:
   call void @l0_inc(i64 %t28)
-  %t42 = call i64 @l0_f_length_exprs(i64 %t28)
+  %t42 = call i64 @l0_f_length.1(i64 %t28, i64 0)
   %t43 = icmp eq i64 %t42, 2
   %t44 = zext i1 %t43 to i64
   store i64 %t44, ptr %r30
@@ -13151,24 +13051,6 @@ Ln0:
   unreachable
 }
 
-define internal i64 @l0_f_length_exprs(i64 %a0) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  call void @l0_dec(i64 %a0)
-  %t4 = call i64 @l0_f_length_exprs(i64 %t3)
-  %t5 = add i64 1, %t4
-  ret i64 %t5
-}
-
 define internal i64 @l0_f_same_var(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
@@ -13185,7 +13067,9 @@ Lt0:
 Le0:
   %t4 = call i64 @l0_f_var_name(i64 %a0)
   %t5 = call i64 @l0_f_var_name(i64 %a1)
-  %t6 = musttail call i64 @l0_f_list_eq(i64 %t4, i64 %t5)
+  %t6 = call i64 @l0_equal(i64 %t4, i64 %t5)
+  call void @l0_dec(i64 %t4)
+  call void @l0_dec(i64 %t5)
   ret i64 %t6
 }
 
@@ -13439,6 +13323,7 @@ Le0:
   call void @l0_inc(i64 %a4)
   %t46 = call i64 @l0_f_env_binds(i64 %a4)
   %t47 = call i64 @l0_f_lookup_operand(i64 %t45, i64 %t46)
+  call void @l0_dec(i64 %t45)
   store i64 %t47, ptr %r0
   br label %Lx0
 Lx0:
@@ -13457,7 +13342,6 @@ Lx0:
   %t61 = call i64 @l0_new_cons(i64 108, i64 %t60, i64 2)
   call void @l0_inc(i64 %a4)
   %t62 = call i64 @l0_f_env_binds(i64 %a4)
-  call void @l0_inc(i64 %a0)
   %t63 = call i64 @l0_f_lookup_operand(i64 %a0, i64 %t62)
   %t64 = call i64 @l0_f_two_ops(i64 %t63, i64 %t48)
   %t65 = call i64 @l0_f_emit_rt_call(i64 %t61, i64 %t64, i64 %a7, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -13508,6 +13392,7 @@ A70_0:
   %t98 = call i64 @l0_f_emit_rt_call(i64 %t97, i64 %t78, i64 %t81, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t99 = call i64 @l0_f_env_binds(i64 %a4)
   %t100 = call i64 @l0_f_lookup_type(i64 %a0, i64 %t99)
+  call void @l0_dec(i64 %a0)
   %t101 = call i64 @l0_f_retype(i64 %t98, i64 %t100, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t102 = musttail call i64 @l0_f_emit_ret(i64 %a6, i64 %t101, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t102
@@ -13593,6 +13478,7 @@ A28_0:
   call void @l0_inc(i64 %t33)
   call void @l0_dec(i64 %t29)
   %t34 = call i64 @l0_f_fn_type(i64 %a0, i64 %a2)
+  call void @l0_dec(i64 %a0)
   %t35 = call i64 @l0_f_emit_dec_read_only(i64 %t24, i64 %t25, i64 %t26, i64 %t20, i64 %t33)
   %t36 = call i64 @l0_new_data(i64 0, i64 3, i64 14)
   call void @l0_data_set(i64 %t36, i64 0, i64 %t31)
@@ -13868,7 +13754,7 @@ entry:
   %t32 = call i64 @l0_new_cons(i64 32, i64 %t31, i64 2)
   %t33 = call i64 @l0_new_cons(i64 116, i64 %t32, i64 2)
   %t34 = call i64 @l0_new_cons(i64 108, i64 %t33, i64 2)
-  %t35 = call i64 @l0_f_split_spaces(i64 %t34, i64 0)
+  %t35 = call i64 @l0_f_split_spaces(i64 %t34, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t36 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t35)
   %t37 = icmp ne i64 %t36, 0
@@ -13883,8 +13769,8 @@ Le0:
   %t41 = call i64 @l0_new_cons(i64 110, i64 %t40, i64 2)
   %t42 = call i64 @l0_new_cons(i64 111, i64 %t41, i64 2)
   %t43 = call i64 @l0_new_cons(i64 99, i64 %t42, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t44 = call i64 @l0_f_list_eq(i64 %a0, i64 %t43)
+  %t44 = call i64 @l0_equal(i64 %a0, i64 %t43)
+  call void @l0_dec(i64 %t43)
   %t45 = icmp ne i64 %t44, 0
   br i1 %t45, label %Lt39, label %Le39
 Lt39:
@@ -13911,7 +13797,7 @@ Le39:
   %t60 = call i64 @l0_new_cons(i64 97, i64 %t59, i64 2)
   %t61 = call i64 @l0_new_cons(i64 101, i64 %t60, i64 2)
   %t62 = call i64 @l0_new_cons(i64 104, i64 %t61, i64 2)
-  %t63 = call i64 @l0_f_split_spaces(i64 %t62, i64 0)
+  %t63 = call i64 @l0_f_split_spaces(i64 %t62, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t64 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t63)
   %t65 = icmp ne i64 %t64, 0
@@ -13938,7 +13824,7 @@ Le48:
   %t80 = call i64 @l0_new_cons(i64 105, i64 %t79, i64 2)
   %t81 = call i64 @l0_new_cons(i64 97, i64 %t80, i64 2)
   %t82 = call i64 @l0_new_cons(i64 116, i64 %t81, i64 2)
-  %t83 = call i64 @l0_f_split_spaces(i64 %t82, i64 0)
+  %t83 = call i64 @l0_f_split_spaces(i64 %t82, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t84 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t83)
   %t85 = icmp ne i64 %t84, 0
@@ -13973,7 +13859,7 @@ entry:
   %t14 = call i64 @l0_new_cons(i64 103, i64 %t13, i64 2)
   %t15 = call i64 @l0_new_cons(i64 114, i64 %t14, i64 2)
   %t16 = call i64 @l0_new_cons(i64 97, i64 %t15, i64 2)
-  %t17 = call i64 @l0_f_split_spaces(i64 %t16, i64 0)
+  %t17 = call i64 @l0_f_split_spaces(i64 %t16, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t18 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t17)
   %t19 = icmp ne i64 %t18, 0
@@ -13995,8 +13881,8 @@ Le0:
   %t29 = call i64 @l0_new_cons(i64 114, i64 %t28, i64 2)
   %t30 = call i64 @l0_new_cons(i64 114, i64 %t29, i64 2)
   %t31 = call i64 @l0_new_cons(i64 97, i64 %t30, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t32 = call i64 @l0_f_list_eq(i64 %a0, i64 %t31)
+  %t32 = call i64 @l0_equal(i64 %a0, i64 %t31)
+  call void @l0_dec(i64 %t31)
   %t33 = icmp ne i64 %t32, 0
   br i1 %t33, label %Lt22, label %Le22
 Lt22:
@@ -14038,7 +13924,7 @@ Le22:
   %t61 = call i64 @l0_new_cons(i64 97, i64 %t60, i64 2)
   %t62 = call i64 @l0_new_cons(i64 101, i64 %t61, i64 2)
   %t63 = call i64 @l0_new_cons(i64 114, i64 %t62, i64 2)
-  %t64 = call i64 @l0_f_split_spaces(i64 %t63, i64 0)
+  %t64 = call i64 @l0_f_split_spaces(i64 %t63, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t65 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t64)
   %t66 = icmp ne i64 %t65, 0
@@ -14061,7 +13947,9 @@ Le37:
   %t79 = call i64 @l0_new_cons(i64 116, i64 %t78, i64 2)
   %t80 = call i64 @l0_new_cons(i64 121, i64 %t79, i64 2)
   %t81 = call i64 @l0_new_cons(i64 98, i64 %t80, i64 2)
-  %t82 = call i64 @l0_f_list_eq(i64 %a0, i64 %t81)
+  %t82 = call i64 @l0_equal(i64 %a0, i64 %t81)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %t81)
   %t83 = icmp ne i64 %t82, 0
   br i1 %t83, label %Lt68, label %Le68
 Lt68:
@@ -14081,7 +13969,7 @@ entry:
   %t2 = call i64 @l0_f_ctx_sigs(i64 %t1)
   %t3 = call i64 @l0_f_find_sig(i64 %a0, i64 %t2)
   %t4 = call i64 @l0_data_tag(i64 %t3)
-  switch i64 %t4, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t4, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t5 = call i64 @l0_data_get(i64 %t3, i64 0)
   call void @l0_inc(i64 %t5)
@@ -14112,8 +14000,9 @@ entry:
   %t1 = call i64 @l0_f_ctor_type_name(i64 %a0)
   %t2 = call i64 @l0_f_ctx_datas(i64 %a1)
   %t3 = call i64 @l0_f_find_data(i64 %t1, i64 %t2)
+  call void @l0_dec(i64 %t1)
   %t4 = call i64 @l0_data_tag(i64 %t3)
-  switch i64 %t4, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t4, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t5 = call i64 @l0_data_get(i64 %t3, i64 0)
   call void @l0_inc(i64 %t5)
@@ -14135,7 +14024,7 @@ entry:
   %t2 = call i64 @l0_f_ctx_ctors(i64 %t1)
   %t3 = call i64 @l0_f_find_ctor(i64 %a0, i64 %t2)
   %t4 = call i64 @l0_data_tag(i64 %t3)
-  switch i64 %t4, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
+  switch i64 %t4, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
 A0_0:
   call void @l0_dec(i64 %t3)
   call void @l0_dec(i64 %a3)
@@ -14376,7 +14265,6 @@ Lt9:
   call void @l0_dec(i64 %a0)
   call void @l0_inc(i64 %a2)
   %t16 = call i64 @l0_f_env_binds(i64 %a2)
-  call void @l0_inc(i64 %t8)
   %t17 = call i64 @l0_f_lookup_operand(i64 %t8, i64 %t16)
   call void @l0_inc(i64 %t8)
   call void @l0_inc(i64 %a2)
@@ -14384,6 +14272,7 @@ Lt9:
   call void @l0_inc(i64 %a2)
   %t19 = call i64 @l0_f_env_binds(i64 %a2)
   %t20 = call i64 @l0_f_lookup_type(i64 %t8, i64 %t19)
+  call void @l0_dec(i64 %t8)
   %t21 = call i64 @l0_new_data(i64 0, i64 7, i64 150)
   call void @l0_data_set(i64 %t21, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t21, i64 1, i64 %a3)
@@ -14575,8 +14464,9 @@ entry:
   %t2 = call i64 @l0_f_env_ctx(i64 %a1)
   %t3 = call i64 @l0_f_ctx_ctors(i64 %t2)
   %t4 = call i64 @l0_f_find_ctor(i64 %t1, i64 %t3)
+  call void @l0_dec(i64 %t1)
   %t5 = call i64 @l0_data_tag(i64 %t4)
-  switch i64 %t5, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t5, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t6 = call i64 @l0_data_get(i64 %t4, i64 0)
   call void @l0_inc(i64 %t6)
@@ -14858,6 +14748,7 @@ A0_0:
   call void @l0_inc(i64 %a1)
   %t12 = call i64 @l0_f_mx_env(i64 %a1)
   %t13 = call i64 @l0_f_arm_field_tys(i64 %t3, i64 %t11, i64 %t12)
+  call void @l0_dec(i64 %t3)
   %r14 = alloca i64
   %t15 = call i64 @l0_f_mx_read_only(i64 %a1)
   %t16 = icmp ne i64 %t15, 0
@@ -15192,7 +15083,7 @@ Ln0:
   unreachable
 }
 
-define internal i64 @l0_f_arith_ops(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_arith_ops(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 114, i64 0, i64 2)
@@ -15213,11 +15104,11 @@ entry:
   %t15 = call i64 @l0_new_cons(i64 100, i64 %t14, i64 2)
   %t16 = call i64 @l0_new_cons(i64 100, i64 %t15, i64 2)
   %t17 = call i64 @l0_new_cons(i64 97, i64 %t16, i64 2)
-  %t18 = musttail call i64 @l0_f_split_spaces(i64 %t17, i64 0)
+  %t18 = musttail call i64 @l0_f_split_spaces(i64 %t17, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t18
 }
 
-define internal i64 @l0_f_cmp_names(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_cmp_names(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
@@ -15234,11 +15125,11 @@ entry:
   %t11 = call i64 @l0_new_cons(i64 32, i64 %t10, i64 2)
   %t12 = call i64 @l0_new_cons(i64 116, i64 %t11, i64 2)
   %t13 = call i64 @l0_new_cons(i64 108, i64 %t12, i64 2)
-  %t14 = musttail call i64 @l0_f_split_spaces(i64 %t13, i64 0)
+  %t14 = musttail call i64 @l0_f_split_spaces(i64 %t13, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t14
 }
 
-define internal i64 @l0_f_cmp_preds(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_cmp_preds(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
@@ -15259,11 +15150,11 @@ entry:
   %t15 = call i64 @l0_new_cons(i64 116, i64 %t14, i64 2)
   %t16 = call i64 @l0_new_cons(i64 108, i64 %t15, i64 2)
   %t17 = call i64 @l0_new_cons(i64 115, i64 %t16, i64 2)
-  %t18 = musttail call i64 @l0_f_split_spaces(i64 %t17, i64 0)
+  %t18 = musttail call i64 @l0_f_split_spaces(i64 %t17, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t18
 }
 
-define internal i64 @l0_f_io_names(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_io_names(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
@@ -15489,11 +15380,11 @@ entry:
   %t220 = call i64 @l0_new_cons(i64 97, i64 %t219, i64 2)
   %t221 = call i64 @l0_new_cons(i64 101, i64 %t220, i64 2)
   %t222 = call i64 @l0_new_cons(i64 114, i64 %t221, i64 2)
-  %t223 = musttail call i64 @l0_f_split_spaces(i64 %t222, i64 0)
+  %t223 = musttail call i64 @l0_f_split_spaces(i64 %t222, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t223
 }
 
-define internal i64 @l0_f_rt_names(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rt_names(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
@@ -15552,13 +15443,13 @@ entry:
   %t53 = call i64 @l0_new_cons(i64 118, i64 %t52, i64 2)
   %t54 = call i64 @l0_new_cons(i64 105, i64 %t53, i64 2)
   %t55 = call i64 @l0_new_cons(i64 100, i64 %t54, i64 2)
-  %t56 = call i64 @l0_f_split_spaces(i64 %t55, i64 0)
-  %t57 = call i64 @l0_f_io_names(i64 0, i64 0)
-  %t58 = musttail call i64 @l0_f_append_strs(i64 %t56, i64 %t57)
+  %t56 = call i64 @l0_f_split_spaces(i64 %t55, i64 0, i64 0, i64 0, i64 0)
+  %t57 = call i64 @l0_f_io_names(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t58 = musttail call i64 @l0_f_append.1(i64 %t56, i64 %t57, i64 0, i64 0, i64 0)
   ret i64 %t58
 }
 
-define internal i64 @l0_f_rt_syms(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_rt_syms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
@@ -15641,10 +15532,10 @@ entry:
   %t77 = call i64 @l0_new_cons(i64 95, i64 %t76, i64 2)
   %t78 = call i64 @l0_new_cons(i64 48, i64 %t77, i64 2)
   %t79 = call i64 @l0_new_cons(i64 108, i64 %t78, i64 2)
-  %t80 = call i64 @l0_f_split_spaces(i64 %t79, i64 0)
-  %t81 = call i64 @l0_f_io_names(i64 0, i64 0)
+  %t80 = call i64 @l0_f_split_spaces(i64 %t79, i64 0, i64 0, i64 0, i64 0)
+  %t81 = call i64 @l0_f_io_names(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t82 = call i64 @l0_f_l0_prefixed(i64 %t81)
-  %t83 = musttail call i64 @l0_f_append_strs(i64 %t80, i64 %t82)
+  %t83 = musttail call i64 @l0_f_append.1(i64 %t80, i64 %t82, i64 0, i64 0, i64 0)
   ret i64 %t83
 }
 
@@ -15669,26 +15560,6 @@ Le0:
   %t9 = call i64 @l0_f_l0_prefixed(i64 %t8)
   %t10 = call i64 @l0_new_cons(i64 %t7, i64 %t9, i64 3)
   ret i64 %t10
-}
-
-define internal i64 @l0_f_append_strs(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_f_append_strs(i64 %t4, i64 %a1)
-  %t6 = call i64 @l0_new_cons(i64 %t3, i64 %t5, i64 3)
-  ret i64 %t6
 }
 
 define internal i64 @l0_f_nth_str(i64 %a0, i64 %a1) {
@@ -15718,8 +15589,8 @@ entry:
   %r1 = alloca i64
   %t2 = call i64 @l0_new_cons(i64 113, i64 0, i64 2)
   %t3 = call i64 @l0_new_cons(i64 101, i64 %t2, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t4 = call i64 @l0_f_list_eq(i64 %a0, i64 %t3)
+  %t4 = call i64 @l0_equal(i64 %a0, i64 %t3)
+  call void @l0_dec(i64 %t3)
   %t5 = icmp ne i64 %t4, 0
   br i1 %t5, label %Lt1, label %Le1
 Lt1:
@@ -15757,7 +15628,7 @@ Le0:
 define internal i64 @l0_f_emit_op_plain(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_f_arith_ops(i64 0, i64 0)
+  %t1 = call i64 @l0_f_arith_ops(i64 0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t2 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -15775,7 +15646,7 @@ Lt0:
   %t7 = musttail call i64 @l0_f_emit_binop(i64 %a0, i64 %t4, i64 %t6, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t7
 Le0:
-  %t9 = call i64 @l0_f_cmp_names(i64 0, i64 0)
+  %t9 = call i64 @l0_f_cmp_names(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t10 = call i64 @l0_f_index_of.1(i64 %a0, i64 %t9, i64 0)
   %t11 = icmp sge i64 %t10, 0
   %t12 = zext i1 %t11 to i64
@@ -15783,8 +15654,8 @@ Le0:
   br i1 %t13, label %Lt8, label %Le8
 Lt8:
   call void @l0_dec(i64 %a2)
-  %t14 = call i64 @l0_f_cmp_preds(i64 0, i64 0)
-  %t15 = call i64 @l0_f_cmp_names(i64 0, i64 0)
+  %t14 = call i64 @l0_f_cmp_preds(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t15 = call i64 @l0_f_cmp_names(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t16 = call i64 @l0_f_index_of.1(i64 %a0, i64 %t15, i64 0)
   call void @l0_dec(i64 %a0)
   %t17 = call i64 @l0_f_nth_str(i64 %t14, i64 %t16)
@@ -15799,7 +15670,7 @@ Lt8:
   %t21 = musttail call i64 @l0_f_emit_cmp(i64 %t17, i64 %t18, i64 %t20, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t21
 Le8:
-  %t23 = call i64 @l0_f_rt_names(i64 0, i64 0)
+  %t23 = call i64 @l0_f_rt_names(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t24 = call i64 @l0_f_index_of.1(i64 %a0, i64 %t23, i64 0)
   %t25 = icmp sge i64 %t24, 0
   %t26 = zext i1 %t25 to i64
@@ -15807,8 +15678,8 @@ Le8:
   br i1 %t27, label %Lt22, label %Le22
 Lt22:
   call void @l0_dec(i64 %a2)
-  %t28 = call i64 @l0_f_rt_syms(i64 0, i64 0)
-  %t29 = call i64 @l0_f_rt_names(i64 0, i64 0)
+  %t28 = call i64 @l0_f_rt_syms(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t29 = call i64 @l0_f_rt_names(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t30 = call i64 @l0_f_index_of.1(i64 %a0, i64 %t29, i64 0)
   call void @l0_dec(i64 %a0)
   %t31 = call i64 @l0_f_nth_str(i64 %t28, i64 %t30)
@@ -15825,8 +15696,8 @@ entry:
   %t1 = call i64 @l0_new_cons(i64 103, i64 0, i64 2)
   %t2 = call i64 @l0_new_cons(i64 101, i64 %t1, i64 2)
   %t3 = call i64 @l0_new_cons(i64 110, i64 %t2, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t4 = call i64 @l0_f_list_eq(i64 %a0, i64 %t3)
+  %t4 = call i64 @l0_equal(i64 %a0, i64 %t3)
+  call void @l0_dec(i64 %t3)
   %t5 = icmp ne i64 %t4, 0
   br i1 %t5, label %Lt0, label %Le0
 Lt0:
@@ -15845,8 +15716,8 @@ Le0:
   %t13 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
   %t14 = call i64 @l0_new_cons(i64 111, i64 %t13, i64 2)
   %t15 = call i64 @l0_new_cons(i64 110, i64 %t14, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t16 = call i64 @l0_f_list_eq(i64 %a0, i64 %t15)
+  %t16 = call i64 @l0_equal(i64 %a0, i64 %t15)
+  call void @l0_dec(i64 %t15)
   %t17 = icmp ne i64 %t16, 0
   br i1 %t17, label %Lt12, label %Le12
 Lt12:
@@ -15871,7 +15742,9 @@ Le12:
   %t31 = call i64 @l0_new_cons(i64 114, i64 %t30, i64 2)
   %t32 = call i64 @l0_new_cons(i64 114, i64 %t31, i64 2)
   %t33 = call i64 @l0_new_cons(i64 97, i64 %t32, i64 2)
-  %t34 = call i64 @l0_f_list_eq(i64 %a0, i64 %t33)
+  %t34 = call i64 @l0_equal(i64 %a0, i64 %t33)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %t33)
   %t35 = icmp ne i64 %t34, 0
   br i1 %t35, label %Lt24, label %Le24
 Lt24:
@@ -15909,7 +15782,7 @@ Le48:
 Lx48:
   %t55 = load i64, ptr %r48
   %t56 = call i64 @l0_f_one_op(i64 %t55)
-  %t57 = call i64 @l0_f_append_strs(i64 %a1, i64 %t56)
+  %t57 = call i64 @l0_f_append.1(i64 %a1, i64 %t56, i64 0, i64 0, i64 0)
   %t58 = musttail call i64 @l0_f_emit_rt_call(i64 %t47, i64 %t57, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t58
 Le24:
@@ -15934,7 +15807,7 @@ Le24:
   %t73 = call i64 @l0_f_cons_mask(i64 %t72)
   call void @l0_dec(i64 %t72)
   %t74 = call i64 @l0_f_one_op(i64 %t73)
-  %t75 = call i64 @l0_f_append_strs(i64 %a1, i64 %t74)
+  %t75 = call i64 @l0_f_append.1(i64 %a1, i64 %t74, i64 0, i64 0, i64 0)
   %t76 = musttail call i64 @l0_f_emit_rt_call(i64 %t69, i64 %t75, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t76
 }
@@ -15959,8 +15832,8 @@ Le0:
   %t11 = call i64 @l0_new_cons(i64 105, i64 %t10, i64 2)
   %t12 = call i64 @l0_new_cons(i64 97, i64 %t11, i64 2)
   %t13 = call i64 @l0_new_cons(i64 109, i64 %t12, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t14 = call i64 @l0_f_list_eq(i64 %a0, i64 %t13)
+  %t14 = call i64 @l0_equal(i64 %a0, i64 %t13)
+  call void @l0_dec(i64 %t13)
   %t15 = icmp ne i64 %t14, 0
   br i1 %t15, label %Lt9, label %Le9
 Lt9:
@@ -16144,24 +16017,6 @@ Ln3:
   unreachable
 }
 
-define internal i64 @l0_f_length_params(i64 %a0) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  call void @l0_dec(i64 %a0)
-  %t4 = call i64 @l0_f_length_params(i64 %t3)
-  %t5 = add i64 1, %t4
-  ret i64 %t5
-}
-
 define internal i64 @l0_f_graph_nodes(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
@@ -16205,7 +16060,7 @@ A3_1:
   %t18 = icmp slt i64 %t12, %a1
   %t19 = zext i1 %t18 to i64
   %t20 = call i64 @l0_f_def_sym(i64 %t13, i64 %t19, i64 0, i64 0, i64 0)
-  %t21 = call i64 @l0_f_length_params(i64 %t15)
+  %t21 = call i64 @l0_f_length.1(i64 %t15, i64 0)
   %r22 = alloca i64
   %t23 = icmp ne i64 %t19, 0
   br i1 %t23, label %Lt22, label %Le22
@@ -16432,9 +16287,7 @@ entry:
   call void @l0_inc(i64 %a0)
   call void @l0_inc(i64 %a1)
   %t0 = call i64 @l0_f_spread_once(i64 %a0, i64 %a1)
-  call void @l0_inc(i64 %t0)
-  call void @l0_inc(i64 %a1)
-  %t2 = call i64 @l0_f_list_eq(i64 %t0, i64 %a1)
+  %t2 = call i64 @l0_equal(i64 %t0, i64 %a1)
   %t3 = icmp ne i64 %t2, 0
   br i1 %t3, label %Lt1, label %Le1
 Lt1:
@@ -16770,8 +16623,8 @@ A3_0:
   %t7 = call i64 @l0_data_get(i64 %t4, i64 1)
   %t8 = call i64 @l0_data_get(i64 %t4, i64 2)
   call void @l0_dec(i64 %t4)
-  call void @l0_inc(i64 %a0)
-  %t10 = call i64 @l0_f_list_eq(i64 %a0, i64 %t6)
+  %t10 = call i64 @l0_equal(i64 %a0, i64 %t6)
+  call void @l0_dec(i64 %t6)
   %t11 = icmp ne i64 %t10, 0
   br i1 %t11, label %Lt9, label %Le9
 Lt9:
@@ -16820,8 +16673,8 @@ A3_0:
   %t8 = call i64 @l0_data_get(i64 %t4, i64 2)
   call void @l0_inc(i64 %t8)
   call void @l0_dec(i64 %t4)
-  call void @l0_inc(i64 %a0)
-  %t10 = call i64 @l0_f_list_eq(i64 %a0, i64 %t6)
+  %t10 = call i64 @l0_equal(i64 %a0, i64 %t6)
+  call void @l0_dec(i64 %t6)
   %t11 = icmp ne i64 %t10, 0
   br i1 %t11, label %Lt9, label %Le9
 Lt9:
@@ -16935,8 +16788,8 @@ A3_1:
   %t33 = call i64 @l0_new_cons(i64 95, i64 %t32, i64 2)
   %t34 = call i64 @l0_new_cons(i64 48, i64 %t33, i64 2)
   %t35 = call i64 @l0_new_cons(i64 108, i64 %t34, i64 2)
-  call void @l0_inc(i64 %t20)
-  %t36 = call i64 @l0_f_list_eq(i64 %t20, i64 %t35)
+  %t36 = call i64 @l0_equal(i64 %t20, i64 %t35)
+  call void @l0_dec(i64 %t35)
   %t37 = icmp ne i64 %t36, 0
   br i1 %t37, label %Lt21, label %Le21
 Lt21:
@@ -17048,7 +16901,9 @@ Le0:
   %t6 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t6)
   %t7 = call i64 @l0_f_rf_flags(i64 %t6)
-  %t8 = call i64 @l0_f_bools_eq(i64 %t5, i64 %t7)
+  %t8 = call i64 @l0_equal(i64 %t5, i64 %t7)
+  call void @l0_dec(i64 %t5)
+  call void @l0_dec(i64 %t7)
   %t9 = icmp ne i64 %t8, 0
   br i1 %t9, label %Lt3, label %Le3
 Lt3:
@@ -17061,69 +16916,6 @@ Lt3:
   %t12 = musttail call i64 @l0_f_ro_same(i64 %t10, i64 %t11)
   ret i64 %t12
 Le3:
-  call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-}
-
-define internal i64 @l0_f_bools_eq(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_is_empty(i64 %a1)
-  call void @l0_dec(i64 %a1)
-  ret i64 %t3
-Le0:
-  %t5 = call i64 @l0_is_empty(i64 %a1)
-  %t6 = icmp ne i64 %t5, 0
-  br i1 %t6, label %Lt4, label %Le4
-Lt4:
-  call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-Le4:
-  %r8 = alloca i64
-  %t9 = call i64 @l0_head(i64 %a0)
-  %t10 = icmp ne i64 %t9, 0
-  br i1 %t10, label %Lt8, label %Le8
-Lt8:
-  store i64 1, ptr %r8
-  br label %Lx8
-Le8:
-  store i64 0, ptr %r8
-  br label %Lx8
-Lx8:
-  %t11 = load i64, ptr %r8
-  %r12 = alloca i64
-  %t13 = call i64 @l0_head(i64 %a1)
-  %t14 = icmp ne i64 %t13, 0
-  br i1 %t14, label %Lt12, label %Le12
-Lt12:
-  store i64 1, ptr %r12
-  br label %Lx12
-Le12:
-  store i64 0, ptr %r12
-  br label %Lx12
-Lx12:
-  %t15 = load i64, ptr %r12
-  %t16 = icmp eq i64 %t11, %t15
-  %t17 = zext i1 %t16 to i64
-  %t18 = icmp ne i64 %t17, 0
-  br i1 %t18, label %Lt7, label %Le7
-Lt7:
-  %t19 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t19)
-  call void @l0_dec(i64 %a0)
-  %t20 = call i64 @l0_tail(i64 %a1)
-  call void @l0_inc(i64 %t20)
-  call void @l0_dec(i64 %a1)
-  %t21 = musttail call i64 @l0_f_bools_eq(i64 %t19, i64 %t20)
-  ret i64 %t21
-Le7:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
   ret i64 0
@@ -17414,7 +17206,9 @@ A4_4:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a3)
-  %t16 = call i64 @l0_f_list_eq(i64 %t15, i64 %a0)
+  %t16 = call i64 @l0_equal(i64 %t15, i64 %a0)
+  call void @l0_dec(i64 %t15)
+  call void @l0_dec(i64 %a0)
   %t17 = xor i64 %t16, 1
   ret i64 %t17
 A4_5:
@@ -17471,8 +17265,8 @@ A4_6:
   %t35 = icmp ne i64 %t34, 0
   br i1 %t35, label %Lt33, label %Le33
 Lt33:
-  call void @l0_inc(i64 %a0)
-  %t37 = call i64 @l0_f_list_eq(i64 %t30, i64 %a0)
+  %t37 = call i64 @l0_equal(i64 %t30, i64 %a0)
+  call void @l0_dec(i64 %t30)
   %t38 = icmp ne i64 %t37, 0
   br i1 %t38, label %Lt36, label %Le36
 Lt36:
@@ -17509,8 +17303,8 @@ A4_8:
   call void @l0_dec(i64 %a2)
   call void @l0_inc(i64 %t46)
   %t49 = call i64 @l0_f_var_name(i64 %t46)
-  call void @l0_inc(i64 %a0)
-  %t50 = call i64 @l0_f_list_eq(i64 %t49, i64 %a0)
+  %t50 = call i64 @l0_equal(i64 %t49, i64 %a0)
+  call void @l0_dec(i64 %t49)
   %t51 = icmp ne i64 %t50, 0
   br i1 %t51, label %Lt48, label %Le48
 Lt48:
@@ -17588,7 +17382,7 @@ entry:
   %t12 = call i64 @l0_new_cons(i64 97, i64 %t11, i64 2)
   %t13 = call i64 @l0_new_cons(i64 101, i64 %t12, i64 2)
   %t14 = call i64 @l0_new_cons(i64 104, i64 %t13, i64 2)
-  %t15 = call i64 @l0_f_split_spaces(i64 %t14, i64 0)
+  %t15 = call i64 @l0_f_split_spaces(i64 %t14, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t16 = call i64 @l0_f_any_eq.1(i64 %a0, i64 %t15)
   %t17 = icmp ne i64 %t16, 0
@@ -17606,8 +17400,8 @@ Le0:
   %t23 = call i64 @l0_new_cons(i64 105, i64 %t22, i64 2)
   %t24 = call i64 @l0_new_cons(i64 97, i64 %t23, i64 2)
   %t25 = call i64 @l0_new_cons(i64 116, i64 %t24, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t26 = call i64 @l0_f_list_eq(i64 %a0, i64 %t25)
+  %t26 = call i64 @l0_equal(i64 %a0, i64 %t25)
+  call void @l0_dec(i64 %t25)
   %t27 = icmp ne i64 %t26, 0
   br i1 %t27, label %Lt21, label %Le21
 Lt21:
@@ -17636,8 +17430,8 @@ Le0:
   %t5 = call i64 @l0_head(i64 %a2)
   call void @l0_inc(i64 %t5)
   %t6 = call i64 @l0_f_var_name(i64 %t5)
-  call void @l0_inc(i64 %a0)
-  %t7 = call i64 @l0_f_list_eq(i64 %t6, i64 %a0)
+  %t7 = call i64 @l0_equal(i64 %t6, i64 %a0)
+  call void @l0_dec(i64 %t6)
   %t8 = icmp ne i64 %t7, 0
   br i1 %t8, label %Lt4, label %Le4
 Lt4:
@@ -17765,6 +17559,7 @@ A3_0:
   %t12 = call i64 @l0_f_rx_cs(i64 %a3)
   call void @l0_inc(i64 %a1)
   %t13 = call i64 @l0_f_arm_fields(i64 %t7, i64 %a1, i64 %t12)
+  call void @l0_dec(i64 %t7)
   call void @l0_inc(i64 %t8)
   call void @l0_inc(i64 %t9)
   call void @l0_inc(i64 %a3)
@@ -17822,7 +17617,7 @@ entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_f_find_ctor(i64 %a0, i64 %a2)
   %t2 = call i64 @l0_data_tag(i64 %t1)
-  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t2, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
   call void @l0_inc(i64 %t3)
@@ -18117,6 +17912,7 @@ A0_7:
   call void @l0_inc(i64 %t25)
   call void @l0_dec(i64 %a0)
   %t26 = call i64 @l0_f_set_del(i64 %t23, i64 %a1)
+  call void @l0_dec(i64 %t23)
   %t27 = musttail call i64 @l0_f_ro_tail_demote(i64 %t25, i64 %t26, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 0)
   ret i64 %t27
 A0_8:
@@ -18137,6 +17933,7 @@ Lt31:
   %t35 = call i64 @l0_f_var_name(i64 %t29)
   call void @l0_inc(i64 %a2)
   %t36 = call i64 @l0_f_bind_ty(i64 %t35, i64 %a2)
+  call void @l0_dec(i64 %t35)
   %t37 = call i64 @l0_new_data(i64 0, i64 1, i64 2)
   call void @l0_data_set(i64 %t37, i64 0, i64 %t36)
   store i64 %t37, ptr %r31
@@ -18185,7 +17982,7 @@ entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_f_find_bind(i64 %a0, i64 %a1)
   %t2 = call i64 @l0_data_tag(i64 %t1)
-  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+  switch i64 %t2, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
 A0_0:
   %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
   call void @l0_inc(i64 %t3)
@@ -18251,6 +18048,7 @@ A11_1:
   call void @l0_inc(i64 %a7)
   %t16 = call i64 @l0_f_rx_cs(i64 %a7)
   %t17 = call i64 @l0_f_arm_fields(i64 %t7, i64 %t15, i64 %t16)
+  call void @l0_dec(i64 %t7)
   call void @l0_inc(i64 %t8)
   call void @l0_inc(i64 %t17)
   call void @l0_inc(i64 %t9)
@@ -18453,7 +18251,6 @@ A3_0:
   %t11 = call i64 @l0_data_get(i64 %t4, i64 5)
   call void @l0_inc(i64 %t11)
   call void @l0_dec(i64 %t4)
-  call void @l0_inc(i64 %t6)
   call void @l0_inc(i64 %a1)
   %t12 = call i64 @l0_f_ro_clear(i64 %t6, i64 %t8, i64 %a1)
   %t13 = call i64 @l0_new_data(i64 0, i64 6, i64 126)
@@ -18480,7 +18277,6 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
   ret i64 %a1
 Le0:
@@ -18494,8 +18290,8 @@ A3_0:
   %t7 = call i64 @l0_data_get(i64 %t4, i64 1)
   call void @l0_dec(i64 %t4)
   %r8 = alloca i64
-  call void @l0_inc(i64 %a0)
-  %t9 = call i64 @l0_f_list_eq(i64 %t6, i64 %a0)
+  %t9 = call i64 @l0_equal(i64 %t6, i64 %a0)
+  call void @l0_dec(i64 %t6)
   %t10 = icmp ne i64 %t9, 0
   br i1 %t10, label %Lt8, label %Le8
 Lt8:
@@ -18792,6 +18588,7 @@ A0_1:
   %t44 = call i64 @l0_f_append.0(i64 %t13, i64 %t43, i64 0, i64 0, i64 0)
   %t45 = call i64 @l0_f_append.0(i64 %t36, i64 %t44, i64 0, i64 0, i64 0)
   %t46 = call i64 @l0_f_emit_entry(i64 %t7, i64 %t9, i64 %t15, i64 %a1, i64 %a2)
+  call void @l0_dec(i64 %t7)
   %t47 = call i64 @l0_f_emit_line(i64 %t45, i64 %t46, i64 0, i64 0, i64 0)
   %t48 = call i64 @l0_new_cons(i64 41, i64 0, i64 2)
   %t49 = call i64 @l0_new_cons(i64 40, i64 %t48, i64 2)
@@ -18898,7 +18695,8 @@ entry:
   %t3 = call i64 @l0_new_cons(i64 105, i64 %t2, i64 2)
   %t4 = call i64 @l0_new_cons(i64 97, i64 %t3, i64 2)
   %t5 = call i64 @l0_new_cons(i64 109, i64 %t4, i64 2)
-  %t6 = call i64 @l0_f_list_eq(i64 %a0, i64 %t5)
+  %t6 = call i64 @l0_equal(i64 %a0, i64 %t5)
+  call void @l0_dec(i64 %t5)
   %t7 = xor i64 %t6, 1
   %t8 = or i64 %t1, %t7
   %t9 = icmp ne i64 %t8, 0
@@ -20744,7 +20542,9 @@ A3_1:
   %t20 = call i64 @l0_new_cons(i64 105, i64 %t19, i64 2)
   %t21 = call i64 @l0_new_cons(i64 97, i64 %t20, i64 2)
   %t22 = call i64 @l0_new_cons(i64 109, i64 %t21, i64 2)
-  %t23 = call i64 @l0_f_list_eq(i64 %t13, i64 %t22)
+  %t23 = call i64 @l0_equal(i64 %t13, i64 %t22)
+  call void @l0_dec(i64 %t13)
+  call void @l0_dec(i64 %t22)
   %t24 = icmp ne i64 %t23, 0
   br i1 %t24, label %Lt18, label %Le18
 Lt18:
@@ -20758,8 +20558,8 @@ Lt25:
   ret i64 3
 Le25:
   %t29 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  call void @l0_inc(i64 %t16)
-  %t30 = call i64 @l0_f_ty_eq(i64 %t16, i64 %t29)
+  %t30 = call i64 @l0_equal(i64 %t16, i64 %t29)
+  call void @l0_dec(i64 %t29)
   %t31 = icmp ne i64 %t30, 0
   br i1 %t31, label %Lt28, label %Le28
 Lt28:
@@ -20767,7 +20567,9 @@ Lt28:
   ret i64 0
 Le28:
   %t33 = call i64 @l0_new_data(i64 1, i64 2, i64 0)
-  %t34 = call i64 @l0_f_ty_eq(i64 %t16, i64 %t33)
+  %t34 = call i64 @l0_equal(i64 %t16, i64 %t33)
+  call void @l0_dec(i64 %t16)
+  call void @l0_dec(i64 %t33)
   %t35 = icmp ne i64 %t34, 0
   br i1 %t35, label %Lt32, label %Le32
 Lt32:
@@ -21090,33 +20892,6 @@ Le0:
   call void @l0_dec(i64 %a0)
   %t4 = musttail call i64 @l0_f_tok_offset(i64 %t3, i64 0)
   ret i64 %t4
-}
-
-define internal i64 @l0_f_rev_tokens_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_tokens_onto(i64 %t3, i64 %t5)
-  ret i64 %t6
-}
-
-define internal i64 @l0_f_rev_tokens(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t0 = musttail call i64 @l0_f_rev_tokens_onto(i64 %a0, i64 0)
-  ret i64 %t0
 }
 
 define internal i64 @l0_f_skip_trivia(i64 %a0, i64 %a1) {
@@ -22354,11 +22129,11 @@ Ln0:
   unreachable
 }
 
-define internal i64 @l0_f_lex(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_lex(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_f_lex_onto(i64 %a0, i64 0, i64 0)
-  %t1 = musttail call i64 @l0_f_rev_tokens(i64 %t0, i64 0)
+  %t1 = musttail call i64 @l0_f_rev.1(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
 
@@ -22458,26 +22233,6 @@ Ln0:
   unreachable
 }
 
-define internal i64 @l0_f_rev_entries_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_entries_onto(i64 %t3, i64 %t5)
-  ret i64 %t6
-}
-
 define internal i64 @l0_f_parse_entry(i64 %a0) {
 entry:
   call void @l0_stack_check()
@@ -22499,7 +22254,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_f_rev_entries_onto(i64 %a1, i64 0)
+  %t3 = call i64 @l0_f_rev_onto.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t4 = call i64 @l0_new_data(i64 0, i64 4, i64 6)
   call void @l0_data_set(i64 %t4, i64 0, i64 %t3)
   call void @l0_data_set(i64 %t4, i64 1, i64 0)
@@ -22519,7 +22274,7 @@ Le0:
   %t14 = icmp ne i64 %t13, 0
   br i1 %t14, label %Lt5, label %Le5
 Lt5:
-  %t15 = call i64 @l0_f_rev_entries_onto(i64 %a1, i64 0)
+  %t15 = call i64 @l0_f_rev_onto.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t16 = call i64 @l0_f_drop_line(i64 %a0)
   %t17 = call i64 @l0_new_data(i64 0, i64 4, i64 6)
   call void @l0_data_set(i64 %t17, i64 0, i64 %t15)
@@ -22864,7 +22619,7 @@ A0_0:
   %t6 = call i64 @l0_data_get(i64 %t1, i64 3)
   call void @l0_dec(i64 %t1)
   call void @l0_inc(i64 %t4)
-  %t8 = call i64 @l0_f_lex(i64 %t4, i64 0)
+  %t8 = call i64 @l0_f_lex(i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t9 = call i64 @l0_f_parse_program(i64 %t8, i64 0, i64 0)
   %t10 = call i64 @l0_data_tag(i64 %t9)
   switch i64 %t10, label %Ln7 [ i64 0, label %A7_0 ]
@@ -22875,8 +22630,8 @@ A7_0:
   call void @l0_inc(i64 %t12)
   call void @l0_dec(i64 %t9)
   call void @l0_inc(i64 %t11)
-  %t13 = call i64 @l0_f_check_program(i64 %t11, i64 %t5, i64 %t6)
-  %t14 = call i64 @l0_f_append_diags(i64 %t12, i64 %t13)
+  %t13 = call i64 @l0_f_check_program(i64 %t11, i64 %t5, i64 %t6, i64 0, i64 0)
+  %t14 = call i64 @l0_f_append.1(i64 %t12, i64 %t13, i64 0, i64 0, i64 0)
   %t16 = call i64 @l0_is_empty(i64 %t14)
   %t17 = icmp ne i64 %t16, 0
   br i1 %t17, label %Lt15, label %Le15
@@ -22897,26 +22652,6 @@ Ln7:
   unreachable
 Ln0:
   unreachable
-}
-
-define internal i64 @l0_f_append_diags(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_f_append_diags(i64 %t4, i64 %a1)
-  %t6 = call i64 @l0_new_cons(i64 %t3, i64 %t5, i64 3)
-  ret i64 %t6
 }
 
 define i64 @l0_f_main(i64 %a0) {
@@ -23094,100 +22829,6 @@ Ln0:
   unreachable
 }
 
-define internal i64 @l0_f_ty_eq(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_f_ty_kind(i64 %a0)
-  %t2 = call i64 @l0_f_ty_kind(i64 %a1)
-  %t3 = icmp eq i64 %t1, %t2
-  %t4 = zext i1 %t3 to i64
-  %t5 = xor i64 %t4, 1
-  %t6 = icmp ne i64 %t5, 0
-  br i1 %t6, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-Le0:
-  %t8 = call i64 @l0_f_ty_is_list(i64 %a0)
-  %t9 = call i64 @l0_f_ty_is_array(i64 %a0)
-  %t10 = or i64 %t8, %t9
-  %t11 = icmp ne i64 %t10, 0
-  br i1 %t11, label %Lt7, label %Le7
-Lt7:
-  %t12 = call i64 @l0_f_ty_elem(i64 %a0, i64 0)
-  %t13 = call i64 @l0_f_ty_elem(i64 %a1, i64 0)
-  %t14 = musttail call i64 @l0_f_ty_eq(i64 %t12, i64 %t13)
-  ret i64 %t14
-Le7:
-  %t16 = call i64 @l0_f_ty_is_data(i64 %a0)
-  %t17 = icmp ne i64 %t16, 0
-  br i1 %t17, label %Lt15, label %Le15
-Lt15:
-  call void @l0_inc(i64 %a0)
-  %t19 = call i64 @l0_f_ty_name(i64 %a0)
-  call void @l0_inc(i64 %a1)
-  %t20 = call i64 @l0_f_ty_name(i64 %a1)
-  %t21 = call i64 @l0_f_list_eq(i64 %t19, i64 %t20)
-  %t22 = icmp ne i64 %t21, 0
-  br i1 %t22, label %Lt18, label %Le18
-Lt18:
-  %t23 = call i64 @l0_f_ty_args(i64 %a0)
-  %t24 = call i64 @l0_f_ty_args(i64 %a1)
-  %t25 = musttail call i64 @l0_f_tys_eq(i64 %t23, i64 %t24)
-  ret i64 %t25
-Le18:
-  call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-Le15:
-  call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
-  ret i64 1
-}
-
-define internal i64 @l0_f_tys_eq(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_is_empty(i64 %a1)
-  call void @l0_dec(i64 %a1)
-  ret i64 %t3
-Le0:
-  %t5 = call i64 @l0_is_empty(i64 %a1)
-  %t6 = icmp ne i64 %t5, 0
-  br i1 %t6, label %Lt4, label %Le4
-Lt4:
-  call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-Le4:
-  %t8 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t8)
-  %t9 = call i64 @l0_head(i64 %a1)
-  call void @l0_inc(i64 %t9)
-  %t10 = call i64 @l0_f_ty_eq(i64 %t8, i64 %t9)
-  %t11 = icmp ne i64 %t10, 0
-  br i1 %t11, label %Lt7, label %Le7
-Lt7:
-  %t12 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t12)
-  call void @l0_dec(i64 %a0)
-  %t13 = call i64 @l0_tail(i64 %a1)
-  call void @l0_inc(i64 %t13)
-  call void @l0_dec(i64 %a1)
-  %t14 = musttail call i64 @l0_f_tys_eq(i64 %t12, i64 %t13)
-  ret i64 %t14
-Le7:
-  call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %a0)
-  ret i64 0
-}
-
 define internal i64 @l0_f_ty_str(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
@@ -23292,7 +22933,7 @@ Le0:
   ret i64 %t9
 }
 
-define internal i64 @l0_f_reserved_words(i64 %a0, i64 %a1) {
+define internal i64 @l0_f_reserved_words(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_new_cons(i64 121, i64 0, i64 2)
@@ -23351,14 +22992,14 @@ entry:
   %t53 = call i64 @l0_new_cons(i64 102, i64 %t52, i64 2)
   %t54 = call i64 @l0_new_cons(i64 101, i64 %t53, i64 2)
   %t55 = call i64 @l0_new_cons(i64 100, i64 %t54, i64 2)
-  %t56 = musttail call i64 @l0_f_split_spaces(i64 %t55, i64 0)
+  %t56 = musttail call i64 @l0_f_split_spaces(i64 %t55, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t56
 }
 
 define internal i64 @l0_f_is_reserved(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_f_reserved_words(i64 0, i64 0)
+  %t0 = call i64 @l0_f_reserved_words(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t1 = musttail call i64 @l0_f_any_eq.1(i64 %a0, i64 %t0)
   ret i64 %t1
 }
@@ -23389,126 +23030,6 @@ Le0:
   %t3 = call i64 @l0_head(i64 %a0)
   %t4 = musttail call i64 @l0_f_is_upper(i64 %t3)
   ret i64 %t4
-}
-
-define internal i64 @l0_f_rev_exprs_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_exprs_onto(i64 %t3, i64 %t5)
-  ret i64 %t6
-}
-
-define internal i64 @l0_f_rev_params_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_params_onto(i64 %t3, i64 %t5)
-  ret i64 %t6
-}
-
-define internal i64 @l0_f_rev_decls_onto(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_decls_onto(i64 %t3, i64 %t5, i64 0, i64 0, i64 0)
-  ret i64 %t6
-}
-
-define internal i64 @l0_f_rev_arms_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_arms_onto(i64 %t3, i64 %t5)
-  ret i64 %t6
-}
-
-define internal i64 @l0_f_rev_ctors_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_ctors_onto(i64 %t3, i64 %t5)
-  ret i64 %t6
-}
-
-define internal i64 @l0_f_rev_tys_list_onto(i64 %a0, i64 %a1) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_is_empty(i64 %a0)
-  %t2 = icmp ne i64 %t1, 0
-  br i1 %t2, label %Lt0, label %Le0
-Lt0:
-  call void @l0_dec(i64 %a0)
-  ret i64 %a1
-Le0:
-  %t3 = call i64 @l0_tail(i64 %a0)
-  call void @l0_inc(i64 %t3)
-  %t4 = call i64 @l0_head(i64 %a0)
-  call void @l0_inc(i64 %t4)
-  call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_new_cons(i64 %t4, i64 %a1, i64 3)
-  %t6 = musttail call i64 @l0_f_rev_tys_list_onto(i64 %t3, i64 %t5)
-  ret i64 %t6
 }
 
 define internal i64 @l0_f_parse_type(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
@@ -23648,8 +23169,8 @@ entry:
   %t2 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
   %t3 = call i64 @l0_new_cons(i64 110, i64 %t2, i64 2)
   %t4 = call i64 @l0_new_cons(i64 105, i64 %t3, i64 2)
-  call void @l0_inc(i64 %t0)
-  %t5 = call i64 @l0_f_list_eq(i64 %t0, i64 %t4)
+  %t5 = call i64 @l0_equal(i64 %t0, i64 %t4)
+  call void @l0_dec(i64 %t4)
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt1, label %Le1
 Lt1:
@@ -23665,8 +23186,8 @@ Le1:
   %t11 = call i64 @l0_new_cons(i64 111, i64 %t10, i64 2)
   %t12 = call i64 @l0_new_cons(i64 111, i64 %t11, i64 2)
   %t13 = call i64 @l0_new_cons(i64 98, i64 %t12, i64 2)
-  call void @l0_inc(i64 %t0)
-  %t14 = call i64 @l0_f_list_eq(i64 %t0, i64 %t13)
+  %t14 = call i64 @l0_equal(i64 %t0, i64 %t13)
+  call void @l0_dec(i64 %t13)
   %t15 = icmp ne i64 %t14, 0
   br i1 %t15, label %Lt9, label %Le9
 Lt9:
@@ -23683,8 +23204,8 @@ Le9:
   %t21 = call i64 @l0_new_cons(i64 116, i64 %t20, i64 2)
   %t22 = call i64 @l0_new_cons(i64 121, i64 %t21, i64 2)
   %t23 = call i64 @l0_new_cons(i64 98, i64 %t22, i64 2)
-  call void @l0_inc(i64 %t0)
-  %t24 = call i64 @l0_f_list_eq(i64 %t0, i64 %t23)
+  %t24 = call i64 @l0_equal(i64 %t0, i64 %t23)
+  call void @l0_dec(i64 %t23)
   %t25 = icmp ne i64 %t24, 0
   br i1 %t25, label %Lt18, label %Le18
 Lt18:
@@ -23713,7 +23234,7 @@ entry:
   %t8 = call i64 @l0_new_cons(i64 115, i64 %t7, i64 2)
   %t9 = call i64 @l0_new_cons(i64 105, i64 %t8, i64 2)
   %t10 = call i64 @l0_new_cons(i64 108, i64 %t9, i64 2)
-  %t11 = call i64 @l0_f_split_spaces(i64 %t10, i64 0)
+  %t11 = call i64 @l0_f_split_spaces(i64 %t10, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a1)
   %t12 = call i64 @l0_f_any_eq.1(i64 %a1, i64 %t11)
   %t13 = icmp ne i64 %t12, 0
@@ -23954,7 +23475,9 @@ Le25:
   %t38 = call i64 @l0_new_cons(i64 115, i64 %t37, i64 2)
   %t39 = call i64 @l0_new_cons(i64 105, i64 %t38, i64 2)
   %t40 = call i64 @l0_new_cons(i64 108, i64 %t39, i64 2)
-  %t41 = call i64 @l0_f_list_eq(i64 %t36, i64 %t40)
+  %t41 = call i64 @l0_equal(i64 %t36, i64 %t40)
+  call void @l0_dec(i64 %t36)
+  call void @l0_dec(i64 %t40)
   call void @l0_inc(i64 %t24)
   %t42 = call i64 @l0_f_tok_bytes(i64 %t24)
   %t43 = call i64 @l0_new_cons(i64 121, i64 0, i64 2)
@@ -23962,7 +23485,9 @@ Le25:
   %t45 = call i64 @l0_new_cons(i64 114, i64 %t44, i64 2)
   %t46 = call i64 @l0_new_cons(i64 114, i64 %t45, i64 2)
   %t47 = call i64 @l0_new_cons(i64 97, i64 %t46, i64 2)
-  %t48 = call i64 @l0_f_list_eq(i64 %t42, i64 %t47)
+  %t48 = call i64 @l0_equal(i64 %t42, i64 %t47)
+  call void @l0_dec(i64 %t42)
+  call void @l0_dec(i64 %t47)
   %t49 = or i64 %t41, %t48
   %t50 = and i64 %t35, %t49
   %t51 = xor i64 %t50, 1
@@ -24063,7 +23588,9 @@ A114_1:
   %t126 = call i64 @l0_new_cons(i64 114, i64 %t125, i64 2)
   %t127 = call i64 @l0_new_cons(i64 114, i64 %t126, i64 2)
   %t128 = call i64 @l0_new_cons(i64 97, i64 %t127, i64 2)
-  %t129 = call i64 @l0_f_list_eq(i64 %t123, i64 %t128)
+  %t129 = call i64 @l0_equal(i64 %t123, i64 %t128)
+  call void @l0_dec(i64 %t123)
+  call void @l0_dec(i64 %t128)
   %t130 = musttail call i64 @l0_f_close_list_type(i64 %t129, i64 %t121, i64 %t122, i64 %a1)
   ret i64 %t130
 Ln114:
@@ -24238,7 +23765,7 @@ Le0:
   %t27 = icmp ne i64 %t26, 0
   br i1 %t27, label %Lt24, label %Le24
 Lt24:
-  %t28 = call i64 @l0_f_rev_tys_list_onto(i64 %a1, i64 0)
+  %t28 = call i64 @l0_f_rev_onto.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t29 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t29)
   call void @l0_dec(i64 %a0)
@@ -24613,8 +24140,8 @@ entry:
   %t4 = call i64 @l0_new_cons(i64 117, i64 %t3, i64 2)
   %t5 = call i64 @l0_new_cons(i64 114, i64 %t4, i64 2)
   %t6 = call i64 @l0_new_cons(i64 116, i64 %t5, i64 2)
-  call void @l0_inc(i64 %t0)
-  %t7 = call i64 @l0_f_list_eq(i64 %t0, i64 %t6)
+  %t7 = call i64 @l0_equal(i64 %t0, i64 %t6)
+  call void @l0_dec(i64 %t6)
   %t8 = icmp ne i64 %t7, 0
   br i1 %t8, label %Lt2, label %Le2
 Lt2:
@@ -24632,8 +24159,8 @@ Le2:
   %t14 = call i64 @l0_new_cons(i64 108, i64 %t13, i64 2)
   %t15 = call i64 @l0_new_cons(i64 97, i64 %t14, i64 2)
   %t16 = call i64 @l0_new_cons(i64 102, i64 %t15, i64 2)
-  call void @l0_inc(i64 %t0)
-  %t17 = call i64 @l0_f_list_eq(i64 %t0, i64 %t16)
+  %t17 = call i64 @l0_equal(i64 %t0, i64 %t16)
+  call void @l0_dec(i64 %t16)
   %t18 = icmp ne i64 %t17, 0
   br i1 %t18, label %Lt11, label %Le11
 Lt11:
@@ -25131,8 +24658,8 @@ entry:
   call void @l0_stack_check()
   %t1 = call i64 @l0_new_cons(i64 102, i64 0, i64 2)
   %t2 = call i64 @l0_new_cons(i64 105, i64 %t1, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t3 = call i64 @l0_f_list_eq(i64 %a0, i64 %t2)
+  %t3 = call i64 @l0_equal(i64 %a0, i64 %t2)
+  call void @l0_dec(i64 %t2)
   %t4 = icmp ne i64 %t3, 0
   br i1 %t4, label %Lt0, label %Le0
 Lt0:
@@ -25143,8 +24670,8 @@ Le0:
   %t7 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
   %t8 = call i64 @l0_new_cons(i64 101, i64 %t7, i64 2)
   %t9 = call i64 @l0_new_cons(i64 108, i64 %t8, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t10 = call i64 @l0_f_list_eq(i64 %a0, i64 %t9)
+  %t10 = call i64 @l0_equal(i64 %a0, i64 %t9)
+  call void @l0_dec(i64 %t9)
   %t11 = icmp ne i64 %t10, 0
   br i1 %t11, label %Lt6, label %Le6
 Lt6:
@@ -25155,8 +24682,8 @@ Le6:
   %t14 = call i64 @l0_new_cons(i64 108, i64 0, i64 2)
   %t15 = call i64 @l0_new_cons(i64 105, i64 %t14, i64 2)
   %t16 = call i64 @l0_new_cons(i64 110, i64 %t15, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t17 = call i64 @l0_f_list_eq(i64 %a0, i64 %t16)
+  %t17 = call i64 @l0_equal(i64 %a0, i64 %t16)
+  call void @l0_dec(i64 %t16)
   %t18 = icmp ne i64 %t17, 0
   br i1 %t18, label %Lt13, label %Le13
 Lt13:
@@ -25169,8 +24696,8 @@ Le13:
   %t23 = call i64 @l0_new_cons(i64 116, i64 %t22, i64 2)
   %t24 = call i64 @l0_new_cons(i64 97, i64 %t23, i64 2)
   %t25 = call i64 @l0_new_cons(i64 109, i64 %t24, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t26 = call i64 @l0_f_list_eq(i64 %a0, i64 %t25)
+  %t26 = call i64 @l0_equal(i64 %a0, i64 %t25)
+  call void @l0_dec(i64 %t25)
   %t27 = icmp ne i64 %t26, 0
   br i1 %t27, label %Lt20, label %Le20
 Lt20:
@@ -25181,14 +24708,14 @@ Le20:
   %t30 = call i64 @l0_new_cons(i64 102, i64 0, i64 2)
   %t31 = call i64 @l0_new_cons(i64 101, i64 %t30, i64 2)
   %t32 = call i64 @l0_new_cons(i64 100, i64 %t31, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t33 = call i64 @l0_f_list_eq(i64 %a0, i64 %t32)
+  %t33 = call i64 @l0_equal(i64 %a0, i64 %t32)
+  call void @l0_dec(i64 %t32)
   %t34 = call i64 @l0_new_cons(i64 97, i64 0, i64 2)
   %t35 = call i64 @l0_new_cons(i64 116, i64 %t34, i64 2)
   %t36 = call i64 @l0_new_cons(i64 97, i64 %t35, i64 2)
   %t37 = call i64 @l0_new_cons(i64 100, i64 %t36, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t38 = call i64 @l0_f_list_eq(i64 %a0, i64 %t37)
+  %t38 = call i64 @l0_equal(i64 %a0, i64 %t37)
+  call void @l0_dec(i64 %t37)
   %t39 = or i64 %t33, %t38
   %t40 = icmp ne i64 %t39, 0
   br i1 %t40, label %Lt29, label %Le29
@@ -25241,15 +24768,15 @@ Le29:
   %t81 = call i64 @l0_new_cons(i64 117, i64 %t80, i64 2)
   %t82 = call i64 @l0_new_cons(i64 114, i64 %t81, i64 2)
   %t83 = call i64 @l0_new_cons(i64 116, i64 %t82, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t84 = call i64 @l0_f_list_eq(i64 %a0, i64 %t83)
+  %t84 = call i64 @l0_equal(i64 %a0, i64 %t83)
+  call void @l0_dec(i64 %t83)
   %t85 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
   %t86 = call i64 @l0_new_cons(i64 115, i64 %t85, i64 2)
   %t87 = call i64 @l0_new_cons(i64 108, i64 %t86, i64 2)
   %t88 = call i64 @l0_new_cons(i64 97, i64 %t87, i64 2)
   %t89 = call i64 @l0_new_cons(i64 102, i64 %t88, i64 2)
-  call void @l0_inc(i64 %a0)
-  %t90 = call i64 @l0_f_list_eq(i64 %a0, i64 %t89)
+  %t90 = call i64 @l0_equal(i64 %a0, i64 %t89)
+  call void @l0_dec(i64 %t89)
   %t91 = or i64 %t84, %t90
   %t92 = icmp ne i64 %t91, 0
   br i1 %t92, label %Lt79, label %Le79
@@ -25521,7 +25048,7 @@ Le0:
   %t28 = icmp ne i64 %t27, 0
   br i1 %t28, label %Lt25, label %Le25
 Lt25:
-  %t29 = call i64 @l0_f_rev_arms_onto(i64 %a1, i64 0)
+  %t29 = call i64 @l0_f_rev_onto.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t30 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t30)
   call void @l0_dec(i64 %a0)
@@ -25549,12 +25076,9 @@ A32_1:
   %t39 = call i64 @l0_data_get(i64 %t33, i64 1)
   call void @l0_inc(i64 %t39)
   call void @l0_dec(i64 %t33)
-  %t40 = call i64 @l0_head(i64 %t38)
-  call void @l0_inc(i64 %t40)
-  call void @l0_dec(i64 %t38)
-  %t41 = call i64 @l0_new_cons(i64 %t40, i64 %a1, i64 3)
-  %t42 = musttail call i64 @l0_f_parse_arms(i64 %t39, i64 %t41, i64 %a2)
-  ret i64 %t42
+  %t40 = call i64 @l0_new_cons(i64 %t38, i64 %a1, i64 3)
+  %t41 = musttail call i64 @l0_f_parse_arms(i64 %t39, i64 %t40, i64 %a2)
+  ret i64 %t41
 Ln32:
   unreachable
 }
@@ -25922,7 +25446,7 @@ Le0:
   br i1 %t36, label %Lt34, label %Le34
 Lt34:
   call void @l0_dec(i64 %t33)
-  %t37 = call i64 @l0_f_rev.1(i64 %a1, i64 0)
+  %t37 = call i64 @l0_f_rev.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t38 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t38)
   call void @l0_dec(i64 %a0)
@@ -26179,75 +25703,74 @@ Lt86:
   call void @l0_data_set(i64 %t90, i64 1, i64 %a0)
   call void @l0_data_set(i64 %t90, i64 2, i64 %a1)
   call void @l0_data_set(i64 %t90, i64 3, i64 %t55)
-  %t91 = call i64 @l0_new_cons(i64 %t90, i64 0, i64 3)
-  %t92 = call i64 @l0_tail(i64 %t56)
-  call void @l0_inc(i64 %t92)
+  %t91 = call i64 @l0_tail(i64 %t56)
+  call void @l0_inc(i64 %t91)
   call void @l0_dec(i64 %t56)
-  %t93 = call i64 @l0_new_data(i64 0, i64 2, i64 6)
-  call void @l0_data_set(i64 %t93, i64 0, i64 %t91)
-  call void @l0_data_set(i64 %t93, i64 1, i64 %t92)
-  ret i64 %t93
+  %t92 = call i64 @l0_new_data(i64 0, i64 2, i64 6)
+  call void @l0_data_set(i64 %t92, i64 0, i64 %t90)
+  call void @l0_data_set(i64 %t92, i64 1, i64 %t91)
+  ret i64 %t92
 Le86:
   call void @l0_dec(i64 %t55)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t94 = call i64 @l0_head(i64 %t56)
-  call void @l0_inc(i64 %t94)
+  %t93 = call i64 @l0_head(i64 %t56)
+  call void @l0_inc(i64 %t93)
   call void @l0_dec(i64 %t56)
-  %t95 = call i64 @l0_f_tok_offset(i64 %t94, i64 0)
-  %t96 = call i64 @l0_new_cons(i64 41, i64 0, i64 2)
-  %t97 = call i64 @l0_new_cons(i64 116, i64 %t96, i64 2)
-  %t98 = call i64 @l0_new_cons(i64 108, i64 %t97, i64 2)
-  %t99 = call i64 @l0_new_cons(i64 117, i64 %t98, i64 2)
-  %t100 = call i64 @l0_new_cons(i64 115, i64 %t99, i64 2)
-  %t101 = call i64 @l0_new_cons(i64 101, i64 %t100, i64 2)
-  %t102 = call i64 @l0_new_cons(i64 114, i64 %t101, i64 2)
-  %t103 = call i64 @l0_new_cons(i64 32, i64 %t102, i64 2)
-  %t104 = call i64 @l0_new_cons(i64 41, i64 %t103, i64 2)
+  %t94 = call i64 @l0_f_tok_offset(i64 %t93, i64 0)
+  %t95 = call i64 @l0_new_cons(i64 41, i64 0, i64 2)
+  %t96 = call i64 @l0_new_cons(i64 116, i64 %t95, i64 2)
+  %t97 = call i64 @l0_new_cons(i64 108, i64 %t96, i64 2)
+  %t98 = call i64 @l0_new_cons(i64 117, i64 %t97, i64 2)
+  %t99 = call i64 @l0_new_cons(i64 115, i64 %t98, i64 2)
+  %t100 = call i64 @l0_new_cons(i64 101, i64 %t99, i64 2)
+  %t101 = call i64 @l0_new_cons(i64 114, i64 %t100, i64 2)
+  %t102 = call i64 @l0_new_cons(i64 32, i64 %t101, i64 2)
+  %t103 = call i64 @l0_new_cons(i64 41, i64 %t102, i64 2)
+  %t104 = call i64 @l0_new_cons(i64 46, i64 %t103, i64 2)
   %t105 = call i64 @l0_new_cons(i64 46, i64 %t104, i64 2)
   %t106 = call i64 @l0_new_cons(i64 46, i64 %t105, i64 2)
-  %t107 = call i64 @l0_new_cons(i64 46, i64 %t106, i64 2)
-  %t108 = call i64 @l0_new_cons(i64 115, i64 %t107, i64 2)
-  %t109 = call i64 @l0_new_cons(i64 101, i64 %t108, i64 2)
-  %t110 = call i64 @l0_new_cons(i64 109, i64 %t109, i64 2)
-  %t111 = call i64 @l0_new_cons(i64 97, i64 %t110, i64 2)
-  %t112 = call i64 @l0_new_cons(i64 110, i64 %t111, i64 2)
-  %t113 = call i64 @l0_new_cons(i64 32, i64 %t112, i64 2)
-  %t114 = call i64 @l0_new_cons(i64 114, i64 %t113, i64 2)
-  %t115 = call i64 @l0_new_cons(i64 111, i64 %t114, i64 2)
-  %t116 = call i64 @l0_new_cons(i64 116, i64 %t115, i64 2)
-  %t117 = call i64 @l0_new_cons(i64 99, i64 %t116, i64 2)
-  %t118 = call i64 @l0_new_cons(i64 117, i64 %t117, i64 2)
-  %t119 = call i64 @l0_new_cons(i64 114, i64 %t118, i64 2)
-  %t120 = call i64 @l0_new_cons(i64 116, i64 %t119, i64 2)
-  %t121 = call i64 @l0_new_cons(i64 115, i64 %t120, i64 2)
-  %t122 = call i64 @l0_new_cons(i64 110, i64 %t121, i64 2)
-  %t123 = call i64 @l0_new_cons(i64 111, i64 %t122, i64 2)
-  %t124 = call i64 @l0_new_cons(i64 67, i64 %t123, i64 2)
+  %t107 = call i64 @l0_new_cons(i64 115, i64 %t106, i64 2)
+  %t108 = call i64 @l0_new_cons(i64 101, i64 %t107, i64 2)
+  %t109 = call i64 @l0_new_cons(i64 109, i64 %t108, i64 2)
+  %t110 = call i64 @l0_new_cons(i64 97, i64 %t109, i64 2)
+  %t111 = call i64 @l0_new_cons(i64 110, i64 %t110, i64 2)
+  %t112 = call i64 @l0_new_cons(i64 32, i64 %t111, i64 2)
+  %t113 = call i64 @l0_new_cons(i64 114, i64 %t112, i64 2)
+  %t114 = call i64 @l0_new_cons(i64 111, i64 %t113, i64 2)
+  %t115 = call i64 @l0_new_cons(i64 116, i64 %t114, i64 2)
+  %t116 = call i64 @l0_new_cons(i64 99, i64 %t115, i64 2)
+  %t117 = call i64 @l0_new_cons(i64 117, i64 %t116, i64 2)
+  %t118 = call i64 @l0_new_cons(i64 114, i64 %t117, i64 2)
+  %t119 = call i64 @l0_new_cons(i64 116, i64 %t118, i64 2)
+  %t120 = call i64 @l0_new_cons(i64 115, i64 %t119, i64 2)
+  %t121 = call i64 @l0_new_cons(i64 110, i64 %t120, i64 2)
+  %t122 = call i64 @l0_new_cons(i64 111, i64 %t121, i64 2)
+  %t123 = call i64 @l0_new_cons(i64 67, i64 %t122, i64 2)
+  %t124 = call i64 @l0_new_cons(i64 40, i64 %t123, i64 2)
   %t125 = call i64 @l0_new_cons(i64 40, i64 %t124, i64 2)
-  %t126 = call i64 @l0_new_cons(i64 40, i64 %t125, i64 2)
-  %t127 = call i64 @l0_new_cons(i64 32, i64 %t126, i64 2)
-  %t128 = call i64 @l0_new_cons(i64 115, i64 %t127, i64 2)
-  %t129 = call i64 @l0_new_cons(i64 105, i64 %t128, i64 2)
-  %t130 = call i64 @l0_new_cons(i64 32, i64 %t129, i64 2)
-  %t131 = call i64 @l0_new_cons(i64 109, i64 %t130, i64 2)
-  %t132 = call i64 @l0_new_cons(i64 114, i64 %t131, i64 2)
-  %t133 = call i64 @l0_new_cons(i64 97, i64 %t132, i64 2)
-  %t134 = call i64 @l0_new_cons(i64 32, i64 %t133, i64 2)
-  %t135 = call i64 @l0_new_cons(i64 104, i64 %t134, i64 2)
-  %t136 = call i64 @l0_new_cons(i64 99, i64 %t135, i64 2)
-  %t137 = call i64 @l0_new_cons(i64 116, i64 %t136, i64 2)
-  %t138 = call i64 @l0_new_cons(i64 97, i64 %t137, i64 2)
-  %t139 = call i64 @l0_new_cons(i64 109, i64 %t138, i64 2)
-  %t140 = call i64 @l0_new_cons(i64 32, i64 %t139, i64 2)
-  %t141 = call i64 @l0_new_cons(i64 104, i64 %t140, i64 2)
-  %t142 = call i64 @l0_new_cons(i64 99, i64 %t141, i64 2)
-  %t143 = call i64 @l0_new_cons(i64 97, i64 %t142, i64 2)
-  %t144 = call i64 @l0_new_cons(i64 101, i64 %t143, i64 2)
-  %t145 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
-  call void @l0_data_set(i64 %t145, i64 0, i64 %t95)
-  call void @l0_data_set(i64 %t145, i64 1, i64 %t144)
-  ret i64 %t145
+  %t126 = call i64 @l0_new_cons(i64 32, i64 %t125, i64 2)
+  %t127 = call i64 @l0_new_cons(i64 115, i64 %t126, i64 2)
+  %t128 = call i64 @l0_new_cons(i64 105, i64 %t127, i64 2)
+  %t129 = call i64 @l0_new_cons(i64 32, i64 %t128, i64 2)
+  %t130 = call i64 @l0_new_cons(i64 109, i64 %t129, i64 2)
+  %t131 = call i64 @l0_new_cons(i64 114, i64 %t130, i64 2)
+  %t132 = call i64 @l0_new_cons(i64 97, i64 %t131, i64 2)
+  %t133 = call i64 @l0_new_cons(i64 32, i64 %t132, i64 2)
+  %t134 = call i64 @l0_new_cons(i64 104, i64 %t133, i64 2)
+  %t135 = call i64 @l0_new_cons(i64 99, i64 %t134, i64 2)
+  %t136 = call i64 @l0_new_cons(i64 116, i64 %t135, i64 2)
+  %t137 = call i64 @l0_new_cons(i64 97, i64 %t136, i64 2)
+  %t138 = call i64 @l0_new_cons(i64 109, i64 %t137, i64 2)
+  %t139 = call i64 @l0_new_cons(i64 32, i64 %t138, i64 2)
+  %t140 = call i64 @l0_new_cons(i64 104, i64 %t139, i64 2)
+  %t141 = call i64 @l0_new_cons(i64 99, i64 %t140, i64 2)
+  %t142 = call i64 @l0_new_cons(i64 97, i64 %t141, i64 2)
+  %t143 = call i64 @l0_new_cons(i64 101, i64 %t142, i64 2)
+  %t144 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
+  call void @l0_data_set(i64 %t144, i64 0, i64 %t94)
+  call void @l0_data_set(i64 %t144, i64 1, i64 %t143)
+  ret i64 %t144
 Ln0:
   unreachable
 }
@@ -26914,7 +26437,7 @@ Le0:
   %t27 = icmp ne i64 %t26, 0
   br i1 %t27, label %Lt24, label %Le24
 Lt24:
-  %t28 = call i64 @l0_f_rev_exprs_onto(i64 %a1, i64 0)
+  %t28 = call i64 @l0_f_rev_onto.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t29 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t29)
   call void @l0_dec(i64 %a0)
@@ -27052,7 +26575,7 @@ Le0:
   %t37 = icmp ne i64 %t36, 0
   br i1 %t37, label %Lt34, label %Le34
 Lt34:
-  %t38 = call i64 @l0_f_rev_params_onto(i64 %a1, i64 0)
+  %t38 = call i64 @l0_f_rev_onto.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t39 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t39)
   call void @l0_dec(i64 %a0)
@@ -27570,7 +27093,9 @@ Le15:
   %t53 = call i64 @l0_new_cons(i64 116, i64 %t52, i64 2)
   %t54 = call i64 @l0_new_cons(i64 97, i64 %t53, i64 2)
   %t55 = call i64 @l0_new_cons(i64 100, i64 %t54, i64 2)
-  %t56 = call i64 @l0_f_list_eq(i64 %t51, i64 %t55)
+  %t56 = call i64 @l0_equal(i64 %t51, i64 %t55)
+  call void @l0_dec(i64 %t51)
+  call void @l0_dec(i64 %t55)
   %t57 = icmp ne i64 %t56, 0
   br i1 %t57, label %Lt50, label %Le50
 Lt50:
@@ -27586,7 +27111,9 @@ Le50:
   %t62 = call i64 @l0_new_cons(i64 102, i64 0, i64 2)
   %t63 = call i64 @l0_new_cons(i64 101, i64 %t62, i64 2)
   %t64 = call i64 @l0_new_cons(i64 100, i64 %t63, i64 2)
-  %t65 = call i64 @l0_f_list_eq(i64 %t61, i64 %t64)
+  %t65 = call i64 @l0_equal(i64 %t61, i64 %t64)
+  call void @l0_dec(i64 %t61)
+  call void @l0_dec(i64 %t64)
   %t66 = xor i64 %t65, 1
   %t67 = icmp ne i64 %t66, 0
   br i1 %t67, label %Lt60, label %Le60
@@ -28036,7 +27563,7 @@ Le0:
 Lt5:
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %t4)
-  %t8 = call i64 @l0_f_rev.1(i64 %a1, i64 0)
+  %t8 = call i64 @l0_f_rev.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t9 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t9)
   call void @l0_dec(i64 %a0)
@@ -28253,7 +27780,7 @@ Le0:
   %t39 = icmp ne i64 %t38, 0
   br i1 %t39, label %Lt36, label %Le36
 Lt36:
-  %t40 = call i64 @l0_f_rev_ctors_onto(i64 %a1, i64 0)
+  %t40 = call i64 @l0_f_rev_onto.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t41 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t41)
   call void @l0_dec(i64 %a0)
@@ -28343,12 +27870,9 @@ A89_1:
   %t99 = call i64 @l0_data_get(i64 %t93, i64 1)
   call void @l0_inc(i64 %t99)
   call void @l0_dec(i64 %t93)
-  %t100 = call i64 @l0_head(i64 %t98)
-  call void @l0_inc(i64 %t100)
-  call void @l0_dec(i64 %t98)
-  %t101 = call i64 @l0_new_cons(i64 %t100, i64 %a1, i64 3)
-  %t102 = musttail call i64 @l0_f_parse_ctors(i64 %t99, i64 %t101, i64 %a2)
-  ret i64 %t102
+  %t100 = call i64 @l0_new_cons(i64 %t98, i64 %a1, i64 3)
+  %t101 = musttail call i64 @l0_f_parse_ctors(i64 %t99, i64 %t100, i64 %a2)
+  ret i64 %t101
 Ln89:
   unreachable
 }
@@ -28507,44 +28031,43 @@ Le0:
   %t34 = icmp ne i64 %t33, 0
   br i1 %t34, label %Lt31, label %Le31
 Lt31:
-  %t35 = call i64 @l0_f_rev_tys_list_onto(i64 %a2, i64 0)
+  %t35 = call i64 @l0_f_rev_onto.1(i64 %a2, i64 0, i64 0, i64 0, i64 0)
   %t36 = call i64 @l0_new_data(i64 0, i64 3, i64 12)
   call void @l0_data_set(i64 %t36, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t36, i64 1, i64 %a0)
   call void @l0_data_set(i64 %t36, i64 2, i64 %t35)
-  %t37 = call i64 @l0_new_cons(i64 %t36, i64 0, i64 3)
-  %t38 = call i64 @l0_tail(i64 %a1)
-  call void @l0_inc(i64 %t38)
+  %t37 = call i64 @l0_tail(i64 %a1)
+  call void @l0_inc(i64 %t37)
   call void @l0_dec(i64 %a1)
-  %t39 = call i64 @l0_new_data(i64 0, i64 2, i64 6)
-  call void @l0_data_set(i64 %t39, i64 0, i64 %t37)
-  call void @l0_data_set(i64 %t39, i64 1, i64 %t38)
-  ret i64 %t39
+  %t38 = call i64 @l0_new_data(i64 0, i64 2, i64 6)
+  call void @l0_data_set(i64 %t38, i64 0, i64 %t36)
+  call void @l0_data_set(i64 %t38, i64 1, i64 %t37)
+  ret i64 %t38
 Le31:
-  %t41 = call i64 @l0_f_parse_type(i64 %a1, i64 0, i64 0, i64 0)
-  %t42 = call i64 @l0_data_tag(i64 %t41)
-  switch i64 %t42, label %Ln40 [ i64 1, label %A40_0 i64 0, label %A40_1 ]
-A40_0:
-  %t43 = call i64 @l0_data_get(i64 %t41, i64 0)
-  %t44 = call i64 @l0_data_get(i64 %t41, i64 1)
-  call void @l0_inc(i64 %t44)
-  call void @l0_dec(i64 %t41)
+  %t40 = call i64 @l0_f_parse_type(i64 %a1, i64 0, i64 0, i64 0)
+  %t41 = call i64 @l0_data_tag(i64 %t40)
+  switch i64 %t41, label %Ln39 [ i64 1, label %A39_0 i64 0, label %A39_1 ]
+A39_0:
+  %t42 = call i64 @l0_data_get(i64 %t40, i64 0)
+  %t43 = call i64 @l0_data_get(i64 %t40, i64 1)
+  call void @l0_inc(i64 %t43)
+  call void @l0_dec(i64 %t40)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
-  %t45 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
-  call void @l0_data_set(i64 %t45, i64 0, i64 %t43)
-  call void @l0_data_set(i64 %t45, i64 1, i64 %t44)
-  ret i64 %t45
-A40_1:
-  %t46 = call i64 @l0_data_get(i64 %t41, i64 0)
+  %t44 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
+  call void @l0_data_set(i64 %t44, i64 0, i64 %t42)
+  call void @l0_data_set(i64 %t44, i64 1, i64 %t43)
+  ret i64 %t44
+A39_1:
+  %t45 = call i64 @l0_data_get(i64 %t40, i64 0)
+  call void @l0_inc(i64 %t45)
+  %t46 = call i64 @l0_data_get(i64 %t40, i64 1)
   call void @l0_inc(i64 %t46)
-  %t47 = call i64 @l0_data_get(i64 %t41, i64 1)
-  call void @l0_inc(i64 %t47)
-  call void @l0_dec(i64 %t41)
-  %t48 = call i64 @l0_new_cons(i64 %t46, i64 %a2, i64 3)
-  %t49 = musttail call i64 @l0_f_parse_ctor_fields(i64 %a0, i64 %t47, i64 %t48, i64 %a3)
-  ret i64 %t49
-Ln40:
+  call void @l0_dec(i64 %t40)
+  %t47 = call i64 @l0_new_cons(i64 %t45, i64 %a2, i64 3)
+  %t48 = musttail call i64 @l0_f_parse_ctor_fields(i64 %a0, i64 %t46, i64 %t47, i64 %a3)
+  ret i64 %t48
+Ln39:
   unreachable
 }
 
@@ -29251,13 +28774,17 @@ Le8:
   %t16 = call i64 @l0_new_cons(i64 102, i64 0, i64 2)
   %t17 = call i64 @l0_new_cons(i64 101, i64 %t16, i64 2)
   %t18 = call i64 @l0_new_cons(i64 100, i64 %t17, i64 2)
-  %t19 = call i64 @l0_f_list_eq(i64 %t15, i64 %t18)
+  %t19 = call i64 @l0_equal(i64 %t15, i64 %t18)
+  call void @l0_dec(i64 %t15)
+  call void @l0_dec(i64 %t18)
   %t20 = call i64 @l0_f_tok_bytes(i64 %t13)
   %t21 = call i64 @l0_new_cons(i64 97, i64 0, i64 2)
   %t22 = call i64 @l0_new_cons(i64 116, i64 %t21, i64 2)
   %t23 = call i64 @l0_new_cons(i64 97, i64 %t22, i64 2)
   %t24 = call i64 @l0_new_cons(i64 100, i64 %t23, i64 2)
-  %t25 = call i64 @l0_f_list_eq(i64 %t20, i64 %t24)
+  %t25 = call i64 @l0_equal(i64 %t20, i64 %t24)
+  call void @l0_dec(i64 %t20)
+  call void @l0_dec(i64 %t24)
   %t26 = or i64 %t19, %t25
   %t27 = and i64 %t14, %t26
   ret i64 %t27
@@ -29294,8 +28821,8 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_f_rev_decls_onto(i64 %a1, i64 0, i64 0, i64 0, i64 0)
-  %t4 = call i64 @l0_f_rev_diags_onto(i64 %a2, i64 0, i64 0)
+  %t3 = call i64 @l0_f_rev_onto.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  %t4 = call i64 @l0_f_rev_onto.1(i64 %a2, i64 0, i64 0, i64 0, i64 0)
   %t5 = call i64 @l0_new_data(i64 0, i64 2, i64 6)
   call void @l0_data_set(i64 %t5, i64 0, i64 %t3)
   call void @l0_data_set(i64 %t5, i64 1, i64 %t4)
