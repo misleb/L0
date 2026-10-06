@@ -393,8 +393,18 @@ iteration's garbage before the next. So:
   call, such as `(add 1 (count (tail xs)))`, takes a frame per level, and a
   long enough list exhausts the stack
 
-**Arrays.** For anything indexed — counts by byte, distances by node, a
-table by hash — use `(array T)`, not a list or a tree of your own: `(array_new
+**Maps.** For anything looked up by a key that is not a small integer —
+counts by word, a node's number by its name — use the library's
+`(Map K V)` (`l0 doc Map`), not a list of pairs or a table of your own. The
+empty map is `((MapEmpty K V))`, written with its types; `(map_put m k v)`
+returns the map with `k` mapped to `v`, `(map_get m k)` an `Option`, and
+`map_has`, `map_remove`, `map_size`, `map_keys`, and `map_values` the rest.
+Any type can be a key. Like an array, a map changes in place while nothing
+else holds it and is copied whole when something does, so thread one map
+through a loop and keep no other name for the old one.
+
+**Arrays.** For anything indexed by a small integer — counts by byte,
+distances by node — use `(array T)`, not a list or a tree of your own: `(array_new
 n x)`, `(array_len a)`, `(array_get a i)`, and `(array_set a i x)`, which
 returns the updated array. An index out of range is a runtime error.
 `array_set` updates in place, in constant time, when nothing else holds the

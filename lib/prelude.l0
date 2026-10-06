@@ -1,5 +1,5 @@
 ; prelude.l0 -- the part of the standard library that does no I/O: lists and
-; arrays of any type, Option and Result, and byte-string helpers.
+; arrays of any type, Option and Result, a map, and byte-string helpers.
 ;
 ; The compiler is built from this file and compiler/*.l0, so everything here
 ; is exercised by every build of it, and the compiler calls rev, any_eq, and
@@ -14,7 +14,7 @@
 ; A comment starting ;; documents the definition below it, and is what l0 doc
 ; shows; a definition without one is internal. ;;; describes the file.
 
-;;; Lists and arrays of any type, Option and Result, and lists of bytes:
+;;; Lists and arrays of any type, Option, Result, Map, and lists of bytes:
 ;;; building output, comparing, decimal numbers, slicing lines and words, word
 ;;; tables, and character classes. A string is a (list int) of byte values, so
 ;;; the byte helpers work on strings.
@@ -93,6 +93,164 @@
 (data (Result T E)
   (Ok T)
   (Err E))
+
+; ---------------------------------------------------------------------- maps
+;
+; An open-addressing table in three arrays, at most half full, probed
+; linearly from the slot (mod (hash k) capacity). marks holds 0 for an empty
+; slot and (add (hash k) 1), which is never 0, for a full one, so most keys
+; are told apart without eq, and a key's slot is always worked out from its
+; mark, by map_slot alone. The empty map holds no arrays, since there is no
+; value of an unknown type to fill them with until the first key arrives.
+; Every update matches the map at its last use, so its arrays have one
+; holder and change in place (spec section 6.5). Removal shifts the entries
+; after the removed one back, so no slot is ever a tombstone; the slot it
+; empties may keep the removed key and value until it is reused.
+
+;; A map from keys of type K to values of type V, written once for every
+;; type: keys are compared with eq and placed by hash, so any value can be a
+;; key. The empty map is ((MapEmpty K V)), written with its types as
+;; ((None int)) is; add to it with map_put and read it with map_get. A map is
+;; changed in place unless something else still holds it, in which case it
+;; is copied whole, as an array is (spec section 6.5): keep one name for it.
+(data (Map K V)
+  (MapEmpty)
+  (MapTable (array int) (array K) (array V) int))   ; marks, keys, values, count
+
+;; m with k mapped to v, replacing any value k had. Amortized constant time.
+(def (map_put K V) ((m (Map K V)) (k K) (v V)) (Map K V)
+  (map_put_marked m (add (hash k) 1) k v))
+
+;; The value k maps to in m, or (None) if it has none.
+(def (map_get K V) ((m (Map K V)) (k K)) (Option V)
+  (match m
+    ((MapEmpty) ((None V)))
+    ((MapTable ms ks vs n)
+      (let mk (add (hash k) 1)
+        (map_probe_get ms ks vs mk (map_slot mk (array_len ms)) k)))))
+
+;; Whether k has a value in m.
+(def (map_has K V) ((m (Map K V)) (k K)) bool
+  (match (map_get m k)
+    ((None) false)
+    ((Some v) true)))
+
+;; How many keys m maps to values.
+(def (map_size K V) ((m (Map K V))) int
+  (match m
+    ((MapEmpty) 0)
+    ((MapTable ms ks vs n) n)))
+
+;; m without k, or m as it was if k has no value. Amortized constant time.
+(def (map_remove K V) ((m (Map K V)) (k K)) (Map K V)
+  (match m
+    ((MapEmpty) m)
+    ((MapTable ms ks vs n)
+      (let mk (add (hash k) 1)
+        (map_find_remove ms ks vs n mk (map_slot mk (array_len ms)) k)))))
+
+;; Every key m has, each once. The order is the table's, which hash decides,
+;; so it is the same on every run but is not the order of insertion; sort
+;; the keys if the order matters.
+(def (map_keys K V) ((m (Map K V))) (list K)
+  (match m
+    ((MapEmpty) (nil K))
+    ((MapTable ms ks vs n) (map_live_from ms ks (sub (array_len ms) 1) (nil K)))))
+
+;; Every value m has, in the same order as map_keys gives their keys.
+(def (map_values K V) ((m (Map K V))) (list V)
+  (match m
+    ((MapEmpty) (nil V))
+    ((MapTable ms ks vs n) (map_live_from ms vs (sub (array_len ms) 1) (nil V)))))
+
+; The slot a key marked mk goes in, of cap.
+(def map_slot ((mk int) (cap int)) int
+  (mod (sub mk 1) cap))
+
+(def (map_next T) ((i int) (ms (array T))) int
+  (mod (add i 1) (array_len ms)))
+
+(def (map_put_marked K V) ((m (Map K V)) (mk int) (k K) (v V)) (Map K V)
+  (match m
+    ((MapEmpty)
+      (map_put_marked (MapTable (array_new 8 0) (array_new 8 k) (array_new 8 v) 0)
+                      mk k v))
+    ((MapTable ms ks vs n)
+      (if (gt (mul 2 (add n 1)) (array_len ms))
+          (map_put_marked (map_grown ms ks vs k v) mk k v)
+          (map_probe_put ms ks vs n mk (map_slot mk (array_len ms)) k v)))))
+
+(def (map_probe_put K V) ((ms (array int)) (ks (array K)) (vs (array V)) (n int)
+                          (mk int) (i int) (k K) (v V)) (Map K V)
+  (let here (array_get ms i)
+    (if (eq here 0)
+        (MapTable (array_set ms i mk) (array_set ks i k) (array_set vs i v) (add n 1))
+        (if (if (eq here mk) (eq (array_get ks i) k) false)
+            (MapTable ms ks (array_set vs i v) n)
+            (map_probe_put ms ks vs n mk (map_next i ms) k v)))))
+
+(def (map_probe_get K V) ((ms (array int)) (ks (array K)) (vs (array V)) (mk int)
+                          (i int) (k K)) (Option V)
+  (let here (array_get ms i)
+    (if (eq here 0)
+        ((None V))
+        (if (if (eq here mk) (eq (array_get ks i) k) false)
+            (Some (array_get vs i))
+            (map_probe_get ms ks vs mk (map_next i ms) k)))))
+
+; Twice the slots, with every entry moved over; k and v fill the new arrays,
+; and are written over as entries arrive.
+(def (map_grown K V) ((ms (array int)) (ks (array K)) (vs (array V)) (k K) (v V))
+    (Map K V)
+  (let cap (mul 2 (array_len ms))
+    (map_move_all ms ks vs 0
+      (MapTable (array_new cap 0) (array_new cap k) (array_new cap v) 0))))
+
+(def (map_move_all K V) ((ms (array int)) (ks (array K)) (vs (array V)) (i int)
+                         (into (Map K V))) (Map K V)
+  (if (ge i (array_len ms))
+      into
+      (map_move_all ms ks vs (add i 1)
+        (if (eq (array_get ms i) 0)
+            into
+            (map_put_marked into (array_get ms i) (array_get ks i) (array_get vs i))))))
+
+(def (map_find_remove K V) ((ms (array int)) (ks (array K)) (vs (array V)) (n int)
+                            (mk int) (i int) (k K)) (Map K V)
+  (let here (array_get ms i)
+    (if (eq here 0)
+        (MapTable ms ks vs n)
+        (if (if (eq here mk) (eq (array_get ks i) k) false)
+            (if (eq n 1)
+                ((MapEmpty K V))
+                (map_shift ms ks vs (sub n 1) i (map_next i ms)))
+            (map_find_remove ms ks vs n mk (map_next i ms) k)))))
+
+; Slot i is empty; the entry at j, and each after it up to an empty slot,
+; moves back to i unless that would put it before its own slot.
+(def (map_shift K V) ((ms (array int)) (ks (array K)) (vs (array V)) (n int)
+                      (i int) (j int)) (Map K V)
+  (let mj (array_get ms j)
+    (if (eq mj 0)
+        (MapTable (array_set ms i 0) ks vs n)
+        (if (map_stays (map_slot mj (array_len ms)) i j)
+            (map_shift ms ks vs n i (map_next j ms))
+            (map_shift (array_set ms i mj) (array_set ks i (array_get ks j))
+                       (array_set vs i (array_get vs j)) n j (map_next j ms))))))
+
+; Whether an entry whose own slot is s, found at j, stays when i, before it,
+; empties: it does when s is after i and no later than j, going round.
+(def map_stays ((s int) (i int) (j int)) bool
+  (if (le i j)
+      (if (lt i s) (le s j) false)
+      (if (lt i s) true (le s j))))
+
+(def (map_live_from T) ((ms (array int)) (xs (array T)) (i int) (acc (list T)))
+    (list T)
+  (if (lt i 0)
+      acc
+      (map_live_from ms xs (sub i 1)
+        (if (eq (array_get ms i) 0) acc (cons (array_get xs i) acc)))))
 
 ; ------------------------------------------------------------ byte strings
 

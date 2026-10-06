@@ -369,6 +369,1883 @@ Le0:
   ret i64 %t7
 }
 
+define internal i64 @l0_f_map_put.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_hash(i64 %a1, i64 0)
+  %t1 = add i64 %t0, 1
+  %t2 = musttail call i64 @l0_f_map_put_marked.00(i64 %a0, i64 %t1, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t2
+}
+
+define internal i64 @l0_f_map_put.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_hash(i64 %a1, i64 0)
+  %t1 = add i64 %t0, 1
+  %t2 = musttail call i64 @l0_f_map_put_marked.01(i64 %a0, i64 %t1, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t2
+}
+
+define internal i64 @l0_f_map_put.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_hash(i64 %a1, i64 1)
+  %t1 = add i64 %t0, 1
+  %t2 = musttail call i64 @l0_f_map_put_marked.10(i64 %a0, i64 %t1, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t2
+}
+
+define internal i64 @l0_f_map_put.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_hash(i64 %a1, i64 1)
+  %t1 = add i64 %t0, 1
+  %t2 = musttail call i64 @l0_f_map_put_marked.11(i64 %a0, i64 %t1, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t2
+}
+
+define internal i64 @l0_f_map_get.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  %t2 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
+  ret i64 %t2
+A0_1:
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t6 = call i64 @l0_data_get(i64 %a0, i64 3)
+  %t7 = call i64 @l0_hash(i64 %a1, i64 0)
+  %t8 = add i64 %t7, 1
+  %t9 = call i64 @l0_array_len(i64 %t3)
+  %t10 = call i64 @l0_f_map_slot(i64 %t8, i64 %t9)
+  %t11 = musttail call i64 @l0_f_map_probe_get.00(i64 %t3, i64 %t4, i64 %t5, i64 %t8, i64 %t10, i64 %a1)
+  ret i64 %t11
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_get.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  %t2 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
+  ret i64 %t2
+A0_1:
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t5)
+  %t6 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t7 = call i64 @l0_hash(i64 %a1, i64 0)
+  %t8 = add i64 %t7, 1
+  %t9 = call i64 @l0_array_len(i64 %t3)
+  %t10 = call i64 @l0_f_map_slot(i64 %t8, i64 %t9)
+  %t11 = musttail call i64 @l0_f_map_probe_get.01(i64 %t3, i64 %t4, i64 %t5, i64 %t8, i64 %t10, i64 %a1)
+  ret i64 %t11
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_get.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  %t2 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
+  ret i64 %t2
+A0_1:
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t5)
+  %t6 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t7 = call i64 @l0_hash(i64 %a1, i64 1)
+  %t8 = add i64 %t7, 1
+  %t9 = call i64 @l0_array_len(i64 %t3)
+  %t10 = call i64 @l0_f_map_slot(i64 %t8, i64 %t9)
+  %t11 = musttail call i64 @l0_f_map_probe_get.10(i64 %t3, i64 %t4, i64 %t5, i64 %t8, i64 %t10, i64 %a1)
+  ret i64 %t11
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_get.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  %t2 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
+  ret i64 %t2
+A0_1:
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t5)
+  %t6 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t7 = call i64 @l0_hash(i64 %a1, i64 1)
+  %t8 = add i64 %t7, 1
+  %t9 = call i64 @l0_array_len(i64 %t3)
+  %t10 = call i64 @l0_f_map_slot(i64 %t8, i64 %t9)
+  %t11 = musttail call i64 @l0_f_map_probe_get.11(i64 %t3, i64 %t4, i64 %t5, i64 %t8, i64 %t10, i64 %a1)
+  ret i64 %t11
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_has.00(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_f_map_get.00(i64 %a0, i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  %t2 = call i64 @l0_data_tag(i64 %t1)
+  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %t1)
+  ret i64 0
+A0_1:
+  %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
+  call void @l0_dec(i64 %t1)
+  ret i64 1
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_has.01(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_f_map_get.01(i64 %a0, i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  %t2 = call i64 @l0_data_tag(i64 %t1)
+  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %t1)
+  ret i64 0
+A0_1:
+  %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
+  call void @l0_dec(i64 %t1)
+  ret i64 1
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_has.10(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_f_map_get.10(i64 %a0, i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  %t2 = call i64 @l0_data_tag(i64 %t1)
+  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %t1)
+  ret i64 0
+A0_1:
+  %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
+  call void @l0_dec(i64 %t1)
+  ret i64 1
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_has.11(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_f_map_get.11(i64 %a0, i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  %t2 = call i64 @l0_data_tag(i64 %t1)
+  switch i64 %t2, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %t1)
+  ret i64 0
+A0_1:
+  %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
+  call void @l0_dec(i64 %t1)
+  ret i64 1
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_size.00(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  ret i64 %t5
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_size.01(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  ret i64 %t5
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_size.10(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  ret i64 %t5
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_size.11(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  ret i64 %t5
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_remove.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 %a0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t2)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_hash(i64 %a1, i64 0)
+  %t7 = add i64 %t6, 1
+  %t8 = call i64 @l0_array_len(i64 %t2)
+  %t9 = call i64 @l0_f_map_slot(i64 %t7, i64 %t8)
+  %t10 = musttail call i64 @l0_f_map_find_remove.00(i64 %t2, i64 %t3, i64 %t4, i64 %t5, i64 %t7, i64 %t9, i64 %a1)
+  ret i64 %t10
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_remove.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 %a0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t2)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_hash(i64 %a1, i64 0)
+  %t7 = add i64 %t6, 1
+  %t8 = call i64 @l0_array_len(i64 %t2)
+  %t9 = call i64 @l0_f_map_slot(i64 %t7, i64 %t8)
+  %t10 = musttail call i64 @l0_f_map_find_remove.01(i64 %t2, i64 %t3, i64 %t4, i64 %t5, i64 %t7, i64 %t9, i64 %a1)
+  ret i64 %t10
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_remove.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 %a0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t2)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_hash(i64 %a1, i64 1)
+  %t7 = add i64 %t6, 1
+  %t8 = call i64 @l0_array_len(i64 %t2)
+  %t9 = call i64 @l0_f_map_slot(i64 %t7, i64 %t8)
+  %t10 = musttail call i64 @l0_f_map_find_remove.10(i64 %t2, i64 %t3, i64 %t4, i64 %t5, i64 %t7, i64 %t9, i64 %a1)
+  ret i64 %t10
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_remove.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 %a0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t2)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_hash(i64 %a1, i64 1)
+  %t7 = add i64 %t6, 1
+  %t8 = call i64 @l0_array_len(i64 %t2)
+  %t9 = call i64 @l0_f_map_slot(i64 %t7, i64 %t8)
+  %t10 = musttail call i64 @l0_f_map_find_remove.11(i64 %t2, i64 %t3, i64 %t4, i64 %t5, i64 %t7, i64 %t9, i64 %a1)
+  ret i64 %t10
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_keys.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  %t6 = call i64 @l0_array_len(i64 %t2)
+  %t7 = sub i64 %t6, 1
+  %t8 = musttail call i64 @l0_f_map_live_from.0(i64 %t2, i64 %t3, i64 %t7, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_keys.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  %t6 = call i64 @l0_array_len(i64 %t2)
+  %t7 = sub i64 %t6, 1
+  %t8 = musttail call i64 @l0_f_map_live_from.0(i64 %t2, i64 %t3, i64 %t7, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_keys.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t2)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_array_len(i64 %t2)
+  %t7 = sub i64 %t6, 1
+  %t8 = musttail call i64 @l0_f_map_live_from.1(i64 %t2, i64 %t3, i64 %t7, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_keys.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t2)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t3)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_array_len(i64 %t2)
+  %t7 = sub i64 %t6, 1
+  %t8 = musttail call i64 @l0_f_map_live_from.1(i64 %t2, i64 %t3, i64 %t7, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_values.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  %t6 = call i64 @l0_array_len(i64 %t2)
+  %t7 = sub i64 %t6, 1
+  %t8 = musttail call i64 @l0_f_map_live_from.0(i64 %t2, i64 %t4, i64 %t7, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_values.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t2)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_array_len(i64 %t2)
+  %t7 = sub i64 %t6, 1
+  %t8 = musttail call i64 @l0_f_map_live_from.1(i64 %t2, i64 %t4, i64 %t7, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_values.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  %t6 = call i64 @l0_array_len(i64 %t2)
+  %t7 = sub i64 %t6, 1
+  %t8 = musttail call i64 @l0_f_map_live_from.0(i64 %t2, i64 %t4, i64 %t7, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_values.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  ret i64 0
+A0_1:
+  %t2 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t2)
+  %t3 = call i64 @l0_data_get(i64 %a0, i64 1)
+  %t4 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_array_len(i64 %t2)
+  %t7 = sub i64 %t6, 1
+  %t8 = musttail call i64 @l0_f_map_live_from.1(i64 %t2, i64 %t4, i64 %t7, i64 0)
+  ret i64 %t8
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_slot(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t0 = sub i64 %a0, 1
+  %t1 = call i64 @l0_mod(i64 %t0, i64 %a1)
+  ret i64 %t1
+}
+
+define internal i64 @l0_f_map_next.0(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t0 = add i64 %a0, 1
+  %t1 = call i64 @l0_array_len(i64 %a1)
+  %t2 = call i64 @l0_mod(i64 %t0, i64 %t1)
+  ret i64 %t2
+}
+
+define internal i64 @l0_f_map_next.1(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t0 = add i64 %a0, 1
+  %t1 = call i64 @l0_array_len(i64 %a1)
+  %t2 = call i64 @l0_mod(i64 %t0, i64 %t1)
+  ret i64 %t2
+}
+
+define internal i64 @l0_f_map_put_marked.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  %t2 = call i64 @l0_array_new(i64 8, i64 0, i64 0)
+  %t3 = call i64 @l0_array_new(i64 8, i64 %a2, i64 0)
+  %t4 = call i64 @l0_array_new(i64 8, i64 %a3, i64 0)
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %t2)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %t4)
+  call void @l0_data_set(i64 %t5, i64 3, i64 0)
+  %t6 = musttail call i64 @l0_f_map_put_marked.00(i64 %t5, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t6
+A0_1:
+  %t7 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t7)
+  %t8 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t8)
+  %t9 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t9)
+  %t10 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t12 = add i64 %t10, 1
+  %t13 = mul i64 2, %t12
+  %t14 = call i64 @l0_array_len(i64 %t7)
+  %t15 = icmp sgt i64 %t13, %t14
+  %t16 = zext i1 %t15 to i64
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt11, label %Le11
+Lt11:
+  %t18 = call i64 @l0_f_map_grown.00(i64 %t7, i64 %t8, i64 %t9, i64 %a2, i64 %a3)
+  call void @l0_dec(i64 %t7)
+  call void @l0_dec(i64 %t8)
+  call void @l0_dec(i64 %t9)
+  %t19 = musttail call i64 @l0_f_map_put_marked.00(i64 %t18, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t19
+Le11:
+  %t20 = call i64 @l0_array_len(i64 %t7)
+  %t21 = call i64 @l0_f_map_slot(i64 %a1, i64 %t20)
+  %t22 = musttail call i64 @l0_f_map_probe_put.00(i64 %t7, i64 %t8, i64 %t9, i64 %t10, i64 %a1, i64 %t21, i64 %a2, i64 %a3)
+  ret i64 %t22
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_put_marked.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  %t2 = call i64 @l0_array_new(i64 8, i64 0, i64 0)
+  %t3 = call i64 @l0_array_new(i64 8, i64 %a2, i64 0)
+  call void @l0_inc(i64 %a3)
+  %t4 = call i64 @l0_array_new(i64 8, i64 %a3, i64 1)
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %t2)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %t4)
+  call void @l0_data_set(i64 %t5, i64 3, i64 0)
+  %t6 = musttail call i64 @l0_f_map_put_marked.01(i64 %t5, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t6
+A0_1:
+  %t7 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t7)
+  %t8 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t8)
+  %t9 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t9)
+  %t10 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t12 = add i64 %t10, 1
+  %t13 = mul i64 2, %t12
+  %t14 = call i64 @l0_array_len(i64 %t7)
+  %t15 = icmp sgt i64 %t13, %t14
+  %t16 = zext i1 %t15 to i64
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt11, label %Le11
+Lt11:
+  call void @l0_inc(i64 %a3)
+  %t18 = call i64 @l0_f_map_grown.01(i64 %t7, i64 %t8, i64 %t9, i64 %a2, i64 %a3)
+  call void @l0_dec(i64 %t7)
+  call void @l0_dec(i64 %t8)
+  %t19 = musttail call i64 @l0_f_map_put_marked.01(i64 %t18, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t19
+Le11:
+  %t20 = call i64 @l0_array_len(i64 %t7)
+  %t21 = call i64 @l0_f_map_slot(i64 %a1, i64 %t20)
+  %t22 = musttail call i64 @l0_f_map_probe_put.01(i64 %t7, i64 %t8, i64 %t9, i64 %t10, i64 %a1, i64 %t21, i64 %a2, i64 %a3)
+  ret i64 %t22
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_put_marked.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  %t2 = call i64 @l0_array_new(i64 8, i64 0, i64 0)
+  call void @l0_inc(i64 %a2)
+  %t3 = call i64 @l0_array_new(i64 8, i64 %a2, i64 1)
+  %t4 = call i64 @l0_array_new(i64 8, i64 %a3, i64 0)
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %t2)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %t4)
+  call void @l0_data_set(i64 %t5, i64 3, i64 0)
+  %t6 = musttail call i64 @l0_f_map_put_marked.10(i64 %t5, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t6
+A0_1:
+  %t7 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t7)
+  %t8 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t8)
+  %t9 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t9)
+  %t10 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t12 = add i64 %t10, 1
+  %t13 = mul i64 2, %t12
+  %t14 = call i64 @l0_array_len(i64 %t7)
+  %t15 = icmp sgt i64 %t13, %t14
+  %t16 = zext i1 %t15 to i64
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt11, label %Le11
+Lt11:
+  call void @l0_inc(i64 %a2)
+  %t18 = call i64 @l0_f_map_grown.10(i64 %t7, i64 %t8, i64 %t9, i64 %a2, i64 %a3)
+  call void @l0_dec(i64 %t7)
+  call void @l0_dec(i64 %t9)
+  %t19 = musttail call i64 @l0_f_map_put_marked.10(i64 %t18, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t19
+Le11:
+  %t20 = call i64 @l0_array_len(i64 %t7)
+  %t21 = call i64 @l0_f_map_slot(i64 %a1, i64 %t20)
+  %t22 = musttail call i64 @l0_f_map_probe_put.10(i64 %t7, i64 %t8, i64 %t9, i64 %t10, i64 %a1, i64 %t21, i64 %a2, i64 %a3)
+  ret i64 %t22
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_put_marked.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_data_tag(i64 %a0)
+  switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 ]
+A0_0:
+  call void @l0_dec(i64 %a0)
+  %t2 = call i64 @l0_array_new(i64 8, i64 0, i64 0)
+  call void @l0_inc(i64 %a2)
+  %t3 = call i64 @l0_array_new(i64 8, i64 %a2, i64 1)
+  call void @l0_inc(i64 %a3)
+  %t4 = call i64 @l0_array_new(i64 8, i64 %a3, i64 1)
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %t2)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %t4)
+  call void @l0_data_set(i64 %t5, i64 3, i64 0)
+  %t6 = musttail call i64 @l0_f_map_put_marked.11(i64 %t5, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t6
+A0_1:
+  %t7 = call i64 @l0_data_get(i64 %a0, i64 0)
+  call void @l0_inc(i64 %t7)
+  %t8 = call i64 @l0_data_get(i64 %a0, i64 1)
+  call void @l0_inc(i64 %t8)
+  %t9 = call i64 @l0_data_get(i64 %a0, i64 2)
+  call void @l0_inc(i64 %t9)
+  %t10 = call i64 @l0_data_get(i64 %a0, i64 3)
+  call void @l0_dec(i64 %a0)
+  %t12 = add i64 %t10, 1
+  %t13 = mul i64 2, %t12
+  %t14 = call i64 @l0_array_len(i64 %t7)
+  %t15 = icmp sgt i64 %t13, %t14
+  %t16 = zext i1 %t15 to i64
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt11, label %Le11
+Lt11:
+  call void @l0_inc(i64 %a2)
+  call void @l0_inc(i64 %a3)
+  %t18 = call i64 @l0_f_map_grown.11(i64 %t7, i64 %t8, i64 %t9, i64 %a2, i64 %a3)
+  call void @l0_dec(i64 %t7)
+  %t19 = musttail call i64 @l0_f_map_put_marked.11(i64 %t18, i64 %a1, i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t19
+Le11:
+  %t20 = call i64 @l0_array_len(i64 %t7)
+  %t21 = call i64 @l0_f_map_slot(i64 %a1, i64 %t20)
+  %t22 = musttail call i64 @l0_f_map_probe_put.11(i64 %t7, i64 %t8, i64 %t9, i64 %t10, i64 %a1, i64 %t21, i64 %a2, i64 %a3)
+  ret i64 %t22
+Ln0:
+  unreachable
+}
+
+define internal i64 @l0_f_map_probe_put.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_array_set(i64 %a0, i64 %a5, i64 %a4)
+  %t6 = call i64 @l0_array_set(i64 %a1, i64 %a5, i64 %a6)
+  %t7 = call i64 @l0_array_set(i64 %a2, i64 %a5, i64 %a7)
+  %t8 = add i64 %a3, 1
+  %t9 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t9, i64 0, i64 %t5)
+  call void @l0_data_set(i64 %t9, i64 1, i64 %t6)
+  call void @l0_data_set(i64 %t9, i64 2, i64 %t7)
+  call void @l0_data_set(i64 %t9, i64 3, i64 %t8)
+  ret i64 %t9
+Le1:
+  %r11 = alloca i64
+  %t12 = icmp eq i64 %t0, %a4
+  %t13 = zext i1 %t12 to i64
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt11, label %Le11
+Lt11:
+  %t15 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  %t16 = icmp eq i64 %t15, %a6
+  %t17 = zext i1 %t16 to i64
+  store i64 %t17, ptr %r11
+  br label %Lx11
+Le11:
+  store i64 0, ptr %r11
+  br label %Lx11
+Lx11:
+  %t18 = load i64, ptr %r11
+  %t19 = icmp ne i64 %t18, 0
+  br i1 %t19, label %Lt10, label %Le10
+Lt10:
+  %t20 = call i64 @l0_array_set(i64 %a2, i64 %a5, i64 %a7)
+  %t21 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t21, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t21, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t21, i64 2, i64 %t20)
+  call void @l0_data_set(i64 %t21, i64 3, i64 %a3)
+  ret i64 %t21
+Le10:
+  %t22 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t23 = musttail call i64 @l0_f_map_probe_put.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t22, i64 %a6, i64 %a7)
+  ret i64 %t23
+}
+
+define internal i64 @l0_f_map_probe_put.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_array_set(i64 %a0, i64 %a5, i64 %a4)
+  %t6 = call i64 @l0_array_set(i64 %a1, i64 %a5, i64 %a6)
+  %t7 = call i64 @l0_array_set(i64 %a2, i64 %a5, i64 %a7)
+  %t8 = add i64 %a3, 1
+  %t9 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t9, i64 0, i64 %t5)
+  call void @l0_data_set(i64 %t9, i64 1, i64 %t6)
+  call void @l0_data_set(i64 %t9, i64 2, i64 %t7)
+  call void @l0_data_set(i64 %t9, i64 3, i64 %t8)
+  ret i64 %t9
+Le1:
+  %r11 = alloca i64
+  %t12 = icmp eq i64 %t0, %a4
+  %t13 = zext i1 %t12 to i64
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt11, label %Le11
+Lt11:
+  %t15 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  %t16 = icmp eq i64 %t15, %a6
+  %t17 = zext i1 %t16 to i64
+  store i64 %t17, ptr %r11
+  br label %Lx11
+Le11:
+  store i64 0, ptr %r11
+  br label %Lx11
+Lx11:
+  %t18 = load i64, ptr %r11
+  %t19 = icmp ne i64 %t18, 0
+  br i1 %t19, label %Lt10, label %Le10
+Lt10:
+  %t20 = call i64 @l0_array_set(i64 %a2, i64 %a5, i64 %a7)
+  %t21 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t21, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t21, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t21, i64 2, i64 %t20)
+  call void @l0_data_set(i64 %t21, i64 3, i64 %a3)
+  ret i64 %t21
+Le10:
+  %t22 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t23 = musttail call i64 @l0_f_map_probe_put.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t22, i64 %a6, i64 %a7)
+  ret i64 %t23
+}
+
+define internal i64 @l0_f_map_probe_put.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_array_set(i64 %a0, i64 %a5, i64 %a4)
+  %t6 = call i64 @l0_array_set(i64 %a1, i64 %a5, i64 %a6)
+  %t7 = call i64 @l0_array_set(i64 %a2, i64 %a5, i64 %a7)
+  %t8 = add i64 %a3, 1
+  %t9 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t9, i64 0, i64 %t5)
+  call void @l0_data_set(i64 %t9, i64 1, i64 %t6)
+  call void @l0_data_set(i64 %t9, i64 2, i64 %t7)
+  call void @l0_data_set(i64 %t9, i64 3, i64 %t8)
+  ret i64 %t9
+Le1:
+  %r11 = alloca i64
+  %t12 = icmp eq i64 %t0, %a4
+  %t13 = zext i1 %t12 to i64
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt11, label %Le11
+Lt11:
+  %t15 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  call void @l0_inc(i64 %t15)
+  %t16 = call i64 @l0_equal(i64 %t15, i64 %a6)
+  call void @l0_dec(i64 %t15)
+  store i64 %t16, ptr %r11
+  br label %Lx11
+Le11:
+  store i64 0, ptr %r11
+  br label %Lx11
+Lx11:
+  %t17 = load i64, ptr %r11
+  %t18 = icmp ne i64 %t17, 0
+  br i1 %t18, label %Lt10, label %Le10
+Lt10:
+  call void @l0_dec(i64 %a6)
+  %t19 = call i64 @l0_array_set(i64 %a2, i64 %a5, i64 %a7)
+  %t20 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t20, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t20, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t20, i64 2, i64 %t19)
+  call void @l0_data_set(i64 %t20, i64 3, i64 %a3)
+  ret i64 %t20
+Le10:
+  %t21 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t22 = musttail call i64 @l0_f_map_probe_put.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t21, i64 %a6, i64 %a7)
+  ret i64 %t22
+}
+
+define internal i64 @l0_f_map_probe_put.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_array_set(i64 %a0, i64 %a5, i64 %a4)
+  %t6 = call i64 @l0_array_set(i64 %a1, i64 %a5, i64 %a6)
+  %t7 = call i64 @l0_array_set(i64 %a2, i64 %a5, i64 %a7)
+  %t8 = add i64 %a3, 1
+  %t9 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t9, i64 0, i64 %t5)
+  call void @l0_data_set(i64 %t9, i64 1, i64 %t6)
+  call void @l0_data_set(i64 %t9, i64 2, i64 %t7)
+  call void @l0_data_set(i64 %t9, i64 3, i64 %t8)
+  ret i64 %t9
+Le1:
+  %r11 = alloca i64
+  %t12 = icmp eq i64 %t0, %a4
+  %t13 = zext i1 %t12 to i64
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt11, label %Le11
+Lt11:
+  %t15 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  call void @l0_inc(i64 %t15)
+  %t16 = call i64 @l0_equal(i64 %t15, i64 %a6)
+  call void @l0_dec(i64 %t15)
+  store i64 %t16, ptr %r11
+  br label %Lx11
+Le11:
+  store i64 0, ptr %r11
+  br label %Lx11
+Lx11:
+  %t17 = load i64, ptr %r11
+  %t18 = icmp ne i64 %t17, 0
+  br i1 %t18, label %Lt10, label %Le10
+Lt10:
+  call void @l0_dec(i64 %a6)
+  %t19 = call i64 @l0_array_set(i64 %a2, i64 %a5, i64 %a7)
+  %t20 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t20, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t20, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t20, i64 2, i64 %t19)
+  call void @l0_data_set(i64 %t20, i64 3, i64 %a3)
+  ret i64 %t20
+Le10:
+  %t21 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t22 = musttail call i64 @l0_f_map_probe_put.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t21, i64 %a6, i64 %a7)
+  ret i64 %t22
+}
+
+define internal i64 @l0_f_map_probe_get.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a4)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
+  ret i64 %t5
+Le1:
+  %r7 = alloca i64
+  %t8 = icmp eq i64 %t0, %a3
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt7, label %Le7
+Lt7:
+  %t11 = call i64 @l0_array_get(i64 %a1, i64 %a4)
+  %t12 = icmp eq i64 %t11, %a5
+  %t13 = zext i1 %t12 to i64
+  store i64 %t13, ptr %r7
+  br label %Lx7
+Le7:
+  store i64 0, ptr %r7
+  br label %Lx7
+Lx7:
+  %t14 = load i64, ptr %r7
+  %t15 = icmp ne i64 %t14, 0
+  br i1 %t15, label %Lt6, label %Le6
+Lt6:
+  %t16 = call i64 @l0_array_get(i64 %a2, i64 %a4)
+  %t17 = call i64 @l0_new_data(i64 1, i64 1, i64 0)
+  call void @l0_data_set(i64 %t17, i64 0, i64 %t16)
+  ret i64 %t17
+Le6:
+  %t18 = call i64 @l0_f_map_next.0(i64 %a4, i64 %a0)
+  %t19 = musttail call i64 @l0_f_map_probe_get.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %t18, i64 %a5)
+  ret i64 %t19
+}
+
+define internal i64 @l0_f_map_probe_get.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a4)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t5 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
+  ret i64 %t5
+Le1:
+  %r7 = alloca i64
+  %t8 = icmp eq i64 %t0, %a3
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt7, label %Le7
+Lt7:
+  %t11 = call i64 @l0_array_get(i64 %a1, i64 %a4)
+  %t12 = icmp eq i64 %t11, %a5
+  %t13 = zext i1 %t12 to i64
+  store i64 %t13, ptr %r7
+  br label %Lx7
+Le7:
+  store i64 0, ptr %r7
+  br label %Lx7
+Lx7:
+  %t14 = load i64, ptr %r7
+  %t15 = icmp ne i64 %t14, 0
+  br i1 %t15, label %Lt6, label %Le6
+Lt6:
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t16 = call i64 @l0_array_get(i64 %a2, i64 %a4)
+  call void @l0_inc(i64 %t16)
+  call void @l0_dec(i64 %a2)
+  %t17 = call i64 @l0_new_data(i64 1, i64 1, i64 2)
+  call void @l0_data_set(i64 %t17, i64 0, i64 %t16)
+  ret i64 %t17
+Le6:
+  %t18 = call i64 @l0_f_map_next.0(i64 %a4, i64 %a0)
+  %t19 = musttail call i64 @l0_f_map_probe_get.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %t18, i64 %a5)
+  ret i64 %t19
+}
+
+define internal i64 @l0_f_map_probe_get.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a4)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t5 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
+  ret i64 %t5
+Le1:
+  %r7 = alloca i64
+  %t8 = icmp eq i64 %t0, %a3
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt7, label %Le7
+Lt7:
+  %t11 = call i64 @l0_array_get(i64 %a1, i64 %a4)
+  call void @l0_inc(i64 %t11)
+  %t12 = call i64 @l0_equal(i64 %t11, i64 %a5)
+  call void @l0_dec(i64 %t11)
+  store i64 %t12, ptr %r7
+  br label %Lx7
+Le7:
+  store i64 0, ptr %r7
+  br label %Lx7
+Lx7:
+  %t13 = load i64, ptr %r7
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt6, label %Le6
+Lt6:
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t15 = call i64 @l0_array_get(i64 %a2, i64 %a4)
+  call void @l0_dec(i64 %a2)
+  %t16 = call i64 @l0_new_data(i64 1, i64 1, i64 0)
+  call void @l0_data_set(i64 %t16, i64 0, i64 %t15)
+  ret i64 %t16
+Le6:
+  %t17 = call i64 @l0_f_map_next.0(i64 %a4, i64 %a0)
+  %t18 = musttail call i64 @l0_f_map_probe_get.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %t17, i64 %a5)
+  ret i64 %t18
+}
+
+define internal i64 @l0_f_map_probe_get.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a4)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t5 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
+  ret i64 %t5
+Le1:
+  %r7 = alloca i64
+  %t8 = icmp eq i64 %t0, %a3
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt7, label %Le7
+Lt7:
+  %t11 = call i64 @l0_array_get(i64 %a1, i64 %a4)
+  call void @l0_inc(i64 %t11)
+  %t12 = call i64 @l0_equal(i64 %t11, i64 %a5)
+  call void @l0_dec(i64 %t11)
+  store i64 %t12, ptr %r7
+  br label %Lx7
+Le7:
+  store i64 0, ptr %r7
+  br label %Lx7
+Lx7:
+  %t13 = load i64, ptr %r7
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt6, label %Le6
+Lt6:
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t15 = call i64 @l0_array_get(i64 %a2, i64 %a4)
+  call void @l0_inc(i64 %t15)
+  call void @l0_dec(i64 %a2)
+  %t16 = call i64 @l0_new_data(i64 1, i64 1, i64 2)
+  call void @l0_data_set(i64 %t16, i64 0, i64 %t15)
+  ret i64 %t16
+Le6:
+  %t17 = call i64 @l0_f_map_next.0(i64 %a4, i64 %a0)
+  %t18 = musttail call i64 @l0_f_map_probe_get.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %t17, i64 %a5)
+  ret i64 %t18
+}
+
+define internal i64 @l0_f_map_grown.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_len(i64 %a0)
+  %t1 = mul i64 2, %t0
+  %t2 = call i64 @l0_array_new(i64 %t1, i64 0, i64 0)
+  %t3 = call i64 @l0_array_new(i64 %t1, i64 %a3, i64 0)
+  %t4 = call i64 @l0_array_new(i64 %t1, i64 %a4, i64 0)
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %t2)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %t4)
+  call void @l0_data_set(i64 %t5, i64 3, i64 0)
+  %t6 = musttail call i64 @l0_f_map_move_all.00(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 %t5)
+  ret i64 %t6
+}
+
+define internal i64 @l0_f_map_grown.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_len(i64 %a0)
+  %t1 = mul i64 2, %t0
+  %t2 = call i64 @l0_array_new(i64 %t1, i64 0, i64 0)
+  %t3 = call i64 @l0_array_new(i64 %t1, i64 %a3, i64 0)
+  %t4 = call i64 @l0_array_new(i64 %t1, i64 %a4, i64 1)
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %t2)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %t4)
+  call void @l0_data_set(i64 %t5, i64 3, i64 0)
+  %t6 = musttail call i64 @l0_f_map_move_all.01(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 %t5)
+  ret i64 %t6
+}
+
+define internal i64 @l0_f_map_grown.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_len(i64 %a0)
+  %t1 = mul i64 2, %t0
+  %t2 = call i64 @l0_array_new(i64 %t1, i64 0, i64 0)
+  %t3 = call i64 @l0_array_new(i64 %t1, i64 %a3, i64 1)
+  %t4 = call i64 @l0_array_new(i64 %t1, i64 %a4, i64 0)
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %t2)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %t4)
+  call void @l0_data_set(i64 %t5, i64 3, i64 0)
+  %t6 = musttail call i64 @l0_f_map_move_all.10(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 %t5)
+  ret i64 %t6
+}
+
+define internal i64 @l0_f_map_grown.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_len(i64 %a0)
+  %t1 = mul i64 2, %t0
+  %t2 = call i64 @l0_array_new(i64 %t1, i64 0, i64 0)
+  %t3 = call i64 @l0_array_new(i64 %t1, i64 %a3, i64 1)
+  %t4 = call i64 @l0_array_new(i64 %t1, i64 %a4, i64 1)
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %t2)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %t3)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %t4)
+  call void @l0_data_set(i64 %t5, i64 3, i64 0)
+  %t6 = musttail call i64 @l0_f_map_move_all.11(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 %t5)
+  ret i64 %t6
+}
+
+define internal i64 @l0_f_map_move_all.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_array_len(i64 %a0)
+  %t2 = icmp sge i64 %a3, %t1
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt0, label %Le0
+Lt0:
+  ret i64 %a4
+Le0:
+  %t5 = add i64 %a3, 1
+  %r6 = alloca i64
+  %t7 = call i64 @l0_array_get(i64 %a0, i64 %a3)
+  %t8 = icmp eq i64 %t7, 0
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt6, label %Le6
+Lt6:
+  store i64 %a4, ptr %r6
+  br label %Lx6
+Le6:
+  %t11 = call i64 @l0_array_get(i64 %a0, i64 %a3)
+  %t12 = call i64 @l0_array_get(i64 %a1, i64 %a3)
+  %t13 = call i64 @l0_array_get(i64 %a2, i64 %a3)
+  %t14 = call i64 @l0_f_map_put_marked.00(i64 %a4, i64 %t11, i64 %t12, i64 %t13, i64 0, i64 0, i64 0, i64 0)
+  store i64 %t14, ptr %r6
+  br label %Lx6
+Lx6:
+  %t15 = load i64, ptr %r6
+  %t16 = musttail call i64 @l0_f_map_move_all.00(i64 %a0, i64 %a1, i64 %a2, i64 %t5, i64 %t15)
+  ret i64 %t16
+}
+
+define internal i64 @l0_f_map_move_all.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_array_len(i64 %a0)
+  %t2 = icmp sge i64 %a3, %t1
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a2)
+  ret i64 %a4
+Le0:
+  %t5 = add i64 %a3, 1
+  %r6 = alloca i64
+  %t7 = call i64 @l0_array_get(i64 %a0, i64 %a3)
+  %t8 = icmp eq i64 %t7, 0
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt6, label %Le6
+Lt6:
+  store i64 %a4, ptr %r6
+  br label %Lx6
+Le6:
+  %t11 = call i64 @l0_array_get(i64 %a0, i64 %a3)
+  %t12 = call i64 @l0_array_get(i64 %a1, i64 %a3)
+  %t13 = call i64 @l0_array_get(i64 %a2, i64 %a3)
+  call void @l0_inc(i64 %t13)
+  %t14 = call i64 @l0_f_map_put_marked.01(i64 %a4, i64 %t11, i64 %t12, i64 %t13, i64 0, i64 0, i64 0, i64 0)
+  store i64 %t14, ptr %r6
+  br label %Lx6
+Lx6:
+  %t15 = load i64, ptr %r6
+  %t16 = musttail call i64 @l0_f_map_move_all.01(i64 %a0, i64 %a1, i64 %a2, i64 %t5, i64 %t15)
+  ret i64 %t16
+}
+
+define internal i64 @l0_f_map_move_all.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_array_len(i64 %a0)
+  %t2 = icmp sge i64 %a3, %t1
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a1)
+  ret i64 %a4
+Le0:
+  %t5 = add i64 %a3, 1
+  %r6 = alloca i64
+  %t7 = call i64 @l0_array_get(i64 %a0, i64 %a3)
+  %t8 = icmp eq i64 %t7, 0
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt6, label %Le6
+Lt6:
+  store i64 %a4, ptr %r6
+  br label %Lx6
+Le6:
+  %t11 = call i64 @l0_array_get(i64 %a0, i64 %a3)
+  %t12 = call i64 @l0_array_get(i64 %a1, i64 %a3)
+  call void @l0_inc(i64 %t12)
+  %t13 = call i64 @l0_array_get(i64 %a2, i64 %a3)
+  %t14 = call i64 @l0_f_map_put_marked.10(i64 %a4, i64 %t11, i64 %t12, i64 %t13, i64 0, i64 0, i64 0, i64 0)
+  store i64 %t14, ptr %r6
+  br label %Lx6
+Lx6:
+  %t15 = load i64, ptr %r6
+  %t16 = musttail call i64 @l0_f_map_move_all.10(i64 %a0, i64 %a1, i64 %a2, i64 %t5, i64 %t15)
+  ret i64 %t16
+}
+
+define internal i64 @l0_f_map_move_all.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_array_len(i64 %a0)
+  %t2 = icmp sge i64 %a3, %t1
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  ret i64 %a4
+Le0:
+  %t5 = add i64 %a3, 1
+  %r6 = alloca i64
+  %t7 = call i64 @l0_array_get(i64 %a0, i64 %a3)
+  %t8 = icmp eq i64 %t7, 0
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt6, label %Le6
+Lt6:
+  store i64 %a4, ptr %r6
+  br label %Lx6
+Le6:
+  %t11 = call i64 @l0_array_get(i64 %a0, i64 %a3)
+  %t12 = call i64 @l0_array_get(i64 %a1, i64 %a3)
+  call void @l0_inc(i64 %t12)
+  %t13 = call i64 @l0_array_get(i64 %a2, i64 %a3)
+  call void @l0_inc(i64 %t13)
+  %t14 = call i64 @l0_f_map_put_marked.11(i64 %a4, i64 %t11, i64 %t12, i64 %t13, i64 0, i64 0, i64 0, i64 0)
+  store i64 %t14, ptr %r6
+  br label %Lx6
+Lx6:
+  %t15 = load i64, ptr %r6
+  %t16 = musttail call i64 @l0_f_map_move_all.11(i64 %a0, i64 %a1, i64 %a2, i64 %t5, i64 %t15)
+  ret i64 %t16
+}
+
+define internal i64 @l0_f_map_find_remove.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t5, i64 3, i64 %a3)
+  ret i64 %t5
+Le1:
+  %r7 = alloca i64
+  %t8 = icmp eq i64 %t0, %a4
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt7, label %Le7
+Lt7:
+  %t11 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  %t12 = icmp eq i64 %t11, %a6
+  %t13 = zext i1 %t12 to i64
+  store i64 %t13, ptr %r7
+  br label %Lx7
+Le7:
+  store i64 0, ptr %r7
+  br label %Lx7
+Lx7:
+  %t14 = load i64, ptr %r7
+  %t15 = icmp ne i64 %t14, 0
+  br i1 %t15, label %Lt6, label %Le6
+Lt6:
+  %t17 = icmp eq i64 %a3, 1
+  %t18 = zext i1 %t17 to i64
+  %t19 = icmp ne i64 %t18, 0
+  br i1 %t19, label %Lt16, label %Le16
+Lt16:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t20 = call i64 @l0_new_data(i64 0, i64 4, i64 0)
+  ret i64 %t20
+Le16:
+  %t21 = sub i64 %a3, 1
+  %t22 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t23 = musttail call i64 @l0_f_map_shift.00(i64 %a0, i64 %a1, i64 %a2, i64 %t21, i64 %a5, i64 %t22, i64 0)
+  ret i64 %t23
+Le6:
+  %t24 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t25 = musttail call i64 @l0_f_map_find_remove.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t24, i64 %a6)
+  ret i64 %t25
+}
+
+define internal i64 @l0_f_map_find_remove.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t5, i64 3, i64 %a3)
+  ret i64 %t5
+Le1:
+  %r7 = alloca i64
+  %t8 = icmp eq i64 %t0, %a4
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt7, label %Le7
+Lt7:
+  %t11 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  %t12 = icmp eq i64 %t11, %a6
+  %t13 = zext i1 %t12 to i64
+  store i64 %t13, ptr %r7
+  br label %Lx7
+Le7:
+  store i64 0, ptr %r7
+  br label %Lx7
+Lx7:
+  %t14 = load i64, ptr %r7
+  %t15 = icmp ne i64 %t14, 0
+  br i1 %t15, label %Lt6, label %Le6
+Lt6:
+  %t17 = icmp eq i64 %a3, 1
+  %t18 = zext i1 %t17 to i64
+  %t19 = icmp ne i64 %t18, 0
+  br i1 %t19, label %Lt16, label %Le16
+Lt16:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t20 = call i64 @l0_new_data(i64 0, i64 4, i64 0)
+  ret i64 %t20
+Le16:
+  %t21 = sub i64 %a3, 1
+  %t22 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t23 = musttail call i64 @l0_f_map_shift.01(i64 %a0, i64 %a1, i64 %a2, i64 %t21, i64 %a5, i64 %t22, i64 0)
+  ret i64 %t23
+Le6:
+  %t24 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t25 = musttail call i64 @l0_f_map_find_remove.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t24, i64 %a6)
+  ret i64 %t25
+}
+
+define internal i64 @l0_f_map_find_remove.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t5, i64 3, i64 %a3)
+  ret i64 %t5
+Le1:
+  %r7 = alloca i64
+  %t8 = icmp eq i64 %t0, %a4
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt7, label %Le7
+Lt7:
+  %t11 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  call void @l0_inc(i64 %t11)
+  %t12 = call i64 @l0_equal(i64 %t11, i64 %a6)
+  call void @l0_dec(i64 %t11)
+  store i64 %t12, ptr %r7
+  br label %Lx7
+Le7:
+  store i64 0, ptr %r7
+  br label %Lx7
+Lx7:
+  %t13 = load i64, ptr %r7
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt6, label %Le6
+Lt6:
+  %t16 = icmp eq i64 %a3, 1
+  %t17 = zext i1 %t16 to i64
+  %t18 = icmp ne i64 %t17, 0
+  br i1 %t18, label %Lt15, label %Le15
+Lt15:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t19 = call i64 @l0_new_data(i64 0, i64 4, i64 0)
+  ret i64 %t19
+Le15:
+  %t20 = sub i64 %a3, 1
+  %t21 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t22 = musttail call i64 @l0_f_map_shift.10(i64 %a0, i64 %a1, i64 %a2, i64 %t20, i64 %a5, i64 %t21, i64 0)
+  ret i64 %t22
+Le6:
+  %t23 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t24 = musttail call i64 @l0_f_map_find_remove.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t23, i64 %a6)
+  ret i64 %t24
+}
+
+define internal i64 @l0_f_map_find_remove.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t5, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t5, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t5, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t5, i64 3, i64 %a3)
+  ret i64 %t5
+Le1:
+  %r7 = alloca i64
+  %t8 = icmp eq i64 %t0, %a4
+  %t9 = zext i1 %t8 to i64
+  %t10 = icmp ne i64 %t9, 0
+  br i1 %t10, label %Lt7, label %Le7
+Lt7:
+  %t11 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  call void @l0_inc(i64 %t11)
+  %t12 = call i64 @l0_equal(i64 %t11, i64 %a6)
+  call void @l0_dec(i64 %t11)
+  store i64 %t12, ptr %r7
+  br label %Lx7
+Le7:
+  store i64 0, ptr %r7
+  br label %Lx7
+Lx7:
+  %t13 = load i64, ptr %r7
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt6, label %Le6
+Lt6:
+  %t16 = icmp eq i64 %a3, 1
+  %t17 = zext i1 %t16 to i64
+  %t18 = icmp ne i64 %t17, 0
+  br i1 %t18, label %Lt15, label %Le15
+Lt15:
+  call void @l0_dec(i64 %a2)
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  %t19 = call i64 @l0_new_data(i64 0, i64 4, i64 0)
+  ret i64 %t19
+Le15:
+  %t20 = sub i64 %a3, 1
+  %t21 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t22 = musttail call i64 @l0_f_map_shift.11(i64 %a0, i64 %a1, i64 %a2, i64 %t20, i64 %a5, i64 %t21, i64 0)
+  ret i64 %t22
+Le6:
+  %t23 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t24 = musttail call i64 @l0_f_map_find_remove.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t23, i64 %a6)
+  ret i64 %t24
+}
+
+define internal i64 @l0_f_map_shift.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_array_set(i64 %a0, i64 %a4, i64 0)
+  %t6 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t6, i64 0, i64 %t5)
+  call void @l0_data_set(i64 %t6, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t6, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t6, i64 3, i64 %a3)
+  ret i64 %t6
+Le1:
+  %t8 = call i64 @l0_array_len(i64 %a0)
+  %t9 = call i64 @l0_f_map_slot(i64 %t0, i64 %t8)
+  %t10 = call i64 @l0_f_map_stays(i64 %t9, i64 %a4, i64 %a5)
+  %t11 = icmp ne i64 %t10, 0
+  br i1 %t11, label %Lt7, label %Le7
+Lt7:
+  %t12 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t13 = musttail call i64 @l0_f_map_shift.00(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t12, i64 0)
+  ret i64 %t13
+Le7:
+  call void @l0_inc(i64 %a0)
+  %t14 = call i64 @l0_array_set(i64 %a0, i64 %a4, i64 %t0)
+  %t15 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  %t16 = call i64 @l0_array_set(i64 %a1, i64 %a4, i64 %t15)
+  %t17 = call i64 @l0_array_get(i64 %a2, i64 %a5)
+  %t18 = call i64 @l0_array_set(i64 %a2, i64 %a4, i64 %t17)
+  %t19 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  call void @l0_dec(i64 %a0)
+  %t20 = musttail call i64 @l0_f_map_shift.00(i64 %t14, i64 %t16, i64 %t18, i64 %a3, i64 %a5, i64 %t19, i64 0)
+  ret i64 %t20
+}
+
+define internal i64 @l0_f_map_shift.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_array_set(i64 %a0, i64 %a4, i64 0)
+  %t6 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t6, i64 0, i64 %t5)
+  call void @l0_data_set(i64 %t6, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t6, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t6, i64 3, i64 %a3)
+  ret i64 %t6
+Le1:
+  %t8 = call i64 @l0_array_len(i64 %a0)
+  %t9 = call i64 @l0_f_map_slot(i64 %t0, i64 %t8)
+  %t10 = call i64 @l0_f_map_stays(i64 %t9, i64 %a4, i64 %a5)
+  %t11 = icmp ne i64 %t10, 0
+  br i1 %t11, label %Lt7, label %Le7
+Lt7:
+  %t12 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t13 = musttail call i64 @l0_f_map_shift.01(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t12, i64 0)
+  ret i64 %t13
+Le7:
+  call void @l0_inc(i64 %a0)
+  %t14 = call i64 @l0_array_set(i64 %a0, i64 %a4, i64 %t0)
+  %t15 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  %t16 = call i64 @l0_array_set(i64 %a1, i64 %a4, i64 %t15)
+  %t17 = call i64 @l0_array_get(i64 %a2, i64 %a5)
+  call void @l0_inc(i64 %t17)
+  %t18 = call i64 @l0_array_set(i64 %a2, i64 %a4, i64 %t17)
+  %t19 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  call void @l0_dec(i64 %a0)
+  %t20 = musttail call i64 @l0_f_map_shift.01(i64 %t14, i64 %t16, i64 %t18, i64 %a3, i64 %a5, i64 %t19, i64 0)
+  ret i64 %t20
+}
+
+define internal i64 @l0_f_map_shift.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_array_set(i64 %a0, i64 %a4, i64 0)
+  %t6 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t6, i64 0, i64 %t5)
+  call void @l0_data_set(i64 %t6, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t6, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t6, i64 3, i64 %a3)
+  ret i64 %t6
+Le1:
+  %t8 = call i64 @l0_array_len(i64 %a0)
+  %t9 = call i64 @l0_f_map_slot(i64 %t0, i64 %t8)
+  %t10 = call i64 @l0_f_map_stays(i64 %t9, i64 %a4, i64 %a5)
+  %t11 = icmp ne i64 %t10, 0
+  br i1 %t11, label %Lt7, label %Le7
+Lt7:
+  %t12 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t13 = musttail call i64 @l0_f_map_shift.10(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t12, i64 0)
+  ret i64 %t13
+Le7:
+  call void @l0_inc(i64 %a0)
+  %t14 = call i64 @l0_array_set(i64 %a0, i64 %a4, i64 %t0)
+  %t15 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  call void @l0_inc(i64 %t15)
+  %t16 = call i64 @l0_array_set(i64 %a1, i64 %a4, i64 %t15)
+  %t17 = call i64 @l0_array_get(i64 %a2, i64 %a5)
+  %t18 = call i64 @l0_array_set(i64 %a2, i64 %a4, i64 %t17)
+  %t19 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  call void @l0_dec(i64 %a0)
+  %t20 = musttail call i64 @l0_f_map_shift.10(i64 %t14, i64 %t16, i64 %t18, i64 %a3, i64 %a5, i64 %t19, i64 0)
+  ret i64 %t20
+}
+
+define internal i64 @l0_f_map_shift.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_array_get(i64 %a0, i64 %a5)
+  %t2 = icmp eq i64 %t0, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt1, label %Le1
+Lt1:
+  %t5 = call i64 @l0_array_set(i64 %a0, i64 %a4, i64 0)
+  %t6 = call i64 @l0_new_data(i64 1, i64 4, i64 14)
+  call void @l0_data_set(i64 %t6, i64 0, i64 %t5)
+  call void @l0_data_set(i64 %t6, i64 1, i64 %a1)
+  call void @l0_data_set(i64 %t6, i64 2, i64 %a2)
+  call void @l0_data_set(i64 %t6, i64 3, i64 %a3)
+  ret i64 %t6
+Le1:
+  %t8 = call i64 @l0_array_len(i64 %a0)
+  %t9 = call i64 @l0_f_map_slot(i64 %t0, i64 %t8)
+  %t10 = call i64 @l0_f_map_stays(i64 %t9, i64 %a4, i64 %a5)
+  %t11 = icmp ne i64 %t10, 0
+  br i1 %t11, label %Lt7, label %Le7
+Lt7:
+  %t12 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  %t13 = musttail call i64 @l0_f_map_shift.11(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %t12, i64 0)
+  ret i64 %t13
+Le7:
+  call void @l0_inc(i64 %a0)
+  %t14 = call i64 @l0_array_set(i64 %a0, i64 %a4, i64 %t0)
+  %t15 = call i64 @l0_array_get(i64 %a1, i64 %a5)
+  call void @l0_inc(i64 %t15)
+  %t16 = call i64 @l0_array_set(i64 %a1, i64 %a4, i64 %t15)
+  %t17 = call i64 @l0_array_get(i64 %a2, i64 %a5)
+  call void @l0_inc(i64 %t17)
+  %t18 = call i64 @l0_array_set(i64 %a2, i64 %a4, i64 %t17)
+  %t19 = call i64 @l0_f_map_next.0(i64 %a5, i64 %a0)
+  call void @l0_dec(i64 %a0)
+  %t20 = musttail call i64 @l0_f_map_shift.11(i64 %t14, i64 %t16, i64 %t18, i64 %a3, i64 %a5, i64 %t19, i64 0)
+  ret i64 %t20
+}
+
+define internal i64 @l0_f_map_stays(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %t1 = icmp sle i64 %a1, %a2
+  %t2 = zext i1 %t1 to i64
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  %t5 = icmp slt i64 %a1, %a0
+  %t6 = zext i1 %t5 to i64
+  %t7 = icmp ne i64 %t6, 0
+  br i1 %t7, label %Lt4, label %Le4
+Lt4:
+  %t8 = icmp sle i64 %a0, %a2
+  %t9 = zext i1 %t8 to i64
+  ret i64 %t9
+Le4:
+  ret i64 0
+Le0:
+  %t11 = icmp slt i64 %a1, %a0
+  %t12 = zext i1 %t11 to i64
+  %t13 = icmp ne i64 %t12, 0
+  br i1 %t13, label %Lt10, label %Le10
+Lt10:
+  ret i64 1
+Le10:
+  %t14 = icmp sle i64 %a0, %a2
+  %t15 = zext i1 %t14 to i64
+  ret i64 %t15
+}
+
+define internal i64 @l0_f_map_live_from.0(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = icmp slt i64 %a2, 0
+  %t2 = zext i1 %t1 to i64
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  ret i64 %a3
+Le0:
+  %t4 = sub i64 %a2, 1
+  %r5 = alloca i64
+  %t6 = call i64 @l0_array_get(i64 %a0, i64 %a2)
+  %t7 = icmp eq i64 %t6, 0
+  %t8 = zext i1 %t7 to i64
+  %t9 = icmp ne i64 %t8, 0
+  br i1 %t9, label %Lt5, label %Le5
+Lt5:
+  store i64 %a3, ptr %r5
+  br label %Lx5
+Le5:
+  %t10 = call i64 @l0_array_get(i64 %a1, i64 %a2)
+  %t11 = call i64 @l0_new_cons(i64 %t10, i64 %a3, i64 2)
+  store i64 %t11, ptr %r5
+  br label %Lx5
+Lx5:
+  %t12 = load i64, ptr %r5
+  %t13 = musttail call i64 @l0_f_map_live_from.0(i64 %a0, i64 %a1, i64 %t4, i64 %t12)
+  ret i64 %t13
+}
+
+define internal i64 @l0_f_map_live_from.1(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
+entry:
+  call void @l0_stack_check()
+  %t1 = icmp slt i64 %a2, 0
+  %t2 = zext i1 %t1 to i64
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a1)
+  call void @l0_dec(i64 %a0)
+  ret i64 %a3
+Le0:
+  %t4 = sub i64 %a2, 1
+  %r5 = alloca i64
+  %t6 = call i64 @l0_array_get(i64 %a0, i64 %a2)
+  %t7 = icmp eq i64 %t6, 0
+  %t8 = zext i1 %t7 to i64
+  %t9 = icmp ne i64 %t8, 0
+  br i1 %t9, label %Lt5, label %Le5
+Lt5:
+  store i64 %a3, ptr %r5
+  br label %Lx5
+Le5:
+  %t10 = call i64 @l0_array_get(i64 %a1, i64 %a2)
+  call void @l0_inc(i64 %t10)
+  %t11 = call i64 @l0_new_cons(i64 %t10, i64 %a3, i64 3)
+  store i64 %t11, ptr %r5
+  br label %Lx5
+Lx5:
+  %t12 = load i64, ptr %r5
+  %t13 = musttail call i64 @l0_f_map_live_from.1(i64 %a0, i64 %a1, i64 %t4, i64 %t12)
+  ret i64 %t13
+}
+
 define internal i64 @l0_f_push(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()

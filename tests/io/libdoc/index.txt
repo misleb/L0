@@ -1,4 +1,4 @@
-== prelude: Lists and arrays of any type, Option and Result, and lists of bytes: building output, comparing, decimal numbers, slicing lines and words, word tables, and character classes.
+== prelude: Lists and arrays of any type, Option, Result, Map, and lists of bytes: building output, comparing, decimal numbers, slicing lines and words, word tables, and character classes.
   (rev_onto T) ((xs (list T)) (acc (list T))) (list T)
       xs reversed, in front of acc, for a list of any type: (rev_onto "ab" "cd") is "bacd".
   (rev T) ((xs (list T))) (list T)
@@ -17,6 +17,22 @@
       A value that may be missing: (Some x), or (None).
   (data (Result T E) (Ok T) (Err E))
       The outcome of something that can fail: (Ok x), or (Err e) saying why.
+  (data (Map K V) (MapEmpty) (MapTable (array int) (array K) (array V) int))
+      A map from keys of type K to values of type V, written once for every type: keys are compared with eq and placed by hash, so any value can be a key.
+  (map_put K V) ((m (Map K V)) (k K) (v V)) (Map K V)
+      m with k mapped to v, replacing any value k had.
+  (map_get K V) ((m (Map K V)) (k K)) (Option V)
+      The value k maps to in m, or (None) if it has none.
+  (map_has K V) ((m (Map K V)) (k K)) bool
+      Whether k has a value in m.
+  (map_size K V) ((m (Map K V))) int
+      How many keys m maps to values.
+  (map_remove K V) ((m (Map K V)) (k K)) (Map K V)
+      m without k, or m as it was if k has no value.
+  (map_keys K V) ((m (Map K V))) (list K)
+      Every key m has, each once.
+  (map_values K V) ((m (Map K V))) (list V)
+      Every value m has, in the same order as map_keys gives their keys.
   push ((chunk (list int)) (acc (list int))) (list int)
       Pushes chunk onto a reversed accumulator: acc with chunk's bytes in front, last byte first.
   list_eq ((xs (list int)) (ys (list int))) bool

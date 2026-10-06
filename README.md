@@ -204,8 +204,8 @@ The first two files split by whether a definition does I/O.
 and `compiler/*.l0`, so it is exercised continuously rather than maintained
 separately, and it holds what the compiler can use: `rev`, `rev_onto`,
 `append`, `length`, `any_eq`, `index_of`, and `array_resize`, which take type
-parameters and so work on every element type, `Option` and `Result`, and the
-byte-string helpers. `lib/io.l0` holds the I/O wrappers, including reading a
+parameters and so work on every element type, `Option` and `Result`, a
+`(Map K V)` for keys and values of any type, and the byte-string helpers. `lib/io.l0` holds the I/O wrappers, including reading a
 whole input into `bytes` with `read_input`, which the compiler does not need.
 
 It matters more than it might sound: L0 has no `append`, no `length`, and no
@@ -257,10 +257,11 @@ update in place when nothing else holds them.
 Data types and functions take type parameters, so one `Option`, `Result`, or
 `rev` serves every element type, and `eq` compares two values of any type
 by what they hold, so a membership test or a lookup by key is written once,
-and `hash` gives any value a specified integer, so a hash table can be too.
-But only integers can be ordered, and there are no function values to pass
-a comparison in, so a sort is still written once per element type. Nor are
-there yet a map in the library, floats, modules, or mutable state.
+and `hash` gives any value a specified integer, so the library's `(Map K
+V)` serves keys and values of every type. But only integers can be ordered,
+and there are no function values to pass a comparison in, so a sort is
+still written once per element type. Nor are there floats, modules, or
+mutable state.
 
 None of these was ruled out. Each is absent because self-compilation never
 demanded it, and a general-purpose L0 will. Memory management and I/O came

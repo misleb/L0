@@ -1,0 +1,166 @@
+; Unit tests for the prelude's map, (Map K V). l0 test runs each under
+; L0_RC_CHECK, so an update that leaked or freed a key or value it still
+; held fails it.
+
+(def get_or ((o (Option int)) (d int)) int
+  (match o
+    ((None) d)
+    ((Some x) x)))
+
+(def words ((s (list int))) (Map (list int) int)
+  (words_onto (split_spaces s) 0 ((MapEmpty (list int) int))))
+
+(def words_onto ((ws (list (list int))) (i int) (m (Map (list int) int)))
+    (Map (list int) int)
+  (if (is_empty ws) m (words_onto (tail ws) (add i 1) (map_put m (head ws) i))))
+
+; --------------------------------------------------------------- basics
+
+(def test_put_and_get () int
+  (let m (words "a bb c")
+    (add (check_int "a" (get_or (map_get m "a") -1) 0)
+      (add (check_int "c" (get_or (map_get m "c") -1) 2)
+        (add (check_int "missing" (get_or (map_get m "d") -1) -1)
+          (add (check_true "has bb" (map_has m "bb"))
+            (add (check_true "has no b" (not (map_has m "b")))
+                 (check_int "size" (map_size m) 3))))))))
+
+(def test_put_replaces () int
+  (let m (map_put (words "a b") "a" 9)
+    (add (check_int "a" (get_or (map_get m "a") -1) 9)
+         (check_int "size" (map_size m) 2))))
+
+(def test_empty () int
+  (let m ((MapEmpty (list int) int))
+    (add (check_int "size" (map_size m) 0)
+      (add (check_int "get" (get_or (map_get m "a") -1) -1)
+        (add (check_int "keys" (length (map_keys m)) 0)
+             (check_int "remove" (map_size (map_remove m "a")) 0))))))
+
+; ---------------------------------------------------------- every key type
+
+(def test_int_keys () int
+  (let m (map_put (map_put (map_put ((MapEmpty int (list int))) 3 "three") -1 "minus")
+                  0 "zero")
+    (add (check_str "3" (match (map_get m 3) ((None) "") ((Some s) s)) "three")
+      (add (check_str "-1" (match (map_get m -1) ((None) "") ((Some s) s)) "minus")
+           (check_str "0" (match (map_get m 0) ((None) "") ((Some s) s)) "zero")))))
+
+(def test_data_keys () int
+  (let m (map_put (map_put ((MapEmpty (Option (list int)) int)) (Some "a") 1)
+                  ((None (list int))) 2)
+    (add (check_int "some" (get_or (map_get m (Some "a")) -1) 1)
+      (add (check_int "none" (get_or (map_get m ((None (list int)))) -1) 2)
+           (check_int "other" (get_or (map_get m (Some "b")) -1) -1)))))
+
+; A key built differently from the one stored is the same key.
+(def test_bytes_and_array_keys () int
+  (let b (map_put ((MapEmpty bytes int)) (bytes_from_list "ab") 1)
+    (let a (map_put ((MapEmpty (array int) int)) (array_set (array_new 2 0) 1 5) 2)
+      (add (check_int "bytes" (get_or (map_get b (bytes_from_list (cons 97 "b"))) -1) 1)
+           (check_int "array" (get_or (map_get a (array_set (array_new 2 5) 0 0)) -1) 2)))))
+
+; ------------------------------------------------------------- many keys
+
+(def fill ((m (Map int int)) (i int) (n int)) (Map int int)
+  (if (ge i n) m (fill (map_put m (mul i 7919) (mul i i)) (add i 1) n)))
+
+(def missing ((m (Map int int)) (i int) (n int) (bad int)) int
+  (if (ge i n)
+      bad
+      (missing m (add i 1) n
+        (if (eq (get_or (map_get m (mul i 7919)) -1) (mul i i)) bad (add bad 1)))))
+
+; The table grows from 8 slots many times, moving every entry each time. A
+; map that copied its arrays on every put, rather than changing them in
+; place, would take far too long here.
+(def test_many_keys () int
+  (let m (fill ((MapEmpty int int)) 0 100000)
+    (add (check_int "size" (map_size m) 100000)
+      (add (check_int "all found" (missing m 0 100000 0) 0)
+           (check_int "absent" (get_or (map_get m 1) -1) -1)))))
+
+; ---------------------------------------------------------------- removal
+
+(def test_remove () int
+  (let m (map_remove (words "a b c d") "b")
+    (add (check_int "size" (map_size m) 3)
+      (add (check_true "b gone" (not (map_has m "b")))
+        (add (check_int "d kept" (get_or (map_get m "d") -1) 3)
+             (check_int "missing key" (map_size (map_remove m "zz")) 3))))))
+
+(def test_remove_all () int
+  (let m (map_remove (map_remove (words "a b") "a") "b")
+    (add (check_int "size" (map_size m) 0)
+      (add (check_int "keys" (length (map_keys m)) 0)
+           (check_int "put again" (map_size (map_put m "a" 1)) 1)))))
+
+; A model: the pairs a map should hold, newest first, at most one per key.
+(def model_put ((ps (list (list int))) (k int) (v int)) (list (list int))
+  (cons (cons k (cons v (nil int))) (model_without ps k (nil (list int)))))
+
+(def model_without ((ps (list (list int))) (k int) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty ps)
+      acc
+      (model_without (tail ps) k
+        (if (eq (head (head ps)) k) acc (cons (head ps) acc)))))
+
+(def model_get ((ps (list (list int))) (k int)) int
+  (if (is_empty ps)
+      -1
+      (if (eq (head (head ps)) k)
+          (head (tail (head ps)))
+          (model_get (tail ps) k))))
+
+; How many of the keys 0 to 63 the map and the model disagree on.
+(def disagree ((m (Map int int)) (ps (list (list int))) (k int) (bad int)) int
+  (if (eq k 64)
+      bad
+      (disagree m ps (add k 1)
+        (if (eq (get_or (map_get m k) -1) (model_get ps k)) bad (add bad 1)))))
+
+; Random puts and removes over 64 keys, so probing chains wrap and every
+; removal shifts entries back, checked against the model after each step.
+(def churn ((s int) (n int) (m (Map int int)) (ps (list (list int))) (bad int)) int
+  (if (eq n 0)
+      (add bad (if (eq (map_size m) (length ps)) 0 1))
+      (let k (rand_below s 64)
+        (let s1 (rand_next s)
+          (if (lt (rand_below s1 3) 1)
+              (let m1 (map_remove m k)
+                (let ps1 (model_without ps k (nil (list int)))
+                  (churn (rand_next s1) (sub n 1) m1 ps1 (add bad (disagree m1 ps1 0 0)))))
+              (let m1 (map_put m k n)
+                (let ps1 (model_put ps k n)
+                  (churn (rand_next s1) (sub n 1) m1 ps1 (add bad (disagree m1 ps1 0 0))))))))))
+
+(def test_puts_and_removes_against_a_model () int
+  (check_int "disagreements" (churn 7 3000 ((MapEmpty int int)) (nil (list int)) 0) 0))
+
+; ---------------------------------------------------------------- listing
+
+(def test_keys_and_values_agree () int
+  (let m (words "x y z w")
+    (let ks (map_keys m)
+      (add (check_int "four keys" (length ks) 4)
+        (add (check_true "each once" (eq (length (dedup ks (nil (list int)))) 4))
+             (check_true "values in the same order"
+                         (eq (map_values m) (values_of m ks (nil int)))))))))
+
+(def dedup ((xs (list (list int))) (acc (list (list int)))) (list (list int))
+  (if (is_empty xs)
+      acc
+      (dedup (tail xs) (if (any_eq (head xs) acc) acc (cons (head xs) acc)))))
+
+(def values_of ((m (Map (list int) int)) (ks (list (list int))) (acc (list int)))
+    (list int)
+  (if (is_empty ks)
+      (rev acc)
+      (values_of m (tail ks) (cons (get_or (map_get m (head ks)) -1) acc))))
+
+; The order is the table's, which spec 6.9's hash decides, so it is the same
+; on every run, and not the order the keys were put in.
+(def test_keys_in_a_fixed_order () int
+  (check_strs "order" (map_keys (words "one two three four five six"))
+              (map_keys (words "six five four three two one"))))

@@ -28,21 +28,20 @@ which failure it was as a case typed per kind of open (0050). Reads,
 closes, flushes, and renames keep codes until a program needs more. 0051
 found that no map can be written once for every key type, since nothing
 can hash a value of a type parameter. `hash` now gives any value a
-specified integer (0052); a map in the prelude comes next (0053), then the
-compiler and the suite move onto it (0054). The Linux runs of 0045 and 0052
-are owed.
+specified integer (0052), and the prelude has a `(Map K V)` for every key
+and value type (0053); the compiler and the suite move onto it next (0054).
+The Linux runs of 0045 and 0052 are owed.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0053](0053-library-map.md) the prelude has a map for every key and value
-   type — queued, next
+Empty.
 
 ## Other open items
 
 - [0054](0054-map-users.md) tooling: the compiler and the suite use the
-  library's map — queued, needs 0053
+  library's map — queued, next
 
 ## Done and dropped
 
@@ -175,3 +174,6 @@ Changes to the language, strictly in order. At most one is active.
 - [0052](0052-hash-builtin.md) `hash` gives a value of any type a specified
   integer — done, changelog "`hash` gives a value of any type a specified
   integer"; Linux runs owed
+- [0053](0053-library-map.md) the prelude has a map for every key and value
+  type — done, changelog "The prelude has a map for every key and value
+  type"

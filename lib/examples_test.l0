@@ -68,6 +68,11 @@
          (check_int "data" (count_of ((None int)) (cons (Some 1) (cons ((None int))
                              (nil (Option int)))) 0) 1))))
 
+(def test_word_counts () int
+  (add (check_int "the" (count_of_word "the cat saw the dog" "the") 2)
+    (add (check_int "dog" (count_of_word "the cat saw the dog" "dog") 1)
+         (check_int "absent" (count_of_word "the cat" "cow") 0))))
+
 (def test_first_even_or () int
   (add (check_int "found" (first_even_or (cons 3 (cons 8 (nil int))) 0) 8)
        (check_int "fallback" (first_even_or (cons 3 (nil int)) -1) -1)))

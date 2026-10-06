@@ -7,6 +7,64 @@ New entries go at the top.
 
 ---
 
+## The prelude has a map for every key and value type
+
+**`lib/prelude.l0` declares `(Map K V)`** (roadmap items 0051 and 0053),
+with `map_put`, `map_get`, which returns an `Option`, `map_has`,
+`map_remove`, `map_size`, `map_keys`, and `map_values`. It is an
+open-addressing table in three arrays, at most half full, probed linearly
+from `(mod (hash k) capacity)`, which `hash` (the entry below) makes
+possible for a key of any type. Each update matches the map at its last
+use, so its arrays have one holder and change in place, as section 6.5
+says an array in a field does; a map something else still holds is copied
+whole on its next update, as an array is.
+
+**Why.** This repository wrote a hash table or trie six times, each for one
+key type, the compiler's `PadMap` among them, and 0014's wordfreq used a
+tree, 3.5 times slower than 0028's table. 0051 timed a table in arrays
+against a persistent hash trie shaped like `PadMap`: on a million string
+keys the table took 268 ms to put them and 128 ms to get them, the trie 742
+and 1140, and every table this repository wrote is filled and then read,
+which is the table's case. A persistent map, for code that keeps old
+versions, waits for code that does.
+
+**Choices made in writing it.**
+
+- *The empty map is written with its types,* `((MapEmpty (list int)
+  int))`, as `((None int))` is: a function cannot take a type argument, so
+  there is no `map_new`. It holds no arrays, since there is no value of an
+  unknown type to fill them with until the first key arrives
+- *A slot holds a mark,* `(add (hash k) 1)`, never 0, so an empty slot is 0
+  and most keys are told apart without `eq`, and a key's slot is always
+  worked out from its mark. 0051's prototype placed a key by its hash but
+  moved it by its mark when the table grew, and lost the key whose hash was
+  0; there is one place now that turns a mark into a slot
+- *Removal shifts the entries after the removed one back,* rather than
+  leaving a tombstone, so lookups never pass a slot that holds nothing. The
+  slot it empties may keep the removed key and value until it is reused,
+  since a slot cannot be filled with nothing; when the map empties, its
+  arrays go
+- *`map_keys` and `map_values` list in slot order,* which `hash` decides,
+  and since `hash` is specified the order is the same on every run and
+  every host, though not the order of insertion
+
+**What it costs.** Timed as 0051 timed its prototype, with the hash now the
+builtin: 210 ms to put a million string keys and 322 ms to get them. The
+prototype given the builtin `hash` in place of its own polynomial string
+hash takes the same, 217 and 293: 0051's faster gets came from that weak
+hash putting the benchmark's consecutive keys in consecutive slots, which a
+mixed hash rightly does not. Hashing itself is faster as the builtin, 36 ms
+for the million keys against 49 for the L0 loop.
+
+No rule in `spec/L0.md` changed. The prelude is compiler source, so the
+compiler is built with these definitions, though it does not use them yet
+(0054 moves its pad table onto a `Map`). The compiler emits every copy of a
+function with type parameters (10.2), four for each map function, so its IR
+grew from 1,162,422 bytes to 1,223,833; every copy is internal, LLVM drops
+the unused ones, and the compiler's binary and its speed are unchanged.
+
+---
+
 ## `hash` gives a value of any type a specified integer
 
 **`(hash x)` takes a value of any type and returns a non-negative `int`**

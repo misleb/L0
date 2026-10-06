@@ -199,6 +199,26 @@
       n
       (count_of x (tail xs) (if (eq x (head xs)) (add n 1) n))))
 
+; -------------------------------------------------------------------- maps
+
+; A (Map K V) is in the library for every key and value type. The empty map
+; is written with its types, as ((None int)) is, and each map_put gives the
+; map back changed, in place while nothing else holds it, so thread one map
+; through a loop and keep no other name for the old one. Here each word of
+; ws is counted.
+(def word_counts ((ws (list (list int))) (m (Map (list int) int)))
+    (Map (list int) int)
+  (if (is_empty ws)
+      m
+      (word_counts (tail ws)
+        (map_put m (head ws)
+          (add 1 (match (map_get m (head ws)) ((None) 0) ((Some n) n)))))))
+
+(def count_of_word ((text (list int)) (w (list int))) int
+  (match (map_get (word_counts (split_spaces text) ((MapEmpty (list int) int))) w)
+    ((None) 0)
+    ((Some n) n)))
+
 ; ------------------------------------------------ reading and writing as you go
 
 ; read_line and write_str are in the standard library (l0 doc io), built on the
