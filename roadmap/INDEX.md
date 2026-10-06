@@ -37,7 +37,8 @@ Empty.
 
 ## Other open items
 
-None.
+- [0051](0051-hash-and-map.md) research: how L0 gets a hash and a map —
+  proposed
 
 ## Done and dropped
 
