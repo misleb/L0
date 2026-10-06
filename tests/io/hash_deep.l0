@@ -1,0 +1,32 @@
+; hash on values too long and too deep for a walk that recurses: a list of a
+; million elements, an array of 1,000 strings, and a data value nested
+; 100,000 deep. hash_deep.sh runs it on a 1 MB stack, where spec 6.9 still
+; promises an answer, since hash uses no more stack than any other call.
+
+(data Nest
+  (Leaf (list int))
+  (In Nest (list int)))
+
+; The list 1 to n, in front of acc.
+(def upto ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (upto (sub n 1) (cons n acc))))
+
+; Leaf wrapped n times, each level holding tag.
+(def nest ((n int) (tag (list int)) (acc Nest)) Nest
+  (if (eq n 0) acc (nest (sub n 1) tag (In acc tag))))
+
+(def show ((v bool)) int
+  (write_line (if v "true" "false")))
+
+(def main () int
+  (let a (upto 1000000 (nil int))
+    (let w1 (show (eq (hash a) (hash (upto 1000000 (nil int)))))
+      (let w2 (show (eq (hash a) (hash (upto 999999 (nil int)))))
+        (let s (upto 1000 (nil int))
+          (let w3 (show (eq (hash (array_new 1000 s))
+                            (hash (array_new 1000 (upto 1000 (nil int))))))
+            (let w4 (show (eq (hash (nest 100000 "t" (Leaf "x")))
+                              (hash (nest 100000 "t" (Leaf "x")))))
+              (let w5 (show (eq (hash (nest 100000 "t" (Leaf "x")))
+                                (hash (nest 100000 "t" (Leaf "y")))))
+                0))))))))

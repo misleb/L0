@@ -1,7 +1,8 @@
 # 0052: `hash` gives a value of any type a specified integer
 
 Kind: language
-Status: queued
+Status: done, changelog "`hash` gives a value of any type a specified
+integer"; Linux runs owed
 Needs: 0051
 
 ## Why
@@ -48,3 +49,35 @@ every key type.
 ## Log
 
 - 2026-10-06: queued by 0051.
+- 2026-10-06: done. Decisions (reasons in the changelog):
+  - spec 6.9 defines a value's items by one walk over its blocks, since a
+    word alone does not say whether it is a pointer and a cons cell and a
+    one-field data block can share a header: a list is its elements' items
+    then 0, a data value its tag, its fields, and a 0 per slot a wider
+    constructor has. The items fold with FNV-1a's basis and prime, then
+    splitmix64's finalizer, then a shift right of one, so the result is
+    never negative and its low bits are mixed
+  - `@l0_hash(x, counted)`, since the runtime cannot tell an `int` from a
+    pointer; the emitter passes 1 for a counted type, decided per copy of a
+    generic function as `eq`'s choice is (10.2). It shares `@l0_equal`'s
+    worklist, which no hash and comparison use at once
+  - `hash` borrows, as `eq` does, so a parameter used only by it is
+    read-only
+  - tests: `tests/unit/hash_test.l0` (9 tests: values pinned from the spec
+    alone, computed outside L0 from each value's listed items; equal values
+    built differently, padding included, each pair checked with `eq`; a
+    type parameter; never negative over 500 random values and the int
+    extremes; multiples of 1024 filling most of 1024 slots), `tests/io/hash_deep`
+    (a million-element list, an array of 1,000 lists, 100,000-deep nesting
+    on a 1 MB stack under `L0_RC_CHECK`), `tests/io/hash_read_only` (an IR
+    check: a bytes parameter used only by `hash` is read-only, and the
+    call passes 1), `check_errors` gains three arity and type errors, and
+    `shadow_test` a program's own `hash`. `bundle_prelude` and `emit_tail`
+    re-blessed for the one new `declare`
+  - one test of mine was wrong at first: a pair I meant as one value was
+    `[3 3]` against `[3 0]`; `eq` beside each pair now catches that
+  - both suites green (63, 114); fixpoint at 1,162,422 bytes; seed
+    refreshed and reproduces itself; `tools/l0` rebuilt from it hashes as
+    the spec says. The compiler and prelude use none of it
+  - Linux runs owed: Docker is down, and the runtime and emitter changed
+  - next: 0053

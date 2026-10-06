@@ -7,6 +7,66 @@ New entries go at the top.
 
 ---
 
+## `hash` gives a value of any type a specified integer
+
+**`(hash x)` takes a value of any type and returns a non-negative `int`**
+(sections 6, 6.9, 10.2, 10.3; roadmap items 0051 and 0052), the same for
+two values `eq` calls the same. It is defined exactly: a value's items, read
+from what it holds as `eq` reads it, folded with 64-bit FNV-1a's offset and
+prime, then mixed with splitmix64's finalizer and shifted right once. The
+runtime computes it in `@l0_hash(x, counted)`, which walks a value with
+`@l0_equal`'s worklist and no recursion.
+
+**The blocker.** No map can be written once for every key type. A function
+with type parameters can keep, pass, and `eq` a `T`, and nothing more, so it
+cannot compute the slot a key goes in:
+
+```
+(def (slot_of K) ((key K) (n int)) int
+  (mod (hash key) n))
+```
+
+failed with `unknown function hash`. So this repository wrote the same
+string hash seven times (`sym_hash` in the compiler, `name_hash` in four
+programs, `hash_onto` in two) and a table or trie over it six times, and
+0014's wordfreq used a tree instead, 3.5 times slower than 0028's table.
+0051 weighed the alternatives.
+
+**Why a builtin.** Hashing per key type, written in L0, is the copy being
+removed, and an ordering with a tree is neither earned (0041 found the
+orders here are mostly not structural) nor fast. Only the runtime can read
+a value whose type the code does not know, from its block headers, as `eq`
+already does.
+
+**Why specified exactly.** A map lists its keys in slot order, which is the
+hash's. Were the hash each implementation's own, one program could print
+in one order here and another elsewhere, which section 10.4's determinism
+is meant to rule out for a program as it does for the compiler. Specified,
+a hash can be pinned in a test and stored in a file. The cost is that
+changing it is a language change.
+
+**Why these items.** A word alone does not say whether it is a pointer, and
+a cons cell and a one-field data block can have the same header, so the
+items follow one walk over blocks: every word of a block in order, a
+pointer standing for the items of what it points to. That is what makes a
+list's items its elements' then 0, and a data value's its tag, its fields,
+and a 0 for each slot a wider constructor of its type has. Each value
+contributes exactly what `eq` compares, so equal values hash alike.
+
+**Why the mixing.** FNV-1a's multiply carries an item's low bits only
+upward, so `(mod (hash x) n)` for a power of two `n` would see only the
+items' low bits, and keys that differ above them, such as multiples of
+1024, would share slots. splitmix64's finalizer folds the high bits down.
+The last shift makes the result non-negative, so `mod` gives a slot
+directly.
+
+No program changes meaning: `hash` was not a builtin before, and a program
+that defines a function `hash` keeps its own (section 7). Stage 0 does not
+know it, so its tests are in the compiled suite. The compiler and the
+prelude do not use it yet; the library's map (0053) will.
+
+---
+
 ## Opening a file says which failure it was, and no language change for it
 
 **`IoOpened` takes the type of its failures** (roadmap items 0049 and

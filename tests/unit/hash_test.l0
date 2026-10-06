@@ -1,0 +1,102 @@
+; Unit tests for hash, spec section 6.9. l0 test runs each under
+; L0_RC_CHECK, so a hash that consumed or leaked its argument fails it.
+
+; Constructors of different widths, so a narrow one leaves padding words.
+(data Shape
+  (Dot)
+  (Seg int int)
+  (Poly (list int) (array int) bytes))
+
+; ------------------------------------------------------------ pinned values
+
+; Each want was computed from spec 6.9's definition alone, outside L0: the
+; items listed beside it, folded and mixed as the spec says. A change to
+; @l0_hash that changes any of them changes the language.
+(def test_pinned_ints_and_bools () int
+  (add (check_int "0, items 0" (hash 0) 1368591714183292304)
+    (add (check_int "42, items 42" (hash 42) 4213338295576925123)
+         (check_int "true, items 1" (hash true) 6127228596295392252))))
+
+(def test_pinned_lists () int
+  (add (check_int "(7 8), items 7 8 0" (hash (cons 7 (cons 8 (nil int))))
+                  3597023913603770173)
+    (add (check_int "\"ab\", items 97 98 0" (hash "ab") 8143678330655726198)
+      (add (check_int "empty, items 0" (hash (nil int)) 1368591714183292304)
+           (check_int "(\"a\" \"\"), items 97 0 0 0"
+                      (hash (cons "a" (cons "" (nil (list int)))))
+                      6934728098105424329)))))
+
+(def test_pinned_data () int
+  (add (check_int "(Some 5), items 1 5" (hash (Some 5)) 1765707582389631613)
+       (check_int "(None), items 0 0" (hash ((None int))) 4458853911661054822)))
+
+(def test_pinned_bytes_and_arrays () int
+  (add (check_int "bytes \"ab\", items 2 97 98" (hash (bytes_from_list "ab"))
+                  2670077014941306050)
+       (check_int "array (0 5), items 2 0 5" (hash (array_set (array_new 2 0) 1 5))
+                  2184579663451462090)))
+
+; ------------------------------------------- equal values, equal hashes
+
+(def test_built_two_ways () int
+  (add (check_int "string" (hash "ab") (hash (cons 97 "b")))
+    (add (check_int "words" (hash (split_spaces "a bb c")) (hash (split_spaces "a  bb c")))
+      (add (check_int "array" (hash (array_set (array_new 3 7) 1 8))
+                      (hash (array_set (array_set (array_new 3 7) 1 9) 1 8)))
+           (check_int "bytes" (hash (bytes_from_list "xyz"))
+                      (hash (bytes_from_list (cons 120 "yz"))))))))
+
+; A narrow constructor's padding is part of the value as eq sees it. Each
+; pair is checked with eq too, so a pair that is not the same value cannot
+; pass as one.
+(def poly_a ((i int)) Shape (Poly "ab" (array_new 2 3) (bytes_from_list "z")))
+
+(def poly_b ((i int)) Shape
+  (Poly (cons 97 "b") (array_set (array_set (array_new 2 0) 0 3) 1 3)
+        (bytes_from_list "z")))
+
+(def test_data_with_padding () int
+  (add (check_int "dot" (hash (Dot)) (hash (Dot)))
+    (add (check_int "seg" (hash (Seg 1 2)) (hash (Seg 1 (add 1 1))))
+      (add (check_true "poly is one value" (eq (poly_a 0) (poly_b 0)))
+           (check_int "poly" (hash (poly_a 0)) (hash (poly_b 0)))))))
+
+; ---------------------------------------------- at a type parameter
+
+; One function serves every key type: what 0051 could not write.
+(def (slot_of K) ((key K) (n int)) int
+  (mod (hash key) n))
+
+(def test_type_parameter () int
+  (add (check_int "string" (slot_of "ab" 1000) (mod (hash "ab") 1000))
+    (add (check_int "int" (slot_of 42 1000) (mod (hash 42) 1000))
+         (check_int "data" (slot_of (Some 5) 1000) (mod (hash (Some 5)) 1000)))))
+
+; --------------------------------------------- never negative, and spread
+
+(def negatives ((s int) (n int) (bad int)) int
+  (if (eq n 0)
+      bad
+      (negatives (rand_next s) (sub n 1)
+        (if (lt (hash (rand_bytes s 20)) 0) (add bad 1)
+            (if (lt (hash (sub 0 s)) 0) (add bad 1) bad)))))
+
+(def test_never_negative () int
+  (add (check_int "random strings and ints" (negatives 1 500 0) 0)
+    (add (check_true "int_min" (ge (hash -9223372036854775808) 0))
+         (check_true "-1" (ge (hash -1) 0)))))
+
+; Keys that differ only above their low bits still spread over a table's
+; slots: the multiples of 1024 fill most of 1024 slots, where hashing them
+; without the final mixing would put every one in slot 0.
+(def slot_counts ((i int) (counts (array int))) (array int)
+  (if (eq i 1024)
+      counts
+      (let s (mod (hash (mul i 1024)) 1024)
+        (slot_counts (add i 1) (array_set counts s (add (array_get counts s) 1))))))
+
+(def used ((a (array int)) (i int) (n int)) int
+  (if (ge i (array_len a)) n (used a (add i 1) (if (gt (array_get a i) 0) (add n 1) n))))
+
+(def test_low_bits_spread () int
+  (check_true "slots used" (gt (used (slot_counts 0 (array_new 1024 0)) 0 0) 500)))

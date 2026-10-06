@@ -16,6 +16,12 @@
     ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f) (check_int "the library's flush" (file_flush f) 0))))
 
+; A program written before hash was a builtin, as several here were.
+(def hash ((s (list int))) int (length s))
+
+(def test_own_hash () int
+  (check_int "the program's hash" (hash "abc") 3))
+
 ; A different arity from the builtin's.
 (def not ((a int) (b int)) int (sub a b))
 

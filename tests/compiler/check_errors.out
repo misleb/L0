@@ -57,3 +57,6 @@ ok
 35: clock_ns takes 0 arguments, but got 1
 35: head must be a list, but this is int
 ok
+35: hash takes 1 argument, but got 0
+35: hash takes 1 argument, but got 2
+35: head must be a list, but this is int

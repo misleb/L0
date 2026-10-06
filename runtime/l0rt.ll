@@ -2212,6 +2212,137 @@ word_next:
   br label %scan
 }
 
+; ----------------------------------------------------------------- hashing
+
+; One item into the hash at hp: spec 6.9's (h xor i) * 1099511628211.
+define internal void @hash_mix(ptr %hp, i64 %i) {
+entry:
+  %h = load i64, ptr %hp
+  %x = xor i64 %h, %i
+  %m = mul i64 %x, 1099511628211
+  store i64 %m, ptr %hp
+  ret void
+}
+
+; Spec sections 6.9 and 10.3: the hash of x, which is a counted value when
+; counted is 1. The words still to visit share @l0_equal's worklist, which no
+; hash and comparison ever use at once, each entry a word and whether it is a
+; pointer. A block's words are queued last first, so they are taken in order
+; and a value's items come out in the order 6.9 gives them; the worklist stays
+; as deep as the nesting, not as long as a list. The empty list is the word 0,
+; and contributes the item 0, as any word that is not a pointer contributes
+; itself.
+define i64 @l0_hash(i64 %x, i64 %counted) {
+entry:
+  %hp = alloca i64
+  store i64 -3750763034362895579, ptr %hp
+  store i64 0, ptr @eq_len
+  br label %visit
+visit:
+  %w = phi i64 [ %x, %entry ], [ %pw, %pop ]
+  %p = phi i64 [ %counted, %entry ], [ %pp, %pop ]
+  %isp = icmp ne i64 %p, 0
+  %nz = icmp ne i64 %w, 0
+  %block = and i1 %isp, %nz
+  br i1 %block, label %blocks, label %word
+word:
+  call void @hash_mix(ptr %hp, i64 %w)
+  br label %next
+blocks:
+  %hdp = sub i64 %w, 8
+  %hdq = inttoptr i64 %hdp to ptr
+  %hd = load i64, ptr %hdq
+  %mx = and i64 %hd, 4294967295
+  %s0 = lshr i64 %hd, 32
+  %sx = and i64 %s0, 255
+  %wq = inttoptr i64 %w to ptr
+  %isarr = icmp eq i64 %sx, 0
+  br i1 %isarr, label %arr, label %scan
+arr:
+  %n = load i64, ptr %wq
+  call void @hash_mix(ptr %hp, i64 %n)
+  %isb = and i64 %mx, 2
+  %isbytes = icmp ne i64 %isb, 0
+  br i1 %isbytes, label %bytes, label %arr_kind
+bytes:
+  %b0 = getelementptr i64, ptr %wq, i64 1
+  br label %byte_loop
+byte_loop:
+  %bi = phi i64 [ 0, %bytes ], [ %bi1, %byte ]
+  %bdone = icmp eq i64 %bi, %n
+  br i1 %bdone, label %next, label %byte
+byte:
+  %bp = getelementptr i8, ptr %b0, i64 %bi
+  %bv = load i8, ptr %bp
+  %bw = zext i8 %bv to i64
+  call void @hash_mix(ptr %hp, i64 %bw)
+  %bi1 = add i64 %bi, 1
+  br label %byte_loop
+arr_kind:
+  %ptrs = and i64 %mx, 1
+  %hasp = icmp ne i64 %ptrs, 0
+  br i1 %hasp, label %elems, label %flat
+flat:
+  %fi = phi i64 [ 1, %arr_kind ], [ %fi1, %flat_elem ]
+  %fdone = icmp sgt i64 %fi, %n
+  br i1 %fdone, label %next, label %flat_elem
+flat_elem:
+  %fp = getelementptr i64, ptr %wq, i64 %fi
+  %fv = load i64, ptr %fp
+  call void @hash_mix(ptr %hp, i64 %fv)
+  %fi1 = add i64 %fi, 1
+  br label %flat
+elems:
+  %k = phi i64 [ %n, %arr_kind ], [ %k1, %elem ]
+  %kdone = icmp eq i64 %k, 0
+  br i1 %kdone, label %next, label %elem
+elem:
+  %ep = getelementptr i64, ptr %wq, i64 %k
+  %ev = load i64, ptr %ep
+  call void @eq_push(i64 %ev, i64 1)
+  %k1 = sub i64 %k, 1
+  br label %elems
+scan:
+  %j = phi i64 [ %sx, %blocks ], [ %j1, %word_push ]
+  %jdone = icmp eq i64 %j, 0
+  br i1 %jdone, label %next, label %word_push
+word_push:
+  %jw = sub i64 %j, 1
+  %wp = getelementptr i64, ptr %wq, i64 %jw
+  %wv = load i64, ptr %wp
+  %bits = lshr i64 %mx, %jw
+  %bit = and i64 %bits, 1
+  call void @eq_push(i64 %wv, i64 %bit)
+  %j1 = sub i64 %j, 1
+  br label %scan
+next:
+  %len = load i64, ptr @eq_len
+  %empty = icmp eq i64 %len, 0
+  br i1 %empty, label %done, label %pop
+pop:
+  %len1 = sub i64 %len, 1
+  store i64 %len1, ptr @eq_len
+  %wl = load ptr, ptr @eq_wl
+  %pi = mul i64 %len1, 2
+  %pwp = getelementptr i64, ptr %wl, i64 %pi
+  %pw = load i64, ptr %pwp
+  %ppp = getelementptr i64, ptr %pwp, i64 1
+  %pp = load i64, ptr %ppp
+  br label %visit
+done:
+  %h0 = load i64, ptr %hp
+  %r1 = lshr i64 %h0, 30
+  %x1 = xor i64 %h0, %r1
+  %m1 = mul i64 %x1, -4658895280553007687
+  %r2 = lshr i64 %m1, 27
+  %x2 = xor i64 %m1, %r2
+  %m2 = mul i64 %x2, -7723592293110705685
+  %r3 = lshr i64 %m2, 31
+  %x3 = xor i64 %m2, %r3
+  %res = lshr i64 %x3, 1
+  ret i64 %res
+}
+
 ; ------------------------------------------------------------------- input
 
 define internal i64 @read_stdin() {

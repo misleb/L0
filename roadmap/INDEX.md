@@ -27,18 +27,17 @@ words or codes, which the checker cannot see, and opening a file now says
 which failure it was as a case typed per kind of open (0050). Reads,
 closes, flushes, and renames keep codes until a program needs more. 0051
 found that no map can be written once for every key type, since nothing
-can hash a value of a type parameter: a specified `hash` comes first
-(0052), then a map in the prelude (0053), then the compiler and the suite
-move onto it (0054). 0045's Linux runs are owed.
+can hash a value of a type parameter. `hash` now gives any value a
+specified integer (0052); a map in the prelude comes next (0053), then the
+compiler and the suite move onto it (0054). The Linux runs of 0045 and 0052
+are owed.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0052](0052-hash-builtin.md) `hash` gives a value of any type a specified
-   integer — queued, next
-2. [0053](0053-library-map.md) the prelude has a map for every key and value
-   type — queued, needs 0052
+1. [0053](0053-library-map.md) the prelude has a map for every key and value
+   type — queued, next
 
 ## Other open items
 
@@ -173,3 +172,6 @@ Changes to the language, strictly in order. At most one is active.
   file says which failure it was, and no language change for it"
 - [0051](0051-hash-and-map.md) research: how L0 gets a hash and a map —
   done; `hash` (0052), then a library map (0053), then its users (0054)
+- [0052](0052-hash-builtin.md) `hash` gives a value of any type a specified
+  integer — done, changelog "`hash` gives a value of any type a specified
+  integer"; Linux runs owed

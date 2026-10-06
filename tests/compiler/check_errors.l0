@@ -81,7 +81,10 @@
   (let bg (push (check_source (m "(clock_ns 1)")) bf)
   (let bh (push (check_source (m "(head (clock_ns))")) bg)
   (let bi (push (check_source (m "(sub (clock_ns) (clock_ns))")) bh)
-    (rev bi)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let bj (push (check_source (m "(hash)")) bi)
+  (let bk (push (check_source (m "(hash 1 2)")) bj)
+  (let bl (push (check_source (m "(head (hash \"a\"))")) bk)
+    (rev bl))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

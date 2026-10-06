@@ -283,7 +283,7 @@
             (names_then (bi_path 0)
               (names_then (bi_to_list 0)
                 (names_then (bi_array 0)
-                  (names_then (bi_bytes 0) (split_spaces "neg not eq")))))))))))
+                  (names_then (bi_bytes 0) (split_spaces "neg not eq hash")))))))))))
 
 (def names_then ((xs (list (list int))) (ys (list (list int))))
     (list (list int))
@@ -293,7 +293,7 @@
   (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns"))
       0
       (if (any_eq n (split_spaces
-            "neg not head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list"))
+            "neg not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list"))
           1
           (if (eq n "array_set") 3 (if (eq n "write_bytes") 4 2)))))
 
@@ -324,16 +324,23 @@
                           (need_all n ats o (TyBool) (TyBool))
                           (check_other_builtin n ats o))))))))
 
+; hash takes a value of any type, and gives an int. Spec 6.9.
 (def check_other_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
   (if (eq n "eq")
       (check_eq ats o)
-      (if (any_eq n (bi_path 0))
-          (need_all n ats o (TyList (TyInt)) (TyInt))
-          (if (any_eq n (bi_to_list 0))
-              (need_all n ats o (TyInt) (TyList (TyInt)))
-              (if (any_eq n (bi_array 0))
-                  (check_array_builtin n ats o)
-                  (check_other_builtin_rest n ats o))))))
+      (if (eq n "hash")
+          (COk (TyInt))
+          (check_other_builtin_paths n ats o))))
+
+(def check_other_builtin_paths ((n (list int)) (ats (list Ty)) (o int))
+    (Checked Ty)
+  (if (any_eq n (bi_path 0))
+      (need_all n ats o (TyList (TyInt)) (TyInt))
+      (if (any_eq n (bi_to_list 0))
+          (need_all n ats o (TyInt) (TyList (TyInt)))
+          (if (any_eq n (bi_array 0))
+              (check_array_builtin n ats o)
+              (check_other_builtin_rest n ats o)))))
 
 (def check_other_builtin_rest ((n (list int)) (ats (list Ty)) (o int))
     (Checked Ty)

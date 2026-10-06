@@ -112,7 +112,9 @@ So anything in `tests/lang/` compares lists with a function such as `list_eq`
 in [tests/lib/assert.l0](../../../tests/lib/assert.l0), and `eq` on anything
 else is tested in `tests/unit/` or `tests/io/`. The compiler's sources and
 `lib/prelude.l0` may use it, since stage 0 never runs them and the seed
-compiles it. `lt`, `le`, `gt`, and `ge` take only `int` everywhere.
+compiles it. `lt`, `le`, `gt`, and `ge` take only `int` everywhere. `hash`
+(spec 6.9) is the same: any type, unknown to stage 0, tested in
+`tests/unit/hash_test.l0` against values computed from the spec alone.
 
 **A name in call position is never a local.** `(f 1)` always means a builtin or
 a `def`, so a parameter named `f` cannot be called and does not shadow a

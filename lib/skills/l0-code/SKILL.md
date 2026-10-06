@@ -149,10 +149,11 @@ arrays, or `Option` once rather than once per element type:
 A call writes no types: its arguments say what `T` is, so every type
 parameter must appear in some parameter's type, and `(def (empty T) ()
 (list T) ...)` is an error. Inside the body `T` is a type of its own, so a
-`T` can be kept, passed, consed, stored, and compared with `eq`, but not
-ordered with `lt` or taken apart with `match`. So a membership test or a
-lookup is written once, but with no function values, a sort, which orders
-its elements, is still written per element type.
+`T` can be kept, passed, consed, stored, compared with `eq`, and hashed
+with `hash`, but not ordered with `lt` or taken apart with `match`. So a
+membership test, a lookup, or a hash table is written once, but with no
+function values, a sort, which orders its elements, is still written per
+element type.
 
 **`and` and `or` are strict.** Both arguments are always evaluated, so they do
 not guard against errors. This still calls `head` on an empty list:
@@ -169,6 +170,12 @@ arguments must have the same type. There is no ordering but on integers:
 `lt`, `le`, `gt`, and `ge` take only `int`, so a sort over strings needs a
 comparison you write. A comparison that is not by contents, such as by one
 field or ignoring case, is a function you write too.
+
+**`hash` gives any value a non-negative `int`** (spec 6.9), the same for two
+values `eq` calls the same, so `(mod (hash key) n)` is a key's slot in a
+table of `n`, for keys of any type. Two different keys can share a hash, so
+a table compares the keys it finds with `eq`. The hash is defined by the
+spec, the same on every machine and run, so a test can pin one.
 
 **A name in call position is never a local.** `(f 1)` always means a builtin
 or a `def`, so a parameter named `f` cannot be called and does not shadow a

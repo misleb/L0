@@ -1,0 +1,10 @@
+; A loop over a bytes parameter it only hashes: hash borrows and returns an
+; int, so the parameter is read-only (spec 10.3) and the loop counts no
+; references, though each hash is a runtime call.
+
+(def sum_hashes ((x bytes) (i int) (n int)) int
+  (if (eq i 0) n (sum_hashes x (sub i 1) (add n (mod (hash x) 7)))))
+
+(def main () int
+  (let x (bytes_from_list "abc")
+    (if (eq (sum_hashes x 1000 0) (mul 1000 (mod (hash x) 7))) 3 1)))
