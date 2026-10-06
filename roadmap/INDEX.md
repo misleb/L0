@@ -31,7 +31,8 @@ can hash a value of a type parameter. `hash` now gives any value a
 specified integer (0052), and the prelude has a `(Map K V)` for every key
 and value type (0053), which the compiler's pad table and the suite's graph
 now use (0054). A persistent map and an ordered one wait for code that
-needs them. The Linux runs of 0045 and 0052 are owed.
+needs them. The Linux runs of 0045 and 0052 are owed. 0055, a third round
+of programs, is finding which of the waiting candidates code earns.
 
 ## Language queue
 
@@ -41,7 +42,8 @@ Empty.
 
 ## Other open items
 
-None.
+- [0055](0055-programs-round-three.md) program: a third round of ordinary
+  programs — active
 
 ## Done and dropped
 
