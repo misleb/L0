@@ -185,8 +185,7 @@
           (split_lines_onto (tail s) (cons (head s) cur) acc))))
 
 (def split_lines ((s (list int))) (list (list int))
-  (rev_strs_onto (split_lines_onto s (nil int) (nil (list int)))
-                 (nil (list int))))
+  (rev (split_lines_onto s (nil int) (nil (list int)))))
 
 (def check_lines ((ls (list (list int))) (acc (list int))) (list int)
   (if (is_empty ls)

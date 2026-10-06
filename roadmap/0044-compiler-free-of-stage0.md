@@ -198,3 +198,5 @@ oracle? Weigh at least:
 - 2026-10-05: `tools/linux-test.sh arm64 amd64` on this tree, which changes
   only `roadmap/`: both suites green on both (63 and 110), which discharges
   the runs 0025 to 0037 owed. Next: 0045.
+- 2026-10-05: `roadmap/0044/` (the Why's program and the prototype's diff)
+  deleted by 0046, which made the real change; both are in git history.

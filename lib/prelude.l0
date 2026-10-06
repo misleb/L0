@@ -1,12 +1,10 @@
-; prelude.l0 -- list and byte-string helpers shared across the compiler.
+; prelude.l0 -- the part of the standard library that does no I/O: lists and
+; arrays of any type, Option and Result, and byte-string helpers.
 ;
-; Everything here operates on (list int), because stage 0 used to run this
-; file as part of the compiler and knows no type parameters, nor eq on lists.
-; Nothing runs it under stage 0 now. rev, rev_onto, append, length, any_eq,
-; and index_of, which a list of any type wants, are not here yet: programs
-; get them from lib/io.l0 at every element type, and the compiler defines
-; copies of its own for the types it uses in compiler/lex.l0. So this file
-; checks only beside one of those two.
+; The compiler is built from this file and compiler/*.l0, so everything here
+; is exercised by every build of it, and the compiler calls rev, any_eq, and
+; the rest at the types it needs. lib/io.l0 holds the I/O, which the compiler
+; does not link. This file checks on its own.
 ;
 ; Output is always built with the reversed-accumulator idiom from spec section
 ; 11.1: push chunks onto a backwards list, reverse exactly once at the end.
@@ -16,9 +14,87 @@
 ; A comment starting ;; documents the definition below it, and is what l0 doc
 ; shows; a definition without one is internal. ;;; describes the file.
 
-;;; Lists of bytes: building output, comparing, decimal numbers, slicing
-;;; lines and words, word tables, and character classes. A string is a (list
-;;; int) of byte values, so all of these work on strings.
+;;; Lists and arrays of any type, Option and Result, and lists of bytes:
+;;; building output, comparing, decimal numbers, slicing lines and words, word
+;;; tables, and character classes. A string is a (list int) of byte values, so
+;;; the byte helpers work on strings.
+
+; ------------------------------------------------------------ lists, arrays
+
+;; xs reversed, in front of acc, for a list of any type: (rev_onto "ab" "cd")
+;; is "bacd".
+(def (rev_onto T) ((xs (list T)) (acc (list T))) (list T)
+  (if (is_empty xs)
+      acc
+      (rev_onto (tail xs) (cons (head xs) acc))))
+
+;; xs reversed, for a list of any type.
+(def (rev T) ((xs (list T))) (list T)
+  (rev_onto xs (nil T)))
+
+;; xs followed by ys, for lists of any type. It copies xs, so appending in a
+;; loop is quadratic: build anything long with push and rev instead.
+(def (append T) ((xs (list T)) (ys (list T))) (list T)
+  (rev_onto (rev xs) ys))
+
+;; The number of elements of xs, a list of any type.
+(def (length T) ((xs (list T))) int
+  (length_onto xs 0))
+
+(def (length_onto T) ((xs (list T)) (n int)) int
+  (if (is_empty xs) n (length_onto (tail xs) (add n 1))))
+
+;; Whether x is one of xs, by eq, for a list of any type. With split_spaces it
+;; tests a word against a table: (any_eq "if" (split_spaces "def if let")).
+(def (any_eq T) ((x T) (xs (list T))) bool
+  (if (is_empty xs)
+      false
+      (if (eq x (head xs)) true (any_eq x (tail xs)))))
+
+;; The position of the first element of xs that is x, by eq, counting from 0,
+;; or -1 if there is none, for a list of any type. With two word tables, maps
+;; a name in one to the same position in the other.
+(def (index_of T) ((x T) (xs (list T))) int
+  (index_of_from x xs 0))
+
+(def (index_of_from T) ((x T) (xs (list T)) (i int)) int
+  (if (is_empty xs)
+      -1
+      (if (eq x (head xs)) i (index_of_from x (tail xs) (add i 1)))))
+
+;; An array of n elements of any type: the first n of a, followed by copies
+;; of fill if a has fewer. This is how an array grows, as in (array_resize a
+;; (mul 2 (array_len a)) x); it costs n, and a negative n is a runtime error.
+(def (array_resize T) ((a (array T)) (n int) (fill T)) (array T)
+  (let m (array_len a)
+    (array_copy_onto a (array_new n fill) 0 (if (lt m n) m n))))
+
+; dst with elements i up to but not including n of src copied into it.
+(def (array_copy_onto T) ((src (array T)) (dst (array T)) (i int) (n int))
+    (array T)
+  (if (ge i n)
+      dst
+      (array_copy_onto src (array_set dst i (array_get src i)) (add i 1) n)))
+
+; ------------------------------------------------------------ option, result
+
+;; A value that may be missing: (Some x), or (None). (Some x) takes its type
+;; from x, but None says nothing of T, so it is written with its type as nil
+;; is: ((None int)) is an (Option int).
+(data (Option T)
+  (None)
+  (Some T))
+
+;; The outcome of something that can fail: (Ok x), or (Err e) saying why.
+;; Neither constructor determines both parameters, so both are written with
+;; the type: ((Ok int (list int)) 5) and ((Err int (list int)) "bad") are
+;; each a (Result int (list int)). A program that declares its own Ok or Err
+;; uses its own, and cannot match on this type (spec section 7.1).
+(data (Result T E)
+  (Ok T)
+  (Err E))
+
+; ------------------------------------------------------------ byte strings
 
 ;; Pushes chunk onto a reversed accumulator: acc with chunk's bytes in front,
 ;; last byte first. Costs the length of the chunk, never of the accumulator.
@@ -123,17 +199,8 @@
 ; Membership tests against a fixed set of names are common in a compiler.
 ; Written as a chain of or, they nest ten deep and are a reliable source of
 ; miscounted parentheses. Splitting one space-separated literal keeps the
-; table flat and readable, and any_eq and index_of, in lib/io.l0 and
-; compiler/lex.l0, look a name up in it.
-
-; rev_onto for (list (list int)), which split_spaces needs, and cannot get
-; from the generic rev_onto while that is in lib/io.l0, which the compiler
-; does not link.
-(def rev_strs_onto ((xs (list (list int))) (acc (list (list int))))
-    (list (list int))
-  (if (is_empty xs)
-      acc
-      (rev_strs_onto (tail xs) (cons (head xs) acc))))
+; table flat and readable, and any_eq and index_of, above, look a name up in
+; it.
 
 (def split_spaces_onto ((s (list int)) (cur (list int))
                         (acc (list (list int)))) (list (list int))
@@ -148,8 +215,7 @@
 ;; no word is empty. Makes a word table from one literal:
 ;; (split_spaces "def data if").
 (def split_spaces ((s (list int))) (list (list int))
-  (rev_strs_onto (split_spaces_onto s (nil int) (nil (list int)))
-                 (nil (list int))))
+  (rev (split_spaces_onto s (nil int) (nil (list int)))))
 
 ; ---------------------------------------------------------------- character
 ; classes, by byte value

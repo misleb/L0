@@ -1,4 +1,22 @@
-== prelude: Lists of bytes: building output, comparing, decimal numbers, slicing lines and words, word tables, and character classes.
+== prelude: Lists and arrays of any type, Option and Result, and lists of bytes: building output, comparing, decimal numbers, slicing lines and words, word tables, and character classes.
+  (rev_onto T) ((xs (list T)) (acc (list T))) (list T)
+      xs reversed, in front of acc, for a list of any type: (rev_onto "ab" "cd") is "bacd".
+  (rev T) ((xs (list T))) (list T)
+      xs reversed, for a list of any type.
+  (append T) ((xs (list T)) (ys (list T))) (list T)
+      xs followed by ys, for lists of any type.
+  (length T) ((xs (list T))) int
+      The number of elements of xs, a list of any type.
+  (any_eq T) ((x T) (xs (list T))) bool
+      Whether x is one of xs, by eq, for a list of any type.
+  (index_of T) ((x T) (xs (list T))) int
+      The position of the first element of xs that is x, by eq, counting from 0, or -1 if there is none, for a list of any type.
+  (array_resize T) ((a (array T)) (n int) (fill T)) (array T)
+      An array of n elements of any type: the first n of a, followed by copies of fill if a has fewer.
+  (data (Option T) (None) (Some T))
+      A value that may be missing: (Some x), or (None).
+  (data (Result T E) (Ok T) (Err E))
+      The outcome of something that can fail: (Ok x), or (Err e) saying why.
   push ((chunk (list int)) (acc (list int))) (list int)
       Pushes chunk onto a reversed accumulator: acc with chunk's bytes in front, last byte first.
   list_eq ((xs (list int)) (ys (list int))) bool
@@ -32,25 +50,7 @@
   hex_val ((c int)) int
       The value of c as a hexadecimal digit, 0 to 15, in either case, or -1 if it is not one.
 
-== io: Lists and arrays of any type, and Option and Result, for every type they hold; then reading and writing lines, strings, and bytes, command-line arguments, and files.
-  (rev_onto T) ((xs (list T)) (acc (list T))) (list T)
-      xs reversed, in front of acc, for a list of any type: (rev_onto "ab" "cd") is "bacd".
-  (rev T) ((xs (list T))) (list T)
-      xs reversed, for a list of any type.
-  (append T) ((xs (list T)) (ys (list T))) (list T)
-      xs followed by ys, for lists of any type.
-  (length T) ((xs (list T))) int
-      The number of elements of xs, a list of any type.
-  (any_eq T) ((x T) (xs (list T))) bool
-      Whether x is one of xs, by eq, for a list of any type.
-  (index_of T) ((x T) (xs (list T))) int
-      The position of the first element of xs that is x, by eq, counting from 0, or -1 if there is none, for a list of any type.
-  (array_resize T) ((a (array T)) (n int) (fill T)) (array T)
-      An array of n elements of any type: the first n of a, followed by copies of fill if a has fewer.
-  (data (Option T) (None) (Some T))
-      A value that may be missing: (Some x), or (None).
-  (data (Result T E) (Ok T) (Err E))
-      The outcome of something that can fail: (Ok x), or (Err e) saying why.
+== io: Reading and writing lines, strings, and bytes, command-line arguments, and files.
   read_line () (list int)
       The next line of standard input, including its newline if it has one.
   (data IoLine (IoLine (list int)) (IoEnd) (IoError int))

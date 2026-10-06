@@ -13,7 +13,7 @@
 
 ; Loading gives the live entries, oldest write first, and a lookup gives the
 ; value if the key has one; either fails with why, in words, as a (Result _
-; (list int)) from lib/io.l0.
+; (list int)) from lib/prelude.l0.
 
 (def record ((op int) (key (list int)) (value (list int))) (list int)
   (cons op (append key (cons 9 (append value "\n")))))

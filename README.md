@@ -199,17 +199,14 @@ and `l0 test` adds `lib/test.l0`. Together they are the prelude of spec section
 7.1, a group of names separate from the program's. `l0 doc` lists everything
 in them.
 
-The split between the first two files was set by stage 0, not by topic.
+The first two files split by whether a definition does I/O.
 `lib/prelude.l0` is part of the compiler too: the compiler is built from it
 and `compiler/*.l0`, so it is exercised continuously rather than maintained
-separately, and stage 0 used to run it whenever it ran the compiler. So it
-holds only what stage 0 can run. Everything else is in `lib/io.l0`: the I/O
-wrappers, reading a whole input into `bytes` with `read_input`, `Option` and
-`Result`, and `rev`, `rev_onto`, `append`, `length`, and `array_resize`, which
-take type parameters and so work on every element type. The compiler keeps
-`(list int)` copies of the first four in `compiler/lex.l0`, from when it could
-not use type parameters. Nothing runs the prelude under stage 0 now, so the
-definitions that are not I/O can move back to it.
+separately, and it holds what the compiler can use: `rev`, `rev_onto`,
+`append`, `length`, `any_eq`, `index_of`, and `array_resize`, which take type
+parameters and so work on every element type, `Option` and `Result`, and the
+byte-string helpers. `lib/io.l0` holds the I/O wrappers, including reading a
+whole input into `bytes` with `read_input`, which the compiler does not need.
 
 It matters more than it might sound: L0 has no `append`, no `length`, and no
 way to render an integer as text among its builtins. Without a library, every

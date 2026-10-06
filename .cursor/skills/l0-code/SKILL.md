@@ -186,10 +186,8 @@ Three fixes, in order of preference:
 
 **Test membership with a word table instead of an `or` chain.** `split_spaces`
 in [lib/prelude.l0](../../../lib/prelude.l0) and `any_eq` turn a ten-deep nest
-into one flat line. `any_eq` and `index_of` are generic in
-[lib/io.l0](../../../lib/io.l0), and the compiler has string copies of its own
-at the top of [compiler/lex.l0](../../../compiler/lex.l0), kept from when
-stage 0 ran it:
+into one flat line. `any_eq` and `index_of` are generic, and in the prelude
+too, so the compiler calls the same ones a program does:
 
 ```
 (def is_reserved ((n (list int))) bool

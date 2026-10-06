@@ -9,50 +9,6 @@
 ; keeps positions to one int and means a future multi-file input bundle only
 ; changes the renderer.
 
-; --------------------------------------------------------------- list helpers
-;
-; rev_onto, rev, append, and length for (list int), and any_eq and index_of
-; for a name in a list of names, which lib/prelude.l0 and every part of the
-; compiler call. Programs get them from lib/io.l0 at every element type, but
-; stage 0 used to run the compiler and knows neither type parameters nor eq
-; on lists, so the compiler keeps its own here, in the file every compiler
-; build and stage test includes. Nothing runs it under stage 0 now.
-
-(def rev_onto ((xs (list int)) (acc (list int))) (list int)
-  (if (is_empty xs)
-      acc
-      (rev_onto (tail xs) (cons (head xs) acc))))
-
-(def rev ((xs (list int))) (list int)
-  (rev_onto xs (nil int)))
-
-; It copies xs, so it is for short strings such as diagnostics only.
-(def append ((xs (list int)) (ys (list int))) (list int)
-  (rev_onto (rev xs) ys))
-
-(def length ((xs (list int))) int
-  (length_onto xs 0))
-
-(def length_onto ((xs (list int)) (n int)) int
-  (if (is_empty xs) n (length_onto (tail xs) (add n 1))))
-
-(def any_eq ((n (list int)) (candidates (list (list int)))) bool
-  (if (is_empty candidates)
-      false
-      (if (list_eq n (head candidates))
-          true
-          (any_eq n (tail candidates)))))
-
-(def index_of_from ((n (list int)) (candidates (list (list int))) (i int)) int
-  (if (is_empty candidates)
-      -1
-      (if (list_eq n (head candidates))
-          i
-          (index_of_from n (tail candidates) (add i 1)))))
-
-(def index_of ((n (list int)) (candidates (list (list int)))) int
-  (index_of_from n candidates 0))
-
 (data Token
   (TLParen int)                ; offset
   (TRParen int)                ; offset

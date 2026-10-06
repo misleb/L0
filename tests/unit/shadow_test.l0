@@ -42,7 +42,7 @@
     (add (check_str "kept" (keep s) (cons 1 (cons 2 (cons 3 (nil int)))))
          (check_str "still held" s (cons 1 (cons 2 (cons 3 (nil int))))))))
 
-; lib/io.l0's Result has a constructor Ok. A program written before it did
+; lib/prelude.l0's Result has a constructor Ok. A program written before it did
 ; declares its own, and keeps it, while still using the library's Option.
 (data Reply
   (Ok (list int))

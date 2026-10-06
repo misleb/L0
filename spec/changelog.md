@@ -7,6 +7,36 @@ New entries go at the top.
 
 ---
 
+## The prelude takes back the generic definitions, and no language change for it
+
+**`lib/prelude.l0` holds every definition that does no I/O** (roadmap item
+0046): `rev_onto`, `rev`, `append`, `length`, `any_eq`, `index_of`,
+`array_resize`, `Option`, and `Result` moved there from `lib/io.l0`, which
+now holds only I/O. Programs see no change, since `tools/l0` links both
+files as one prelude group. The compiler, which is built from
+`lib/prelude.l0`, now calls these at the types it needs: its `(list int)`
+copies of the first six at the top of `compiler/lex.l0` are gone, and so is
+the prelude's `rev_strs_onto`, the copy of `rev_onto` that `split_spaces`
+and the parser used for lists of strings.
+
+**Why.** The split was never about I/O. Stage 0 ran `lib/prelude.l0` as part
+of the compiler, and knew neither type parameters nor `eq` on lists, so
+whatever used them went to `lib/io.l0` (the entry "The library declares
+Option and Result" gave that reason, which this supersedes). Since stage 0
+no longer runs the compiler's source (the entry below), the reason is gone,
+and the split can mean what the file names say. A generic `rev` also cannot
+sit beside a `(list int)` one in a group, so while the definitions were in
+`lib/io.l0` the compiler had to keep its own under the same names.
+
+**What it cost.** The compiler compares names with `eq` inside `any_eq` and
+`index_of`, which at `(list int)` calls the runtime's `l0_equal` rather
+than a loop of its own, and instantiates `rev` at each type it reverses.
+The compiler's IR grew from 1,162,096 bytes to 1,167,452.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## The compiler's source is no longer run by stage 0, and no language change for it
 
 **The tools build the compiler with the seed** (roadmap items 0044 and

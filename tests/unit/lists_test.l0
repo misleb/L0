@@ -1,7 +1,7 @@
-; Unit tests for the library's list and array helpers in lib/io.l0, which take
-; type parameters, at element types that are counted and that are not. l0
-; test runs each under L0_RC_CHECK, so a leak or a use of a freed block fails
-; it.
+; Unit tests for the library's list and array helpers in lib/prelude.l0,
+; which take type parameters, at element types that are counted and that are
+; not. l0 test runs each under L0_RC_CHECK, so a leak or a use of a freed
+; block fails it.
 
 (data Pt
   (Pt int (list int)))
