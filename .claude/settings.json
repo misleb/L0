@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tools/l0check *)",
+      "Bash(tools/l0 *)",
+      "Bash(tools/l0c *)",
+      "Bash(tools/l0ll *)",
+      "Bash(tools/test.sh)",
+      "Bash(tools/test.sh *)",
+      "Bash(tools/build.sh)",
+      "Bash(tools/bootstrap.sh)",
+      "Bash(tools/bootstrap.sh *)",
+      "Bash(tools/linux-test.sh)",
+      "Bash(tools/linux-test.sh *)",
+      "Bash(build/l0i run *)",
+      "Bash(git status)",
+      "Bash(git status *)",
+      "Bash(git diff)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git grep *)",
+      "Bash(grep *)",
+      "Bash(ls)",
+      "Bash(ls *)"
+    ]
+  }
+}
