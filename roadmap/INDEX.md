@@ -16,17 +16,24 @@ library declares Option and Result (0039), and functions take them (0038),
 so the library's list helpers now take every element type (0040). 0041
 found that a generic function could not compare its elements, and `eq` now
 compares two values of any type (0042), which the library and the suite
-now use (0043).
+now use (0043). The compiler and the prelude could use neither, since stage
+0 still ran their source; 0044 found that only the tools require it, so the
+tools stop (0045), then the prelude (0046) and the compiler (0047) use what
+programs already can.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0046](0046-prelude-generics.md) the prelude takes back the generic
+   definitions — queued, needs 0045
+2. [0047](0047-compiler-uses-generics.md) the compiler uses type parameters
+   and eq — queued, needs 0046
 
 ## Other open items
 
-None.
+- [0045](0045-tools-without-stage0.md) tooling: the tools stop running the
+  compiler under stage 0 — proposed, next
 
 ## Done and dropped
 
@@ -86,9 +93,9 @@ None.
 - [0024](0024-arrays.md) arrays — done, changelog "Arrays"
 - [0025](0025-nested-array-update.md) updating an array held inside another
   without copying it — done, changelog "A row of an array of rows updates in
-  place, written the natural way"; Linux runs owed
+  place, written the natural way"; Linux run with 0044
 - [0030](0030-borrow-read-only-parameters.md) read-only parameters — done,
-  changelog "Read-only parameters"; Linux runs owed
+  changelog "Read-only parameters"; Linux run with 0044
 - [0029](0029-array-docs.md) say what arrays really cost — done, changelog
   "What updates an array in place, said correctly, and no language change
   for it"
@@ -102,21 +109,23 @@ None.
   — done; a packed type (0032), after 0031, then 0033
 - [0031](0031-builtins-do-not-take-over.md) a new builtin does not take over
   a program's function — done, changelog "A new builtin does not take over a
-  program's function"; Linux runs owed
+  program's function"; Linux run with 0044
 - [0032](0032-bytes.md) bytes held one byte per byte — done, changelog
-  "Bytes, held one byte per byte"; Linux runs owed
+  "Bytes, held one byte per byte"; Linux run with 0044
 - [0033](0033-bytes-library-and-programs.md) tooling: the library reads into
   bytes, and the text programs use it — done, changelog "The library reads a
-  whole input into bytes, and no language change for it"; Linux runs owed
-- [0034](0034-clock.md) a clock — done, changelog "A clock"; Linux runs owed
+  whole input into bytes, and no language change for it"; Linux run with
+  0044
+- [0034](0034-clock.md) a clock — done, changelog "A clock"; Linux run with
+  0044
 - [0035](0035-type-parameters.md) research: how L0 gets type parameters —
   done; parametric data (0036), then library type names (0037), then
   parametric functions (0038)
 - [0036](0036-parametric-data.md) data types take type parameters — done,
-  changelog "Data types take type parameters"; Linux runs owed
+  changelog "Data types take type parameters"; Linux run with 0044
 - [0037](0037-library-type-names.md) a program's types do not collide with
   the library's — done, changelog "A program's types shadow the library's,
-  and Io names are no longer reserved"; Linux runs owed
+  and Io names are no longer reserved"; Linux run with 0044
 - [0039](0039-library-option-result.md) tooling: the library declares
   Option and Result — done, changelog "The library declares Option and
   Result, and no language change for it"
@@ -132,3 +141,6 @@ None.
 - [0043](0043-library-onto-eq.md) the library and the suite's programs use
   `eq` — done, changelog "The library compares with eq, and no language
   change for it"
+- [0044](0044-compiler-free-of-stage0.md) research: how the compiler and the
+  prelude stop being run by stage 0 — done; the tools first (0045), then
+  0046 and 0047

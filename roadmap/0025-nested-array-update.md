@@ -2,7 +2,7 @@
 
 Kind: language
 Status: done, changelog "A row of an array of rows updates in place, written
-the natural way"; Linux not yet run
+the natural way"; Linux run with 0044
 Needs: 0030
 
 ## Why
@@ -54,3 +54,5 @@ copies.
   `tests/io/array_rows`, `tests/io/array_row_order`, and three unit tests
   in `array_test.l0`. Both suites green on macOS; Docker was down, so the
   Linux runs are owed, with 0030's.
+- 2026-10-05: the Linux runs happened with 0044, whose tree includes this
+  change: both suites green on arm64 and amd64 (63 and 110).

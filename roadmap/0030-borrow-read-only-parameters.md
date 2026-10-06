@@ -1,7 +1,7 @@
 # 0030: Read-only parameters
 
 Kind: language
-Status: done, changelog "Read-only parameters"; Linux not yet run
+Status: done, changelog "Read-only parameters"; Linux run with 0044
 Needs: 0029
 
 ## Why
@@ -41,3 +41,5 @@ is.
   which is the flaw the first version had. `tests/lang/read_only` covers the
   shapes. Both suites green on macOS; Docker was down, so the Linux runs
   are owed. Next is 0025.
+- 2026-10-05: the Linux runs happened with 0044, whose tree includes this
+  change: both suites green on arm64 and amd64 (63 and 110).

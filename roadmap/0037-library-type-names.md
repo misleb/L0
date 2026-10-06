@@ -2,7 +2,7 @@
 
 Kind: language
 Status: done, changelog "A program's types shadow the library's, and Io
-names are no longer reserved"; Linux runs owed
+names are no longer reserved"; Linux run with 0044
 Needs: 0036
 
 ## Why
@@ -55,3 +55,5 @@ whether the library's general types get names reserved some other way.
     refresh
   - follow-up proposed as [0039](0039-library-option-result.md): the
     library can now declare `Option` and `Result` without breaking anyone
+- 2026-10-05: the Linux runs happened with 0044, whose tree includes this
+  change: both suites green on arm64 and amd64 (63 and 110).

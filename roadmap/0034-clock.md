@@ -1,7 +1,7 @@
 # 0034: A clock
 
 Kind: language
-Status: done, changelog "A clock"; Linux runs owed
+Status: done, changelog "A clock"; Linux run with 0044
 Needs: nothing
 
 ## Why
@@ -68,3 +68,6 @@ phase.l0:4:11: error: unknown function clock_ns
   - Both suites green (60 and 99), fixpoint holds, seed refreshed, and
     `tools/l0` rebuilt from the seed builds the phase program.
   - Docker was not running, so the Linux runs are owed with the others.
+- 2026-10-05: the Linux runs happened with 0044, whose tree includes this
+  change: both suites green on arm64 and amd64 (63 and 110), so
+  `tests/io/clock` passed against Linux's `CLOCK_MONOTONIC`.

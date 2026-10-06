@@ -1,0 +1,9 @@
+(def (count_of T) ((x T) (xs (list T)) (n int)) int
+  (if (is_empty xs)
+      n
+      (count_of x (tail xs) (if (eq x (head xs)) (add n 1) n))))
+
+(def main ((input (list int))) (list int)
+  (if (eq (count_of "a" (cons "a" (cons "b" (nil (list int)))) 0) 1)
+      "ok\n"
+      "no\n"))

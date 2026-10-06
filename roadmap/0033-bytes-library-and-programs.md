@@ -2,7 +2,7 @@
 
 Kind: tooling
 Status: done, changelog "The library reads a whole input into bytes, and no
-language change for it"; Linux runs owed
+language change for it"; Linux run with 0044
 Needs: 0032
 
 ## Why
@@ -56,3 +56,5 @@ and `lib/prelude.l0` cannot use the type at all while stage 0 runs it.
   - `lib/prelude.l0` unchanged: stage 0 runs it. Bytes comparison, written
     in sort and in wordfreq in different shapes, left out of the library.
   - `0026/bench/` deleted; 0026 points to git history for it.
+- 2026-10-05: the Linux runs happened with 0044, whose tree includes this
+  change: both suites green on arm64 and amd64 (63 and 110).

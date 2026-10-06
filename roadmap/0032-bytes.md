@@ -1,7 +1,7 @@
 # 0032: Bytes held one byte per byte
 
 Kind: language
-Status: done, changelog "Bytes, held one byte per byte"; Linux runs owed
+Status: done, changelog "Bytes, held one byte per byte"; Linux run with 0044
 Needs: 0031
 
 ## Why
@@ -66,3 +66,5 @@ after reading all, and `L0_RC_CHECK` clean on 0026's json and sort inputs.
   references byte for byte on the full inputs under `L0_RC_CHECK`, with
   nothing left live; their time and memory were not measured again, since
   the runtime code is 0026's with the names changed.
+- 2026-10-05: the Linux runs happened with 0044, whose tree includes this
+  change: both suites green on arm64 and amd64 (63 and 110).

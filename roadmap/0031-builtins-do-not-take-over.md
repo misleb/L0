@@ -2,7 +2,7 @@
 
 Kind: language
 Status: done, changelog "A new builtin does not take over a program's
-function"; Linux not yet run
+function"; Linux run with 0044
 Needs: 0026
 
 ## Why
@@ -75,3 +75,5 @@ Then the l0-bootstrap checklist, and:
   refreshed; Docker was down, so the Linux runs are owed, with 0030's and
   0025's. The shipped skill and `lib/AGENTS.md` say a definition wins over
   a builtin too. `0031/` stays, since the changelog cites it.
+- 2026-10-05: the Linux runs happened with 0044, whose tree includes this
+  change: both suites green on arm64 and amd64 (63 and 110).

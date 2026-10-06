@@ -1,7 +1,7 @@
 # 0036: Data types take type parameters
 
 Kind: language
-Status: done, changelog "Data types take type parameters"; Linux runs owed
+Status: done, changelog "Data types take type parameters"; Linux run with 0044
 Needs: 0035
 
 ## Why
@@ -75,3 +75,5 @@ opt.l0:1:7: error: a data declaration needs an uppercase type name
     message, `expected list, array, or a data type name after ( in a type`
   - both suites green, fixpoint holds, seed refreshed. Linux runs owed:
     the emitter changed and Docker was not running
+- 2026-10-05: the Linux runs happened with 0044, whose tree includes this
+  change: both suites green on arm64 and amd64 (63 and 110).
