@@ -1,0 +1,120 @@
+; 0051's prototypes of a map written once for every key and value type. A
+; hash builtin does not exist yet, so the caller passes each key's hash, h;
+; everything else is what the library's map would be. Tests: map_test.l0,
+; with l0 test; timings: bench.l0, built with l0 build and run with a count.
+
+; --------------------------------------------- a table in arrays, in place
+
+; Open addressing, linear probing. marks holds 0 for an empty slot and the
+; key's hash, made nonzero, for a full one, so most mismatches are told
+; apart without eq. The empty map holds no arrays, since there is no value
+; of an unknown type to fill them with until the first key arrives.
+(data (Map K V)
+  (MapEmpty)
+  (MapTable (array int) (array K) (array V) int))   ; marks, keys, values, count
+
+(def mark_of ((h int)) int (if (eq h 0) 1 h))
+
+(def slot_of ((h int) (cap int)) int
+  (mod (add (mod h cap) cap) cap))
+
+(def (map_put K V) ((m (Map K V)) (h int) (k K) (v V)) (Map K V)
+  (match m
+    ((MapEmpty)
+      (map_put (MapTable (array_new 8 0) (array_new 8 k) (array_new 8 v) 0) h k v))
+    ((MapTable ms ks vs n)
+      (if (gt (mul 2 (add n 1)) (array_len ms))
+          (map_put (grown ms ks vs n k v) h k v)
+          (probe_put ms ks vs n (mark_of h) (slot_of (mark_of h) (array_len ms)) k v)))))
+
+(def (probe_put K V) ((ms (array int)) (ks (array K)) (vs (array V)) (n int)
+                      (mk int) (i int) (k K) (v V)) (Map K V)
+  (let here (array_get ms i)
+    (if (eq here 0)
+        (MapTable (array_set ms i mk) (array_set ks i k) (array_set vs i v) (add n 1))
+        (if (if (eq here mk) (eq (array_get ks i) k) false)
+            (MapTable ms ks (array_set vs i v) n)
+            (probe_put ms ks vs n mk (mod (add i 1) (array_len ms)) k v)))))
+
+; Twice the slots, every full slot moved over; k and v fill the new arrays.
+(def (grown K V) ((ms (array int)) (ks (array K)) (vs (array V)) (n int) (k K) (v V))
+    (Map K V)
+  (let cap (mul 2 (array_len ms))
+    (move_all ms ks vs 0
+      (MapTable (array_new cap 0) (array_new cap k) (array_new cap v) 0))))
+
+(def (move_all K V) ((ms (array int)) (ks (array K)) (vs (array V)) (i int)
+                     (into (Map K V))) (Map K V)
+  (if (ge i (array_len ms))
+      into
+      (move_all ms ks vs (add i 1)
+        (if (eq (array_get ms i) 0)
+            into
+            (move_one into (array_get ms i) (array_get ks i) (array_get vs i))))))
+
+(def (move_one K V) ((m (Map K V)) (mk int) (k K) (v V)) (Map K V)
+  (match m
+    ((MapEmpty) m)
+    ((MapTable ms ks vs n) (probe_put ms ks vs n mk (slot_of mk (array_len ms)) k v))))
+
+(def (map_get K V) ((m (Map K V)) (h int) (k K)) (Option V)
+  (match m
+    ((MapEmpty) ((None V)))
+    ((MapTable ms ks vs n)
+      (probe_get ms ks vs (mark_of h) (slot_of (mark_of h) (array_len ms)) k))))
+
+(def (probe_get K V) ((ms (array int)) (ks (array K)) (vs (array V)) (mk int) (i int)
+                      (k K)) (Option V)
+  (let here (array_get ms i)
+    (if (eq here 0)
+        ((None V))
+        (if (if (eq here mk) (eq (array_get ks i) k) false)
+            (Some (array_get vs i))
+            (probe_get ms ks vs mk (mod (add i 1) (array_len ms)) k)))))
+
+(def (map_size K V) ((m (Map K V))) int
+  (match m ((MapEmpty) 0) ((MapTable ms ks vs n) n)))
+
+; ------------------------------------- a persistent hash trie, as PadMap is
+
+(data (KV K V) (KV K V))
+
+; A binary trie walked by the hash's low bits, 16 levels, with the keys that
+; share a path in a bucket at its end.
+(data (Trie K V)
+  (TLeaf)
+  (TNode (list (KV K V)) (Trie K V) (Trie K V)))
+
+(def (trie_put K V) ((t (Trie K V)) (path int) (depth int) (k K) (v V)) (Trie K V)
+  (match t
+    ((TLeaf) (trie_put (TNode (nil (KV K V)) ((TLeaf K V)) ((TLeaf K V))) path depth k v))
+    ((TNode b l r)
+      (if (eq depth 0)
+          (TNode (cons (KV k v) (without b k (nil (KV K V)))) l r)
+          (if (eq (mod path 2) 0)
+              (TNode b (trie_put l (div path 2) (sub depth 1) k v) r)
+              (TNode b l (trie_put r (div path 2) (sub depth 1) k v)))))))
+
+(def (without K V) ((b (list (KV K V))) (k K) (acc (list (KV K V)))) (list (KV K V))
+  (if (is_empty b)
+      acc
+      (match (head b)
+        ((KV bk bv) (without (tail b) k (if (eq bk k) acc (cons (head b) acc)))))))
+
+(def (trie_get K V) ((t (Trie K V)) (path int) (depth int) (k K)) (Option V)
+  (match t
+    ((TLeaf) ((None V)))
+    ((TNode b l r)
+      (if (eq depth 0)
+          (bucket_get b k)
+          (if (eq (mod path 2) 0)
+              (trie_get l (div path 2) (sub depth 1) k)
+              (trie_get r (div path 2) (sub depth 1) k))))))
+
+(def (bucket_get K V) ((b (list (KV K V))) (k K)) (Option V)
+  (if (is_empty b)
+      ((None V))
+      (match (head b)
+        ((KV bk bv) (if (eq bk k) (Some bv) (bucket_get (tail b) k))))))
+
+(def path_of ((h int)) int (slot_of h 65536))

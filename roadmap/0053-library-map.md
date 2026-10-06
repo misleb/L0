@@ -1,0 +1,34 @@
+# 0053: the prelude has a map for every key and value type
+
+Kind: language
+Status: queued
+Needs: 0052
+
+## Why
+
+[0051](0051-hash-and-map.md)'s finding: six hand-built tables in this
+repository, the compiler's `PadMap` among them, for want of one map that
+works at every type, and 0014's wordfreq used a tree, 3.5 times slower than
+0028's table in arrays. With `hash` (0052), the table in
+`roadmap/0051/map.l0` needs nothing passed in.
+
+## Done when
+
+- `lib/prelude.l0` declares `(Map K V)`, an open-addressing table in arrays
+  updated in place, starting from `roadmap/0051/map.l0`, with `map_put`,
+  `map_get` returning an `Option`, `map_size`, removal, and a way to list
+  the entries; the doc says an empty map is written `((MapEmpty K V))`,
+  and that updating a map something else still holds copies it, as arrays
+  do (spec 6.5)
+- tests at several key types (strings, ints, data, bytes), with many
+  collisions, growth, removal, and listing in a pinned order, under
+  `l0 test`'s reference-count check, and a timing against
+  `roadmap/0051/bench.l0`'s numbers
+- `tests/io/libdoc/index.txt` re-pinned, the `l0-code` skills and
+  `lib/examples.l0` show it, the changelog says why
+- both suites green, the fixpoint holds, the seed refreshed, since the
+  prelude is compiler source
+
+## Log
+
+- 2026-10-06: queued by 0051.

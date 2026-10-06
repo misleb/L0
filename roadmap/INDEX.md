@@ -21,24 +21,29 @@ now use (0043). The compiler and the prelude could use neither, since stage
 the tools no longer do (0045). The prelude has taken back the generic
 definitions, which the compiler now calls (0046), and the compiler is
 written with type parameters and `eq` throughout (0047). Left from 0041's
-candidates, each waiting for a program that needs it: a specified `hash`
-with a library map (the hash tries written four times), `compare`, and
-function values. 0049 found that a program can tell I/O failures apart only
-by their words or codes, which the checker cannot see, and opening a file
-now says which failure it was as a case typed per kind of open (0050).
-Reads, closes, flushes, and renames keep codes until a program needs more.
-0045's Linux runs are owed.
+candidates, `compare` and function values wait for a program that needs
+them. 0049 found that a program can tell I/O failures apart only by their
+words or codes, which the checker cannot see, and opening a file now says
+which failure it was as a case typed per kind of open (0050). Reads,
+closes, flushes, and renames keep codes until a program needs more. 0051
+found that no map can be written once for every key type, since nothing
+can hash a value of a type parameter: a specified `hash` comes first
+(0052), then a map in the prelude (0053), then the compiler and the suite
+move onto it (0054). 0045's Linux runs are owed.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0052](0052-hash-builtin.md) `hash` gives a value of any type a specified
+   integer — queued, next
+2. [0053](0053-library-map.md) the prelude has a map for every key and value
+   type — queued, needs 0052
 
 ## Other open items
 
-- [0051](0051-hash-and-map.md) research: how L0 gets a hash and a map —
-  proposed
+- [0054](0054-map-users.md) tooling: the compiler and the suite use the
+  library's map — queued, needs 0053
 
 ## Done and dropped
 
@@ -166,3 +171,5 @@ Empty.
 - [0050](0050-open-failures-named.md) tooling: opening a file says which
   failure it was, as a case the checker knows — done, changelog "Opening a
   file says which failure it was, and no language change for it"
+- [0051](0051-hash-and-map.md) research: how L0 gets a hash and a map —
+  done; `hash` (0052), then a library map (0053), then its users (0054)
