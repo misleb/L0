@@ -156,7 +156,7 @@
 
 (def compare_file ((name (list int)) (got (list int)) (path (list int))) int
   (match (open_in path)
-    ((IoFailed why)
+    ((IoFailed fault why)
       (fail_because name
         (append path (append ": " (append why
           "; run l0 test --bless to create it")))))
@@ -170,7 +170,7 @@
 
 (def bless_file ((name (list int)) (got (list int)) (path (list int))) int
   (match (open_out path)
-    ((IoFailed why) (fail_because name (append path (append ": " why))))
+    ((IoFailed fault why) (fail_because name (append path (append ": " why))))
     ((IoOpened f)
       (let w (file_write_str f got)
         (if (lt (file_close f) 0)

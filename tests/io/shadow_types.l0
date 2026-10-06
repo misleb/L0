@@ -28,7 +28,7 @@
       (match (file_read_all f)
         ((IoBytes b) (append "read " (digits (bytes_len b))))
         ((IoReadFailed c) "read failed")))
-    ((IoFailed why) why)))
+    ((IoFailed fault why) why)))
 
 (def main () int
   (let a (write_line (describe (Named "notes.txt")))

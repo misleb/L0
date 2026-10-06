@@ -36,7 +36,7 @@
 ; The first line of the file at path, read through a handle of its own.
 (def read_back ((path (list int))) (list int)
   (match (open_in path)
-    ((IoFailed why) why)
+    ((IoFailed fault why) why)
     ((IoOpened f)
       (let s (file_read_line f)
         (let c (file_close f)
@@ -46,7 +46,7 @@
 ; them before the close; and it refuses what is not open for writing.
 (def file_mode ((path (list int))) int
   (match (open_out path)
-    ((IoFailed why) (let e (write_err why) 1))
+    ((IoFailed fault why) (let e (write_err why) 1))
     ((IoOpened f)
       (let w (file_write_str f "abc")
         (let fl (file_flush f)

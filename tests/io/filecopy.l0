@@ -20,7 +20,7 @@
 
 (def copy_to ((src IoFile) (from (list int)) (to (list int))) int
   (match (open_out to)
-    ((IoFailed why) (complain to why))
+    ((IoFailed fault why) (complain to why))
     ((IoOpened dst)
       (let status (copy_bytes src dst)
         (let closed (file_close dst)
@@ -30,7 +30,7 @@
 
 (def copy ((from (list int)) (to (list int))) int
   (match (open_in from)
-    ((IoFailed why) (complain from why))
+    ((IoFailed fault why) (complain from why))
     ((IoOpened src)
       (let status (copy_to src from to)
         (let closed (file_close src)

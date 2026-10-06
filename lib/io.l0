@@ -125,25 +125,45 @@
 (data IoFile
   (IoFile int))
 
-;; The result of opening a file: (IoOpened f), or (IoFailed why), where why
-;; says in words what went wrong, such as "no such file".
-(data IoOpened
+;; The result of opening a file: (IoOpened f), or (IoFailed fault why), where
+;; fault says which failure it was, as a case of E, and why says it in words,
+;; such as "no such file", for a message. E is the kind of open's failures:
+;; OpenFault for reading, CreateFault for writing. Tell them apart with eq or
+;; match, as in (eq fault (OpenMissing)); the checker rejects a case that
+;; kind of open cannot give.
+(data (IoOpened E)
   (IoOpened IoFile)
-  (IoFailed (list int)))
+  (IoFailed E (list int)))
+
+;; Why opening a file to read failed: it does not exist, it may not be read,
+;; or anything else, such as its being a directory (spec section 6.3's -3,
+;; -4, and -5).
+(data OpenFault
+  (OpenMissing)
+  (OpenDenied)
+  (OpenFailed))
+
+;; Why creating a file, or opening one to append, failed: it exists and may
+;; not be written, or anything else, such as its directory not existing (spec
+;; section 6.3's -4 and -5). A missing file is not a failure here, since
+;; these create it.
+(data CreateFault
+  (CreateDenied)
+  (CreateFailed))
 
 ;; Opens the file at path for reading.
-(def open_in ((path (list int))) IoOpened
-  (opened (open_read path)))
+(def open_in ((path (list int))) (IoOpened OpenFault)
+  (opened_in (open_read path)))
 
 ;; Creates the file at path, or empties it if it exists, and opens it for
 ;; writing.
-(def open_out ((path (list int))) IoOpened
-  (opened (open_write path)))
+(def open_out ((path (list int))) (IoOpened CreateFault)
+  (opened_out (open_write path)))
 
 ;; Opens the file at path for writing at its end, creating it if it does not
 ;; exist; what it already holds is kept.
-(def open_appending ((path (list int))) IoOpened
-  (opened (open_append path)))
+(def open_appending ((path (list int))) (IoOpened CreateFault)
+  (opened_out (open_append path)))
 
 ;; Gives the file at from the name to, replacing any file already there in
 ;; one step, and returns 0, or a negative code with neither name changed. To
@@ -155,24 +175,32 @@
 ;; Opens a file that reads the bytes of s and then ends, held in memory. Code
 ;; that reads an IoFile cannot tell it from a file on disk, which is how to
 ;; test such code on a string.
-(def open_in_bytes ((s (list int))) IoOpened
-  (opened (open_bytes s)))
+(def open_in_bytes ((s (list int))) (IoOpened OpenFault)
+  (opened_in (open_bytes s)))
 
 ;; Opens a file in memory that keeps every byte written to it, for
 ;; buffer_contents to return. Code that writes an IoFile cannot tell it from
 ;; a file on disk, which is how to test such code's output as a string.
-(def open_out_buffer () IoOpened
-  (opened (open_buffer)))
+(def open_out_buffer () (IoOpened CreateFault)
+  (opened_out (open_buffer)))
 
 ;; Every byte written so far to f, a file from open_out_buffer, or the empty
 ;; list if f is not one. Close f with file_close when done with it.
 (def buffer_contents ((f IoFile)) (list int)
   (match f ((IoFile h) (buffer_bytes h))))
 
-(def opened ((h int)) IoOpened
-  (if (lt h 0)
-      (IoFailed (io_error h))
-      (IoOpened (IoFile h))))
+; The two places a code from opening becomes a case: h is a handle, or one of
+; the codes spec section 6.3 lets that kind of open return.
+(def opened_in ((h int)) (IoOpened OpenFault)
+  (if (ge h 0)
+      ((IoOpened OpenFault) (IoFile h))
+      (IoFailed (if (eq h -3) (OpenMissing) (if (eq h -4) (OpenDenied) (OpenFailed)))
+                (io_error h))))
+
+(def opened_out ((h int)) (IoOpened CreateFault)
+  (if (ge h 0)
+      ((IoOpened CreateFault) (IoFile h))
+      (IoFailed (if (eq h -4) (CreateDenied) (CreateFailed)) (io_error h))))
 
 ;; What a negative result from an I/O builtin means, in words: -1 "end of
 ;; input", -2 "not open in that direction", -3 "no such file", -4

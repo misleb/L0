@@ -1,7 +1,8 @@
 # 0050: tooling: opening a file says which failure it was, as a case the checker knows
 
 Kind: tooling
-Status: proposed
+Status: done, changelog "Opening a file says which failure it was, and no
+language change for it"
 Needs: 0049
 
 ## Why
@@ -58,3 +59,26 @@ OpenFault`.
 ## Log
 
 - 2026-10-06: proposed by 0049.
+- 2026-10-06: done.
+  - `lib/io.l0`: `(IoOpened E)`, `OpenFault`, `CreateFault`, documented
+    with the spec 6.3 codes; `opened` is now `opened_in` and `opened_out`,
+    the one place each kind of open's code becomes a case
+  - the 47 `IoFailed` arms in `lib/` and `tests/` bind `fault` too, each
+    found by the checker; `kvlog`'s `kv_load` tests `(eq fault
+    (OpenMissing))`; `io_test`'s four reason tests check the case and the
+    words
+  - `tests/io/open_faults`: every case each open can return, by its name
+    and words; the denied cases only where permission bits are enforced,
+    as `filecopy.sh` does, and they were (checked by hand on macOS); and
+    0049's mistake rejected by `l0 check` with the CreateFault/OpenFault
+    message
+  - `lib/examples.l0` gains `lines_or_none`, a missing file read as no
+    lines, with a test; the shipped `l0-code` skill says to test the case,
+    not the words; `tests/io/libdoc/index.txt` re-pinned, a diff of
+    exactly the new and changed entries
+  - both suites green (63, 111); `roadmap/0049/` deleted. No Linux run:
+    only the library and tests changed, and Docker is down, so 0045's runs
+    are still owed
+  - next: nothing queued. 0049's later candidates, each when a program
+    needs to tell their failures apart: reads (`IoLine`, `IoBytes`), and
+    the `int` results of `file_close`, `file_flush`, and `rename_file`

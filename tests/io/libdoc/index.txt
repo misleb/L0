@@ -71,19 +71,23 @@
       Every command-line argument, in order, not counting the program's name.
   (data IoFile (IoFile int))
       An open file.
-  (data IoOpened (IoOpened IoFile) (IoFailed (list int)))
-      The result of opening a file: (IoOpened f), or (IoFailed why), where why says in words what went wrong, such as "no such file".
-  open_in ((path (list int))) IoOpened
+  (data (IoOpened E) (IoOpened IoFile) (IoFailed E (list int)))
+      The result of opening a file: (IoOpened f), or (IoFailed fault why), where fault says which failure it was, as a case of E, and why says it in words, such as "no such file", for a message.
+  (data OpenFault (OpenMissing) (OpenDenied) (OpenFailed))
+      Why opening a file to read failed: it does not exist, it may not be read, or anything else, such as its being a directory (spec section 6.3's -3, -4, and -5).
+  (data CreateFault (CreateDenied) (CreateFailed))
+      Why creating a file, or opening one to append, failed: it exists and may not be written, or anything else, such as its directory not existing (spec section 6.3's -4 and -5).
+  open_in ((path (list int))) (IoOpened OpenFault)
       Opens the file at path for reading.
-  open_out ((path (list int))) IoOpened
+  open_out ((path (list int))) (IoOpened CreateFault)
       Creates the file at path, or empties it if it exists, and opens it for writing.
-  open_appending ((path (list int))) IoOpened
+  open_appending ((path (list int))) (IoOpened CreateFault)
       Opens the file at path for writing at its end, creating it if it does not exist; what it already holds is kept.
   rename_file ((from (list int)) (to (list int))) int
       Gives the file at from the name to, replacing any file already there in one step, and returns 0, or a negative code with neither name changed.
-  open_in_bytes ((s (list int))) IoOpened
+  open_in_bytes ((s (list int))) (IoOpened OpenFault)
       Opens a file that reads the bytes of s and then ends, held in memory.
-  open_out_buffer () IoOpened
+  open_out_buffer () (IoOpened CreateFault)
       Opens a file in memory that keeps every byte written to it, for buffer_contents to return.
   buffer_contents ((f IoFile)) (list int)
       Every byte written so far to f, a file from open_out_buffer, or the empty list if f is not one.

@@ -298,10 +298,17 @@ prompt appears before the program waits for its answer.
 **Files and arguments.** Use the wrappers `l0 doc io` lists, not the raw
 builtins.
 `(open_in path)`, `(open_out path)`, and `(open_appending path)` return
-`IoOpened`, and `match` makes you
-handle its `IoFailed` case, whose field says why in words. Then
-`file_read_byte`, `file_read_line`, `file_write_str`, and `file_close` work on
-the `IoFile` inside. `(arg_count)` and `(arg i)` are the command-line
+`IoOpened`, and `match` makes you handle its `IoFailed` case,
+`((IoFailed fault why) ...)`: `why` says what went wrong in words, for a
+message, and `fault` says which failure it was, as a case to test with `eq`
+or `match`. Opening to read gives an `OpenFault` (`OpenMissing`,
+`OpenDenied`, `OpenFailed`), and creating or appending a `CreateFault`
+(`CreateDenied`, `CreateFailed`), so a test for a case that open cannot give,
+such as `(eq fault (OpenMissing))` after `open_out`, does not compile. Test
+the case, not the words: `(eq fault (OpenMissing))` reads a missing file as
+empty, where comparing `why` with "no such file" type checks whatever it is
+compared with. Then `file_read_byte`, `file_read_line`, `file_write_str`, and
+`file_close` work on the `IoFile` inside. `(arg_count)` and `(arg i)` are the command-line
 arguments, not counting the program's name. `write_err` writes to standard
 error. Report failure by returning a nonzero exit status from `main`.
 

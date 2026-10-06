@@ -226,17 +226,36 @@
 ; ------------------------------------------------------- files and arguments
 
 ; Opening a file returns IoOpened, and match makes you handle IoFailed, whose
-; field says why. write_err writes to standard error. A main with no
-; parameters returns its exit status, so 1 reports failure to the shell.
+; fields say which failure it was and why, in words. write_err writes to
+; standard error. A main with no parameters returns its exit status, so 1
+; reports failure to the shell.
 (def first_line_of ((path (list int))) int
   (match (open_in path)
-    ((IoFailed why)
+    ((IoFailed fault why)
       (let w (write_err (append path (append ": " (append why "\n"))))
         1))
     ((IoOpened f)
       (let w (write_str (file_read_line f))
         (let c (file_close f)
           0)))))
+
+; The failure is a case, for code to test with eq or match, beside the words
+; for a message. Here a file that does not exist has no lines, and any other
+; failure is passed on. Each kind of open has its own cases, OpenFault for
+; reading and CreateFault for writing, so testing for OpenMissing after
+; open_out does not compile: creating a file cannot fail that way.
+(def lines_or_none ((path (list int))) (Result int (list int))
+  (match (open_in path)
+    ((IoFailed fault why)
+      (if (eq fault (OpenMissing))
+          ((Ok int (list int)) 0)
+          ((Err int (list int)) why)))
+    ((IoOpened f)
+      (let n (count_lines_in f 0)
+        (let c (file_close f)
+          (if (lt n 0)
+              ((Err int (list int)) (io_error n))
+              ((Ok int (list int)) n)))))))
 
 ; (arg_count) and (arg i) are the command-line arguments, not counting the
 ; program's name, and (args) is all of them as a list.
@@ -253,7 +272,7 @@
 (def replace_file ((path (list int)) (text (list int))) (list int)
   (let tmp (append path ".new")
     (match (open_out tmp)
-      ((IoFailed why) why)
+      ((IoFailed fault why) why)
       ((IoOpened f)
         (let w (file_write_str f text)
           (let c (file_close f)
@@ -266,7 +285,7 @@
 ; log keeps every line written to it.
 (def log_line ((path (list int)) (line (list int))) (list int)
   (match (open_appending path)
-    ((IoFailed why) why)
+    ((IoFailed fault why) why)
     ((IoOpened f)
       (let w (file_write_str f (append line "\n"))
         (let c (file_close f)

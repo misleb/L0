@@ -7,6 +7,50 @@ New entries go at the top.
 
 ---
 
+## Opening a file says which failure it was, and no language change for it
+
+**`IoOpened` takes the type of its failures** (roadmap items 0049 and
+0050): `(data (IoOpened E) (IoOpened IoFile) (IoFailed E (list int)))`.
+`open_in` and `open_in_bytes` return an `(IoOpened OpenFault)`, whose cases
+are `OpenMissing`, `OpenDenied`, and `OpenFailed`, and `open_out`,
+`open_appending`, and `open_out_buffer` an `(IoOpened CreateFault)`, with
+`CreateDenied` and `CreateFailed`: exactly the codes spec 6.3 lets each
+open return. A failure carries its case, for code to test with `eq` or
+`match`, and its words as before, for a message.
+
+**Why.** A program told a missing file from one it may not read by comparing
+words or a code, and the checker could say nothing of either. 0014's
+kvstore compared `IoFailed`'s words with "no such file", which 0014 recorded
+as a limit, since rewording the message would quietly turn every first `kv
+set` into an error; kvlog compared them with `(io_error -3)`. Worse, a test
+for a failure the call cannot produce type checked and never fired: 0048's
+first draft expected `open_out` on a missing directory to say "no such
+file", but spec 6.3 gives -3 only to `open_read` and `rename`. With a case
+per kind of open, `(eq fault (OpenMissing))` after `open_out` is a type
+error, `the second argument of eq must be CreateFault, but this is
+OpenFault`. "Reading a line can report a failure" gave `IoLine` a code
+rather than words for the same reason, and left `IoFailed` with words; this
+finishes that for opening.
+
+**Why not one failure type for every operation.** Its names would be real,
+but the checker would still accept a case the open cannot give, so 0048's
+mistake would still compile, and a complete `match` on a failure to create
+a file would have to handle cases that cannot happen. Constructor names are
+global within a group (7.1), so each type's cases carry its prefix.
+
+**What it cost.** Every `IoFailed` arm names one more field, `((IoFailed
+fault why) ...)`; the checker pointed at each of the 47 in the library and
+the tests, and those that report keep `why` as it was. A program holding
+an open's result writes its kind, `(IoOpened CreateFault)`; none here did
+but the library. Reads, closes, flushes, and renames keep their codes, since
+0049 found no program that tells their failures apart.
+
+The builtins are unchanged and still return codes; `opened_in` and
+`opened_out` in `lib/io.l0` are the one place an open's code becomes a case.
+No rule in `spec/L0.md` changed.
+
+---
+
 ## The compiler is written with type parameters and eq, and no language change for it
 
 **The compiler's copies are gone** (roadmap item 0047). Its 19 per-type

@@ -4,7 +4,7 @@
 
 (def contents ((path (list int))) (list int)
   (match (open_in path)
-    ((IoFailed why) (append "cannot read: " why))
+    ((IoFailed fault why) (append "cannot read: " why))
     ((IoOpened f)
       (let s (all_of f)
         (let c (file_close f)
@@ -42,17 +42,23 @@
 
 ; ------------------------------------------------------------------ opening
 
+; A failure is a case, tested with eq, and words, for a message.
 (def test_open_missing_file () int
   (match (open_in "/nonexistent/l0/file")
-    ((IoFailed why) (check_str "reason" why "no such file"))
+    ((IoFailed fault why)
+      (add (check_true "case" (eq fault (OpenMissing)))
+           (check_str "words" why "no such file")))
     ((IoOpened f) (check_true "should not have opened" false))))
 
 (def test_open_missing_file_raw () int
   (check_int "open_read" (open_read "/nonexistent/l0/file") -3))
 
+; Creating a file has no missing case: spec 6.3 gives a missing directory -5.
 (def test_create_in_missing_directory () int
   (match (open_out "no/such/directory/file.txt")
-    ((IoFailed why) (check_str "reason" why "input or output failed"))
+    ((IoFailed fault why)
+      (add (check_true "case" (eq fault (CreateFailed)))
+           (check_str "words" why "input or output failed")))
     ((IoOpened f) (check_true "should not have opened" false))))
 
 ; A path holding a zero byte cannot name a file.
@@ -63,7 +69,9 @@
 ; mistakes it for an empty file.
 (def test_read_a_directory () int
   (match (open_in ".")
-    ((IoFailed why) (check_str "reason" why "input or output failed"))
+    ((IoFailed fault why)
+      (add (check_true "case" (eq fault (OpenFailed)))
+           (check_str "words" why "input or output failed")))
     ((IoOpened f)
       (let c (file_close f)
         (check_true "a directory should not open" false)))))
@@ -77,7 +85,7 @@
 
 (def write_lines_file ((path (list int))) int
   (match (open_out path)
-    ((IoFailed why) 1)
+    ((IoFailed fault why) 1)
     ((IoOpened f)
       (let w (file_write_str f "one\n\nthree")
         (file_close f)))))
@@ -101,7 +109,7 @@
 (def test_file_read_line () int
   (let w (write_lines_file "lines2.txt")
     (match (open_in "lines2.txt")
-      ((IoFailed why) (check_str "open" why ""))
+      ((IoFailed fault why) (check_str "open" why ""))
       ((IoOpened f)
         (let lines (read_four f)
           (let c (file_close f)
@@ -125,7 +133,7 @@
 (def test_file_next_line () int
   (let w (write_lines_file "lines3.txt")
     (match (open_in "lines3.txt")
-      ((IoFailed why) (check_str "open" why ""))
+      ((IoFailed fault why) (check_str "open" why ""))
       ((IoOpened f)
         (let lines (next_five f)
           (let c (file_close f)
@@ -136,7 +144,7 @@
 ; A failed read is IoError, where file_read_line would have seen an end.
 (def test_next_line_of_a_file_being_written () int
   (match (open_out "written.txt")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (let l (line_text (file_next_line f))
         (let c (file_close f)
@@ -146,7 +154,7 @@
 (def test_end_of_input_sticks () int
   (let w (write_lines_file "short.txt")
     (match (open_in "short.txt")
-      ((IoFailed why) (check_str "open" why ""))
+      ((IoFailed fault why) (check_str "open" why ""))
       ((IoOpened f)
         (let all (all_of f)
           (let again (file_read_byte f)
@@ -158,7 +166,7 @@
 (def test_open_out_truncates () int
   (let w1 (write_lines_file "trunc.txt")
     (match (open_out "trunc.txt")
-      ((IoFailed why) (check_str "open" why ""))
+      ((IoFailed fault why) (check_str "open" why ""))
       ((IoOpened f)
         (let w (file_write_str f "x")
           (let c (file_close f)
@@ -168,7 +176,7 @@
 (def test_closed_handle () int
   (let w (write_lines_file "closed.txt")
     (match (open_in "closed.txt")
-      ((IoFailed why) (check_str "open" why ""))
+      ((IoFailed fault why) (check_str "open" why ""))
       ((IoOpened f)
         (match f
           ((IoFile h)
@@ -187,7 +195,7 @@
 
 (def test_large_file () int
   (match (open_out "large.bin")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (let w (write_n f 200000)
         (let c (file_close f)
@@ -197,7 +205,7 @@
 
 (def append_str ((path (list int)) (s (list int))) int
   (match (open_appending path)
-    ((IoFailed why) 1)
+    ((IoFailed fault why) 1)
     ((IoOpened f)
       (let w (file_write_str f s)
         (file_close f)))))
@@ -214,7 +222,9 @@
 
 (def test_append_in_missing_directory () int
   (match (open_appending "no/such/directory/file.txt")
-    ((IoFailed why) (check_str "reason" why "input or output failed"))
+    ((IoFailed fault why)
+      (add (check_true "case" (eq fault (CreateFailed)))
+           (check_str "words" why "input or output failed")))
     ((IoOpened f) (check_true "should not have opened" false))))
 
 ; Two handles appending to one file: each delivery goes at the end as the
@@ -233,7 +243,7 @@
 
 (def write_file ((path (list int)) (s (list int))) int
   (match (open_out path)
-    ((IoFailed why) 1)
+    ((IoFailed fault why) 1)
     ((IoOpened f)
       (let w (file_write_str f s)
         (file_close f)))))
@@ -355,10 +365,10 @@
 ; The wrappers, with the file_ functions, as a program's code would use them.
 (def test_file_functions_on_memory () int
   (match (open_in_bytes "one\ntwo\n")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened in)
       (match (open_out_buffer)
-        ((IoFailed why) (check_str "open" why ""))
+        ((IoFailed fault why) (check_str "open" why ""))
         ((IoOpened out)
           (let a (file_write_str out (take_line (file_read_line in)))
             (let b (file_write_str out (take_line (file_read_line in)))
@@ -377,7 +387,7 @@
 
 (def test_read_all_of_memory () int
   (match (open_in_bytes "one\ntwo")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (let s (all_of f)
         (let again (file_read_byte f)
@@ -387,7 +397,7 @@
 
 (def test_read_all_after_a_line () int
   (match (open_in_bytes "one\ntwo\n")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (let l (file_read_line f)
         (let s (all_of f)
@@ -397,7 +407,7 @@
 
 (def test_read_all_of_nothing () int
   (match (open_in_bytes "")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (match (file_read_all f)
         ((IoReadFailed code) (check_int "should have read" code 0))
@@ -408,7 +418,7 @@
 ; Reading a file open only for writing fails, rather than looking empty.
 (def test_read_all_wrong_direction () int
   (match (open_out_buffer)
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (let s (all_of f)
         (let c (file_close f)
@@ -416,14 +426,14 @@
 
 (def test_read_all_after_close () int
   (match (open_in_bytes "abc")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (let c (file_close f)
         (check_str "failure" (all_of f) "cannot read: not open in that direction")))))
 
 (def written_range ((b bytes) (i int) (j int)) (list int)
   (match (open_out_buffer)
-    ((IoFailed why) why)
+    ((IoFailed fault why) why)
     ((IoOpened f)
       (let w (file_write_bytes f b i j)
         (let s (buffer_contents f)
@@ -438,7 +448,7 @@
 
 (def test_file_write_bytes_wrong_direction () int
   (match (open_in_bytes "x")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (let w (file_write_bytes f (bytes_from_list "ab") 0 2)
         (let c (file_close f)
@@ -446,7 +456,7 @@
 
 (def test_file_write_bytes_past_the_end () int
   (match (open_out_buffer)
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f) (file_write_bytes f (bytes_from_list "ab") 1 3))))
 
 (def expect_file_write_bytes_past_the_end () (list int)
@@ -455,7 +465,7 @@
 ; Bytes read from one file and written to another arrive unchanged.
 (def test_copy_through_bytes () int
   (match (open_in_bytes (rand_bytes 7 5000))
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened in)
       (match (file_read_all in)
         ((IoReadFailed code) (check_int "read" code 0))

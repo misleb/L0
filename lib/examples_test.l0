@@ -91,7 +91,7 @@
 ; whose contents buffer_contents returns.
 (def written_first_line ((text (list int))) (list int)
   (match (open_out_buffer)
-    ((IoFailed why) why)
+    ((IoFailed fault why) why)
     ((IoOpened f)
       (let w (write_first_line f (bytes_from_list text))
         (let s (buffer_contents f)
@@ -105,7 +105,7 @@
 ; Code that reads an IoFile is tested by giving it a string to read.
 (def lines_in ((text (list int))) int
   (match (open_in_bytes text)
-    ((IoFailed why) -100)
+    ((IoFailed fault why) -100)
     ((IoOpened f)
       (let n (count_lines_in f 0)
         (let c (file_close f)
@@ -114,6 +114,16 @@
 (def test_count_lines_in () int
   (add (check_int "three" (lines_in "one\n\nthree") 3)
        (check_int "none" (lines_in "") 0)))
+
+; A missing file reads as no lines; a directory, which cannot be read, is
+; the failure passed on.
+(def test_lines_or_none () int
+  (add (match (lines_or_none "no/such/file")
+         ((Ok n) (check_int "missing" n 0))
+         ((Err why) (check_str "should have been none" why "")))
+       (match (lines_or_none ".")
+         ((Ok n) (check_true "a directory should fail" false))
+         ((Err why) (check_str "directory" why "input or output failed")))))
 
 ; A test must not leave files behind, since l0 test runs wherever it is
 ; started, so code that writes files is tested where it fails. Creating a

@@ -12,7 +12,7 @@
 
 (def contents ((path (list int))) (list int)
   (match (open_in path)
-    ((IoFailed why) (append "cannot read: " why))
+    ((IoFailed fault why) (append "cannot read: " why))
     ((IoOpened f)
       (let s (bytes_of f (nil int))
         (let c (file_close f)

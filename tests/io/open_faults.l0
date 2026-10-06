@@ -1,0 +1,36 @@
+; open_faults MODE PATH: opens PATH to read (r), to write (w), or to append
+; (a), and writes which failure it was, by its case, or "opened" if it
+; opened. open_faults.sh makes each failure happen.
+
+(def open_fault_name ((f OpenFault)) (list int)
+  (match f
+    ((OpenMissing) "OpenMissing")
+    ((OpenDenied) "OpenDenied")
+    ((OpenFailed) "OpenFailed")))
+
+(def create_fault_name ((f CreateFault)) (list int)
+  (match f
+    ((CreateDenied) "CreateDenied")
+    ((CreateFailed) "CreateFailed")))
+
+(def reading ((path (list int))) (list int)
+  (match (open_in path)
+    ((IoFailed fault why) (append (open_fault_name fault) (append ": " why)))
+    ((IoOpened f) (let c (file_close f) "opened"))))
+
+; A program writes the kind of open in the type when it holds the result.
+(def writing ((r (IoOpened CreateFault))) (list int)
+  (match r
+    ((IoFailed fault why) (append (create_fault_name fault) (append ": " why)))
+    ((IoOpened f) (let c (file_close f) "opened"))))
+
+(def main () int
+  (let mode (arg 0)
+    (let path (arg 1)
+      (let w (write_line
+               (if (eq mode "r")
+                   (reading path)
+                   (if (eq mode "w")
+                       (writing (open_out path))
+                       (writing (open_appending path)))))
+        0))))

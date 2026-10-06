@@ -7,10 +7,10 @@
 
 (def run ((s (list int)) (n int)) Run
   (match (open_in_bytes s)
-    ((IoFailed why) (Ran (nil int) (CsvBad (append "cannot open: " why))))
+    ((IoFailed fault why) (Ran (nil int) (CsvBad (append "cannot open: " why))))
     ((IoOpened in)
       (match (open_out_buffer)
-        ((IoFailed why)
+        ((IoFailed fault why)
           (let c (file_close in)
             (Ran (nil int) (CsvBad (append "cannot open: " why)))))
         ((IoOpened out) (run_on in out n))))))

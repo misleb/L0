@@ -24,9 +24,10 @@ written with type parameters and `eq` throughout (0047). Left from 0041's
 candidates, each waiting for a program that needs it: a specified `hash`
 with a library map (the hash tries written four times), `compare`, and
 function values. 0049 found that a program can tell I/O failures apart only
-by their words or codes, which the checker cannot see, so opening a file
-will say which failure it was as a typed case (0050). 0045's Linux runs are
-owed.
+by their words or codes, which the checker cannot see, and opening a file
+now says which failure it was as a case typed per kind of open (0050).
+Reads, closes, flushes, and renames keep codes until a program needs more.
+0045's Linux runs are owed.
 
 ## Language queue
 
@@ -36,8 +37,7 @@ Empty.
 
 ## Other open items
 
-- [0050](0050-open-failures-named.md) tooling: opening a file says which
-  failure it was, as a case the checker knows — proposed, next
+None.
 
 ## Done and dropped
 
@@ -162,3 +162,6 @@ Empty.
 - [0049](0049-io-failure-names.md) research: whether I/O failures should be
   named cases rather than codes — done; typed failures for opening (0050)
   first
+- [0050](0050-open-failures-named.md) tooling: opening a file says which
+  failure it was, as a case the checker knows — done, changelog "Opening a
+  file says which failure it was, and no language change for it"

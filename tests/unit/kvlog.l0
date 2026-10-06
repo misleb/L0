@@ -21,7 +21,7 @@
 ; 0, or 1 if the record could not be written.
 (def kv_append ((path (list int)) (rec (list int))) int
   (match (open_appending path)
-    ((IoFailed why) 1)
+    ((IoFailed fault why) 1)
     ((IoOpened f)
       (let w (file_write_str f rec)
         (if (lt (file_close f) 0) 1 0)))))
@@ -37,8 +37,8 @@
 ; A store that was never written is empty.
 (def kv_load ((path (list int))) (Result (list Entry) (list int))
   (match (open_in path)
-    ((IoFailed why)
-      (if (eq why (io_error -3))
+    ((IoFailed fault why)
+      (if (eq fault (OpenMissing))
           ((Ok (list Entry) (list int)) (nil Entry))
           ((Err (list Entry) (list int)) why)))
     ((IoOpened f)
@@ -105,7 +105,7 @@
 (def replace_with ((path (list int)) (es (list Entry))) int
   (let tmp (append path ".tmp")
     (match (open_out tmp)
-      ((IoFailed why) 1)
+      ((IoFailed fault why) 1)
       ((IoOpened f)
         (let w (write_entries f es)
           (if (lt (file_close f) 0)

@@ -13,7 +13,7 @@
 ; file_flush in lib/io.l0 calls flush, and gets the builtin.
 (def test_library_flush () int
   (match (open_out_buffer)
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f) (check_int "the library's flush" (file_flush f) 0))))
 
 ; A different arity from the builtin's.

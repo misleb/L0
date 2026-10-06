@@ -14,7 +14,7 @@
 
 (def read_back ((path (list int))) (list int)
   (match (open_in path)
-    ((IoFailed why) why)
+    ((IoFailed fault why) why)
     ((IoOpened f)
       (match (file_read_all f)
         ((IoBytes b)
@@ -26,7 +26,7 @@
 
 (def test_evaluation_order () int
   (match (open_out "order.txt")
-    ((IoFailed why) (check_str "open" why ""))
+    ((IoFailed fault why) (check_str "open" why ""))
     ((IoOpened f)
       (let w (write_in_order f)
         (let c (file_close f)
