@@ -35,8 +35,9 @@ shows one in full. What you would have written may already be there.
 
 **Read the examples before writing anything substantial.** `l0 examples
 --path` names two files: working programs covering recursion, strings, data
-types, `match`, returning several values, reporting failure, arrays, and
-bytes, and tests of them.
+types, `match`, returning several values, reporting failure, type
+parameters, reading and writing, files, arrays and grids, bytes, and timing,
+and tests of them.
 
 Everything these commands show comes from the installed toolchain, so it
 always describes the compiler that builds this project. Nothing of it is

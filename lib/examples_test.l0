@@ -102,6 +102,52 @@
   (add (check_str "with newline" (written_first_line "one\ntwo\n") "one\n")
        (check_str "without" (written_first_line "only") "only")))
 
+; Code that reads an IoFile is tested by giving it a string to read.
+(def lines_in ((text (list int))) int
+  (match (open_in_bytes text)
+    ((IoFailed why) -100)
+    ((IoOpened f)
+      (let n (count_lines_in f 0)
+        (let c (file_close f)
+          n)))))
+
+(def test_count_lines_in () int
+  (add (check_int "three" (lines_in "one\n\nthree") 3)
+       (check_int "none" (lines_in "") 0)))
+
+; A test must not leave files behind, since l0 test runs wherever it is
+; started, so code that writes files is tested where it fails. Creating a
+; file in a directory that does not exist is spec section 6.3's -5, any
+; other failure, which io_error words as "input or output failed".
+(def test_replace_file_reports () int
+  (check_str "missing directory" (replace_file "no/such/dir/notes" "x")
+             "input or output failed"))
+
+(def test_log_line_reports () int
+  (check_str "missing directory" (log_line "no/such/dir/log" "x")
+             "input or output failed"))
+
+; Many pushes, so that a stack copying its array on every push, rather than
+; growing it by doubling and updating it in place, would take far too long.
+(def one_to ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (one_to (sub n 1) (cons n acc))))
+
+(def test_stack () int
+  (match (stack_of (one_to 100000 (nil int)) (Stack (array_new 0 0) 0))
+    ((Stack a n)
+      (add (check_int "count" n 100000)
+           (add (check_int "top" (stack_top (Stack a n)) 100000)
+                (check_true "room" (ge (array_len a) n)))))))
+
+; The rows array_new shares are told apart on their first update.
+(def test_grid () int
+  (let g (grid_set (array_new 3 (array_new 3 0)) 1 2 5)
+    (add (check_int "set" (grid_get g 1 2) 5)
+         (check_int "other row" (grid_get g 0 2) 0))))
+
+(def test_vowel_count_ns () int
+  (check_true "never negative" (ge (vowel_count_ns "education") 0)))
+
 ; A property test: the two ways of summing agree on many pseudo-random
 ; lists. rand_next and rand_below come from l0 doc test, and give the same
 ; sequence on every run, so a failure can be reproduced.

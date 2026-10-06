@@ -33,7 +33,8 @@ Empty.
 
 ## Other open items
 
-None.
+- [0049](0049-io-failure-names.md) research: whether I/O failures should be
+  named cases rather than codes — proposed
 
 ## Done and dropped
 
@@ -153,3 +154,5 @@ None.
 - [0047](0047-compiler-uses-generics.md) the compiler uses type parameters
   and eq — done, changelog "The compiler is written with type parameters
   and eq, and no language change for it"
+- [0048](0048-examples-current.md) tooling: the examples show what L0 has
+  gained since they were written — done

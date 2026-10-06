@@ -38,9 +38,10 @@
 (def shout ((ignored int)) (list int)
   "HELLO\n")
 
+; A membership test is one call, not a chain of or: a string is a list of
+; its bytes, and any_eq works on a list of anything.
 (def is_vowel ((c int)) bool
-  (or (eq c 97) (or (eq c 101) (or (eq c 105)
-      (or (eq c 111) (eq c 117))))))
+  (any_eq c "aeiou"))
 
 (def count_vowels ((xs (list int)) (acc int)) int
   (if (is_empty xs)
@@ -209,8 +210,18 @@
     (take_line (read_line))))
 
 ; read_line returns the empty list only at end of input; a blank line is "\n".
+; A failed read looks like the end of input too, which is fine for a prompt.
 (def count_lines ((n int)) int
   (if (is_empty (read_line)) n (count_lines (add n 1))))
+
+; When a failed read must not pass for the end, next_line, or file_next_line
+; for a file, gives an IoLine, whose IoError case match makes you handle.
+; Here the result is the number of lines, or the read's negative error code.
+(def count_lines_in ((f IoFile) (n int)) int
+  (match (file_next_line f)
+    ((IoLine s) (count_lines_in f (add n 1)))
+    ((IoEnd) n)
+    ((IoError code) code)))
 
 ; ------------------------------------------------------- files and arguments
 
@@ -234,6 +245,38 @@
       (let w (write_err "usage: first FILE\n") 2)
       (first_line_of (arg 0))))
 
+; Writes are held back, so a write that fails, on a full disk say, shows only
+; in what file_close or file_flush returns: check it after writing. To replace
+; a file, write the new contents under another name and rename that over the
+; old, so a reader sees the old file or the new one and never half of one.
+; The result is "" when it worked, and otherwise why it did not.
+(def replace_file ((path (list int)) (text (list int))) (list int)
+  (let tmp (append path ".new")
+    (match (open_out tmp)
+      ((IoFailed why) why)
+      ((IoOpened f)
+        (let w (file_write_str f text)
+          (let c (file_close f)
+            (if (lt c 0)
+                (io_error c)
+                (let r (rename_file tmp path)
+                  (if (lt r 0) (io_error r) "")))))))))
+
+; open_appending writes at the end of a file, creating it if need be, so a
+; log keeps every line written to it.
+(def log_line ((path (list int)) (line (list int))) (list int)
+  (match (open_appending path)
+    ((IoFailed why) why)
+    ((IoOpened f)
+      (let w (file_write_str f (append line "\n"))
+        (let c (file_close f)
+          (if (lt c 0) (io_error c) ""))))))
+
+; A function that reads or writes an IoFile cannot tell a file on disk from
+; one in memory, so it is tested on a string: open_in_bytes reads one, and
+; open_out_buffer keeps what is written for buffer_contents. See
+; count_lines_in's test.
+
 ; ------------------------------------------------------------------- arrays
 
 ; An (array T) is read and updated by index in constant time. array_set
@@ -256,6 +299,38 @@
       best
       (index_of_max a (add i 1)
         (if (gt (array_get a i) (array_get a best)) i best))))
+
+; An array has a fixed length, and array_resize copies it into a longer one,
+; so grow it by doubling when it fills: then each element is copied a
+; constant number of times on average. A data value keeps the array and how
+; much of it is in use; taking it apart with match at its last use leaves the
+; array with one holder, so array_set still updates in place.
+(data IntStack
+  (Stack (array int) int))                ; elements, how many are in use
+
+(def stack_push ((s IntStack) (x int)) IntStack
+  (match s
+    ((Stack a n)
+      (let b (if (lt n (array_len a)) a (array_resize a (mul 2 (add n 1)) 0))
+        (Stack (array_set b n x) (add n 1))))))
+
+(def stack_of ((xs (list int)) (s IntStack)) IntStack
+  (if (is_empty xs) s (stack_of (tail xs) (stack_push s (head xs)))))
+
+(def stack_top ((s IntStack)) int
+  (match s ((Stack a n) (array_get a (sub n 1)))))
+
+; A grid is an array of rows. A cell updates in place only when written in
+; exactly this form, the row read and replaced within one expression; bind
+; the row with let first and it is copied (spec section 6.5). array_new of a
+; row makes every row the same array, so each is copied once, on its first
+; update, and after that each update is in place.
+(def grid_set ((g (array (array int))) (y int) (x int) (v int))
+    (array (array int))
+  (array_set g y (array_set (array_get g y) x v)))
+
+(def grid_get ((g (array (array int))) (y int) (x int)) int
+  (array_get (array_get g y) x))
 
 ; -------------------------------------------------------------------- bytes
 
@@ -285,6 +360,18 @@
   (if (ge i (bytes_len b))
       i
       (if (eq (bytes_get b i) 10) (add i 1) (line_end b (add i 1)))))
+
+; -------------------------------------------------------------------- time
+
+; clock_ns reads a clock that never goes back, so the difference of two
+; readings is the time that passed between them, in nanoseconds. A reading on
+; its own means nothing. Reading it is an effect, so let puts the readings
+; around the work, which happens even though n is never used.
+(def vowel_count_ns ((xs (list int))) int
+  (let t0 (clock_ns)
+    (let n (count_vowels xs 0)
+      (let t1 (clock_ns)
+        (sub t1 t0)))))
 
 ; --------------------------------------------------------- the entry point
 
