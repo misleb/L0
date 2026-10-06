@@ -46,7 +46,7 @@
 ; emitter builds the constructor table from the declarations itself, so it
 ; still needs nothing the checker produced.
 (data Env
-  (Ev (list EBind) Ctx (list (list int)) PadMap))
+  (Ev (list EBind) Ctx (list (list int)) (Map (list int) Pad)))
 
 (data EnvEmit
   (EnvSt Env Emit))
@@ -54,7 +54,7 @@
 (def env_binds ((e Env)) (list EBind) (match e ((Ev b c p k) b)))
 (def env_ctx ((e Env)) Ctx (match e ((Ev b c p k) c)))
 (def env_prelude ((e Env)) (list (list int)) (match e ((Ev b c p k) p)))
-(def env_pads ((e Env)) PadMap (match e ((Ev b c p k) k)))
+(def env_pads ((e Env)) (Map (list int) Pad) (match e ((Ev b c p k) k)))
 
 (def env_bind ((n (list int)) (op (list int)) (t Ty) (e Env)) Env
   (match e ((Ev b c p k) (Ev (cons (EB n op t false) b) c p k))))
@@ -1121,7 +1121,7 @@
 
 (def module_pads ((ds (list Decl)) (pre int) (ppre (list (list int)))
                   (pprog (list (list int))) (bpre (list (list int)))
-                  (bprog (list (list int)))) PadMap
+                  (bprog (list (list int)))) (Map (list int) Pad)
   (let ns (graph_nodes ds pre ppre pprog bpre bprog)
     (pad_map
       (pad_table ns
@@ -1129,63 +1129,28 @@
         (module_read_only (ro_fns ds pre ppre pprog bpre bprog)
                           (collect_ctor_infos ds (nil CtorInfo)))
         (nil Pad))
-      (PmLeaf))))
+      ((MapEmpty (list int) Pad)))))
 
-; The pad table, looked up at every call, as a tree walked by the bits of a
-; hash of the symbol, with the symbols that share a path in a bucket at its
-; end, so a lookup costs a dozen steps rather than a scan of every function.
-(data PadMap
-  (PmLeaf)
-  (PmNode (list Pad) PadMap PadMap))
-
-(def sym_hash ((s (list int)) (h int)) int
-  (if (is_empty s)
-      (mod h 4096)
-      (sym_hash (tail s) (mod (add (mul h 31) (head s)) 1000003))))
-
-(def pad_map ((ps (list Pad)) (m PadMap)) PadMap
+; The pad table, looked up at every call: each function's symbol to its Pad,
+; in the prelude's map. A symbol given twice keeps the later Pad.
+(def pad_map ((ps (list Pad)) (m (Map (list int) Pad)))
+    (Map (list int) Pad)
   (if (is_empty ps)
       m
       (match (head ps)
-        ((Pd n k ro) (pad_map (tail ps) (pm_add m (sym_hash n 7) (head ps)))))))
+        ((Pd n k ro) (pad_map (tail ps) (map_put m n (head ps)))))))
 
-(def pm_add ((m PadMap) (k int) (p Pad)) PadMap
-  (match m
-    ((PmLeaf) (pm_add (PmNode (nil Pad) (PmLeaf) (PmLeaf)) k p))
-    ((PmNode b l r)
-      (if (eq k 0)
-          (PmNode (cons p b) l r)
-          (if (eq (mod k 2) 0)
-              (PmNode b (pm_add l (div k 2) p) r)
-              (PmNode b l (pm_add r (div k 2) p)))))))
-
-(def pm_bucket ((m PadMap) (k int)) (list Pad)
-  (match m
-    ((PmLeaf) (nil Pad))
-    ((PmNode b l r)
-      (if (eq k 0)
-          b
-          (if (eq (mod k 2) 0) (pm_bucket l (div k 2)) (pm_bucket r (div k 2)))))))
-
-(def pad_of ((s (list int)) (m PadMap)) int
-  (pad_in s (pm_bucket m (sym_hash s 7))))
-
-(def pad_in ((s (list int)) (ps (list Pad))) int
-  (if (is_empty ps)
-      0
-      (match (head ps)
-        ((Pd n k ro) (if (eq s n) k (pad_in s (tail ps)))))))
+(def pad_of ((s (list int)) (m (Map (list int) Pad))) int
+  (match (map_get m s)
+    ((None) 0)
+    ((Some p) (match p ((Pd n k ro) k)))))
 
 ; Which parameters of the function s are read-only, spec 10.3; empty for a
 ; symbol not in the table.
-(def read_only_of ((s (list int)) (m PadMap)) (list bool)
-  (read_only_in s (pm_bucket m (sym_hash s 7))))
-
-(def read_only_in ((s (list int)) (ps (list Pad))) (list bool)
-  (if (is_empty ps)
-      (nil bool)
-      (match (head ps)
-        ((Pd n k ro) (if (eq s n) ro (read_only_in s (tail ps)))))))
+(def read_only_of ((s (list int)) (m (Map (list int) Pad))) (list bool)
+  (match (map_get m s)
+    ((None) (nil bool))
+    ((Some p) (match p ((Pd n k ro) ro)))))
 
 ; ------------------------------------------------------ read-only parameters
 ;
@@ -1252,7 +1217,8 @@
     (ro_apply own (ro_demotions own own (ro_table own) cs (nil Demote)))))
 
 ; Each function's flags from its own body.
-(def ro_own_all ((todo (list RoFn)) (table PadMap) (cs (list CtorInfo)))
+(def ro_own_all ((todo (list RoFn)) (table (Map (list int) Pad))
+                 (cs (list CtorInfo)))
     (list RoFn)
   (if (is_empty todo)
       (nil RoFn)
@@ -1265,17 +1231,18 @@
 ; them, the builtins, the prelude names its calls reach, and the
 ; constructors. The emitter builds one too, to bind fields (emit_field_loads).
 (data RoCx
-  (Rx PadMap (list (list int)) (list (list int)) (list CtorInfo)))
+  (Rx (Map (list int) Pad) (list (list int)) (list (list int))
+      (list CtorInfo)))
 
-(def ro_table ((fs (list RoFn))) PadMap
-  (pad_map (ro_pads fs) (PmLeaf)))
+(def ro_table ((fs (list RoFn))) (Map (list int) Pad)
+  (pad_map (ro_pads fs) ((MapEmpty (list int) Pad))))
 
 (def ro_pads ((fs (list RoFn))) (list Pad)
   (if (is_empty fs)
       (nil Pad)
       (cons (Pd (rf_sym (head fs)) 0 (rf_flags (head fs))) (ro_pads (tail fs)))))
 
-(def rx_pads ((x RoCx)) PadMap (match x ((Rx f b p c) f)))
+(def rx_pads ((x RoCx)) (Map (list int) Pad) (match x ((Rx f b p c) f)))
 (def rx_bs ((x RoCx)) (list (list int)) (match x ((Rx f b p c) b)))
 (def rx_pn ((x RoCx)) (list (list int)) (match x ((Rx f b p c) p)))
 (def rx_cs ((x RoCx)) (list CtorInfo) (match x ((Rx f b p c) c)))
@@ -1383,7 +1350,8 @@
 
 ; Every read-only position a tail call gives anything but a read-only
 ; parameter of the caller.
-(def ro_demotions ((todo (list RoFn)) (fs (list RoFn)) (table PadMap)
+(def ro_demotions ((todo (list RoFn)) (fs (list RoFn))
+                   (table (Map (list int) Pad))
                    (cs (list CtorInfo)) (acc (list Demote)))
     (list Demote)
   (if (is_empty todo)
@@ -1540,12 +1508,12 @@
 ; against, the names among them that land in the prelude, which group it is,
 ; and how many parameters every function takes.
 (data Scope
-  (Sc Ctx (list (list int)) bool PadMap))
+  (Sc Ctx (list (list int)) bool (Map (list int) Pad)))
 
 (def sc_ctx ((s Scope)) Ctx (match s ((Sc c p i k) c)))
 (def sc_prelude_names ((s Scope)) (list (list int)) (match s ((Sc c p i k) p)))
 (def sc_is_prelude ((s Scope)) bool (match s ((Sc c p i k) i)))
-(def sc_pads ((s Scope)) PadMap (match s ((Sc c p i k) k)))
+(def sc_pads ((s Scope)) (Map (list int) Pad) (match s ((Sc c p i k) k)))
 
 ; A program is a closed module, and the runtime reaches into it by name for
 ; exactly one function, so everything else gets internal linkage and LLVM can

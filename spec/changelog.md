@@ -7,6 +7,36 @@ New entries go at the top.
 
 ---
 
+## The compiler and the suite keep their tables in the library's map, and no language change for it
+
+**The compiler's pad table is a `(Map (list int) Pad)`** (roadmap item
+0054), where it was `PadMap`, a binary trie walked by twelve bits of
+`sym_hash`, a polynomial string hash of its own, with a bucket at each end.
+`pad_map`, `pad_of`, and `read_only_of` are three short functions over the
+map, and `PadMap`, `sym_hash`, `pm_add`, `pm_bucket`, `pad_in`, and
+`read_only_in` are gone. A symbol given twice keeps the later `Pad`, as the
+trie's bucket did, since it consed the later one in front.
+
+**`tests/io/array_paths/graph.l0` names its nodes in a `(Map (list int)
+int)`**, where it had `NameMap`, the same kind of trie, with `name_hash`.
+`array_paths.sh` already requires that no array update copies, and the
+map's arrays are arrays, so the test shows the map updating in place inside
+the `Graph` it is a field of.
+
+**Why.** Each was a hash table written for one key type, the copy 0051
+counted six times; the library's map (the entry below) is the one written
+for every type.
+
+**What it cost.** Nothing visible. The compiler emits the same bytes as the
+compiler before it on its own source and on all 90 programs in
+`tests/check`, `tests/lang`, and `tests/io`, checked against the seed it
+replaced, and compiles itself in the same 0.17 s. Its IR shrank from
+1,223,833 bytes to 1,218,590.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## The prelude has a map for every key and value type
 
 **`lib/prelude.l0` declares `(Map K V)`** (roadmap items 0051 and 0053),

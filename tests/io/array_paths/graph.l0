@@ -1,7 +1,8 @@
 ; Shortest paths by Dijkstra's algorithm, for array_paths.l0: distances are
 ; an (array int) and adjacency an (array (list Edge)), both updated in place.
-; The name table is a trie keyed by a hash. array_paths.sh checks the answers
-; against Floyd-Warshall in awk, and that no array update copied.
+; The name table is the library's map, updated in place too. array_paths.sh
+; checks the answers against Floyd-Warshall in awk, and that no array update
+; copied, the map's among them.
 ;
 ; The graph grows as lines stream in, so the adjacency array has spare
 ; capacity and doubles when a new node would not fit.
@@ -9,57 +10,22 @@
 (data Edge
   (Edge int int))                       ; to, weight
 
-; -------------------------------------------------------- name -> node id
-
-(data Named
-  (Named (list int) int))
-
-(data NameMap
-  (NEmpty)
-  (NNode (list Named) NameMap NameMap))
-
-(def name_hash ((s (list int)) (h int)) int
-  (if (is_empty s)
-      (mod h 1048573)
-      (name_hash (tail s) (mod (add (mul h 31) (head s)) 1000000007))))
-
-(def nm_get ((m NameMap) (k int) (name (list int))) int
-  (match m
-    ((NEmpty) -1)
-    ((NNode bucket e o)
-      (if (eq k 0)
-          (bucket_find bucket name)
-          (if (eq (mod k 2) 0)
-              (nm_get e (div k 2) name)
-              (nm_get o (div k 2) name))))))
-
-(def bucket_find ((b (list Named)) (name (list int))) int
-  (if (is_empty b)
-      -1
-      (match (head b)
-        ((Named n id) (if (eq n name) id (bucket_find (tail b) name))))))
-
-(def nm_add ((m NameMap) (k int) (x Named)) NameMap
-  (match m
-    ((NEmpty) (nm_add (NNode (nil Named) (NEmpty) (NEmpty)) k x))
-    ((NNode bucket e o)
-      (if (eq k 0)
-          (NNode (cons x bucket) e o)
-          (if (eq (mod k 2) 0)
-              (NNode bucket (nm_add e (div k 2) x) o)
-              (NNode bucket e (nm_add o (div k 2) x)))))))
-
 ; ------------------------------------------------------------------- graph
 
 (data Graph
-  (Graph NameMap int (array (list Edge))))    ; names, how many nodes, out-edges
+  (Graph (Map (list int) int) int (array (list Edge))))  ; names to ids, how many
+                                                         ; nodes, out-edges
 
 (def empty_graph ((ignored int)) Graph
-  (Graph (NEmpty) 0 (array_new 16 (nil Edge))))
+  (Graph ((MapEmpty (list int) int)) 0 (array_new 16 (nil Edge))))
 
+; The node a name has, or -1 if it has none.
 (def node_id ((g Graph) (name (list int))) int
   (match g
-    ((Graph names n edges) (nm_get names (name_hash name 0) name))))
+    ((Graph names n edges)
+      (match (map_get names name)
+        ((None) -1)
+        ((Some id) id)))))
 
 ; A graph that has name, and its id there.
 (data Interned
@@ -71,8 +37,8 @@
         (Interned g id)
         (match g
           ((Graph names n edges)
-            (Interned (Graph (nm_add names (name_hash name 0) (Named name n))
-                             (add n 1) (room edges (add n 1)))
+            (Interned (Graph (map_put names name n) (add n 1)
+                             (room edges (add n 1)))
                       n))))))
 
 ; edges, with room for at least n nodes.

@@ -154,3 +154,6 @@ the properties the `l0-bootstrap` skill lists? Weigh at least:
        it
     - later, each when a program needs it: a persistent map, for code
       that keeps versions; an ordered one, with `compare`
+- 2026-10-06: `roadmap/0051/` (the prototypes, their tests, and the
+  benchmark) deleted by 0054, once 0053's map replaced them; all three are
+  in git history.

@@ -29,8 +29,9 @@ closes, flushes, and renames keep codes until a program needs more. 0051
 found that no map can be written once for every key type, since nothing
 can hash a value of a type parameter. `hash` now gives any value a
 specified integer (0052), and the prelude has a `(Map K V)` for every key
-and value type (0053); the compiler and the suite move onto it next (0054).
-The Linux runs of 0045 and 0052 are owed.
+and value type (0053), which the compiler's pad table and the suite's graph
+now use (0054). A persistent map and an ordered one wait for code that
+needs them. The Linux runs of 0045 and 0052 are owed.
 
 ## Language queue
 
@@ -40,8 +41,7 @@ Empty.
 
 ## Other open items
 
-- [0054](0054-map-users.md) tooling: the compiler and the suite use the
-  library's map — queued, next
+None.
 
 ## Done and dropped
 
@@ -177,3 +177,6 @@ Empty.
 - [0053](0053-library-map.md) the prelude has a map for every key and value
   type — done, changelog "The prelude has a map for every key and value
   type"
+- [0054](0054-map-users.md) tooling: the compiler and the suite use the
+  library's map — done, changelog "The compiler and the suite keep their
+  tables in the library's map, and no language change for it"
