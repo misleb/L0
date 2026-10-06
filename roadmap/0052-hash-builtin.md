@@ -2,7 +2,7 @@
 
 Kind: language
 Status: done, changelog "`hash` gives a value of any type a specified
-integer"; Linux runs owed
+integer"; Linux run with 0054
 Needs: 0051
 
 ## Why
@@ -79,5 +79,7 @@ every key type.
   - both suites green (63, 114); fixpoint at 1,162,422 bytes; seed
     refreshed and reproduces itself; `tools/l0` rebuilt from it hashes as
     the spec says. The compiler and prelude use none of it
-  - Linux runs owed: Docker is down, and the runtime and emitter changed
+  - Linux runs owed: Docker is down, and the runtime and emitter changed.
+    Done with 0054's tree, 2026-10-06: both suites green on linux/arm64
+    and linux/amd64 (63, 115), the pinned hashes among them
   - next: 0053

@@ -26,12 +26,16 @@
 
 # link_quick IR OUT links IR against the runtime at -O0, which is a tenth of
 # what tools/l0ll's -O2 -flto costs, for binaries that are rebuilt often and
-# run briefly. A tail call is musttail at any level (spec section 8).
+# run briefly. A tail call is musttail at any level (spec section 8). It links
+# build/l0rt-native.o, the runtime as machine code, not build/l0rt.o, which
+# is bitcode: with that, even an -O0 link runs LTO, and GNU ld, on Linux,
+# refuses it without -flto (tools/build.sh).
 link_quick() {
-    if [ ! -f "$BUILD/l0rt.o" ] || [ "$ROOT/runtime/l0rt.ll" -nt "$BUILD/l0rt.o" ]; then
+    if [ ! -f "$BUILD/l0rt-native.o" ] ||
+        [ "$ROOT/runtime/l0rt.ll" -nt "$BUILD/l0rt-native.o" ]; then
         "$ROOT/tools/build.sh" > /dev/null
     fi
-    "$CC" -O0 -Wno-override-module "$1" "$BUILD/l0rt.o" -o "$2"
+    "$CC" -O0 -Wno-override-module "$1" "$BUILD/l0rt-native.o" -o "$2"
 }
 
 current_compiler() {

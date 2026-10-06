@@ -6,8 +6,11 @@
 # The runtime compiled programs link is LLVM IR, runtime/l0rt.ll, assembled
 # here into build/l0rt.o as bitcode (-flto), so that every link, which also
 # passes -flto, optimizes a program and the runtime together and can inline
-# head, tail, is_empty, and the counting into the program. The only C in the
-# repository is the stage-0
+# head, tail, is_empty, and the counting into the program. It is assembled a
+# second time, into build/l0rt-native.o as machine code, for the quick -O0
+# links of tools/compiler.sh: a bitcode object makes even an -O0 link run
+# LTO, ten times slower, and GNU ld takes one only with -flto. The only C in
+# the repository is the stage-0
 # interpreter, stage0/l0i.c and stage0/l0core.c, built only if stage0/ is
 # present.
 
@@ -22,6 +25,7 @@ CFLAGS="-std=c11 -O2 -Wall -Wextra -Wpedantic -Werror"
 
 echo "ll  runtime/l0rt.ll"
 "$CC" -O2 -flto -Wno-override-module -c "$ROOT/runtime/l0rt.ll" -o "$BUILD/l0rt.o"
+"$CC" -O2 -Wno-override-module -c "$ROOT/runtime/l0rt.ll" -o "$BUILD/l0rt-native.o"
 
 if [ -f "$ROOT/stage0/l0i.c" ]; then
     echo "cc  stage0/l0core.c"

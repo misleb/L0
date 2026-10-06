@@ -2,7 +2,7 @@
 
 Kind: tooling
 Status: done, changelog "The compiler's source is no longer run by stage 0,
-and no language change for it"; Linux runs owed
+and no language change for it"; Linux run with 0054, after a fix
 Needs: 0044
 
 ## Why
@@ -90,3 +90,15 @@ checks the compiler's own source in 0.25 s, where stage 0 takes 0.8 s.
     tools are shell run by dash on Ubuntu, and `tools/test.sh` now starts
     background jobs
   - next: 0046
+- 2026-10-06: the Linux runs, with 0054's tree, found a bug here: the
+  compiler `tools/compiler.sh` builds would not link on either
+  architecture, `build/l0rt.o: file not recognized`, so `tools/l0check` and
+  the fast suite's stage tests failed, and with them `framework.sh`, which
+  calls `l0check`. `build/l0rt.o` is bitcode, for `-flto` links, and
+  `link_quick` linked it without `-flto`: macOS's linker takes a bitcode
+  object regardless, GNU ld does not. Passing `-flto` fixed it, but made
+  every rebuild of the checker's compiler about 3.8 s, since a bitcode
+  object makes even an `-O0` link run LTO. Instead `tools/build.sh` also
+  assembles the runtime as machine code, `build/l0rt-native.o`, which
+  `link_quick` links without `-flto`. Then both suites passed on linux/arm64
+  and linux/amd64 (63, 115), with the same results on macOS
