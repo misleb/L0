@@ -7,6 +7,53 @@ New entries go at the top.
 
 ---
 
+## The compiler's source is no longer run by stage 0, and no language change for it
+
+**The tools build the compiler with the seed** (roadmap items 0044 and
+0045). `tools/compiler.sh` compiles the current `lib/prelude.l0` and
+`compiler/*.l0` once with `bootstrap/stage2.ll`, links the result at `-O0`,
+and keeps it in `build/l0c-current` with the bundle it was built from,
+rebuilding when that bundle, the seed, or the runtime changes.
+`tools/l0check`, `tools/l0c`, and the compiler's stage tests in
+`tools/test.sh` run it. Before, all three ran the compiler's source under
+the stage-0 interpreter, and the bootstrap could start from stage 0 when
+there was no seed; that start is gone.
+
+**Why.** Stage 0 knows only the L0 of its day, so running the compiler's
+source under it held the compiler and the prelude to that L0. Every feature
+since arrays paid for it: the compiler keeps a `(list int)` `rev`,
+`length`, `append`, `any_eq`, and `index_of` of its own, 19 more per-type
+copies, 75 calls to `list_eq`, and nine result types of one `Result` or
+`Option` shape, and the library is split between `lib/prelude.l0` and
+`lib/io.l0` by what stage 0 can run rather than by topic. The seed already
+compiles type parameters and `eq` on any type, and a compiler whose helpers
+use them bootstraps to a fixpoint from it (0044's prototype), so only the
+tools stood in the way.
+
+**What it cost.** Nothing in checking: the native checker takes 0.4 s to
+build after a change to the compiler's source, and checks the compiler's own
+source in 0.25 s where stage 0 took 0.8 s. The stage tests each build the
+whole compiler now, so they are built and run at once, and `tools/test.sh`
+takes about 10 s where it took 6. In independence, one comparison: stage 0
+ran the compiler's code on the 14 stage tests' inputs, and the compiled
+compiler had to agree. Their goldens were the compiler's own output either
+way, since stage 0 only ran the compiler's checker and emitter, so they are
+blessed as before, by `tools/test.sh --bless`, and `--compiled` still runs
+them through the bootstrapped compiler. Stage 0 keeps the judgment it is
+there for: it runs the programs of `tests/lang` and `tests/check`, and the
+compiler's output on them must agree with it.
+
+**What else changed.** `tools/l0c` no longer runs a `build/l0c-native` left
+by an earlier `--compiled` run, which after a compiler edit silently ran the
+previous compiler. A compiler source that uses a feature the seed predates,
+the mistake the two-step rule guards against, now fails the next
+`tools/l0check` with the seed's diagnostics, rather than the next bootstrap
+or only a fresh clone.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## The library compares with eq, and no language change for it
 
 **`any_eq` and `index_of` take a value and a list of any type** (roadmap

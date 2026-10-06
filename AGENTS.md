@@ -35,7 +35,9 @@ change is done.** No exceptions for small changes.
 **`stage0/l0i.c` is frozen. Do not extend it.** It is no longer part of the
 bootstrap. It is kept as an independent implementation so the compiled suite
 has an oracle that is not the code under test, and editing it to agree with
-the compiler destroys exactly that.
+the compiler destroys exactly that. It runs the test programs, never the
+compiler's own source: the tools build the compiler with the seed, so the
+compiler and `lib/prelude.l0` may use anything the seed compiles.
 
 **`--bless` overwrites the definition of correct.** Use it only for a deliberate
 change, and always read the `git diff` afterward. It is refused together with

@@ -17,23 +17,22 @@ so the library's list helpers now take every element type (0040). 0041
 found that a generic function could not compare its elements, and `eq` now
 compares two values of any type (0042), which the library and the suite
 now use (0043). The compiler and the prelude could use neither, since stage
-0 still ran their source; 0044 found that only the tools require it, so the
-tools stop (0045), then the prelude (0046) and the compiler (0047) use what
-programs already can.
+0 still ran their source; 0044 found that only the tools required it, and
+the tools no longer do (0045), so the prelude (0046) and the compiler (0047)
+can use what programs already can.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
 1. [0046](0046-prelude-generics.md) the prelude takes back the generic
-   definitions — queued, needs 0045
+   definitions — queued, next
 2. [0047](0047-compiler-uses-generics.md) the compiler uses type parameters
    and eq — queued, needs 0046
 
 ## Other open items
 
-- [0045](0045-tools-without-stage0.md) tooling: the tools stop running the
-  compiler under stage 0 — proposed, next
+None.
 
 ## Done and dropped
 
@@ -144,3 +143,6 @@ Changes to the language, strictly in order. At most one is active.
 - [0044](0044-compiler-free-of-stage0.md) research: how the compiler and the
   prelude stop being run by stage 0 — done; the tools first (0045), then
   0046 and 0047
+- [0045](0045-tools-without-stage0.md) tooling: the tools stop running the
+  compiler under stage 0 — done, changelog "The compiler's source is no
+  longer run by stage 0, and no language change for it"; Linux runs owed

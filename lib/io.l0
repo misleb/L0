@@ -5,11 +5,12 @@
 ; tools/l0 links this into every program, in the prelude group alongside
 ; lib/prelude.l0, so a program may define its own read_line, or its own Ok,
 ; and keep using it (spec section 7.1). It is a separate file because the
-; compiler is built from lib/prelude.l0, and the stage-0 interpreter that
-; runs the compiler for tools/l0check knows neither the I/O builtins nor type
-; parameters; that, not I/O, is what decides whether a definition belongs
-; here. lib/prelude.l0 calls rev and append, which it finds here in the
-; prelude group, and in compiler/lex.l0 when it is built into the compiler.
+; compiler is built from lib/prelude.l0, and the stage-0 interpreter that ran
+; the compiler for tools/l0check knows neither the I/O builtins nor type
+; parameters; that, not I/O, decided which definitions are here. Nothing
+; runs the compiler under stage 0 now. lib/prelude.l0 calls rev and append,
+; which it finds here in the prelude group, and in compiler/lex.l0 when it is
+; built into the compiler.
 ; ;; comments are what l0 doc shows, as in lib/prelude.l0.
 
 ;;; Lists and arrays of any type, and Option and Result, for every type they

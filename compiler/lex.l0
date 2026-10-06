@@ -14,9 +14,9 @@
 ; rev_onto, rev, append, and length for (list int), and any_eq and index_of
 ; for a name in a list of names, which lib/prelude.l0 and every part of the
 ; compiler call. Programs get them from lib/io.l0 at every element type, but
-; stage 0 runs the compiler and knows neither type parameters nor eq on
-; lists, so the compiler keeps its own here, in the file every compiler build
-; and stage test includes.
+; stage 0 used to run the compiler and knows neither type parameters nor eq
+; on lists, so the compiler keeps its own here, in the file every compiler
+; build and stage test includes. Nothing runs it under stage 0 now.
 
 (def rev_onto ((xs (list int)) (acc (list int))) (list int)
   (if (is_empty xs)

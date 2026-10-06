@@ -4,9 +4,9 @@
 ; the byte offset of the token that caused it.
 ;
 ; Note the family of near-identical result types below. One parametric
-; Result type would do for all of them (spec 4), but the compiler cannot use
-; parametric data types while the interpreted suite runs its source under
-; stage 0, which predates them.
+; Result type would do for all of them (spec 4), but the compiler could not
+; use parametric data types while the interpreted suite ran its source under
+; stage 0, which predates them. Nothing does now.
 
 ; Within a data declaration that takes parameters, a parameter is a TyData
 ; with its name and no arguments, and substitution (check.l0) replaces it.

@@ -1,11 +1,12 @@
 ; prelude.l0 -- list and byte-string helpers shared across the compiler.
 ;
-; Everything here operates on (list int), because stage 0 runs this file as
-; part of the compiler and knows no type parameters, nor eq on lists. rev,
-; rev_onto, append, length, any_eq, and index_of, which a list of any type
-; wants, are not here: programs get them from lib/io.l0 at every element
-; type, and the compiler defines copies of its own for the types it uses in
-; compiler/lex.l0. So this file checks only beside one of those two.
+; Everything here operates on (list int), because stage 0 used to run this
+; file as part of the compiler and knows no type parameters, nor eq on lists.
+; Nothing runs it under stage 0 now. rev, rev_onto, append, length, any_eq,
+; and index_of, which a list of any type wants, are not here yet: programs
+; get them from lib/io.l0 at every element type, and the compiler defines
+; copies of its own for the types it uses in compiler/lex.l0. So this file
+; checks only beside one of those two.
 ;
 ; Output is always built with the reversed-accumulator idiom from spec section
 ; 11.1: push chunks onto a backwards list, reverse exactly once at the end.
@@ -29,8 +30,8 @@
       (push (tail chunk) (cons (head chunk) acc))))
 
 ;; Whether xs and ys hold the same bytes in the same order, as (eq xs ys)
-;; says. It is here for the compiler, which stage 0 runs, and stage 0's eq
-;; takes only integers; a program can write eq.
+;; says. It is here for the compiler, written while stage 0 ran it and
+;; stage 0's eq took only integers; a program can write eq.
 (def list_eq ((xs (list int)) (ys (list int))) bool
   (if (is_empty xs)
       (is_empty ys)
@@ -125,8 +126,9 @@
 ; table flat and readable, and any_eq and index_of, in lib/io.l0 and
 ; compiler/lex.l0, look a name up in it.
 
-; rev_onto for (list (list int)), which split_spaces needs and stage 0 cannot
-; get from the generic rev_onto in lib/io.l0.
+; rev_onto for (list (list int)), which split_spaces needs, and cannot get
+; from the generic rev_onto while that is in lib/io.l0, which the compiler
+; does not link.
 (def rev_strs_onto ((xs (list (list int))) (acc (list (list int))))
     (list (list int))
   (if (is_empty xs)

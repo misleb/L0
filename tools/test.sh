@@ -11,6 +11,9 @@
 #   tests/backend/*.ll   hand-written IR linked against the runtime, pinning
 #                        down the ABI in spec section 10
 #   tests/lang/*.l0      programs that must type check and run
+#   tests/compiler/*.l0  the compiler's own stage tests, which link its
+#                        source; built by the current compiler
+#                        (tools/compiler.sh), never run by stage 0
 #   tests/check/*.l0     programs that must fail to type check
 #   tests/io/*.l0        programs using features stage 0 does not have, such
 #                        as the I/O builtins; run by --compiled only
@@ -39,6 +42,7 @@ set -eu
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 . "$ROOT/tools/env.sh"
+. "$ROOT/tools/compiler.sh"
 cd "$ROOT" # so diagnostics contain stable relative paths
 
 BLESS=0
@@ -74,9 +78,10 @@ fi
 
 "$ROOT/tools/build.sh" > /dev/null
 
-# The lang and check suites run through the stage-0 interpreter. When stage0/
-# is deleted they will need to be repointed at the L0 compiler; until that is
-# done, say so rather than reporting a pile of confusing failures.
+# The lang and check suites run through the stage-0 interpreter, the oracle
+# the compiled suite judges the compiler's output against. If stage0/ is ever
+# deleted they will need another oracle; until then, say so rather than
+# reporting a pile of confusing failures.
 if [ ! -x "$BUILD/l0i" ]; then
     echo "error: tests/lang and tests/check need an L0 implementation to run," >&2
     echo "  and stage0/ has been deleted. Repoint this script at the compiler" >&2
@@ -92,37 +97,55 @@ npass=0
 nfail=0
 failures=""
 
-# run_case SUITE NAME STEM COMMAND...
+# run_case SUITE NAME STEM COMMAND... runs a test and judges it.
 run_case() {
     suite=$1
     name=$2
     stem=$3
     shift 3
+    exec_case "$TMP/run" "$stem" "$@"
+    judge_case "$suite" "$name" "$stem" "$TMP/run"
+}
+
+# exec_case RES STEM COMMAND... runs a test on its stdin and leaves what it
+# did in RES.out, RES.err, and RES.exit. It touches nothing else, so tests
+# with different RES can run at once.
+exec_case() {
+    res=$1
+    stem=$2
+    shift 2
+    if [ -f "$stem.cat" ]; then
+        # shellcheck disable=SC2046
+        cat $(cat "$stem.cat") > "$res.in"
+        stdin_source="$res.in"
+    elif [ -f "$stem.in" ]; then
+        stdin_source="$stem.in"
+    else
+        stdin_source=/dev/null
+    fi
+    set +e
+    "$@" < "$stdin_source" > "$res.out" 2> "$res.err"
+    echo $? > "$res.exit"
+    set -e
+}
+
+# judge_case SUITE NAME STEM RES compares what exec_case left in RES with the
+# test's expectations, or blesses it, and counts the result.
+judge_case() {
+    suite=$1
+    name=$2
+    stem=$3
+    res=$4
 
     out_file="$stem.out"
     err_file="$stem.err"
     exit_file="$stem.exit"
-    in_file="$stem.in"
-
-    if [ -f "$stem.cat" ]; then
-        # shellcheck disable=SC2046
-        cat $(cat "$stem.cat") > "$TMP/cat.in"
-        stdin_source="$TMP/cat.in"
-    elif [ -f "$in_file" ]; then
-        stdin_source="$in_file"
-    else
-        stdin_source=/dev/null
-    fi
-
-    set +e
-    "$@" < "$stdin_source" > "$TMP/out" 2> "$TMP/err"
-    got_exit=$?
-    set -e
+    got_exit=$(cat "$res.exit")
 
     if [ "$BLESS" = 1 ]; then
-        cp "$TMP/out" "$out_file"
-        if [ -s "$TMP/err" ]; then
-            cp "$TMP/err" "$err_file"
+        cp "$res.out" "$out_file"
+        if [ -s "$res.err" ]; then
+            cp "$res.err" "$err_file"
         else
             rm -f "$err_file"
         fi
@@ -144,11 +167,11 @@ run_case() {
     why=""
     if [ ! -f "$out_file" ]; then
         why="no expectation file; run tools/test.sh --bless"
-    elif ! cmp -s "$TMP/out" "$out_file"; then
+    elif ! cmp -s "$res.out" "$out_file"; then
         why="stdout differs"
-    elif [ -f "$err_file" ] && ! cmp -s "$TMP/err" "$err_file"; then
+    elif [ -f "$err_file" ] && ! cmp -s "$res.err" "$err_file"; then
         why="stderr differs"
-    elif [ ! -f "$err_file" ] && [ -s "$TMP/err" ]; then
+    elif [ ! -f "$err_file" ] && [ -s "$res.err" ]; then
         why="unexpected stderr"
     elif [ "$got_exit" != "$want_exit" ]; then
         why="exit status $got_exit, expected $want_exit"
@@ -164,13 +187,13 @@ run_case() {
     echo "FAIL $suite/$name: $why"
     case "$why" in
         "stdout differs")
-            diff -u "$out_file" "$TMP/out" | sed 's/^/    /' || true
+            diff -u "$out_file" "$res.out" | sed 's/^/    /' || true
             ;;
         "stderr differs")
-            diff -u "$err_file" "$TMP/err" | sed 's/^/    /' || true
+            diff -u "$err_file" "$res.err" | sed 's/^/    /' || true
             ;;
         "unexpected stderr")
-            sed 's/^/    /' "$TMP/err"
+            sed 's/^/    /' "$res.err"
             ;;
     esac
     return 0
@@ -424,6 +447,34 @@ done
 # Compiler stage tests. Each supplies its own main and names the compiler
 # sources it needs in a .extra file, so a lexer test can link lex.l0 without
 # pulling in the compiler's own main.
+#
+# They link the compiler's source, which may use anything the seed can
+# compile, so stage 0 cannot run them. The current compiler builds them
+# instead. Their goldens were always the compiler's own output, since stage 0
+# only ran the compiler's code, so --bless blesses them here as before, and
+# --compiled runs them again through the bootstrapped compiler.
+#
+# Each builds the whole compiler, so they are built and run at once, each
+# leaving its result under its own name, and judged in order afterward.
+
+# stage_case NAME builds tests/compiler/NAME with the compiler $now and runs
+# it, leaving its result in $TMP/compiler-NAME, or, if it could not be built,
+# what failed in $TMP/compiler-NAME.what and why in $TMP/compiler-NAME.why.
+stage_case() {
+    s_stem="tests/compiler/$1"
+    s_res="$TMP/compiler-$1"
+    # shellcheck disable=SC2046
+    if ! L0_COMPILER="$now" ./tools/l0c "$s_stem.l0" $(extra_sources "$s_stem") \
+        > "$s_res.ll" 2> "$s_res.why"; then
+        echo "the compiler rejected it" > "$s_res.what"
+    elif ! link_quick "$s_res.ll" "$s_res.exe" 2> "$s_res.why"; then
+        echo "generated IR did not assemble" > "$s_res.what"
+    else
+        exec_case "$s_res" "$s_stem" "$s_res.exe"
+    fi
+}
+
+stage_names=""
 for src in tests/compiler/*.l0; do
     [ -f "$src" ] || continue
     name=$(basename "$src" .l0)
@@ -431,10 +482,26 @@ for src in tests/compiler/*.l0; do
         fmt) continue ;; # shared helper, not a test
     esac
     selected "$name" || continue
-    stem="tests/compiler/$name"
-    # shellcheck disable=SC2046
-    run_case compiler "$name" "$stem" "$BUILD/l0i" run "$src" $(extra_sources "$stem")
+    stage_names="$stage_names $name"
 done
+if [ -n "$stage_names" ]; then
+    now=$(current_compiler) || exit 1
+    for name in $stage_names; do
+        stage_case "$name" &
+    done
+    wait
+    for name in $stage_names; do
+        res="$TMP/compiler-$name"
+        if [ -f "$res.what" ]; then
+            nfail=$((nfail + 1))
+            failures="$failures compiler/$name"
+            echo "FAIL compiler/$name: $(cat "$res.what")"
+            sed 's/^/    /' "$res.why"
+        else
+            judge_case compiler "$name" "tests/compiler/$name" "$res"
+        fi
+    done
+fi
 
 # -------------------------------------------------------------------- check
 

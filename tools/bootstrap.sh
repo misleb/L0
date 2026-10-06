@@ -14,28 +14,18 @@
 #
 #     stage2.ll must equal stage3.ll
 #
-# When "start" is the stage-0 INTERPRETER, all three stages must be identical.
-# The interpreter runs the very same compiler/*.l0 that stage1 is compiled
-# from, so both compute the same pure function of the same input, and L0 is
-# deterministic. stage1 != stage2 then means the compiler miscompiled itself,
-# which is a sharper signal than the fixpoint alone.
-#
-# That equality would NOT hold if "start" were a different compiler emitting
-# equivalent but differently-shaped IR. Only stage2 == stage3 is required in
-# general; stage1 == stage2 is an extra check this bootstrap can afford.
-#
-# "start" is whichever bootstrap entry point exists:
-#
-#   bootstrap/stage2.ll   preferred. Checked-in LLVM IR text, so clang alone can
-#                    build a working compiler without already having one.
-#   build/l0i        the stage-0 interpreter, used only until the first seed
-#                    is committed, after which stage0/ is deleted.
+# "start" is the seed, bootstrap/stage2.ll: checked-in LLVM IR text, so clang
+# alone builds a working compiler without already having one. The first seed
+# was cut by starting from the stage-0 interpreter, when all three stages were
+# byte-identical; stage 0 cannot run the compiler's source any longer, since
+# that source may use anything the seed can compile, so the seed is the only
+# start.
 #
 # When to refresh the seed
 # ------------------------
 # The seed is a frozen compiler, so it can only compile language features that
-# existed when it was frozen. Once stage0/ is gone, the seed MUST be refreshed
-# between the two steps of the two-step rule (see the l0-bootstrap skill):
+# existed when it was frozen. So the seed MUST be refreshed between the two
+# steps of the two-step rule (see the l0-bootstrap skill):
 #
 #   1. teach the compiler to COMPILE a new feature, bootstrap, refresh the seed
 #   2. only then start USING that feature in compiler/*.l0, and bootstrap again
@@ -110,26 +100,14 @@ run_stage() {
     fi
 }
 
-if [ -f bootstrap/stage2.ll ]; then
-    echo "start:  bootstrap/stage2.ll"
-    tools/l0ll bootstrap/stage2.ll "$BUILD/l0c-seed"
-    run_stage "$BUILD/l0c-seed" "$BUILD/stage1.ll"
-    USED_SEED=1
-elif [ -x "$BUILD/l0i" ] && [ -f stage0/l0i.c ]; then
-    echo "start:  stage0 interpreter (no seed yet)"
-    # shellcheck disable=SC2086
-    set -- "$BUILD/l0i" run $SOURCES
-    printf '#!/bin/sh\nexec' > "$BUILD/stage0-driver"
-    for a in "$@"; do printf ' %s' "$a" >> "$BUILD/stage0-driver"; done
-    printf ' "$@"\n' >> "$BUILD/stage0-driver"
-    chmod +x "$BUILD/stage0-driver"
-    run_stage "$BUILD/stage0-driver" "$BUILD/stage1.ll"
-    USED_SEED=0
-else
-    echo "error: no bootstrap entry point." >&2
-    echo "  Expected bootstrap/stage2.ll or a stage-0 interpreter." >&2
+if [ ! -f bootstrap/stage2.ll ]; then
+    echo "error: no bootstrap entry point: bootstrap/stage2.ll is missing." >&2
     exit 1
 fi
+echo "start:  bootstrap/stage2.ll"
+tools/l0ll bootstrap/stage2.ll "$BUILD/l0c-seed.$$"
+mv "$BUILD/l0c-seed.$$" "$BUILD/l0c-seed"
+run_stage "$BUILD/l0c-seed" "$BUILD/stage1.ll"
 
 # --------------------------------------------- stages 2 and 3: the fixpoint
 
@@ -159,32 +137,15 @@ fi
 echo
 echo "FIXPOINT: stage2.ll == stage3.ll ($(wc -c < "$BUILD/stage2.ll" | tr -d ' ') bytes)"
 
-# Only meaningful when stage 1 came from the interpreter; see the header.
-if [ "$USED_SEED" = 0 ]; then
-    if cmp -s "$BUILD/stage1.ll" "$BUILD/stage2.ll"; then
-        echo "AGREEMENT: the compiled compiler matches the interpreted one"
-    else
-        echo
-        echo "FAIL: stage1.ll and stage2.ll differ."
-        echo "      The interpreter and the compiled compiler run the same"
-        echo "      source, so they must agree. The compiler miscompiled"
-        echo "      itself. First difference:"
-        diff "$BUILD/stage1.ll" "$BUILD/stage2.ll" | head -20 | sed 's/^/    /'
-        exit 1
-    fi
-fi
-
 # ------------------------------------------------------------ seed handling
 
-if [ "$USED_SEED" = 1 ]; then
-    if cmp -s "$BUILD/stage1.ll" bootstrap/stage2.ll; then
-        echo "SEED:     up to date (seed reproduces itself from current source)"
-    else
-        echo "SEED:     STALE -- compiler/*.l0 has changed since the seed was cut."
-        echo "          The seed still compiles this source, so the build works,"
-        echo "          but refresh it before using any newly added feature:"
-        echo "            tools/bootstrap.sh --refresh-seed"
-    fi
+if cmp -s "$BUILD/stage1.ll" bootstrap/stage2.ll; then
+    echo "SEED:     up to date (seed reproduces itself from current source)"
+else
+    echo "SEED:     STALE -- compiler/*.l0 has changed since the seed was cut."
+    echo "          The seed still compiles this source, so the build works,"
+    echo "          but refresh it before using any newly added feature:"
+    echo "            tools/bootstrap.sh --refresh-seed"
 fi
 
 if [ "$REFRESH" = 1 ]; then

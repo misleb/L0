@@ -13,16 +13,23 @@
 # is a pure byte function with a single output channel that tags its result
 # "O" or "E"; that tag is stripped here.
 #
-# It runs the compiler natively when build/l0c-native exists and under the
-# stage-0 interpreter otherwise, so the interface does not change as the
-# bootstrap progresses.
+# It runs L0_COMPILER when that is set, as tools/test.sh --compiled sets it to
+# the compiler it has just bootstrapped, and otherwise the current compiler,
+# which the seed builds from lib/prelude.l0 and compiler/*.l0 whenever they
+# change (tools/compiler.sh). Either way it is the compiler of the source in
+# this tree, never an earlier one left in build/.
 
 set -eu
 
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 . "$ROOT/tools/env.sh"
+. "$ROOT/tools/compiler.sh"
 
-COMPILER_SOURCES="lib/prelude.l0 compiler/lex.l0 compiler/parse.l0 compiler/check.l0 compiler/emit.l0 compiler/main.l0"
+if [ -n "${L0_COMPILER:-}" ]; then
+    COMPILER=$L0_COMPILER
+else
+    COMPILER=$(current_compiler) || exit 2
+fi
 
 mkdir -p "$BUILD"
 IN="$BUILD/l0c-in.$$"
@@ -41,22 +48,14 @@ if [ $# -gt 0 ]; then
 
     # An input bundle: a table of byte offsets and paths, so diagnostics can
     # name the file a problem is in rather than a line in the concatenation.
-    . "$ROOT/tools/bundle.sh"
     write_bundle 0 "$@" > "$IN"
 else
     cat > "$IN"
 fi
 
-cd "$ROOT"
-
-if [ -x "$BUILD/l0c-native" ]; then
-    "$BUILD/l0c-native" < "$IN" > "$OUT"
-else
-    if [ ! -x "$BUILD/l0i" ]; then
-        "$ROOT/tools/build.sh" > /dev/null
-    fi
-    # shellcheck disable=SC2086
-    "$BUILD/l0i" run $COMPILER_SOURCES < "$IN" > "$OUT"
+if ! "$COMPILER" < "$IN" > "$OUT"; then
+    echo "l0c: the compiler crashed" >&2
+    exit 2
 fi
 
 case "$(head -n 1 "$OUT")" in

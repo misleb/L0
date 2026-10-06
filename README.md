@@ -179,11 +179,12 @@ paid once per use site never justified a change, which is how L0 went so long
 without type parameters.
 
 They exist now, for data types and functions alike, but the compiler still
-carries near-identical result types and a reversing helper per element type,
-because it cannot use them yet. The frozen stage-0 interpreter runs the
+carries near-identical result types and a reversing helper per element type.
+Until recently it could not use them: the frozen stage-0 interpreter ran the
 compiler, for `tools/l0check` and the compiler's stage tests, and knows no type
-parameters, so neither the compiler nor `lib/prelude.l0` can be written with
-them while that holds.
+parameters. The tools now build the compiler with the seed instead, so the
+compiler and `lib/prelude.l0` may use anything the seed compiles, and moving
+them onto type parameters is under way.
 
 A change still has to be earned by code: L0 in this repository that it makes
 possible, or makes harder to get wrong. The spec changes first. `spec/L0.md`
@@ -198,16 +199,17 @@ and `l0 test` adds `lib/test.l0`. Together they are the prelude of spec section
 7.1, a group of names separate from the program's. `l0 doc` lists everything
 in them.
 
-The split between the first two files is set by stage 0, not by topic.
+The split between the first two files was set by stage 0, not by topic.
 `lib/prelude.l0` is part of the compiler too: the compiler is built from it
 and `compiler/*.l0`, so it is exercised continuously rather than maintained
-separately, and stage 0 runs it whenever it runs the compiler. So it holds
-only what stage 0 can run. Everything else goes in `lib/io.l0`: the I/O
+separately, and stage 0 used to run it whenever it ran the compiler. So it
+holds only what stage 0 can run. Everything else is in `lib/io.l0`: the I/O
 wrappers, reading a whole input into `bytes` with `read_input`, `Option` and
 `Result`, and `rev`, `rev_onto`, `append`, `length`, and `array_resize`, which
 take type parameters and so work on every element type. The compiler keeps
-`(list int)` copies of the first four in `compiler/lex.l0`, since it cannot
-use type parameters.
+`(list int)` copies of the first four in `compiler/lex.l0`, from when it could
+not use type parameters. Nothing runs the prelude under stage 0 now, so the
+definitions that are not I/O can move back to it.
 
 It matters more than it might sound: L0 has no `append`, no `length`, and no
 way to render an integer as text among its builtins. Without a library, every
@@ -278,6 +280,13 @@ This is why `stage0/` still exists after self-hosting. It is frozen — never
 extended for new language features, because the moment it is edited to agree
 with the compiler it stops being independent. Programs using constructs it
 cannot handle simply skip.
+
+Stage 0 runs programs, never the compiler's own source. `tools/l0check`,
+`tools/l0c`, and the compiler's stage tests in `tests/compiler`, which link
+that source, use the compiler as the seed builds it from the current
+`lib/prelude.l0` and `compiler/*.l0`, rebuilt whenever they change. So the
+compiler can be written in anything the seed compiles, and its stage tests'
+expectations are its own output, read in the `git diff` when blessed.
 
 `--bless` is refused together with `--compiled`. Blessing the compiled suite
 from compiler output would replace the oracle with the code under test, which

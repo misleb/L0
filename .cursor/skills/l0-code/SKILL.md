@@ -108,11 +108,11 @@ Use nested `if` instead:
 
 **`eq` compares two values of any one type** (spec 6.8), lists, data, arrays,
 and bytes by what they hold, but stage 0 predates that and accepts only `int`.
-So the compiler's sources, `lib/prelude.l0`, and anything in `tests/lang/`
-compare lists with a function such as `list_eq` in
-[tests/lib/assert.l0](../../../tests/lib/assert.l0), and `eq` on anything
-else is tested in `tests/unit/` or `tests/io/`. `lt`, `le`, `gt`, and `ge`
-take only `int` everywhere.
+So anything in `tests/lang/` compares lists with a function such as `list_eq`
+in [tests/lib/assert.l0](../../../tests/lib/assert.l0), and `eq` on anything
+else is tested in `tests/unit/` or `tests/io/`. The compiler's sources and
+`lib/prelude.l0` may use it, since stage 0 never runs them and the seed
+compiles it. `lt`, `le`, `gt`, and `ge` take only `int` everywhere.
 
 **A name in call position is never a local.** `(f 1)` always means a builtin or
 a `def`, so a parameter named `f` cannot be called and does not shadow a
@@ -122,21 +122,24 @@ function named `f`. See spec section 7.
 in evaluation order, and a `let` value is evaluated before its body even when
 its name is unused, so `(let w (write_byte 63) (read_byte))` writes, then reads.
 A `main` that uses them usually takes no parameters and returns the exit
-status; see spec sections 6.2 and 9. **The compiler's own sources must not use
-them**, and nor may `lib/prelude.l0`: stage 0 runs both and does not know
-them. Line helpers belong in `lib/io.l0`, and tests in `tests/io/`. The same
-goes for the file and argument builtins of spec sections 6.3 and 6.4. When
+status; see spec sections 6.2 and 9. Line helpers belong in `lib/io.l0`, not
+`lib/prelude.l0`, which the compiler links and which needs no I/O, and tests
+of them in `tests/io/`, since stage 0 does not know them. The same goes for
+the file and argument builtins of spec sections 6.3 and 6.4. When
 `lib/io.l0` is among the files given to `tools/l0check` or `tools/l0c`, it and
 `lib/prelude.l0` are checked as the prelude group, since a program's
 functions, types, and constructors shadow the prelude's (spec section 7.1).
 
-**Type parameters have the same limit.** `(data (Option T) ...)`,
+**Type parameters have the same limit in tests.** `(data (Option T) ...)`,
 `(Option int)`, `((None int))`, and `(def (rev T) ...)` are L0 (spec 4, 4.1,
-and 5.6), but stage 0 predates them, so the compiler's sources and
-`lib/prelude.l0` must not use them, and tests of them go in `tests/io/` or,
-for the checker's verdicts, in a `tests/compiler/` stage test such as
-`check_params` or `check_fn_params`, which gives the source to the checker
-as data. The same holds for a program that shadows a
+and 5.6), but stage 0 predates them, so tests of them go in `tests/io/` or
+`tests/unit/` or, for the checker's verdicts, in a `tests/compiler/` stage
+test such as `check_params` or `check_fn_params`, which gives the source to
+the checker as data. The compiler's sources and `lib/prelude.l0` may use
+them, as they may use anything the seed compiles: the tools build the
+compiler with the seed (`tools/compiler.sh`), and stage 0 runs only the
+programs in `tests/lang/` and `tests/check/`. The same holds for a program
+that shadows a
 prelude type or constructor (spec 7.1): stage 0 still resolves upper names
 across both groups, so see `tests/io/shadow_types` and
 `tests/compiler/groups`.
@@ -185,8 +188,8 @@ Three fixes, in order of preference:
 in [lib/prelude.l0](../../../lib/prelude.l0) and `any_eq` turn a ten-deep nest
 into one flat line. `any_eq` and `index_of` are generic in
 [lib/io.l0](../../../lib/io.l0), and the compiler has string copies of its own
-at the top of [compiler/lex.l0](../../../compiler/lex.l0), since stage 0 runs
-it:
+at the top of [compiler/lex.l0](../../../compiler/lex.l0), kept from when
+stage 0 ran it:
 
 ```
 (def is_reserved ((n (list int))) bool

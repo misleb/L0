@@ -1,7 +1,8 @@
 # 0045: tooling: the tools stop running the compiler under stage 0
 
 Kind: tooling
-Status: proposed
+Status: done, changelog "The compiler's source is no longer run by stage 0,
+and no language change for it"; Linux runs owed
 Needs: 0044
 
 ## Why
@@ -39,9 +40,9 @@ checks the compiler's own source in 0.25 s, where stage 0 takes 0.8 s.
 - `tools/bootstrap.sh` has no stage-0 start and no AGREEMENT check
 - nothing outside `stage0/` and `tools/test.sh`'s `tests/lang` and
   `tests/check` loops runs `build/l0i`, checked with `git grep`
-- AGENTS.md, both copies of the `l0-bootstrap` skill, README "How the
-  compiler is tested", and the tools' headers say that stage 0 judges
-  programs, not the compiler's source
+- AGENTS.md, the `l0-bootstrap` skill, README "How the compiler is
+  tested", and the tools' headers say that stage 0 judges programs, not the
+  compiler's source
 - both suites green, the fixpoint holds, and `tools/l0check` accepts the
   compiler with `roadmap/0044/proto.diff`'s change made in a scratch copy
   of `compiler/lex.l0`
@@ -49,3 +50,43 @@ checks the compiler's own source in 0.25 s, where stage 0 takes 0.8 s.
 ## Log
 
 - 2026-10-05: proposed by 0044.
+- 2026-10-05: started at the user's choice. Done (reasons in the changelog,
+  "The compiler's source is no longer run by stage 0"):
+  - `tools/compiler.sh`: `current_compiler` builds `build/l0c-current` from
+    `lib/prelude.l0` and `compiler/*.l0` with the seed, linked at `-O0`,
+    and keeps the input bundle beside it in `build/l0c-current.l0`; it
+    rebuilds when the bundle differs (`cmp`) or the seed or runtime is
+    newer, writing under temporary names and renaming. A source the seed
+    rejects fails with the seed's diagnostics, naming file and line, and
+    leaves nothing behind (checked with a deliberate type error in a
+    scratch copy of `compiler/main.l0`)
+  - `tools/l0check` and `tools/l0c` run it; `tools/l0c` runs `L0_COMPILER`
+    instead when it is set, which `--compiled` does, and never a leftover
+    `build/l0c-native`
+  - `tools/test.sh`: the stage tests are built by it, linked at `-O0`, and
+    built and run in parallel, then judged in order; `run_case` is split
+    into `exec_case` and `judge_case` for that. The fast suite takes about
+    9 to 10 s, where it took 6; one at a time it took 18. `--bless` over the
+    whole fast suite left every expectation file unchanged
+  - `tools/bootstrap.sh`: no stage-0 start and no AGREEMENT check; the seed
+    binary is written under a temporary name and renamed
+  - `git grep l0i` outside `stage0/`: only `tools/build.sh`, which builds
+    it, and `tools/test.sh`'s `tests/lang` and `tests/check` loops
+  - docs: AGENTS.md, the `l0-bootstrap` and `l0-code` skills (one file each:
+    `.claude/skills` is a symlink to `.cursor/skills`, not a copy), README
+    ("How L0 grows", "The standard library", "How the compiler is tested"),
+    and the comments in `lib/prelude.l0`, `lib/io.l0`, `compiler/lex.l0`,
+    and `compiler/parse.l0` that said stage 0 runs them. The bootstrap
+    skill's fresh-clone recipe now includes `lib/prelude.l0` and drops the
+    output tag, as README's does
+  - a scratch copy of the tree with `roadmap/0044/proto.diff`'s change made
+    in its `compiler/lex.l0`: its `tools/l0check` and fast suite (63) pass,
+    its `--compiled` passes (110, fixpoint at 1,165,262 bytes), and stage 0
+    rejects its compiler source at `compiler/lex.l0:21:6`
+  - main tree: both suites green (63, 110), fixpoint unchanged at
+    1,162,096 bytes, and the seed still up to date, since only comments in
+    the compiler's source changed
+  - Linux runs owed: Docker was not running. They matter here, since the
+    tools are shell run by dash on Ubuntu, and `tools/test.sh` now starts
+    background jobs
+  - next: 0046

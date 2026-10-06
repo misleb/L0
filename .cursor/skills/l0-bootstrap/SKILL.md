@@ -12,7 +12,8 @@ tools/build.sh                  # runtime objects and build/l0i
 tools/test.sh                   # all suites; must be green before anything is done
 tools/test.sh NAME              # only tests whose name contains NAME
 tools/test.sh --bless [NAME]    # overwrite expectations with current output
-tools/l0check FILE.l0 ...       # type check
+tools/l0check FILE.l0 ...       # type check, with the compiler of the current source
+tools/l0c FILE.l0 ... > OUT.ll  # compile to IR, with the same compiler
 tools/l0ll FILE.ll OUT          # link generated IR against the runtime
 tools/l0 run FILE.l0 ... < in   # run a program (build/l0i knows only stage 0's L0)
 tools/bootstrap.sh              # self-compile and check the fixpoint
@@ -47,21 +48,33 @@ silent and converts a caught bug into a permanent one.
   host I/O, in C. Compiled programs never link them.
 - `compiler/*.l0` — the L0 compiler, written in L0
 - `bootstrap/stage2.ll` — the compiler, compiled. The bootstrap entry point.
+- `tools/compiler.sh` — builds `build/l0c-current`, the current
+  `lib/prelude.l0` and `compiler/*.l0` compiled once by the seed and linked
+  at `-O0`, whenever that source changes. `tools/l0check`, `tools/l0c`, and
+  the stage tests in `tools/test.sh` run it, so they always run the compiler
+  of the source in the tree.
 - `stage0/l0i.c` — **frozen.** No longer part of the bootstrap, and never
   extended for new features. Kept solely as an independent implementation for
-  `tools/test.sh --compiled` to judge the compiler against.
+  `tools/test.sh --compiled` to judge the compiler against. It runs the
+  programs in `tests/lang` and `tests/check`, never the compiler's own source,
+  so the compiler and `lib/prelude.l0` may use anything the seed compiles.
 - `tests/backend/*.ll` — hand-written IR pinning down the ABI in spec section 10
 
 ## The two suites
 
-`tools/test.sh` runs everything through the stage-0 interpreter.
-`tools/test.sh --compiled` bootstraps the current compiler from source and
-re-runs the same programs through it:
+`tools/test.sh` runs the programs through the stage-0 interpreter, and builds
+the compiler's stage tests with the current compiler. `tools/test.sh
+--compiled` bootstraps the current compiler from source and re-runs the same
+tests through it:
 
 - `tests/lang` — compiled, run, and compared against **the interpreter's**
   expectations, which is what makes it differential
-- `tests/compiler` — the compiler's own stage tests, against the same goldens
-  both ways, so any divergence between implementations shows up immediately
+- `tests/compiler` — the compiler's own stage tests, which link its source,
+  against the same goldens both ways: built by the seed-built compiler in
+  `tools/test.sh`, and by the bootstrapped one in `--compiled`. Their goldens
+  are the compiler's own output, and always were, since stage 0 only ran the
+  compiler's code when it ran them, so `--bless` blesses them in
+  `tools/test.sh` and the `git diff` is the review
 - `tests/check` — programs that must be rejected, compared against `.cerr`
   files holding the compiler's own wording. What matters is that every
   program the interpreter rejects, the compiler rejects too.
@@ -76,49 +89,41 @@ The compiler is a byte function: L0 source in, LLVM IR text out. Self-hosting is
 verified by a fixpoint, not by judgment.
 
 ```
-stage0 (C interpreter) + compiler.l0  ->  stage1.ll  ->  stage1
-stage1 + compiler.l0                  ->  stage2.ll  ->  stage2
-stage2 + compiler.l0                  ->  stage3.ll
+seed (bootstrap/stage2.ll) + compiler.l0  ->  stage1.ll  ->  stage1
+stage1 + compiler.l0                      ->  stage2.ll  ->  stage2
+stage2 + compiler.l0                      ->  stage3.ll
 
 stage2.ll must equal stage3.ll, byte for byte.
 ```
 
-When stage 1 comes from the **stage-0 interpreter**, all three stages are
-byte-identical, and `tools/bootstrap.sh` checks that. The interpreter runs the
-very same `compiler/*.l0` that stage 1 is compiled from, so both compute the
-same pure function of the same input, and L0 is deterministic. A difference
-between `stage1.ll` and `stage2.ll` therefore means the compiler miscompiled
-itself, which is a sharper signal than the fixpoint alone and points at the
-construct being emitted where they diverge.
+Only `stage2.ll == stage3.ll` is required: the seed is an earlier compiler,
+and may emit equivalent but differently-shaped IR, so `stage1.ll` can differ.
+`tools/bootstrap.sh` reports the seed stale when it does.
 
-That equality would **not** hold if stage 1 came from a different compiler
-emitting equivalent but differently-shaped IR. In general only
-`stage2.ll == stage3.ll` is required; `stage1.ll == stage2.ll` is an extra
-check this particular bootstrap can afford, and the script only applies it
-when the interpreter was used.
+The first seed was cut by starting from the stage-0 interpreter, which ran
+the very same `compiler/*.l0`, so all three stages were byte-identical and
+`stage1.ll == stage2.ll` was an extra check. That start is gone: stage 0
+cannot run a compiler source that uses anything it predates, so the seed is
+the only start.
 
-Once the fixpoint holds, `stage2.ll` is checked in as `bootstrap/stage2.ll` and
-`stage0/` is deleted. From then on the seed builds the compiler, and L0 has one
-implementation.
-
-## Building from a fresh clone after stage 0 is gone
+## Building from a fresh clone
 
 `bootstrap/stage2.ll` is LLVM IR **text**, so `clang` alone turns it into a working
-compiler. That is what makes deleting stage 0 safe: the seed is a compiler you
-can build without already having one. `tools/bootstrap.sh` does all of this,
-but the steps are worth knowing:
+compiler. That is why nothing needs stage 0 to build: the seed is a compiler
+you can build without already having one. `tools/bootstrap.sh` does all of
+this, but the steps are worth knowing:
 
 ```bash
 tools/build.sh                                  # the runtime, and stage 0
 tools/l0ll bootstrap/stage2.ll build/l0c-seed        # a compiler, from text alone
-cat compiler/*.l0 | build/l0c-seed > build/stage1.ll
+cat lib/prelude.l0 compiler/*.l0 | build/l0c-seed | tail -n +2 > build/stage1.ll
 tools/l0ll build/stage1.ll build/l0c            # the compiler, from source
 ```
 
-The compiler reads source on stdin and writes IR on stdout, and L0 has no
-module system, so `cat` is the whole of linking the source. Glob order is
-lexicographic and therefore stable, which matters because the fixpoint compares
-bytes.
+The compiler reads source on stdin and writes IR on stdout, after a first line
+tagging it as IR or diagnostics, which `tail` drops. L0 has no module system,
+so `cat` is the whole of linking the source. Glob order is lexicographic and
+therefore stable, which matters because the fixpoint compares bytes.
 
 ## Changing the language
 
@@ -175,7 +180,9 @@ and the only ways out are hand-editing generated IR or reverting.
 point.** The seed can only compile features that existed when it was cut.
 Refreshing after step 2 is too late: your working tree keeps building because
 it already has a current compiler, while a fresh clone becomes unbuildable.
-Nothing you can run locally reveals that.
+`tools/l0check` builds its compiler with the seed (`tools/compiler.sh`), so
+a use of a feature the seed lacks fails the next check, with the seed's
+diagnostics; nothing else you can run locally reveals it.
 
 The same rule applies to *removing* or changing the meaning of a feature, in
 reverse: stop using it, bootstrap, refresh the seed, then drop support, then
@@ -188,6 +195,8 @@ an independent implementation for `tools/test.sh --compiled` to judge the
 compiler against, and it stays independent only as long as nobody edits it to
 agree with the compiler. Programs using a new feature cannot run under stage 0;
 the compiled suite skips them, and coverage of the old language stays intact.
+It judges programs, not the compiler's source: nothing runs `lib/prelude.l0`
+or `compiler/*.l0` under it, so neither is held to the L0 it knows.
 
 If the two disagree on something both support, **the spec decides which is
 wrong.** If the spec is silent, that is the actual bug, and the fix belongs in

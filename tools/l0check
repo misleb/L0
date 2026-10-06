@@ -13,11 +13,11 @@
 # Exit status is 0 when everything checks, 1 when it does not. Diagnostics are
 # written to stderr as file:line:column: error: message.
 #
-# The checker is the compiler's own, built from the current compiler/*.l0, so
-# it knows every feature the compiler does. It runs under the stage-0
-# interpreter, which always runs the current source and so can never be
-# stale. Stage 0's own checker is not used here: it is frozen, and serves only
-# as the differential oracle in tools/test.sh.
+# The checker is the compiler's own, built by the seed from the current
+# lib/prelude.l0 and compiler/*.l0 whenever they change (tools/compiler.sh),
+# so it knows every feature the compiler does and is never stale. Stage 0 is
+# not used here: it is frozen, knows only the L0 of its day, and serves only
+# as the differential oracle for programs in tools/test.sh.
 
 set -eu
 
@@ -36,29 +36,20 @@ for f in "$@"; do
     fi
 done
 
-if [ ! -x "$BUILD/l0i" ]; then
-    "$ROOT/tools/build.sh" > /dev/null
-fi
-
-COMPILER_SOURCES="lib/prelude.l0 compiler/lex.l0 compiler/parse.l0 compiler/check.l0 compiler/emit.l0 compiler/main.l0"
+. "$ROOT/tools/compiler.sh"
+COMPILER=$(current_compiler) || exit 2
 
 mkdir -p "$ROOT/tmp"
 IN=$(mktemp "$ROOT/tmp/l0check-in.XXXXXX")
 OUT=$(mktemp "$ROOT/tmp/l0check-out.XXXXXX")
 trap 'rm -f "$IN" "$OUT"' EXIT
 
-# Paths are recorded as given, before changing directory, so diagnostics name
-# files the way the caller named them.
-. "$ROOT/tools/bundle.sh"
+# Paths are recorded as given, so diagnostics name files the way the caller
+# named them.
 write_bundle 1 "$@" > "$IN"
 
-if [ -x "$BUILD/l0i" ]; then
-    # shellcheck disable=SC2086
-    (cd "$ROOT" && "$BUILD/l0i" run $COMPILER_SOURCES) < "$IN" > "$OUT"
-elif [ -x "$BUILD/l0c-native" ]; then
-    "$BUILD/l0c-native" < "$IN" > "$OUT"
-else
-    echo "l0check: no compiler available; run tools/bootstrap.sh" >&2
+if ! "$COMPILER" < "$IN" > "$OUT"; then
+    echo "l0check: the compiler crashed" >&2
     exit 2
 fi
 
