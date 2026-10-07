@@ -21,6 +21,21 @@ want w "$d/new" "opened"
 want w "$d/nodir/new" "CreateFailed: input or output failed"
 want a "$d/nodir/new" "CreateFailed: input or output failed"
 
+# Missing is only what the host looked for and did not find (spec 6.3): a
+# missing directory on the way, or a file where a directory should be. A
+# loop of links and a name too long to look up are other failures.
+want r "$d/nodir/file" "OpenMissing: no such file"
+want r "$d/there/file" "OpenMissing: no such file"
+ln -s loop "$d/loop"
+want r "$d/loop" "OpenFailed: input or output failed"
+want r "$d/loop/file" "OpenFailed: input or output failed"
+long=$(printf '%0300d' 0)
+want r "$d/$long" "OpenFailed: input or output failed"
+want m "$d/missing" "-3"
+want m "$d/nodir/file" "-3"
+want m "$d/loop/file" "-5"
+want m "$d/$long" "-5"
+
 # Permission bits stop neither root nor every filesystem, Docker's bind
 # mounts among them, so these are checked only where they are enforced.
 printf 'x' > "$d/locked"
@@ -31,6 +46,13 @@ if ! cat "$d/locked" > /dev/null 2>&1; then
     want a "$d/locked" "CreateDenied: permission denied"
 fi
 chmod 600 "$d/locked"
+mkdir "$d/shut"
+printf 'x' > "$d/shut/file"
+chmod 000 "$d/shut"
+if ! cat "$d/shut/file" > /dev/null 2>&1; then
+    want r "$d/shut/file" "OpenDenied: permission denied"
+fi
+chmod 700 "$d/shut"
 
 # The mistake roadmap item 0049 began from: a missing directory taken for a
 # missing file. Creating a file has no such case, so it does not compile.

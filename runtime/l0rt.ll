@@ -6,7 +6,11 @@
 ; It carries no target triple, and must stay the same text on every host, so
 ; it avoids everything whose shape differs between operating systems: it
 ; calls libc through file descriptors rather than FILE*, uses no varargs, no
-; signal handling, and no struct whose layout libc defines. pthread_attr_t is
+; signal handling beyond ignoring SIGPIPE, which is 13 with SIG_IGN 1 on both
+; macOS and Linux, and no struct whose layout libc defines. errno is reached
+; through whichever of macOS's __error and Linux's __errno_location dlsym
+; finds, and only codes with the same number on both are read from it
+; (host_setup). pthread_attr_t is
 ; an opaque buffer larger than any platform's, and a FILE or DIR pointer is
 ; only handed back to libc, never read. The only structs it reads are struct
 ; rlimit, two 64-bit words everywhere, with RLIMIT_STACK = 3 on both macOS
@@ -38,6 +42,9 @@ declare i32 @fileno(ptr)
 declare i32 @fclose(ptr)
 declare ptr @opendir(ptr)
 declare i32 @closedir(ptr)
+declare ptr @signal(i32, ptr)
+declare ptr @dlopen(ptr, i32)
+declare ptr @dlsym(ptr, ptr)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
@@ -105,6 +112,13 @@ declare i64 @l0_f_main(i64)
 @m_copies = private constant [18 x i8] c"l0: array copies: "
 @m_inplace = private constant [25 x i8] c"l0: array sets in place: "
 @m_words = private constant [24 x i8] c"l0: array words copied: "
+@dev_null = private constant [10 x i8] c"/dev/null\00"
+@s_error = private constant [8 x i8] c"__error\00"
+@s_errno_loc = private constant [17 x i8] c"__errno_location\00"
+
+; The host's function returning a pointer to the calling thread's errno, or
+; null if neither name was found, in which case causes are not told apart.
+@errno_fn = internal global ptr null
 
 ; ------------------------------------------------------------------ errors
 
@@ -1002,6 +1016,81 @@ entry:
   ret void
 }
 
+; Before the program's thread starts, spec section 6.3. A write to a pipe
+; whose reader has gone fails rather than stopping the process. A standard
+; descriptor the host left closed is opened on /dev/null in the other
+; direction, so every read or write of it fails and no file the program
+; opens takes its number. And errno's accessor is found.
+define internal void @host_setup() {
+entry:
+  %old = call ptr @signal(i32 13, ptr inttoptr (i64 1 to ptr))
+  call void @std_fd_fill(i32 0, i32 1)
+  call void @std_fd_fill(i32 1, i32 0)
+  call void @std_fd_fill(i32 2, i32 0)
+  %self = call ptr @dlopen(ptr null, i32 1)
+  %none = icmp eq ptr %self, null
+  br i1 %none, label %done, label %look
+look:
+  %e1 = call ptr @dlsym(ptr %self, ptr @s_error)
+  %got = icmp ne ptr %e1, null
+  br i1 %got, label %keep, label %linux
+keep:
+  store ptr %e1, ptr @errno_fn
+  br label %done
+linux:
+  %e2 = call ptr @dlsym(ptr %self, ptr @s_errno_loc)
+  store ptr %e2, ptr @errno_fn
+  br label %done
+done:
+  ret void
+}
+
+; fd, if the host left it closed, opened on /dev/null with flags: 1, write
+; only, for standard input, and 0, read only, for the other two. dup fails
+; only for a descriptor that is not open, and open takes the lowest free
+; number, which is fd once every lower one is open.
+define internal void @std_fd_fill(i32 %fd, i32 %flags) {
+entry:
+  %d = call i32 @dup(i32 %fd)
+  %closed = icmp slt i32 %d, 0
+  br i1 %closed, label %fill, label %open
+open:
+  %c = call i32 @close(i32 %d)
+  ret void
+fill:
+  %o = call i32 (ptr, i32, ...) @open(ptr @dev_null, i32 %flags)
+  ret void
+}
+
+; errno, as the libc call just made left it, or -1 if it cannot be read.
+; Called before anything else that may set it.
+define internal i32 @last_errno() {
+entry:
+  %f = load ptr, ptr @errno_fn
+  %none = icmp eq ptr %f, null
+  br i1 %none, label %unknown, label %read
+read:
+  %p = call ptr %f()
+  %e = load i32, ptr %p
+  ret i32 %e
+unknown:
+  ret i32 -1
+}
+
+; Whether a name access could not find is missing, by its errno: ENOENT (2)
+; or ENOTDIR (20), the same on macOS and Linux. A loop of links or a name
+; too long is not. When errno cannot be read, every such name is taken to
+; be missing, as it was before errno could be.
+define internal i1 @errno_missing(i32 %e) {
+entry:
+  %unknown = icmp eq i32 %e, -1
+  %noent = icmp eq i32 %e, 2
+  %notdir = icmp eq i32 %e, 20
+  %a = or i1 %unknown, %noent
+  %b = or i1 %a, %notdir
+  ret i1 %b
+}
+
 define internal void @std_handles() {
 entry:
   call void @h_set(i64 0, i64 0, i64 1, ptr @in_buf)
@@ -1857,9 +1946,11 @@ fail:
 ; mode 1 opens for reading, 2 creates or empties for writing, and 3 opens
 ; for writing at the end. The results are spec section 6.3's. Reading only
 ; opens with flags 0 and writing uses creat, because O_CREAT and O_TRUNC
-; differ between macOS and Linux; and errno is not reachable portably, so
-; access() tells why an open failed. A directory opens with flags 0 but
-; cannot be read, so opendir tells it apart first.
+; differ between macOS and Linux. access() tells why an open failed, and
+; when it cannot find the name, its errno tells a missing name from one
+; that cannot be looked up, or a directory on the way that may not be
+; searched. A directory opens with flags 0 but cannot be read, so opendir
+; tells it apart first.
 define internal i64 @open_handle(i64 %path, i64 %mode) {
 entry:
   %rd = icmp eq i64 %mode, 1
@@ -1909,14 +2000,21 @@ ok:
 why:
   call void @free(ptr %b)
   %exists = call i32 @access(ptr %s, i32 0)
-  %missing = icmp ne i32 %exists, 0
+  %e = call i32 @last_errno()
+  %unfound = icmp ne i32 %exists, 0
   %want = select i1 %rd, i32 4, i32 2
   %may = call i32 @access(ptr %s, i32 %want)
   %denied = icmp ne i32 %may, 0
   call void @free(ptr %s)
-  br i1 %missing, label %gone, label %present
+  br i1 %unfound, label %gone, label %present
 gone:
-  %g = select i1 %rd, i64 -3, i64 -5
+  %nothing = call i1 @errno_missing(i32 %e)
+  %eacces = icmp eq i32 %e, 13
+  %eperm = icmp eq i32 %e, 1
+  %refused = or i1 %eacces, %eperm
+  %rr = select i1 %refused, i64 -4, i64 -5
+  %rg = select i1 %nothing, i64 -3, i64 %rr
+  %g = select i1 %rd, i64 %rg, i64 -5
   ret i64 %g
 present:
   %p = select i1 %denied, i64 -4, i64 -5
@@ -1947,7 +2045,7 @@ entry:
 }
 
 ; POSIX rename replaces to in one step, as spec section 6.3 requires. Only a
-; missing source can be told apart without errno.
+; missing source is told apart, by access and its errno.
 define i64 @l0_rename(i64 %from, i64 %to) {
 entry:
   %a = call ptr @to_cstr(i64 %from)
@@ -1970,9 +2068,12 @@ done:
   ret i64 0
 why:
   %ex = call i32 @access(ptr %a, i32 0)
+  %e = call i32 @last_errno()
   call void @free(ptr %a)
   call void @free(ptr %b)
-  %missing = icmp ne i32 %ex, 0
+  %unfound = icmp ne i32 %ex, 0
+  %nothing = call i1 @errno_missing(i32 %e)
+  %missing = and i1 %unfound, %nothing
   %c = select i1 %missing, i64 -3, i64 -5
   ret i64 %c
 }
@@ -2604,6 +2705,7 @@ entry:
   %argc64 = sext i32 %argc to i64
   store i64 %argc64, ptr @argc
   store ptr %argv, ptr @argv
+  call void @host_setup()
   %attr = alloca [128 x i8], align 16
   %tid = alloca i64
   %chkenv = call ptr @getenv(ptr @check_name)

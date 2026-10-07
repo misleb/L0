@@ -7,6 +7,57 @@ New entries go at the top.
 
 ---
 
+## A broken pipe is a write failure, a closed standard handle is open on nothing, and -3 means nothing is there
+
+Three places where the runtime broke section 6.3, found by 0055's failure
+worker (roadmap item 0057). Each is now said in 6.3 and done by the runtime.
+
+**A write to a pipe whose reader has gone is a write failure**, and the
+host never stops the program for it. Before, the process was killed by
+SIGPIPE: a program piped into `head -c 10` that saw its flush fail and
+returned 3 exited 141, against 6.3's "a program that has been told of every
+failure keeps the status it returned", and a `tee` that carried on to its
+other files died silently with them half written. The runtime now ignores
+SIGPIPE, so the write returns an error and 6.3's rules apply: reported, the
+program keeps its status; unreported, it exits 70.
+
+**A standard handle the host left closed is open on nothing.** A program
+started with standard output closed (`prog OUT >&-`) gave the first file it
+opened descriptor 1, so both outputs went into the file and every flush
+said 0. 6.3 said the three handles are open from the start and was silent on
+this. Now it says what happens: the handle is open, a read of it returns -5,
+every byte written to it is lost and reported as a write failure, and no
+file is ever given 0, 1, or 2. The runtime opens `/dev/null` in the other
+direction on any of the three that is closed before the program starts, so
+its reads or writes fail. GNU coreutils opens `/dev/null` the same way but
+so that writes succeed; that would lose output with nothing told, which is
+the failure 0018 was made to end.
+
+**-3 means the host looked and found nothing.** `open_read` of a link to
+itself and of a name over 255 bytes returned -3, "no such file", since the
+runtime asked `access` whether the name existed and took any failure for
+no. 6.3 now says -3 is for a name the host looked up and found nothing at,
+a missing file or a missing directory on the way, and that a name it
+cannot look up, too long or looping, is -5; `rename`'s missing source is
+read the same way. A directory on the way that may not be searched now
+gives `open_read` -4, permission denied, where it gave -3.
+
+**What it cost.** The runtime had no errno, since the accessor's name
+differs: `__error` on macOS, `__errno_location` on Linux, and its text must
+be the same on every host. It now finds whichever `dlsym` has at startup,
+and reads only the codes with the same number on both, ENOENT, ENOTDIR,
+EACCES, and EPERM; ELOOP and ENAMETOOLONG differ, which is why the rule is
+written as "found nothing" rather than as a list of failures. Without
+either accessor it reads every name `access` cannot find as missing, as it
+did before. Ignoring SIGPIPE is `signal(13, 1)`, the same numbers on both.
+0062, typed failures for rename, flush, and close, will need errno for more
+than this, and starts from here.
+
+`tests/io/broken_pipe`, `tests/io/closed_std`, and more of
+`tests/io/open_faults` show each; all three fail on the old runtime.
+
+---
+
 ## Removing a key from a map no longer copies it, and no language change for it
 
 **`map_remove` updates the map in place** (roadmap item 0056), as its doc

@@ -1,7 +1,9 @@
 # 0057: the runtime keeps section 6.3's promises
 
 Kind: language
-Status: queued
+Status: done, changelog "A broken pipe is a write failure, a closed
+standard handle is open on nothing, and -3 means nothing is there"; Linux
+run owed
 Needs: 0056
 
 ## Why
@@ -64,3 +66,28 @@ the start" and is silent on a host that started the program otherwise.
 ## Log
 
 - 2026-10-06: queued by 0055, with the user's agreement.
+- 2026-10-07: done, but for the Linux run.
+  - spec 6.3: a closed standard handle is open on nothing; -3 is for a
+    name the host looked up and found nothing at, and a name it cannot
+    look up is -5; a write to a pipe with no reader is a write failure,
+    never a stop. A directory on the way that may not be searched now gives
+    `open_read` -4, where it gave -3
+  - runtime: `host_setup`, before the program's thread, ignores SIGPIPE,
+    opens `/dev/null` in the other direction on a closed descriptor 0, 1,
+    or 2, and finds errno's accessor by `dlsym` (`__error` on macOS,
+    `__errno_location` on Linux); `open_handle` and `l0_rename` read errno
+    after `access` fails, using only codes numbered alike on both hosts.
+    The header's rules say so. No interface in 10.3 changed, so the seed
+    did not
+  - tests: `tests/io/broken_pipe` (told: exits 3 and writes its file;
+    quiet: exits 70), `tests/io/closed_std` (closed standard output and
+    input), and `tests/io/open_faults` with a loop, a path through it, a
+    300-byte name, a missing directory, a file as a directory, an
+    unsearchable directory, and renames of four of them. All three fail on
+    the committed runtime and pass on the new one
+  - both suites green (63, 118); fixpoint at 1,218,142 bytes, seed up to
+    date
+  - **owed: `tools/linux-test.sh`**, since Docker was not running. It
+    matters here more than usual: `dlopen` and `dlsym` on glibc, `signal`,
+    and `/dev/null` on a closed descriptor are all untested on Linux
+  - next: the Linux run, then 0058

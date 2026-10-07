@@ -1,0 +1,21 @@
+; closed_std MODE [FILE], started with a standard handle closed (spec 6.3).
+; out: standard output closed; writes a line to FILE and one to standard
+; output, and returns 0 if flushing standard output failed and FILE closed
+; well. in: standard input closed; writes what read_byte returned to
+; standard error. closed_std.sh checks that FILE holds only its own line.
+
+(def out ((path (list int))) int
+  (match (open_out path)
+    ((IoFailed fault why) 2)
+    ((IoOpened f)
+      (let a (file_write_str f "meant for the file\n")
+        (let b (write_str "meant for standard output\n")
+          (let c (file_flush (IoFile 1))
+            (let d (file_close f)
+              (if (lt c 0) (if (eq d 0) 0 1) 1))))))))
+
+(def main () int
+  (if (eq (arg 0) "out")
+      (out (arg 1))
+      (let e (write_err (append (digits (read_byte)) "\n"))
+        0)))

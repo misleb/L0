@@ -31,7 +31,8 @@ can hash a value of a type parameter. `hash` now gives any value a
 specified integer (0052), and the prelude has a `(Map K V)` for every key
 and value type (0053), which the compiler's pad table and the suite's graph
 now use (0054). A persistent map and an ordered one wait for code that
-needs them. Everything through 0054 has passed on Linux. 0055's third round
+needs them. Everything through 0054 has passed on Linux, 0056 needed no
+run, and 0057's is owed. 0055's third round
 of programs found a copying bug in the map (0056), three places the runtime
 breaks section 6.3 (0057), and earned bitwise operations (0058), a delete
 (0061), typed failures beyond opening (0062), and research on ordering any
@@ -41,12 +42,9 @@ type (0059) and on bounded reads with updatable bytes (0060).
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0057](0057-io-keeps-section-6-3.md) the runtime keeps section 6.3's
-   promises — queued, next
-2. [0058](0058-bitwise-operations.md) bitwise operations — queued, needs
-   0057
-3. [0061](0061-delete-a-file.md) delete a file — queued, needs 0058
-4. [0062](0062-typed-rename-flush-close.md) rename, flush, and close say
+1. [0058](0058-bitwise-operations.md) bitwise operations — queued, next
+2. [0061](0061-delete-a-file.md) delete a file — queued, needs 0058
+3. [0062](0062-typed-rename-flush-close.md) rename, flush, and close say
    which failure it was — queued, needs 0061
 
 ## Other open items
@@ -201,3 +199,7 @@ Changes to the language, strictly in order. At most one is active.
 - [0056](0056-map-remove-in-place.md) `map_remove` updates in place — done,
   changelog "Removing a key from a map no longer copies it, and no language
   change for it"
+- [0057](0057-io-keeps-section-6-3.md) the runtime keeps section 6.3's
+  promises — done, changelog "A broken pipe is a write failure, a closed
+  standard handle is open on nothing, and -3 means nothing is there"; Linux
+  run owed

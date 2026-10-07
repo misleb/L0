@@ -1,6 +1,7 @@
 ; open_faults MODE PATH: opens PATH to read (r), to write (w), or to append
 ; (a), and writes which failure it was, by its case, or "opened" if it
-; opened. open_faults.sh makes each failure happen.
+; opened; or renames PATH to PATH.moved (m), and writes the code.
+; open_faults.sh makes each failure happen.
 
 (def open_fault_name ((f OpenFault)) (list int)
   (match f
@@ -32,5 +33,7 @@
                    (reading path)
                    (if (eq mode "w")
                        (writing (open_out path))
-                       (writing (open_appending path)))))
+                       (if (eq mode "m")
+                           (digits (rename_file path (append path ".moved")))
+                           (writing (open_appending path))))))
         0))))

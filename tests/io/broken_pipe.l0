@@ -1,0 +1,30 @@
+; broken_pipe MODE FILE, with standard output a pipe whose reader leaves.
+; told: writes lines, flushing each, until a flush fails; then writes "after"
+; to FILE, as a tee goes on to its other outputs, and returns 3. quiet:
+; writes 200,000 lines without a flush and returns 0, so the failure is never
+; reported to it. broken_pipe.sh checks that neither is stopped by the host
+; (spec 6.3): told exits 3 with FILE written, quiet exits 70.
+
+(def told ((n int)) int
+  (let w (write_str "y\n")
+    (if (lt (file_flush (IoFile 1)) 0)
+        n
+        (told (add n 1)))))
+
+(def quiet ((n int)) int
+  (if (eq n 0)
+      0
+      (let w (write_str "y\n") (quiet (sub n 1)))))
+
+(def note ((path (list int))) int
+  (match (open_out path)
+    ((IoFailed fault why) 1)
+    ((IoOpened f)
+      (let w (file_write_str f "after\n")
+        (file_close f)))))
+
+(def main () int
+  (if (eq (arg 0) "told")
+      (let n (told 0)
+        (if (eq (note (arg 1)) 0) 3 1))
+      (quiet 200000)))
