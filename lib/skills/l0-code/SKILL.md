@@ -309,13 +309,22 @@ builtins.
 `((IoFailed fault why) ...)`: `why` says what went wrong in words, for a
 message, and `fault` says which failure it was, as a case to test with `eq`
 or `match`. Opening to read gives an `OpenFault` (`OpenMissing`,
-`OpenDenied`, `OpenFailed`), and creating or appending a `CreateFault`
-(`CreateDenied`, `CreateFailed`), so a test for a case that open cannot give,
-such as `(eq fault (OpenMissing))` after `open_out`, does not compile. Test
-the case, not the words: `(eq fault (OpenMissing))` reads a missing file as
-empty, where comparing `why` with "no such file" type checks whatever it is
-compared with. Then `file_read_byte`, `file_read_line`, `file_write_str`, and
-`file_close` work on the `IoFile` inside. `(arg_count)` and `(arg i)` are the command-line
+`OpenDenied`, `OpenIsDirectory`, `OpenFailed`), and creating or appending a
+`CreateFault` (`CreateDenied`, `CreateNoDirectory`, `CreateIsDirectory`,
+`CreateFailed`), so a test for a case that open cannot give, such as `(eq
+fault (OpenMissing))` after `open_out`, does not compile. Test the case, not
+the words: `(eq fault (OpenMissing))` reads a missing file as empty, where
+comparing `why` with "no such file" type checks whatever it is compared
+with. Then `file_read_byte`, `file_read_line`, `file_write_str`, and
+`file_close` work on the `IoFile` inside.
+
+Renaming, removing, flushing, and closing return an `IoDone`: `(Done)`, or
+`((NotDone fault why) ...)` with a fault typed for the operation, a
+`RenameFault`, `RemoveFault`, or `WriteFault`; `l0 doc` lists the cases.
+`(is_done r)` is the test when only success matters, as after most closes.
+Nothing makes a program look at one, so `(let c (file_close f) ...)` with
+`c` unused compiles: look at every close of a file you wrote, and at every
+rename and remove. `(arg_count)` and `(arg i)` are the command-line
 arguments, not counting the program's name. `write_err` writes to standard
 error. Report failure by returning a nonzero exit status from `main`.
 
@@ -337,18 +346,20 @@ line or a field goes out by position without becoming a list. Pass
 tests especially. Nothing changes a bytes value.
 
 Writes are held back, so a write failure shows up only later: `file_close`,
-or `file_flush` on a file kept open, returns a negative number if any byte
-written to the file was lost; check it. For standard output, which is never
-closed, call `(file_flush (IoFile 1))` once at the end, as a Unix filter
-does, and turn a negative result into a message and a nonzero status. Here
-`run`, in the program's own file, does the work and returns the exit status:
+or `file_flush` on a file kept open, returns `NotDone` if any byte written
+to the file was lost, with `WriteNoSpace` for a full disk, `WriteBrokenPipe`
+for a pipe whose reader has gone, or `WriteFailed`; check it. For standard
+output, which is never closed, call `(file_flush (IoFile 1))` once at the
+end, as a Unix filter does, and turn a failure into a message and a nonzero
+status. Here `run`, in the program's own file, does the work and returns
+the exit status:
 
 ```
 (def main () int
   (let st (run (args))
-    (if (lt (file_flush (IoFile 1)) 0)
-        (let w (write_err "prog: write error\n") 1)
-        st)))
+    (match (file_flush (IoFile 1))
+      ((NotDone fault why) (let w (write_err (append "prog: " (append why "\n"))) 1))
+      ((Done) st))))
 ```
 
 A write failure the program never checked is not ignored: the program exits
@@ -359,12 +370,13 @@ choose the message and status instead.
 never rewrite a file you cannot afford to lose that way. To add to the end,
 use `(open_appending path)`, which keeps what the file holds and costs only
 what you write. To replace it, write the new contents to another name such
-as `path.tmp`, check that `file_close` returned 0, then `(rename_file tmp
+as `path.tmp`, check that `file_close` gave `(Done)`, then `(rename_file tmp
 path)`: a crash at any point leaves the old file or the new one, never a
 half-written one. If writing or renaming it fails, `(remove_file tmp)`
-deletes it, so nothing half-written is left under either name; a result of
--3 from `remove_file` means it was already gone. A directory is never
-deleted, and deleting a link leaves what it leads to.
+deletes it, so nothing half-written is left under either name;
+`RemoveMissing` from `remove_file` means it was already gone. A directory is
+never deleted, and deleting a link leaves what it leads to.
+`examples.l0`'s `replace_file` is this, written out.
 
 **Testing code that reads or writes a file.** Write it against `IoFile`
 arguments, not against standard input and output, and have `main` pass it

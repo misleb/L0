@@ -1,0 +1,65 @@
+; Tests of rotate.l0. The rotation itself renames files, and a test must not
+; leave files behind, so it is tested on disk by interrupt.py, at every step;
+; here are the plan, the journal, and the failures that leave nothing.
+
+(def test_numbered () int
+  (add (check_str "zero is the log" (numbered "app.log" 0) "app.log")
+       (check_str "three" (numbered "app.log" 3) "app.log.3")))
+
+(def plan_of ((log (list int)) (n int) (s int) (acc (list (list int)))) (list (list int))
+  (if (ge s n)
+      (rev acc)
+      (plan_of log n (add s 1)
+        (cons (append (step_from log n s) (append ">" (step_to log n s))) acc))))
+
+(def test_plan_three () int
+  (check_strs "renames" (plan_of "log" 3 0 (nil (list int)))
+    (cons "log.2>log.3" (cons "log.1>log.2" (cons "log>log.1" (nil (list int)))))))
+
+(def test_plan_one () int
+  (check_strs "renames" (plan_of "log" 1 0 (nil (list int)))
+    (cons "log>log.1" (nil (list int)))))
+
+(def test_journal_round_trip () int
+  (add (match (parse_journal (journal_text (Rotating 5 2)))
+         ((Rotating n s) (add (check_int "n" n 5) (check_int "s" s 2)))
+         ((Idle) (fail_because "rotating" "read as idle"))
+         ((Unreadable why) (fail_because "rotating" why)))
+       (match (parse_journal (journal_text (Idle)))
+         ((Rotating n s) (fail_because "idle" "read as rotating"))
+         ((Idle) 0)
+         ((Unreadable why) (fail_because "idle" why)))))
+
+(def journal_why ((text (list int))) (list int)
+  (match (parse_journal text)
+    ((Rotating n s) "rotating")
+    ((Idle) "idle")
+    ((Unreadable why) why)))
+
+(def test_journal_rejects () int
+  (add (check_str "garbage" (journal_why "hello\n")
+         "it does not say idle or rotate N STEP: hello")
+    (add (check_str "step past the end" (journal_why "rotate 3 4\n")
+           "its count or step is out of range")
+         (check_str "empty, as a crash could not leave it" (journal_why "")
+           "it does not say idle or rotate N STEP: "))))
+
+(def test_number_of () int
+  (add (check_int "plain" (number_of "12") 12)
+    (add (check_int "letters" (number_of "1x") -1)
+         (check_int "empty" (number_of "") -1))))
+
+(def test_missing_journal_is_idle () int
+  (match (read_journal "no/such/dir/log")
+    ((Idle) 0)
+    ((Rotating n s) (fail_because "journal" "rotating"))
+    ((Unreadable why) (fail_because "journal" why))))
+
+(def test_journal_write_reports () int
+  (check_str "missing directory" (write_journal "no/such/dir/log" (Idle))
+    "cannot create no/such/dir/log.rotating.tmp: no such directory"))
+
+(def test_spend () int
+  (add (check_int "counts down" (spend 2) 1)
+    (add (check_int "stops at zero" (spend 0) 0)
+         (check_int "never runs out" (spend -1) -1))))

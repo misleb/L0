@@ -1,0 +1,102 @@
+; Tests of tee.l0. Outputs are buffers in memory. A file that fails is a
+; handle open only for reading, given as an output: writing to it loses
+; every byte, and flushing it says so, as a full disk would.
+
+(def bad_out () IoFile
+  (match (open_in_bytes "")
+    ((IoFailed fault why) (IoFile -1))
+    ((IoOpened f) f)))
+
+(def buffer () IoFile
+  (match (open_out_buffer)
+    ((IoFailed fault why) (IoFile -1))
+    ((IoOpened f) f)))
+
+(def input_of ((s (list int))) IoFile
+  (match (open_in_bytes s)
+    ((IoFailed fault why) (IoFile -1))
+    ((IoOpened f) f)))
+
+(def outs2 ((a IoFile) (b IoFile)) (list Out)
+  (cons (Out 0 a false) (cons (Out 1 b false) (nil Out))))
+
+; What tee_into gives for each output, by position, as text.
+(def fates_of ((c Copied) (n int)) (list (list int))
+  (match c
+    ((Copied none rs m e)
+      (fates_text (fates rs (array_new n (Worked))) 0 m (nil (list int))))))
+
+(def fates_text ((a (array Fate)) (i int) (m int) (acc (list (list int)))) (list (list int))
+  (if (ge i (array_len a))
+      (rev acc)
+      (fates_text a (add i 1) m (cons (fate_text (array_get a i) m) acc))))
+
+(def test_copies_to_every_output () int
+  (let a (buffer)
+    (let b (buffer)
+      (let c (tee_into (input_of "hello\nworld\n") (outs2 a b) (nil Report))
+        (let sa (buffer_contents a)
+          (let sb (buffer_contents b)
+            (let x (file_close a)
+              (let y (file_close b)
+                (add (check_str "first" sa "hello\nworld\n")
+                  (add (check_str "second" sb "hello\nworld\n")
+                       (check_strs "fates" (fates_of c 2)
+                         (cons "written in full, 12 bytes"
+                           (cons "written in full, 12 bytes" (nil (list int)))))))))))))))
+
+(def test_failed_flush_goes_on () int
+  (let a (buffer)
+    (let c (tee_into (input_of "short") (outs2 (bad_out) a) (nil Report))
+      (let sa (buffer_contents a)
+        (let x (file_close a)
+          (add (check_str "the other still written" sa "short")
+               (check_strs "fates" (fates_of c 2)
+                 (cons "failed on flush: not open in that direction"
+                   (cons "written in full, 5 bytes" (nil (list int)))))))))))
+
+; A failure found while copying closes that output and copies the rest.
+(def test_failed_write_goes_on () int
+  (let a (buffer)
+    (let text (rand_bytes 3 70000)
+      (let c (tee_into (input_of text) (outs2 a (bad_out)) (nil Report))
+        (let sa (buffer_contents a)
+          (let x (file_close a)
+            (add (check_true "the other still written" (eq sa text))
+                 (check_strs "fates" (fates_of c 2)
+                   (cons "written in full, 70000 bytes"
+                     (cons "failed on write, found by a flush after 65536 bytes: not open in that direction"
+                       (nil (list int))))))))))))
+
+(def test_empty_input () int
+  (let a (buffer)
+    (let c (tee_into (input_of "") (cons (Out 0 a false) (nil Out)) (nil Report))
+      (let x (file_close a)
+        (check_strs "fates" (fates_of c 1) (cons "written in full, 0 bytes" (nil (list int))))))))
+
+(def test_open_failures_reported () int
+  (let a (buffer)
+    (match (tee (input_of "abc") a
+             (cons "no/such/dir/x" (cons "no/such/dir/x" (nil (list int)))) false)
+      ((Teed msg status)
+        (let sa (buffer_contents a)
+          (let x (file_close a)
+            (add (check_str "standard output" sa "abc")
+              (add (check_int "status" status 1)
+                   (check_str "message" msg
+                     (append "tee: standard output: written in full, 3 bytes\n"
+                       (append "tee: no/such/dir/x: failed on open: no such directory\n"
+                         "tee: no/such/dir/x: failed on open: no such directory\n")))))))))))
+
+(def test_nothing_said_when_all_worked () int
+  (let a (buffer)
+    (match (tee (input_of "abc") a (nil (list int)) false)
+      ((Teed msg status)
+        (let x (file_close a)
+          (add (check_str "message" msg "") (check_int "status" status 0)))))))
+
+(def test_fate_text () int
+  (add (check_str "close" (fate_text (FailedClose "input or output failed") 0)
+         "failed on close: input or output failed")
+       (check_str "open" (fate_text (FailedOpen "permission denied") 0)
+         "failed on open: permission denied")))

@@ -1,0 +1,430 @@
+; archive.l0 -- pack files into one archive with a checksum per file, and
+; unpack it again, refusing an archive that is corrupt or truncated.
+;
+; The format, every integer an unsigned 8-byte big-endian number:
+;
+;   "L0ARCH1\n"   magic
+;   count         how many entries follow
+;   count_sum     Adler-32 of the 8 bytes of count
+;   count times:
+;     name_len  data_len  head_sum  data_sum  name  data
+;       head_sum is the Adler-32 of the 16 bytes of name_len and data_len,
+;       data_sum the Adler-32 of name followed by data
+;   "L0ARCEND"    end marker, the last 8 bytes of the archive
+;
+; Adler-32 needs only add and mod, which L0 has; CRC-32 would need xor.
+
+; ------------------------------------------------------------- Adler-32
+
+; A sum is s2 * 65536 + s1, as zlib gives it, so one int carries both halves
+; and a sum can be continued over more bytes. The empty sum is 1.
+
+(def adler_mod () int 65521)
+
+; Bytes i up to j of b added to the sum (s1, s2). The mod is taken once per
+; block of 4096 bytes, not once per byte: s2 stays far below 2^63 in a block.
+(def adler_loop ((b bytes) (i int) (j int) (stop int) (s1 int) (s2 int)) int
+  (if (lt i stop)
+      (let t1 (add s1 (bytes_get b i))
+        (adler_loop b (add i 1) j stop t1 (add s2 t1)))
+      (let r1 (mod s1 (adler_mod))
+        (let r2 (mod s2 (adler_mod))
+          (if (ge i j)
+              (add (mul r2 65536) r1)
+              (adler_loop b i j (min_int (add i 4096) j) r1 r2))))))
+
+(def min_int ((a int) (b int)) int (if (lt a b) a b))
+
+(def adler_bytes ((b bytes) (i int) (j int) (sum int)) int
+  (adler_loop b i j (min_int (add i 4096) j) (mod sum 65536) (div sum 65536)))
+
+(def adler_list_loop ((xs (list int)) (s1 int) (s2 int)) int
+  (if (is_empty xs)
+      (add (mul s2 65536) s1)
+      (let t1 (mod (add s1 (head xs)) (adler_mod))
+        (adler_list_loop (tail xs) t1 (mod (add s2 t1) (adler_mod))))))
+
+(def adler_list ((xs (list int)) (sum int)) int
+  (adler_list_loop xs (mod sum 65536) (div sum 65536)))
+
+; ------------------------------------------------------- 8-byte integers
+
+; n as 8 bytes, most significant first. There are no shifts, so div and mod.
+(def u64_bytes ((n int)) (list int)
+  (u64_loop n 8 (nil int)))
+
+(def u64_loop ((n int) (k int) (acc (list int))) (list int)
+  (if (eq k 0)
+      acc
+      (u64_loop (div n 256) (sub k 1) (cons (mod n 256) acc))))
+
+; The 8 bytes of b at i as a number. A number with its top bit set comes out
+; negative, which is how a corrupt length shows.
+(def get_u64 ((b bytes) (i int)) int
+  (get_u64_loop b i (add i 8) 0))
+
+(def get_u64_loop ((b bytes) (i int) (j int) (acc int)) int
+  (if (ge i j)
+      acc
+      (get_u64_loop b (add i 1) j (add (mul acc 256) (bytes_get b i)))))
+
+; ------------------------------------------------------------ the format
+
+(def magic () (list int) "L0ARCH1\n")
+(def end_marker () (list int) "L0ARCEND")
+(def entry_head_len () int 32)
+
+(def archive_head ((count int)) (list int)
+  (let c (u64_bytes count)
+    (append (magic) (append c (u64_bytes (adler_list c 1))))))
+
+; Everything of an entry that comes before its data.
+(def entry_head ((name (list int)) (body bytes)) (list int)
+  (let lens (append (u64_bytes (length name)) (u64_bytes (bytes_len body)))
+    (let hs (adler_list lens 1)
+      (let ds (adler_bytes body 0 (bytes_len body) (adler_list name 1))
+        (append lens (append (u64_bytes hs) (append (u64_bytes ds) name)))))))
+
+; ------------------------------------------------------------ names
+
+; Why a name may not go into an archive or come out of one, or "" if it may.
+; A name is a relative path that never climbs out of the directory it is
+; unpacked into.
+(def name_problem ((name (list int))) (list int)
+  (if (is_empty name)
+      "the name is empty"
+      (if (eq (head name) 47)
+          "the name is an absolute path"
+          (if (any_eq 0 name)
+              "the name holds a zero byte"
+              (if (any_eq ".." (split_on 47 name))
+                  "the name climbs out of its directory with .."
+                  "")))))
+
+; The parts of s between the bytes c, empty parts included.
+(def split_on ((c int) (s (list int))) (list (list int))
+  (split_on_loop c s (nil int) (nil (list int))))
+
+(def split_on_loop ((c int) (s (list int)) (part (list int))
+                    (acc (list (list int)))) (list (list int))
+  (if (is_empty s)
+      (rev (cons (rev part) acc))
+      (if (eq (head s) c)
+          (split_on_loop c (tail s) (nil int) (cons (rev part) acc))
+          (split_on_loop c (tail s) (cons (head s) part) acc))))
+
+; Everything of a path before its last /, or "." if it has none.
+(def parent_of ((path (list int))) (list int)
+  (parent_loop path (nil int) (nil int) false))
+
+(def parent_loop ((s (list int)) (seen (list int)) (upto (list int)) (slash bool))
+    (list int)
+  (if (is_empty s)
+      (if slash (rev upto) ".")
+      (if (eq (head s) 47)
+          (parent_loop (tail s) (cons 47 seen) seen true)
+          (parent_loop (tail s) (cons (head s) seen) upto slash))))
+
+(def join_path ((dir (list int)) (name (list int))) (list int)
+  (append dir (cons 47 name)))
+
+; ------------------------------------------------------------ parsing
+
+(data Entry (Entry (list int) int int))        ; name, where data starts, its length
+
+(data Parsed
+  (Entries (list Entry))
+  (Refused (list int)))                        ; why the archive is refused
+
+(def bytes_slice_list ((b bytes) (i int) (j int)) (list int)
+  (slice_loop b (sub j 1) i (nil int)))
+
+(def slice_loop ((b bytes) (k int) (i int) (acc (list int))) (list int)
+  (if (lt k i) acc (slice_loop b (sub k 1) i (cons (bytes_get b k) acc))))
+
+(def bytes_match ((b bytes) (i int) (s (list int))) bool
+  (if (is_empty s)
+      true
+      (if (ge i (bytes_len b))
+          false
+          (if (eq (bytes_get b i) (head s))
+              (bytes_match b (add i 1) (tail s))
+              false))))
+
+(def truncated ((why (list int))) Parsed
+  (Refused (append "it is truncated: " why)))
+
+(def corrupt ((why (list int))) Parsed
+  (Refused (append "it is corrupt: " why)))
+
+(def entry_label ((k int)) (list int)
+  (append "entry " (digits (add k 1))))
+
+; The whole archive, checked before anything is written.
+(def parse_archive ((b bytes)) Parsed
+  (let n (bytes_len b)
+    (if (not (bytes_match b 0 (take_n (magic) n)))
+        (Refused "it is not an L0 archive")
+        (if (lt n 24)
+            (truncated "it ends inside its header")
+            (if (not (eq (adler_bytes b 8 16 1) (get_u64 b 16)))
+                (corrupt "the entry count does not match its checksum")
+                (parse_entries b 24 0 (get_u64 b 8) (nil Entry)))))))
+
+(def take_n ((xs (list int)) (n int)) (list int)
+  (if (or (is_empty xs) (le n 0))
+      (nil int)
+      (cons (head xs) (take_n (tail xs) (sub n 1)))))
+
+(def parse_entries ((b bytes) (pos int) (k int) (count int) (acc (list Entry))) Parsed
+  (if (eq k count)
+      (parse_end b pos k acc)
+      (if (gt (add pos (entry_head_len)) (bytes_len b))
+          (truncated (append (entry_label k)
+                       (append " of " (append (digits count) " is missing"))))
+          (if (not (eq (adler_bytes b pos (add pos 16) 1) (get_u64 b (add pos 16))))
+              (corrupt (append "the lengths of " (append (entry_label k)
+                         " do not match their checksum")))
+              (parse_entry b pos k count acc (get_u64 b pos) (get_u64 b (add pos 8)))))))
+
+(def parse_entry ((b bytes) (pos int) (k int) (count int) (acc (list Entry))
+                  (nl int) (dl int)) Parsed
+  (let start (add pos (entry_head_len))
+    (let stop (add start (add nl dl))
+      (if (or (lt nl 0) (or (lt dl 0) (lt stop start)))
+          (corrupt (append (entry_label k) " has an impossible length"))
+          (if (gt stop (bytes_len b))
+              (truncated (append (entry_label k)
+                           (append " needs " (append (digits (add nl dl))
+                             (append " bytes and " (append (digits (sub (bytes_len b) start))
+                               " remain"))))))
+              (parse_named b pos k count acc nl dl
+                (bytes_slice_list b start (add start nl))))))))
+
+(def parse_named ((b bytes) (pos int) (k int) (count int) (acc (list Entry))
+                  (nl int) (dl int) (name (list int))) Parsed
+  (let start (add pos (entry_head_len))
+    (let stop (add start (add nl dl))
+      (if (not (eq (adler_bytes b start stop 1) (get_u64 b (add pos 24))))
+          (corrupt (append (entry_label k) (append " (" (append name
+                     ") does not match its checksum"))))
+          (if (not (is_empty (name_problem name)))
+              (corrupt (append (entry_label k) (append " (" (append name
+                         (append "): " (name_problem name))))))
+              (parse_entries b stop (add k 1) count
+                (cons (Entry name (add start nl) dl) acc)))))))
+
+(def parse_end ((b bytes) (pos int) (k int) (acc (list Entry))) Parsed
+  (if (gt (add pos 8) (bytes_len b))
+      (truncated (append "its end marker is missing after " (append (digits k) " entries")))
+      (if (not (bytes_match b pos (end_marker)))
+          (corrupt (append "there are unexpected bytes after entry " (digits k)))
+          (if (lt (add pos 8) (bytes_len b))
+              (corrupt "there are bytes after its end marker")
+              (Entries (rev acc))))))
+
+; ------------------------------------------------------------ messages
+
+(def say ((parts (list (list int)))) int
+  (write_err (concat_all parts (nil int))))
+
+(def concat_all ((parts (list (list int))) (acc (list int))) (list int)
+  (if (is_empty parts)
+      (rev acc)
+      (concat_all (tail parts) (push (head parts) acc))))
+
+(def l2 ((a (list int)) (b (list int))) (list (list int))
+  (cons a (cons b (nil (list int)))))
+
+(def l3 ((a (list int)) (b (list int)) (c (list int))) (list (list int))
+  (cons a (l2 b c)))
+
+(def l4 ((a (list int)) (b (list int)) (c (list int)) (d (list int))) (list (list int))
+  (cons a (l3 b c d)))
+
+(def l5 ((a (list int)) (b (list int)) (c (list int)) (d (list int)) (e (list int)))
+    (list (list int))
+  (cons a (l4 b c d e)))
+
+; ------------------------------------------------------------ pack
+
+; Every input is opened, and closed, before anything is created, so that a
+; missing or unreadable file is reported, all of them at once, without
+; leaving a half-made archive.
+(def check_inputs ((paths (list (list int))) (bad int)) int
+  (if (is_empty paths)
+      bad
+      (check_inputs (tail paths) (add bad (check_input (head paths))))))
+
+(def check_input ((path (list int))) int
+  (if (not (is_empty (name_problem path)))
+      (let w (say (l4 "pack: " path ": " (append (name_problem path) "\n"))) 1)
+      (match (open_in path)
+        ((IoFailed fault why)
+          (let w (say (l4 "pack: cannot open " path " to read: " (append why "\n"))) 1))
+        ((IoOpened f)
+          (let c (file_close f) 0)))))
+
+(def pack ((out (list int)) (paths (list (list int)))) int
+  (if (gt (check_inputs paths 0) 0)
+      (let w (say (l3 "pack: " out " was not written\n")) 1)
+      (let partial (append out ".partial")
+        (match (open_out partial)
+          ((IoFailed fault why)
+            (let w (say (l5 "pack: cannot create " partial ": " why "\n"))
+              1))
+          ((IoOpened f) (pack_into f partial out paths))))))
+
+(def pack_into ((f IoFile) (partial (list int)) (out (list int))
+                (paths (list (list int)))) int
+  (let w (file_write_str f (archive_head (length paths)))
+    (let why (pack_files f paths)
+      (let w2 (if (is_empty why) (file_write_str f (end_marker)) 0)
+        (let c (file_close f)
+          (if (not (is_empty why))
+              (left_behind why partial)
+              (match c
+                ((NotDone fault cwhy)
+                  (left_behind (l4 "pack: writing " partial ": " (write_why fault cwhy)) partial))
+                ((Done) (finish_pack partial out)))))))))
+
+; A pack that failed deletes what it wrote, so nothing incomplete is left
+; under either name; only a failure to delete leaves it, and says so.
+(def left_behind ((why (list (list int))) (partial (list int))) int
+  (let w (say why)
+    (match (remove_file partial)
+      ((Done) (let w2 (say (l2 "\npack: nothing was written" "\n")) 1))
+      ((NotDone fault rwhy)
+        (if (eq fault (RemoveMissing))
+            (let w2 (say (l2 "\npack: nothing was written" "\n")) 1)
+            (let w2 (say (l5 "\npack: " partial " is left behind incomplete: deleting it failed: "
+                           rwhy "\n"))
+              1))))))
+
+(def finish_pack ((partial (list int)) (out (list int))) int
+  (match (rename_file partial out)
+    ((Done) 0)
+    ((NotDone fault why)
+      (left_behind (l5 "pack: renaming " partial " to " out
+                     (append ": " (if (eq fault (RenameIsDirectory))
+                                      (append why ", so the archive needs another name")
+                                      why)))
+                   partial))))
+
+; A lost write's words, with what to do about a full disk.
+(def write_why ((fault WriteFault) (why (list int))) (list int)
+  (if (eq fault (WriteNoSpace)) (append why ": the disk is full") why))
+
+; "" when every file went in, and otherwise why one did not.
+(def pack_files ((f IoFile) (paths (list (list int)))) (list (list int))
+  (if (is_empty paths)
+      (nil (list int))
+      (let why (pack_file f (head paths))
+        (if (is_empty why)
+            (pack_files f (tail paths))
+            why))))
+
+(def pack_file ((f IoFile) (path (list int))) (list (list int))
+  (match (open_in path)
+    ((IoFailed fault why) (l4 "pack: cannot open " path " to read: " why))
+    ((IoOpened g)
+      (let all (file_read_all g)
+        (let c (file_close g)
+          (match all
+            ((IoReadFailed code) (l4 "pack: reading " path ": " (io_error code)))
+            ((IoBytes b) (write_entry f path b))))))))
+
+; Writes are held back, so a full disk shows only at a flush: flush after
+; each file, so that the packer stops at the file that did not fit.
+(def write_entry ((f IoFile) (name (list int)) (body bytes)) (list (list int))
+  (let w (file_write_str f (entry_head name body))
+    (let w2 (file_write_bytes f body 0 (bytes_len body))
+      (match (file_flush f)
+        ((NotDone fault why)
+          (l4 "pack: writing the archive while adding " name ": " (write_why fault why)))
+        ((Done) (nil (list int)))))))
+
+; ------------------------------------------------------------ unpack
+
+(def unpack ((archive (list int)) (dir (list int))) int
+  (match (open_in archive)
+    ((IoFailed fault why)
+      (let w (say (l4 "unpack: cannot open " archive " to read: " (append why "\n"))) 1))
+    ((IoOpened f)
+      (let all (file_read_all f)
+        (let c (file_close f)
+          (match all
+            ((IoReadFailed code)
+              (let w (say (l4 "unpack: reading " archive ": " (append (io_error code) "\n"))) 1))
+            ((IoBytes b) (unpack_bytes archive b dir))))))))
+
+(def unpack_bytes ((archive (list int)) (b bytes) (dir (list int))) int
+  (match (parse_archive b)
+    ((Refused why)
+      (let w (say (l4 "unpack: refusing " archive ": " (append why "; nothing was written\n"))) 1))
+    ((Entries es)
+      (let problem (dir_problem dir)
+        (if (not (is_empty problem))
+            (let w (say (l4 "unpack: " dir ": " (append problem "; nothing was written\n"))) 1)
+            (let bad (write_entries b dir es 0)
+              (if (gt bad 0)
+                  (let w (say (l5 "unpack: " (digits bad) " of " (digits (length es))
+                                " files could not be written\n"))
+                    1)
+                  0)))))))
+
+; Whether dir can be a directory to unpack into, by opening it to read: a
+; directory says OpenIsDirectory, a missing path OpenMissing, and a file
+; opens.
+(def dir_problem ((dir (list int))) (list int)
+  (match (open_in dir)
+    ((IoFailed fault why)
+      (match fault
+        ((OpenMissing) "the directory does not exist, and L0 cannot create one")
+        ((OpenDenied) "")
+        ((OpenIsDirectory) "")
+        ((OpenFailed) why)))
+    ((IoOpened f)
+      (let c (file_close f) "it is a file, not a directory"))))
+
+(def write_entries ((b bytes) (dir (list int)) (es (list Entry)) (bad int)) int
+  (if (is_empty es)
+      bad
+      (write_entries b dir (tail es) (add bad (write_out b dir (head es))))))
+
+(def write_out ((b bytes) (dir (list int)) (e Entry)) int
+  (match e
+    ((Entry name start len)
+      (let path (join_path dir name)
+        (match (open_out path)
+          ((IoFailed fault why)
+            (let w (say (l5 "unpack: cannot create " path ": " why
+                          (if (eq fault (CreateNoDirectory))
+                              (append " (" (append (parent_of path)
+                                ", and L0 cannot create a directory)\n"))
+                              "\n")))
+              1))
+          ((IoOpened f)
+            (let w (file_write_bytes f b start (add start len))
+              (match (file_close f)
+                ((Done) 0)
+                ((NotDone fault why)
+                  (let d (remove_file path)
+                    (let w2 (say (l4 "unpack: writing " path ": "
+                                   (append (write_why fault why) ", so it was deleted\n")))
+                      1)))))))))))
+
+; ------------------------------------------------------------ the command
+
+(def usage () int
+  (let w (write_err "usage: archive pack OUT FILE...\n       archive unpack ARCHIVE DIR\n")
+    2))
+
+(def run ((argv (list (list int)))) int
+  (if (lt (length argv) 3)
+      (usage)
+      (if (eq (head argv) "pack")
+          (pack (head (tail argv)) (tail (tail argv)))
+          (if (and (eq (head argv) "unpack") (eq (length argv) 3))
+              (unpack (head (tail argv)) (head (tail (tail argv))))
+              (usage)))))

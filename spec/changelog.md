@@ -7,6 +7,78 @@ New entries go at the top.
 
 ---
 
+## Renaming, removing, flushing, and closing say which failure it was
+
+**Five codes join section 6.3's table** (roadmap item 0062): -6 no space
+left, -7 the reader of a pipe has gone, -8 it is a directory, -9 no such
+directory, the one a file would be in, and -10 on another file system. Each
+is given only by the operations the table names, and only when the host
+says that was the reason; any other is still -5. With them, opening a
+directory to read is -8 where it was -5, a directory that may not be
+written denies creating and renaming in it (-4) where that was -5, and
+`flush` and `close` return the code of the first byte lost rather than
+always -5.
+
+**The library types them, as 0050 did for opening.** `OpenFault` gains
+`OpenIsDirectory`, and `CreateFault` `CreateNoDirectory` and
+`CreateIsDirectory`. `rename_file`, `remove_file`, `file_flush`, and
+`file_close` return `(IoDone E)`, `(Done)` or `(NotDone fault why)`, where
+`E` is `RenameFault`, `RemoveFault`, or `WriteFault`, each with only the
+cases its operation can give, and `is_done` is the test when only success
+matters. `io_error` has words for every new code.
+
+**Why.** 0055's failure worker had six causes reaching it as one message,
+"input or output failed": a read-only directory, a missing one, a directory
+as a target, a full disk, and two failed renames. Its archiver probed the
+parent directory with `open_in` to say when a directory was missing (25
+lines, named as a workaround), and read `OpenFailed` as "a directory",
+which it also was for every other failure. Its tee could not tell a full
+disk from a reader that had gone. 0049 had left these codes "until a program
+needs more"; these programs needed more. Copies of the three, moved onto the
+typed results (`roadmap/0062/`), drop both workarounds, say what to do for a
+full disk, a closed pipe, and an archive named like a directory, and pass
+their own tests and 0055's interruption harness; the tee, piped into `head
+-c 10` and writing 100 MB to a file, reports "the reader has gone" for
+standard output and copies the file whole.
+
+**The choices.**
+
+- *Codes in the spec, not only in the library.* A cause the runtime cannot
+  report cannot be typed, and the runtime is reached only through 10.3's
+  codes, so the cause has to be one of them. Adding codes changes no
+  signature in 10.3 and needs no new seed. A program that compared with -5
+  for one of these causes now sees the new code; none in this repository
+  did.
+- *Only errno numbered alike.* ENOSPC 28, EPIPE 32, EISDIR 21, EXDEV 18,
+  EROFS 30, and 0057's four are the same on macOS and Linux, which keeps the
+  runtime one text. A full directory as `rename`'s target, whose ENOTEMPTY
+  differs, is told by `opendir`; EDQUOT differs and has no second way, so
+  exceeding a quota is -5. ELOOP and ENAMETOOLONG stay -5, as 0057 decided.
+- *One result type for four operations.* `(IoDone E)` beside `(IoOpened
+  E)`, rather than a result type per operation, since none of the four has
+  anything to return but whether it worked. Its constructors are `Done` and
+  `NotDone`, short since every caller writes them, and a program's own
+  `Done` shadows the library's (0037).
+- *Not forced.* `match` forces a program to handle `IoFailed` only because
+  the file is inside `IoOpened`; nothing is inside `Done`, so `(let c
+  (file_close f) 0)` with `c` unused still compiles, as `limits/02b` found
+  of the `int`. Forcing a result to be used would be a rule of its own for
+  L0, about every value or about some types, and is not earned by one
+  program; the shipped skill says to look at every close of a file written.
+- *The first loss is reported.* A handle remembers the code of the first
+  byte lost, and every later flush and the close return it, as 6.3 already
+  said of the failure itself.
+
+Every caller in `lib/` and `tests/` moved onto the new results, found by
+the checker. `tests/io/open_faults` covers each new open and rename case,
+`tests/io/remove` reports cases by name, `tests/io/broken_pipe` requires
+`WriteBrokenPipe`, and `tests/unit/io_test` the words and cases, closing
+twice, and renaming onto a directory. Not covered by a test: -6, which
+needs a full disk, and -10, which needs a second file system inside the
+workspace.
+
+---
+
 ## Deleting a file
 
 **`(remove path)` deletes a file** (section 6.3, roadmap item 0061), and

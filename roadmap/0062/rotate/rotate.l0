@@ -1,0 +1,239 @@
+; rotate.l0 -- rotate a log: LOG.N-1 becomes LOG.N, and so on down to LOG
+; becoming LOG.1, the old LOG.N is dropped, and a new empty LOG is started.
+;
+;   rotate LOG N
+;
+; A rotation is N + 1 steps. Step s, for s below N - 1, renames LOG.(N-1-s)
+; to LOG.(N-s); step N - 1 renames LOG to LOG.1; step N creates LOG. A step
+; whose file does not exist is skipped, so a set with gaps rotates too.
+;
+; Safe if interrupted. Every rename replaces its target in one step (spec
+; section 6.3), so no file is ever half moved, and before each step the
+; rotator records which step it is about to take in LOG.rotating, which it
+; also replaces by renaming. A run that finds LOG.rotating naming a step
+; finishes that rotation from there instead of starting another. A step that
+; is repeated after an interruption finds its file already moved, and is
+; skipped, so repeating one is harmless. When the rotation is done, any log
+; numbered past N is deleted, and then the journal; a missing journal reads
+; as idle.
+;
+; A test hook: "rotate LOG N --stop-after K" stops, with status 3, before
+; the (K+1)th rename or create, as if the machine had stopped there.
+
+; ------------------------------------------------------------ the plan
+
+(def numbered ((log (list int)) (i int)) (list int)
+  (if (eq i 0) log (append log (cons 46 (digits i)))))
+
+; Step s of a rotation of n, for s below n, renames this to step_to.
+(def step_from ((log (list int)) (n int) (s int)) (list int)
+  (numbered log (sub (sub n 1) s)))
+
+(def step_to ((log (list int)) (n int) (s int)) (list int)
+  (numbered log (sub n s)))
+
+(def journal_of ((log (list int))) (list int) (append log ".rotating"))
+
+; ------------------------------------------------------------ the journal
+
+(data Journal
+  (Idle)
+  (Rotating int int)                ; n, the step about to be taken
+  (Unreadable (list int)))          ; why the journal cannot be used
+
+(def journal_text ((j Journal)) (list int)
+  (match j
+    ((Idle) "idle\n")
+    ((Rotating n s) (append "rotate " (append (digits n) (append " " (append (digits s) "\n")))))
+    ((Unreadable why) "")))
+
+(def parse_journal ((text (list int))) Journal
+  (let ws (split_spaces (take_line text))
+    (if (eq ws (cons "idle" (nil (list int))))
+        (Idle)
+        (if (if (eq (length ws) 3) (eq (head ws) "rotate") false)
+            (parse_rotating (number_of (head (tail ws))) (number_of (head (tail (tail ws)))))
+            (Unreadable (append "it does not say idle or rotate N STEP: " (show_bytes text)))))))
+
+(def parse_rotating ((n int) (s int)) Journal
+  (if (or (lt n 1) (or (lt s 0) (gt s n)))
+      (Unreadable "its count or step is out of range")
+      (Rotating n s)))
+
+; A decimal number of 1 to 9 digits, or -1 if s is not one.
+(def number_of ((s (list int))) int
+  (if (or (is_empty s) (or (gt (length s) 9) (not (all_digits s))))
+      -1
+      (int_prefix s 0)))
+
+(def all_digits ((s (list int))) bool
+  (if (is_empty s) true (if (is_digit (head s)) (all_digits (tail s)) false)))
+
+(def show_bytes ((s (list int))) (list int)
+  (if (gt (length s) 40) (append (take_n s 40) "...") (take_line s)))
+
+(def take_n ((xs (list int)) (n int)) (list int)
+  (if (or (is_empty xs) (le n 0))
+      (nil int)
+      (cons (head xs) (take_n (tail xs) (sub n 1)))))
+
+(def read_journal ((log (list int))) Journal
+  (match (open_in (journal_of log))
+    ((IoFailed fault why)
+      (if (eq fault (OpenMissing))
+          (Idle)
+          (Unreadable (append "cannot open it to read: " why))))
+    ((IoOpened f)
+      (let all (file_read_all f)
+        (let c (file_close f)
+          (match all
+            ((IoReadFailed code) (Unreadable (append "reading it: " (io_error code))))
+            ((IoBytes b) (parse_journal (bytes_to_list b)))))))))
+
+; Replaces the journal in one step: written under another name, closed and
+; checked, then renamed over it. "" when it worked, or why it did not.
+(def write_journal ((log (list int)) (j Journal)) (list int)
+  (let tmp (append (journal_of log) ".tmp")
+    (match (open_out tmp)
+      ((IoFailed fault why) (append "cannot create " (append tmp (append ": " why))))
+      ((IoOpened f)
+        (let w (file_write_str f (journal_text j))
+          (match (file_close f)
+            ((NotDone fault why)
+              (let d (remove_file tmp)
+                (append "writing " (append tmp (append ": " why)))))
+            ((Done)
+              (match (rename_file tmp (journal_of log))
+                ((NotDone fault why)
+                  (let d (remove_file tmp)
+                    (append "renaming " (append tmp (append " to "
+                      (append (journal_of log) (append ": " why)))))))
+                ((Done) "")))))))))
+
+; ------------------------------------------------------------ the steps
+
+; The rename or create a step makes may happen while budget is not 0; a
+; budget of -1 never runs out. Each taken spends one.
+(def spend ((budget int)) int (if (gt budget 0) (sub budget 1) budget))
+
+(def say ((s (list int))) int (write_err (append "rotate: " (append s "\n"))))
+
+; Carries out the rotation of n from step s. The result is the exit status.
+(def rotate_from ((log (list int)) (n int) (s int) (budget int)) int
+  (if (gt s n)
+      (finish log n)
+      (if (eq budget 0)
+          3
+          (let jw (write_journal log (Rotating n s))
+            (if (not (is_empty jw))
+                (stop_at log n s (append "recording step " (append (digits (add s 1))
+                                   (append ": " jw))))
+                (take_step log n s (spend budget)))))))
+
+(def take_step ((log (list int)) (n int) (s int) (budget int)) int
+  (if (eq budget 0)
+      3
+      (if (eq s n)
+          (match (open_appending log)
+            ((IoFailed fault why)
+              (stop_at log n s (append "creating the new " (append log (append ": " why)))))
+            ((IoOpened f)
+              (match (file_close f)
+                ((NotDone fault why)
+                  (stop_at log n s (append "closing the new " (append log (append ": " why)))))
+                ((Done) (rotate_from log n (add s 1) (spend budget))))))
+          (match (rename_file (step_from log n s) (step_to log n s))
+            ((Done) (rotate_from log n (add s 1) (spend budget)))
+            ((NotDone fault why)
+              (if (eq fault (RenameMissing))
+                  (rotate_from log n (add s 1) (spend budget))
+                  (stop_at log n s (append "renaming " (append (step_from log n s)
+                                     (append " to " (append (step_to log n s)
+                                       (append ": " (rename_advice fault why)))))))))))))
+
+; What to say about a step's rename: the words, and for the two failures a
+; person can act on, what to do.
+(def rename_advice ((fault RenameFault) (why (list int))) (list int)
+  (if (eq fault (RenameIsDirectory))
+      (append why "; move the directory out of the way")
+      (if (eq fault (RenameDenied))
+          (append why "; the log's directory must be writable")
+          why)))
+
+(def stop_at ((log (list int)) (n int) (s int) (why (list int))) int
+  (let w (say why)
+    (let w2 (say (append "stopped before step " (append (digits (add s 1))
+                   (append " of " (append (digits (add n 1))
+                     (append "; every file is whole, and running rotate again "
+                       "finishes the rotation from there"))))))
+      (let w3 (say_undone log n s)
+        1))))
+
+(def say_undone ((log (list int)) (n int) (s int)) int
+  (if (gt s n)
+      0
+      (let w (if (eq s n)
+                 (say (append "  not done: create " log))
+                 (say (append "  not done: rename " (append (step_from log n s)
+                        (append " to " (step_to log n s))))))
+        (say_undone log n (add s 1)))))
+
+; Logs past n are dropped first and the journal goes last, so a run stopped
+; while dropping resumes at the last step and drops the rest, rather than
+; starting another rotation.
+(def finish ((log (list int)) (n int)) int
+  (let st (drop_beyond log n (add n 1))
+    (if (not (eq st 0))
+        st
+        (match (remove_file (journal_of log))
+          ((Done) 0)
+          ((NotDone fault why)
+            (if (eq fault (RemoveMissing))
+                0
+                (let w (say (append "the rotation is done, but deleting "
+                              (append (journal_of log) (append " failed: " why))))
+                  1)))))))
+
+; Files numbered past n are older than a rotation of n keeps, as after a
+; rotation with a larger n, and are deleted, up to the first not there.
+(def drop_beyond ((log (list int)) (n int) (i int)) int
+  (match (remove_file (numbered log i))
+    ((Done) (drop_beyond log n (add i 1)))
+    ((NotDone fault why)
+      (if (eq fault (RemoveMissing))
+          0
+          (let w (say (append "deleting " (append (numbered log i)
+                        (append ", older than " (append (digits n)
+                          (append " rotations keep: " why))))))
+            1)))))
+
+; ------------------------------------------------------------ the command
+
+(def rotate ((log (list int)) (n int) (budget int)) int
+  (match (read_journal log)
+    ((Unreadable why)
+      (let w (say (append (journal_of log) (append ": " (append why
+                    "; nothing was renamed"))))
+        1))
+    ((Idle) (rotate_from log n 0 budget))
+    ((Rotating m s)
+      (let w (say (append "finishing an interrupted rotation of " (append log
+                    (append " from step " (append (digits (add s 1))
+                      (append " of " (digits (add m 1))))))))
+        (rotate_from log m s budget)))))
+
+(def usage () int
+  (let w (write_err "usage: rotate LOG N [--stop-after K]\n") 2))
+
+(def run ((argv (list (list int)))) int
+  (if (lt (length argv) 2)
+      (usage)
+      (let n (number_of (head (tail argv)))
+        (if (lt n 1)
+            (usage)
+            (if (eq (length argv) 2)
+                (rotate (head argv) n -1)
+                (if (and (eq (length argv) 4) (eq (head (tail (tail argv))) "--stop-after"))
+                    (let k (number_of (head (tail (tail (tail argv)))))
+                      (if (lt k 0) (usage) (rotate (head argv) n k)))
+                    (usage)))))))

@@ -24,28 +24,27 @@ written with type parameters and `eq` throughout (0047). Left from 0041's
 candidates, `compare` and function values wait for a program that needs
 them. 0049 found that a program can tell I/O failures apart only by their
 words or codes, which the checker cannot see, and opening a file now says
-which failure it was as a case typed per kind of open (0050). Reads,
-closes, flushes, and renames keep codes until a program needs more. 0051
+which failure it was as a case typed per kind of open (0050); renames,
+removals, flushes, and closes now do too (0062), and reads keep codes. 0051
 found that no map can be written once for every key type, since nothing
 can hash a value of a type parameter. `hash` now gives any value a
 specified integer (0052), and the prelude has a `(Map K V)` for every key
 and value type (0053), which the compiler's pad table and the suite's graph
 now use (0054). A persistent map and an ordered one wait for code that
 needs them. Everything through 0054 has passed on Linux, 0056 needed no
-run, and 0057, 0058, and 0061 have passed on arm64. Bitwise operations are
-in (0058), and 0055's hash program is 4.2 times faster with them; a program
-can delete a file (0061). 0055's third round
-of programs found a copying bug in the map (0056), three places the runtime
-breaks section 6.3 (0057), and earned bitwise operations (0058), a delete
-(0061), typed failures beyond opening (0062), and research on ordering any
-type (0059) and on bounded reads with updatable bytes (0060).
+run, and 0057, 0058, 0061, and 0062 have passed on arm64. 0055's third
+round of programs found a copying bug in the map (0056) and three places
+the runtime broke section 6.3 (0057), both fixed, and earned bitwise
+operations (0058), which make its hash program 4.2 times faster, a delete
+(0061), and typed failures beyond opening (0062), all done. Waiting on
+research: ordering any type (0059), and bounded reads with updatable bytes
+(0060).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0062](0062-typed-rename-flush-close.md) rename, flush, and close say
-   which failure it was — queued, next
+Empty.
 
 ## Other open items
 
@@ -207,3 +206,6 @@ Changes to the language, strictly in order. At most one is active.
   "Bitwise operations"; passed on Linux arm64
 - [0061](0061-delete-a-file.md) delete a file — done, changelog "Deleting a
   file"; passed on Linux arm64
+- [0062](0062-typed-rename-flush-close.md) rename, remove, flush, and close
+  say which failure it was — done, changelog "Renaming, removing, flushing,
+  and closing say which failure it was"; passed on Linux arm64
