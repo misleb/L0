@@ -39,6 +39,8 @@
       Whether xs and ys hold the same bytes in the same order, as (eq xs ys) says.
   digits ((n int)) (list int)
       n in decimal, with a leading - if negative: (digits -42) is "-42".
+  hex_digits ((n int) (width int)) (list int)
+      n in lowercase hexadecimal, padded with zeros to at least width digits: (hex_digits 255 4) is "00ff", and (hex_digits 0 0) is "0".
   drop_n ((xs (list int)) (n int)) (list int)
       xs without its first n elements, or empty if it has fewer.
   starts_with ((s (list int)) (prefix (list int))) bool

@@ -52,8 +52,6 @@ Empty.
   any type, by `compare` or by function values — proposed
 - [0060](0060-bounded-reads-and-updatable-bytes.md) research: reading at
   most n bytes, and bytes that update in place — proposed
-- [0063](0063-docs-and-tools-from-0055.md) tooling: the doc and tool
-  findings of 0055 — proposed
 
 ## Done and dropped
 
@@ -209,3 +207,6 @@ Empty.
 - [0062](0062-typed-rename-flush-close.md) rename, remove, flush, and close
   say which failure it was — done, changelog "Renaming, removing, flushing,
   and closing say which failure it was"; passed on Linux arm64
+- [0063](0063-docs-and-tools-from-0055.md) tooling: the doc and tool
+  findings of 0055 — done, changelog "A declaration that does not parse is
+  reported once, and no language change for it"

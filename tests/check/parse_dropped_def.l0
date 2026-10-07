@@ -1,0 +1,8 @@
+; A def that fails to parse is dropped, and its uses are not then reported
+; as unknown: the syntax error is the only message, and says what is wrong.
+(def table (array int) (array_new 256 0))
+
+(def step ((crc int) (b int)) int
+  (array_get table (mod (add crc b) 256)))
+
+(def main () int (add (step 0 97) (table)))

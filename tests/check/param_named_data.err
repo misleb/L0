@@ -1,0 +1,2 @@
+tests/check/param_named_data.l0:4:13: error: 'data' is reserved and cannot be used as a parameter name
+tests/check/param_named_data.l0:6:19: error: unknown function 'size'

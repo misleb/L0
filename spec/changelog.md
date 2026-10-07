@@ -7,6 +7,38 @@ New entries go at the top.
 
 ---
 
+## A declaration that does not parse is reported once, and no language change for it
+
+**The checker no longer reports a dropped declaration's uses** (roadmap
+item 0063). A def that fails to parse is dropped and the rest are checked,
+as before, but its name is kept, and "unknown function" or "unknown
+variable" for that name is not reported: 0055's numbers worker saw a table
+it could not declare reported a second and third time as unknown, which
+reads as a different mistake. A use of a name that was never declared is
+still reported.
+
+**Recovery no longer starts inside a parameter.** After an error the parser
+skips to the next `(def` or `(data`, and a parameter named `data`, as in
+`((data int))`, was one, so it was parsed as a data declaration and reported
+as needing an uppercase name. A declaration is now a `(def` or `(data`
+followed by a `(`, or by a name and then a `(`, which a declaration with a
+badly formed name still is, so its own error is kept.
+
+`tests/check/parse_dropped_def` and `tests/check/param_named_data` each
+expect the one error; the compiler before this gave three for each.
+
+**The rest of 0063 is library and documentation.** `hex_digits` prints a
+number in hexadecimal, as the library could read one but not write it;
+`map_keys`'s doc no longer tells a generic caller to sort keys it has no way
+to order; the shipped guide says `l0 check` accepts a file with no `main`
+and where `l0 run` builds; and the shipped skill gives the measured cost of
+the file wrappers in a per-byte loop over several files, 2.1 to 2.8 times
+the raw handles, and says that only a flush can tell which write failed.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## Renaming, removing, flushing, and closing say which failure it was
 
 **Five codes join section 6.3's table** (roadmap item 0062): -6 no space

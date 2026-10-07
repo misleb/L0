@@ -152,7 +152,7 @@
 
 (def fmt_program ((p PProg)) (list int)
   (match p
-    ((PP ds errs)
+    ((PP ds errs bad)
       (if (is_empty errs)
           (rev (fmt_decls_onto ds (nil int)))
           (rev (fmt_parse_errs errs (nil int)))))))
@@ -208,7 +208,7 @@
 (def check_source_pre ((src (list int)) (want_main bool) (pre int))
     (list int)
   (match (parse_program (lex src))
-    ((PP ds errs)
+    ((PP ds errs bad)
       (if (is_empty errs)
           (fmt_diags (check_program ds want_main pre))
           (rev (fmt_parse_errs errs (nil int)))))))

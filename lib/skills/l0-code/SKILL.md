@@ -303,7 +303,12 @@ Output written before a read that has to wait is always shown first, so a
 prompt appears before the program waits for its answer.
 
 **Files and arguments.** Use the wrappers `l0 doc io` lists, not the raw
-builtins.
+builtins, except in a loop that runs once per byte over several files:
+copying 100 MB to four outputs through `file_write_byte` took 2.8 times as
+long with the `IoFile`s in a list, and 2.1 times with them in an array, as
+with the raw handles in an `(array int)` and `write_to`. Take the handles
+out once, with `(match f ((IoFile h) h))`, call `read_from` and `write_to`
+on them in that loop, and keep the `IoFile`s for flushing and closing.
 `(open_in path)`, `(open_out path)`, and `(open_appending path)` return
 `IoOpened`, and `match` makes you handle its `IoFailed` case,
 `((IoFailed fault why) ...)`: `why` says what went wrong in words, for a
@@ -345,9 +350,10 @@ line or a field goes out by position without becoming a list. Pass
 `(bytes_from_list s)` convert, which is how bytes meet string literals, in
 tests especially. Nothing changes a bytes value.
 
-Writes are held back, so a write failure shows up only later: `file_close`,
-or `file_flush` on a file kept open, returns `NotDone` if any byte written
-to the file was lost, with `WriteNoSpace` for a full disk, `WriteBrokenPipe`
+Writes are held back, so a write failure shows up only later: no write
+returns it, and a program that must say which write failed can only flush
+after it, as often as that matters. `file_close`, or `file_flush` on a file
+kept open, returns `NotDone` if any byte written to the file was lost, with `WriteNoSpace` for a full disk, `WriteBrokenPipe`
 for a pipe whose reader has gone, or `WriteFailed`; check it. For standard
 output, which is never closed, call `(file_flush (IoFile 1))` once at the
 end, as a Unix filter does, and turn a failure into a message and a nonzero

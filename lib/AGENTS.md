@@ -62,6 +62,16 @@ Several files are compiled together, since L0 has no module system. The
 standard library is linked automatically, and `l0 test` adds its assertions,
 so never pass library files on the command line.
 
+`l0 check` accepts files with no `main`, so `hello.l0` checks on its own;
+`l0 build` and `l0 run` need one, and say so. `l0 run` builds into a
+temporary directory, `$TMPDIR` or else `/tmp`, and deletes it when the
+program ends; to keep the executable, or to build somewhere else, use
+`l0 build ... -o PATH`.
+
+When a declaration does not parse, `l0 check` reports that and checks the
+rest; a use of the declaration that failed is not reported again, so fix
+the syntax error and check once more.
+
 **A function you define shadows a prelude function or builtin of the same
 name**, and the prelude keeps calling the original, so a name L0 or the
 standard library already took is never something you have to work around.

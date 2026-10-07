@@ -138,17 +138,42 @@
 
 ; Declarations that failed to parse are dropped, and the rest are still type
 ; checked, so one bad declaration does not hide type errors everywhere else.
-; Emission happens only when nothing at all was reported, so a partial AST is
-; never compiled.
+; A use of a def that was dropped is not reported as unknown, since the
+; syntax error already says what is wrong with it. Emission happens only
+; when nothing at all was reported, so a partial AST is never compiled.
 (def compile ((input (list int))) (list int)
   (match (parse_bundle input)
     ((Bnd entries src want_main pre)
       (match (parse_program (lex src))
-        ((PP ds perrs)
-          (let all (append perrs (check_program ds want_main pre))
+        ((PP ds perrs bad)
+          (let all (append perrs (known_only (check_program ds want_main pre) bad))
             (if (is_empty all)
                 (append "O\n" (emit_module ds pre))
                 (failure src entries all))))))))
+
+; ds without the reports that one of bad, the defs that failed to parse, is
+; an unknown function or variable.
+(def known_only ((ds (list Diag)) (bad (list (list int)))) (list Diag)
+  (if (is_empty bad)
+      ds
+      (keep_known ds (dropped_reports bad (nil (list int))) (nil Diag))))
+
+(def dropped_reports ((bad (list (list int))) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty bad)
+      acc
+      (dropped_reports (tail bad)
+        (cons (append "unknown function " (head bad))
+          (cons (append "unknown variable " (head bad)) acc)))))
+
+(def keep_known ((ds (list Diag)) (quiet (list (list int))) (acc (list Diag)))
+    (list Diag)
+  (if (is_empty ds)
+      (rev acc)
+      (match (head ds)
+        ((D o m)
+          (keep_known (tail ds) quiet
+            (if (any_eq m quiet) acc (cons (head ds) acc)))))))
 
 (def main ((input (list int))) (list int)
   (compile input))

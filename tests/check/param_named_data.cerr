@@ -1,0 +1,1 @@
+tests/check/param_named_data.l0:4:13: error: a parameter name must be lowercase and not reserved

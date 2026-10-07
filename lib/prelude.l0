@@ -150,8 +150,10 @@
         (map_find_remove ms ks vs n mk (map_slot mk (array_len ms)) k)))))
 
 ;; Every key m has, each once. The order is the table's, which hash decides,
-;; so it is the same on every run but is not the order of insertion; sort
-;; the keys if the order matters.
+;; so it is the same on every run but is not the order of insertion. If the
+;; order matters, sort the keys with a comparison written for their type;
+;; inside a function whose K is a type parameter that cannot be written, since
+;; nothing orders a value of a type parameter.
 (def (map_keys K V) ((m (Map K V))) (list K)
   (match m
     ((MapEmpty) (nil K))
@@ -286,14 +288,29 @@
       (cons (add 48 n) acc)
       (digits_onto (div n 10) (cons (add 48 (mod n 10)) acc))))
 
-;; n in decimal, with a leading - if negative: (digits -42) is "-42". The only
-;; way to print a number.
+;; n in decimal, with a leading - if negative: (digits -42) is "-42". The way
+;; to print a number; hex_digits prints one in hexadecimal.
 (def digits ((n int)) (list int)
   (if (eq n (int_min 0))
       "-9223372036854775808"
       (if (lt n 0)
           (cons 45 (digits_onto (neg n) (nil int)))
           (digits_onto n (nil int)))))
+
+;; n in lowercase hexadecimal, padded with zeros to at least width digits:
+;; (hex_digits 255 4) is "00ff", and (hex_digits 0 0) is "0". The 64 bits of
+;; n are read as unsigned, so (hex_digits -1 0) is "ffffffffffffffff". The
+;; inverse of a digit is hex_val.
+(def hex_digits ((n int) (width int)) (list int)
+  (hex_onto n width (nil int)))
+
+(def hex_onto ((n int) (width int) (acc (list int))) (list int)
+  (let d (bit_and n 15)
+    (let rest (bit_shr n 4)
+      (let more (cons (if (lt d 10) (add 48 d) (add 87 d)) acc)
+        (if (and (eq rest 0) (le width 1))
+            more
+            (hex_onto rest (sub width 1) more))))))
 
 ; ------------------------------------------------------------------ slicing
 

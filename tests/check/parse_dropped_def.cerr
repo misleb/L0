@@ -1,0 +1,1 @@
+tests/check/parse_dropped_def.l0:3:13: error: each parameter is (name type)

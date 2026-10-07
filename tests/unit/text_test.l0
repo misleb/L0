@@ -1,0 +1,22 @@
+; Unit tests for printing numbers with lib/prelude.l0: digits in decimal and
+; hex_digits in hexadecimal, at the edges of the 64 bits.
+
+(def test_digits () int
+  (add (check_str "zero" (digits 0) "0")
+    (add (check_str "negative" (digits -42) "-42")
+         (check_str "least" (digits -9223372036854775808) "-9223372036854775808"))))
+
+(def test_hex_digits () int
+  (add (check_str "zero" (hex_digits 0 0) "0")
+    (add (check_str "padded" (hex_digits 255 4) "00ff")
+      (add (check_str "wider than asked" (hex_digits 3988292384 2) "edb88320")
+        (add (check_str "all ones" (hex_digits -1 0) "ffffffffffffffff")
+             (check_str "sign bit" (hex_digits -9223372036854775808 0) "8000000000000000"))))))
+
+; hex_val reads back every digit hex_digits writes.
+(def read_hex ((s (list int)) (acc int)) int
+  (if (is_empty s) acc (read_hex (tail s) (add (mul acc 16) (hex_val (head s))))))
+
+(def test_hex_round_trip () int
+  (add (check_int "crc" (read_hex (hex_digits 3421780262 8) 0) 3421780262)
+       (check_int "small" (read_hex (hex_digits 10 1) 0) 10)))

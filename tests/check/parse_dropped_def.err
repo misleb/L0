@@ -1,0 +1,3 @@
+tests/check/parse_dropped_def.l0:3:1: error: a def is (def name (params...) return-type body)
+tests/check/parse_dropped_def.l0:6:4: error: unknown function 'array_get'
+tests/check/parse_dropped_def.l0:8:36: error: unknown function 'table'

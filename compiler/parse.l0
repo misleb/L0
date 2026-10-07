@@ -125,11 +125,13 @@
 (data Diag
   (D int (list int)))
 
-; The declarations that parsed, and the errors found. Both at once, so that
-; a file with one bad declaration still gets its remaining declarations type
-; checked instead of only reporting the syntax error.
+; The declarations that parsed, the errors found, and the names of the defs
+; that failed to parse. All at once, so that a file with one bad declaration
+; still gets its remaining declarations type checked instead of only
+; reporting the syntax error, and a use of the bad one is not then reported
+; as unknown.
 (data PProg
-  (PP (list Decl) (list Diag)))
+  (PP (list Decl) (list Diag) (list (list int))))
 
 ; ------------------------------------------------------------------- names
 
@@ -692,7 +694,10 @@
 
 ; ------------------------------------------------------- error recovery
 
-; Does this position begin a top-level declaration?
+; Does this position begin a top-level declaration? (def or (data is
+; followed by a (, or by a name and then a (, so a parameter named def or
+; data, as in ((data int)), is not taken for one, while a declaration with a
+; badly formed name still is, and gets its own error.
 (def starts_decl ((ts (list Token))) bool
   (if (is_empty ts)
       false
@@ -701,9 +706,38 @@
           (if (is_empty (tail ts))
               false
               (let t (head (tail ts))
-                (and (tok_is_name t)
-                     (or (eq (tok_bytes t) "def")
-                         (eq (tok_bytes t) "data"))))))))
+                (if (not (tok_is_name t))
+                    false
+                    (if (or (eq (tok_bytes t) "def") (eq (tok_bytes t) "data"))
+                        (decl_follows (tail (tail ts)))
+                        false)))))))
+
+; What follows (def or (data in a declaration: a (, or a name and a (.
+(def decl_follows ((ts (list Token))) bool
+  (if (is_empty ts)
+      false
+      (let t (head ts)
+        (if (tok_is_lparen t)
+            true
+            (if (tok_is_name t)
+                (if (is_empty (tail ts)) false (tok_is_lparen (head (tail ts))))
+                false)))))
+
+; The name a def that failed to parse was declaring, if it got that far:
+; (def name ... or (def (name T...) ...; "" otherwise, and for data.
+(def failed_def_name ((ts (list Token))) (list int)
+  (if (not (starts_decl ts))
+      ""
+      (let kw (head (tail ts))
+        (if (not (eq (tok_bytes kw) "def"))
+            ""
+            (let after (tail (tail ts))
+              (if (tok_is_lparen (head after))
+                  (if (is_empty (tail after)) "" (lower_name_of (head (tail after))))
+                  (lower_name_of (head after))))))))
+
+(def lower_name_of ((t Token)) (list int)
+  (if (if (tok_is_name t) (name_is_lower (tok_bytes t)) false) (tok_bytes t) ""))
 
 ; Skips forward to the next top-level declaration so that one bad
 ; declaration does not hide every later one. Callers always drop at least
@@ -715,16 +749,18 @@
           ts
           (resync (tail ts)))))
 
-(def parse_decls ((ts (list Token)) (acc (list Decl)) (diags (list Diag)))
-    PProg
+(def parse_decls ((ts (list Token)) (acc (list Decl)) (diags (list Diag))
+                   (bad (list (list int)))) PProg
   (if (is_empty ts)
-      (PP (rev_onto acc (nil Decl)) (rev_onto diags (nil Diag)))
+      (PP (rev_onto acc (nil Decl)) (rev_onto diags (nil Diag)) bad)
       (match (parse_decl ts)
-        ((POk d rest) (parse_decls rest (cons d acc) diags))
+        ((POk d rest) (parse_decls rest (cons d acc) diags bad))
         ((PErr o m)
-          (parse_decls (resync (tail ts)) acc (cons (D o m) diags))))))
+          (let n (failed_def_name ts)
+            (parse_decls (resync (tail ts)) acc (cons (D o m) diags)
+              (if (is_empty n) bad (cons n bad))))))))
 
 (def parse_program ((ts (list Token))) PProg
   (if (is_empty ts)
-      (PP (nil Decl) (cons (D 0 "no declarations found") (nil Diag)))
-      (parse_decls ts (nil Decl) (nil Diag))))
+      (PP (nil Decl) (cons (D 0 "no declarations found") (nil Diag)) (nil (list int)))
+      (parse_decls ts (nil Decl) (nil Diag) (nil (list int)))))

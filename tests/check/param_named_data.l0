@@ -1,0 +1,6 @@
+; A parameter named with a reserved word is one error. Finding the next
+; declaration after it must not take the parameter (data int) for a data
+; declaration, which would add a second, misleading error.
+(def size ((data int)) int data)
+
+(def main () int (size 3))
