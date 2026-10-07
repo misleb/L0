@@ -2,8 +2,8 @@
 
 Kind: language
 Status: done, changelog "A broken pipe is a write failure, a closed
-standard handle is open on nothing, and -3 means nothing is there"; Linux
-run owed
+standard handle is open on nothing, and -3 means nothing is there"; passed
+on Linux arm64, amd64 not run
 Needs: 0056
 
 ## Why
@@ -91,3 +91,9 @@ the start" and is silent on a host that started the program otherwise.
     matters here more than usual: `dlopen` and `dlsym` on glibc, `signal`,
     and `/dev/null` on a closed descriptor are all untested on Linux
   - next: the Linux run, then 0058
+- 2026-10-07: `tools/linux-test.sh arm64` green: 63 and 118 on Ubuntu
+  24.04's clang 18, so `dlsym` finds `__errno_location` in glibc without
+  `-ldl`, and the broken pipe, closed handles, and open codes behave as on
+  macOS. The container runs as root, so the unsearchable directory is
+  skipped there, as the other permission cases are. amd64 was not run, at
+  the user's choice, since it takes much longer under emulation. Next: 0058
