@@ -1,0 +1,24 @@
+; A map threaded through a loop of map_put and map_remove, held by nothing
+; else: a window of 1,000 keys slides over 200,000, so removals shift
+; entries back again and again. map_remove_in_place.sh checks the answers and
+; that L0_ARRAY_STATS reports no copies, since every update has the map's
+; only reference (spec section 6.5).
+
+(def slide ((m (Map int int)) (i int) (n int) (w int)) (Map int int)
+  (if (ge i n)
+      m
+      (slide (map_remove (map_put m i (mul i 2)) (sub i w)) (add i 1) n w)))
+
+(def sum ((xs (list int)) (acc int)) int
+  (if (is_empty xs) acc (sum (tail xs) (add acc (head xs)))))
+
+(def flag ((b bool)) (list int)
+  (if b "yes" "no"))
+
+(def main () int
+  (let m (slide ((MapEmpty int int)) 0 200000 1000)
+    (let a (write_line (digits (map_size m)))
+      (let b (write_line (digits (sum (map_values m) 0)))
+        (let c (write_line (flag (map_has m 199000)))
+          (let d (write_line (flag (map_has m 198999)))
+            0))))))

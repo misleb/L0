@@ -227,16 +227,19 @@
             (map_find_remove ms ks vs n mk (map_next i ms) k)))))
 
 ; Slot i is empty; the entry at j, and each after it up to an empty slot,
-; moves back to i unless that would put it before its own slot.
+; moves back to i unless that would put it before its own slot. The next
+; slot is worked out before ms is updated, since reading ms in a later
+; operand would make the update copy it (spec section 6.5).
 (def (map_shift K V) ((ms (array int)) (ks (array K)) (vs (array V)) (n int)
                       (i int) (j int)) (Map K V)
   (let mj (array_get ms j)
     (if (eq mj 0)
         (MapTable (array_set ms i 0) ks vs n)
-        (if (map_stays (map_slot mj (array_len ms)) i j)
-            (map_shift ms ks vs n i (map_next j ms))
-            (map_shift (array_set ms i mj) (array_set ks i (array_get ks j))
-                       (array_set vs i (array_get vs j)) n j (map_next j ms))))))
+        (let nj (map_next j ms)
+          (if (map_stays (map_slot mj (array_len ms)) i j)
+              (map_shift ms ks vs n i nj)
+              (map_shift (array_set ms i mj) (array_set ks i (array_get ks j))
+                         (array_set vs i (array_get vs j)) n j nj))))))
 
 ; Whether an entry whose own slot is s, found at j, stays when i, before it,
 ; empties: it does when s is after i and no later than j, going round.

@@ -7,6 +7,40 @@ New entries go at the top.
 
 ---
 
+## Removing a key from a map no longer copies it, and no language change for it
+
+**`map_remove` updates the map in place** (roadmap item 0056), as its doc
+always said. The prelude's `map_shift`, which moves entries back over the
+slot a removal empties, ended in
+
+```
+(map_shift (array_set ms i mj) ... n j (map_next j ms))
+```
+
+and `map_next` reads `ms` for its length. That read is a later operand of
+the same call, so it still held the marks array when the first operand's
+`array_set` ran, and every shift copied the whole array: the case section
+6.5 names, of a read nested inside a later operand. The next slot is now
+bound with `let` before anything is updated.
+
+**Why.** 0055's LRU cache, a map of 10,000 keys with a removal per miss,
+ran five times slower than with the fix; a 10,000-key window slid 200,000
+steps copied the marks array 84,043 times, 2.75e9 words, and none with it.
+`tests/io/map_remove_in_place` slides a 1,000-key window over 200,000 keys
+and requires that nothing is copied; on the old prelude it copies 191,044
+times. No other update in the library reads its array in a later operand.
+
+**What it says about the trap.** This is the third time a read after an
+`array_set` in the same expression has copied silently: 0028 found it in a
+heap, and section 6.5 and both skills warned of it before the map was
+written, by an author who knew the rule. Only `L0_ARRAY_STATS` shows it,
+and no test fails. It waits, recorded in 0055, for a change that makes the
+mistake impossible or visible rather than documented.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## The compiler and the suite keep their tables in the library's map, and no language change for it
 
 **The compiler's pad table is a `(Map (list int) Pad)`** (roadmap item

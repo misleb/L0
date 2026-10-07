@@ -41,14 +41,12 @@ type (0059) and on bounded reads with updatable bytes (0060).
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0056](0056-map-remove-in-place.md) `map_remove` updates in place —
-   queued, next
-2. [0057](0057-io-keeps-section-6-3.md) the runtime keeps section 6.3's
-   promises — queued, needs 0056
-3. [0058](0058-bitwise-operations.md) bitwise operations — queued, needs
+1. [0057](0057-io-keeps-section-6-3.md) the runtime keeps section 6.3's
+   promises — queued, next
+2. [0058](0058-bitwise-operations.md) bitwise operations — queued, needs
    0057
-4. [0061](0061-delete-a-file.md) delete a file — queued, needs 0058
-5. [0062](0062-typed-rename-flush-close.md) rename, flush, and close say
+3. [0061](0061-delete-a-file.md) delete a file — queued, needs 0058
+4. [0062](0062-typed-rename-flush-close.md) rename, flush, and close say
    which failure it was — queued, needs 0061
 
 ## Other open items
@@ -200,3 +198,6 @@ Changes to the language, strictly in order. At most one is active.
   tables in the library's map, and no language change for it"
 - [0055](0055-programs-round-three.md) program: a third round of ordinary
   programs — done; nine programs, which chose 0056 to 0063
+- [0056](0056-map-remove-in-place.md) `map_remove` updates in place — done,
+  changelog "Removing a key from a map no longer copies it, and no language
+  change for it"
