@@ -1,0 +1,100 @@
+; calc_test.l0 -- tests of rat.l0, num.l0, and calc.l0. Expected lines are
+; what ../ref/pycalc.py prints for the same input: with --int64 for the
+; tests that call calc_line with exact false, and without it for true.
+
+(def test_add () int
+  (check_str "1+2" (calc_line false "1+2") "3 = 3.00000000000000000000"))
+
+(def test_thirds () int
+  (add (check_str "1/3" (calc_line false "1/3") "1/3 = 0.33333333333333333333")
+       (check_str "2/3 rounds up" (calc_line false "2/3") "2/3 = 0.66666666666666666667")))
+
+(def test_negative () int
+  (add (check_str "-7/3" (calc_line false "-7/3") "-7/3 = -2.33333333333333333333")
+       (check_str "3/-4" (calc_line false "3/-4") "-3/4 = -0.75000000000000000000")))
+
+(def test_precedence () int
+  (add (check_str "1+2*3" (calc_line false "1+2*3") "7 = 7.00000000000000000000")
+       (check_str "(1+2)*3" (calc_line false "(1+2)*3") "9 = 9.00000000000000000000")))
+
+(def test_left_assoc () int
+  (add (check_str "10-4-3" (calc_line false "10-4-3") "3 = 3.00000000000000000000")
+       (check_str "100/10/5" (calc_line false "100/10/5") "2 = 2.00000000000000000000")))
+
+(def test_lowest_terms () int
+  (check_str "6/4" (calc_line false "6/4") "3/2 = 1.50000000000000000000"))
+
+(def test_unary_and_spaces () int
+  (add (check_str "--3" (calc_line false "--3") "3 = 3.00000000000000000000")
+       (check_str "spaces" (calc_line false "  ( 2 + 3 ) * - 4  ") "-20 = -20.00000000000000000000")))
+
+; 1/2^21 has 21 places, the last a 5, so rounding at 20 goes up.
+(def test_round_half_up () int
+  (check_str "1/2097152" (calc_line false "1/2097152") "1/2097152 = 0.00000047683715820313"))
+
+; Ten times the remainder does not fit in 64 bits here.
+(def test_huge_denominator () int
+  (add (check_str "tiny" (calc_line false "1/9223372036854775807")
+         "1/9223372036854775807 = 0.00000000000000000011")
+       (check_str "near one" (calc_line false "9223372036854775806/9223372036854775807")
+         "9223372036854775806/9223372036854775807 = 0.99999999999999999989")))
+
+(def test_largest () int
+  (add (check_str "max" (calc_line false "9223372036854775807")
+         "9223372036854775807 = 9223372036854775807.00000000000000000000")
+       (check_str "-max/3" (calc_line false "-9223372036854775807/3")
+         "-9223372036854775807/3 = -3074457345618258602.33333333333333333333")))
+
+(def test_division_by_zero () int
+  (add (check_str "1/0" (calc_line false "1/0") "error: division by zero")
+       (check_str "2/(1-1)" (calc_line false "2/(1-1)") "error: division by zero")))
+
+(def test_syntax () int
+  (add (check_str "(1" (calc_line false "(1") "error: syntax: expected ) at the end")
+    (add (check_str "1 +" (calc_line false "1 +") "error: syntax: expected a number, -, or ( at the end")
+         (check_str "2 x" (calc_line false "2 x") "error: syntax: unexpected 'x'"))))
+
+(def test_overflow_literal () int
+  (check_str "2^63" (calc_line false "9223372036854775808")
+    "error: overflow: a number does not fit in 64 bits"))
+
+(def test_overflow_ops () int
+  (add (check_str "max+1" (calc_line false "9223372036854775807 + 1")
+         "error: overflow: a number does not fit in 64 bits")
+    (add (check_str "2^62*2" (calc_line false "4611686018427387904 * 2")
+           "error: overflow: a number does not fit in 64 bits")
+         (check_str "-2^62*2" (calc_line false "-4611686018427387904 * 2")
+           "error: overflow: a number does not fit in 64 bits"))))
+
+(def test_mul_edge () int
+  (add (check_str "fits" (calc_line false "3037000499 * 3037000499")
+         "9223372030926249001 = 9223372030926249001.00000000000000000000")
+       (check_str "does not" (calc_line false "3037000500 * 3037000500")
+         "error: overflow: a number does not fit in 64 bits")))
+
+; Knuth's addition keeps a result whose denominator is near 2^63.
+(def test_add_near_limit () int
+  (check_str "sum" (calc_line false "1/3037000499 + 1/3037000493")
+    "6074000992/9223372012704246007 = 0.00000000065854450884"))
+
+(def test_bump_carries () int
+  (match (bump (cons 9 (cons 9 (cons 3 (nil int)))))
+    ((Bump ds c)
+      (add (check_strs "digits" (cons ds (nil (list int)))
+             (cons (cons 0 (cons 0 (cons 4 (nil int)))) (nil (list int))))
+           (check_bool "carry" c false)))))
+
+(def test_loop () int
+  (match (open_in_bytes "1+1\n\n  \n1/0\r\n2*3")
+    ((IoFailed fault why) (fail_because "open" why))
+    ((IoOpened inp)
+      (match (open_out_buffer)
+        ((IoFailed fault why) (fail_because "buffer" why))
+        ((IoOpened out)
+          (let st (calc_loop true inp out 0)
+            (let got (buffer_contents out)
+              (let c1 (file_close inp)
+                (let c2 (file_close out)
+                  (add (check_int "status" st 1)
+                       (check_str "output" got
+                         "2 = 2.00000000000000000000\nerror: division by zero\n6 = 6.00000000000000000000\n")))))))))))

@@ -1,0 +1,185 @@
+; tree.l0 -- a persistent AVL tree, written once for every element type.
+;
+; Each node keeps its height and its size, so the same tree serves two uses:
+;
+; - a sequence indexed by position (seq_*), which needs no ordering of its
+;   elements at all, and so is written once for every T; the editor's buffer
+;   is one of these
+; - an ordered set (oset.l0), which needs to ask which of two elements comes
+;   first. That part cannot be written for a T (limits/01, limits/02), so it
+;   is written once over Key, a closed sum of the element types it is used at
+;
+; Every update returns a new tree and shares everything off the path it
+; changed with the old one, so keeping old versions costs O(log n) per edit.
+; Recursion is on the tree's height, about 1.44 log2 n, so it is not a tail
+; call and does not need to be.
+
+(data (Tree T)
+  (Tip)
+  (Node (Tree T) T (Tree T) int int))      ; left, element, right, height, size
+
+(def imax ((a int) (b int)) int
+  (if (gt a b) a b))
+
+(def (tree_height T) ((t (Tree T))) int
+  (match t
+    ((Tip) 0)
+    ((Node l x r h s) h)))
+
+(def (tree_size T) ((t (Tree T))) int
+  (match t
+    ((Tip) 0)
+    ((Node l x r h s) s)))
+
+; A node over two subtrees whose heights differ by at most one.
+(def (node T) ((l (Tree T)) (x T) (r (Tree T))) (Tree T)
+  (let hl (tree_height l)
+    (let hr (tree_height r)
+      (let sl (tree_size l)
+        (let sr (tree_size r)
+          (Node l x r (add 1 (imax hl hr)) (add 1 (add sl sr))))))))
+
+; A node over two subtrees whose heights differ by at most two, rebalanced.
+(def (balance T) ((l (Tree T)) (x T) (r (Tree T))) (Tree T)
+  (let hl (tree_height l)
+    (let hr (tree_height r)
+      (if (gt hl (add hr 1))
+          (rotate_right l x r)
+          (if (gt hr (add hl 1))
+              (rotate_left l x r)
+              (node l x r))))))
+
+(def (rotate_right T) ((l (Tree T)) (x T) (r (Tree T))) (Tree T)
+  (match l
+    ((Tip) (node ((Tip T)) x r))
+    ((Node ll lx lr lh ls)
+      (if (ge (tree_height ll) (tree_height lr))
+          (node ll lx (node lr x r))
+          (rotate_lr ll lx lr x r)))))
+
+(def (rotate_lr T) ((ll (Tree T)) (lx T) (lr (Tree T)) (x T) (r (Tree T)))
+    (Tree T)
+  (match lr
+    ((Tip) (node ll lx (node ((Tip T)) x r)))
+    ((Node a y b h s) (node (node ll lx a) y (node b x r)))))
+
+(def (rotate_left T) ((l (Tree T)) (x T) (r (Tree T))) (Tree T)
+  (match r
+    ((Tip) (node l x ((Tip T))))
+    ((Node rl rx rr rh rs)
+      (if (ge (tree_height rr) (tree_height rl))
+          (node (node l x rl) rx rr)
+          (rotate_rl l x rl rx rr)))))
+
+(def (rotate_rl T) ((l (Tree T)) (x T) (rl (Tree T)) (rx T) (rr (Tree T)))
+    (Tree T)
+  (match rl
+    ((Tip) (node (node l x ((Tip T))) rx rr))
+    ((Node a y b h s) (node (node l x a) y (node b rx rr)))))
+
+; The leftmost element of the tree l x r, and the tree without it.
+(data (MinSplit T)
+  (MinSplit T (Tree T)))
+
+(def (split_min T) ((l (Tree T)) (x T) (r (Tree T))) (MinSplit T)
+  (match l
+    ((Tip) (MinSplit x r))
+    ((Node ll lx lr lh ls)
+      (match (split_min ll lx lr)
+        ((MinSplit m rest) (MinSplit m (balance rest x r)))))))
+
+; Two siblings, every element of l before every element of r, as one tree.
+(def (tree_join T) ((l (Tree T)) (r (Tree T))) (Tree T)
+  (match r
+    ((Tip) l)
+    ((Node rl rx rr rh rs)
+      (match (split_min rl rx rr)
+        ((MinSplit m rest) (balance l m rest))))))
+
+; The elements in order, in front of acc.
+(def (tree_onto T) ((t (Tree T)) (acc (list T))) (list T)
+  (match t
+    ((Tip) acc)
+    ((Node l x r h s) (tree_onto l (cons x (tree_onto r acc))))))
+
+(def (tree_list T) ((t (Tree T))) (list T)
+  (match t
+    ((Tip) (nil T))
+    ((Node l x r h s) (tree_onto l (cons x (tree_onto r (nil T)))))))
+
+; Whether every node's height and size are right and it is balanced.
+(def (tree_ok T) ((t (Tree T))) bool
+  (match t
+    ((Tip) true)
+    ((Node l x r h s)
+      (let hl (tree_height l)
+        (let hr (tree_height r)
+          (and (and (tree_ok l) (tree_ok r))
+               (and (eq h (add 1 (imax hl hr)))
+                    (and (eq s (add 1 (add (tree_size l) (tree_size r))))
+                         (le (imax (sub hl hr) (sub hr hl)) 1)))))))))
+
+; ------------------------------------------------- sequences, by position
+
+; Element i, counted from 0, or (None) if there is none.
+(def (seq_get T) ((t (Tree T)) (i int)) (Option T)
+  (match t
+    ((Tip) ((None T)))
+    ((Node l x r h s)
+      (let sl (tree_size l)
+        (if (lt i sl)
+            (seq_get l i)
+            (if (eq i sl)
+                (Some x)
+                (seq_get r (sub i (add sl 1)))))))))
+
+; t with y inserted so that it is element i; an i past the end appends.
+(def (seq_insert T) ((t (Tree T)) (i int) (y T)) (Tree T)
+  (match t
+    ((Tip) (Node ((Tip T)) y ((Tip T)) 1 1))
+    ((Node l x r h s)
+      (let sl (tree_size l)
+        (if (le i sl)
+            (balance (seq_insert l i y) x r)
+            (balance l x (seq_insert r (sub i (add sl 1)) y)))))))
+
+; t with element i replaced by y; unchanged if there is no element i.
+(def (seq_set T) ((t (Tree T)) (i int) (y T)) (Tree T)
+  (match t
+    ((Tip) ((Tip T)))
+    ((Node l x r h s)
+      (let sl (tree_size l)
+        (if (lt i sl)
+            (Node (seq_set l i y) x r h s)
+            (if (eq i sl)
+                (Node l y r h s)
+                (Node l x (seq_set r (sub i (add sl 1)) y) h s)))))))
+
+; t without element i; unchanged if there is no element i.
+(def (seq_delete T) ((t (Tree T)) (i int)) (Tree T)
+  (match t
+    ((Tip) ((Tip T)))
+    ((Node l x r h s)
+      (let sl (tree_size l)
+        (if (lt i sl)
+            (balance (seq_delete l i) x r)
+            (if (eq i sl)
+                (tree_join l r)
+                (balance l x (seq_delete r (sub i (add sl 1))))))))))
+
+; A balanced tree of the first n elements of xs, and the rest of xs.
+(data (Built T)
+  (Built (Tree T) (list T)))
+
+(def (seq_build T) ((n int) (xs (list T))) (Built T)
+  (if (le n 0)
+      (Built ((Tip T)) xs)
+      (let nl (div (sub n 1) 2)
+        (match (seq_build nl xs)
+          ((Built l rest)
+            (match (seq_build (sub (sub n nl) 1) (tail rest))
+              ((Built r rest2) (Built (node l (head rest) r) rest2))))))))
+
+(def (seq_of_list T) ((xs (list T))) (Tree T)
+  (match (seq_build (length xs) xs)
+    ((Built t rest) t)))

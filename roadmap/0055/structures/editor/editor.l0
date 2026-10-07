@@ -1,0 +1,164 @@
+; editor.l0 -- a text editor's buffer with undo and redo, reading a script
+; of edits.
+;
+; The buffer is a sequence of lines, common/tree.l0's persistent AVL tree by
+; position, each line held as bytes. An edit builds a new tree that shares
+; all but O(log n) nodes with the old, so every old version is kept whole,
+; for O(log n) memory per edit, and undo and redo are each one step: the
+; editor holds the current version and two stacks of versions.
+;
+; The script, one command per line; N counts lines from 0:
+;
+;   i N TEXT   insert TEXT as line N (N may be the line count, to append)
+;   d N        delete line N
+;   r N TEXT   replace line N with TEXT
+;   u          undo the last edit not undone
+;   R          redo the last edit undone; any new edit forgets what is undone
+;   l N        print line N
+;   p          print the whole buffer
+;
+; A command that cannot be done is reported on standard error as
+; "?LINE: why", changes nothing, and makes the exit status 1.
+
+(data Editor
+  (Editor (Tree bytes) (list (Tree bytes)) (list (Tree bytes))))   ; now, undo, redo
+
+(data Cmd
+  (CInsert int bytes)
+  (CDelete int)
+  (CReplace int bytes)
+  (CUndo)
+  (CRedo)
+  (CLine int)
+  (CPrint)
+  (CBad (list int)))
+
+(def editor_of ((lines (list bytes))) Editor
+  (Editor (seq_of_list lines) (nil (Tree bytes)) (nil (Tree bytes))))
+
+(def editor_lines ((e Editor)) (list bytes)
+  (match e ((Editor now undo redo) (tree_list now))))
+
+; ----------------------------------------------------------------- parsing
+
+; The number at the start of s, after spaces, and the text after it and one
+; space; or CBad if there is no number.
+(data NumText
+  (NumText int (list int))
+  (NoNum))
+
+(def num_text ((s (list int))) NumText
+  (let t (skip_spaces s)
+    (if (is_empty t)
+        (NoNum)
+        (if (is_digit (head t))
+            (let after (skip_digits t)
+              (NumText (int_prefix t 0)
+                       (if (is_empty after) after (if (eq (head after) 32) (tail after) after))))
+            (NoNum)))))
+
+(def cmd_num ((code int) (rest (list int)) (line (list int))) Cmd
+  (match (num_text rest)
+    ((NoNum) (CBad "expected a line number"))
+    ((NumText n text)
+      (if (eq code 105)
+          (CInsert n (bytes_from_list text))
+          (if (eq code 114)
+              (CReplace n (bytes_from_list text))
+              (if (eq code 100)
+                  (CDelete n)
+                  (CLine n)))))))
+
+; One line of the script, without its newline.
+(def parse_cmd ((s (list int))) Cmd
+  (if (is_empty s)
+      (CBad "empty command")
+      (let c (head s)
+        (if (any_eq c "irdl")
+            (cmd_num c (tail s) s)
+            (if (eq s "u")
+                (CUndo)
+                (if (eq s "R")
+                    (CRedo)
+                    (if (eq s "p")
+                        (CPrint)
+                        (CBad "unknown command"))))))))
+
+; ---------------------------------------------------------------- applying
+
+(data Step
+  (Step Editor (list int)))                     ; the editor, and "" or why not
+
+(def edited ((now (Tree bytes)) (undo (list (Tree bytes))) (next (Tree bytes))) Step
+  (Step (Editor next (cons now undo) (nil (Tree bytes))) ""))
+
+(def write_line_bytes ((out IoFile) (b bytes)) int
+  (let w (file_write_bytes out b 0 (bytes_len b))
+    (file_write_byte out 10)))
+
+; Every line of t, in order, onto out.
+(def write_tree ((out IoFile) (t (Tree bytes))) int
+  (match t
+    ((Tip) 0)
+    ((Node l x r h s)
+      (let a (write_tree out l)
+        (let b (write_line_bytes out x)
+          (write_tree out r))))))
+
+(def apply ((e Editor) (c Cmd) (out IoFile)) Step
+  (match e
+    ((Editor now undo redo)
+      (match c
+        ((CInsert n text)
+          (if (and (ge n 0) (le n (tree_size now)))
+              (edited now undo (seq_insert now n text))
+              (Step (Editor now undo redo) "no such line")))
+        ((CDelete n)
+          (if (and (ge n 0) (lt n (tree_size now)))
+              (edited now undo (seq_delete now n))
+              (Step (Editor now undo redo) "no such line")))
+        ((CReplace n text)
+          (if (and (ge n 0) (lt n (tree_size now)))
+              (edited now undo (seq_set now n text))
+              (Step (Editor now undo redo) "no such line")))
+        ((CUndo)
+          (if (is_empty undo)
+              (Step (Editor now undo redo) "nothing to undo")
+              (Step (Editor (head undo) (tail undo) (cons now redo)) "")))
+        ((CRedo)
+          (if (is_empty redo)
+              (Step (Editor now undo redo) "nothing to redo")
+              (Step (Editor (head redo) (cons now undo) (tail redo)) "")))
+        ((CLine n)
+          (match (seq_get now n)
+            ((None) (Step (Editor now undo redo) "no such line"))
+            ((Some b)
+              (let w (write_line_bytes out b)
+                (Step (Editor now undo redo) "")))))
+        ((CPrint)
+          (let w (write_tree out now)
+            (Step (Editor now undo redo) "")))
+        ((CBad why) (Step (Editor now undo redo) why))))))
+
+; Runs every command of script onto out; the exit status.
+(def run_script ((e Editor) (script IoFile) (out IoFile) (status int)) int
+  (match (file_next_line script)
+    ((IoEnd) status)
+    ((IoError code)
+      (let w (write_err (append "editor: reading the script: " (append (io_error code) "\n")))
+        1))
+    ((IoLine s)
+      (let line (take_line s)
+        (match (apply e (parse_cmd line) out)
+          ((Step e2 why)
+            (if (is_empty why)
+                (run_script e2 script out status)
+                (let w (write_err (append "?" (append line (append ": " (append why "\n")))))
+                  (run_script e2 script out 1)))))))))
+
+; Every line of f, as bytes, in order.
+(def read_lines ((f IoFile) (acc (list bytes))) (list bytes)
+  (match (file_next_line f)
+    ((IoLine s) (read_lines f (cons (bytes_from_list (take_line s)) acc)))
+    ((IoEnd) (rev acc))
+    ((IoError code) (rev acc))))

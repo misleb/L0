@@ -1,0 +1,46 @@
+; map_remove_fixed.l0 -- MEASUREMENT ONLY, not a workaround to ship.
+;
+; lib/prelude.l0's map_shift ends in
+;
+;   (map_shift (array_set ms i mj) (array_set ks i (array_get ks j))
+;              (array_set vs i (array_get vs j)) n j (map_next j ms))
+;
+; whose last operand reads ms after the first operand's array_set has run, so
+; that array_set copies the whole marks array (spec 6.5: "a read of the
+; array nested inside a later operand of the same expression"). Every removal
+; that shifts an entry back copies it. This file is the same three functions
+; with the reads bound first, as the skill says to; compiled with a program,
+; it shadows the prelude's map_remove (spec 7.1), so the program's own calls
+; use it. AGENTS.md forbids vendoring a patched prelude, so this exists only
+; to measure what the fix would buy (limits/03, and lru with it).
+
+(def (map_remove K V) ((m (Map K V)) (k K)) (Map K V)
+  (match m
+    ((MapEmpty) m)
+    ((MapTable ms ks vs n)
+      (let mk (add (hash k) 1)
+        (map_find_remove ms ks vs n mk (map_slot mk (array_len ms)) k)))))
+
+(def (map_find_remove K V) ((ms (array int)) (ks (array K)) (vs (array V)) (n int)
+                            (mk int) (i int) (k K)) (Map K V)
+  (let here (array_get ms i)
+    (if (eq here 0)
+        (MapTable ms ks vs n)
+        (if (if (eq here mk) (eq (array_get ks i) k) false)
+            (if (eq n 1)
+                ((MapEmpty K V))
+                (map_shift ms ks vs (sub n 1) i (map_next i ms)))
+            (map_find_remove ms ks vs n mk (map_next i ms) k)))))
+
+(def (map_shift K V) ((ms (array int)) (ks (array K)) (vs (array V)) (n int)
+                      (i int) (j int)) (Map K V)
+  (let mj (array_get ms j)
+    (if (eq mj 0)
+        (MapTable (array_set ms i 0) ks vs n)
+        (let nj (map_next j ms)
+          (if (map_stays (map_slot mj (array_len ms)) i j)
+              (map_shift ms ks vs n i nj)
+              (let kj (array_get ks j)
+                (let vj (array_get vs j)
+                  (map_shift (array_set ms i mj) (array_set ks i kj) (array_set vs i vj)
+                             n j nj))))))))

@@ -1,0 +1,9 @@
+; Limit 02b: nothing makes a program look at what a rename, flush, or close
+; returned. This checks, and when the rename fails the program exits 0 having
+; said nothing; the open's IoOpened is the only I/O result match forces open.
+; (A write failure never looked at is still caught, as status 70, by the
+; host; a failed rename or a failed read of a closed handle is not.)
+
+(def main () int
+  (let r (rename_file "no/such/file" "anywhere")
+    0))

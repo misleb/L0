@@ -1,0 +1,41 @@
+; phases_main.l0 -- measures where sums spends its time, with sums.l0 and
+; bits.l0: `phases read|crc|sha FILE` runs only that part over the file.
+; Build: l0 build ../hash/bits.l0 ../hash/sums.l0 phases_main.l0
+
+; Only reading the file in 64-byte blocks: the floor every pass pays.
+(def read_only ((f IoFile) (blk (array int)) (len int)) int
+  (match (fill f blk 0)
+    ((Fill b n st)
+      (if (eq n 64) (read_only f b (add len 64)) (add len n)))))
+
+(def crc_only ((tb Tables) (f IoFile) (blk (array int)) (c Crc)) int
+  (match (fill f blk 0)
+    ((Fill b n st)
+      (let c2 (crc_update tb b n c)
+        (if (eq n 64) (crc_only tb f b c2) (crc_final c2))))))
+
+(def sha_only ((tb Tables) (f IoFile) (blk (array int)) (w (array int)) (h H8)) int
+  (match (fill f blk 0)
+    ((Fill b n st)
+      (if (eq n 64)
+          (match (compress tb b w h)
+            ((Step w2 h2) (sha_only tb f b w2 h2)))
+          (match h ((H8 a bb c d e g hh i) a))))))
+
+(def phase ((which (list int)) (f IoFile)) int
+  (if (eq which "read")
+      (read_only f (array_new 64 0) 0)
+      (if (eq which "crc")
+          (crc_only (make_tables) f (array_new 64 0) (crc_start))
+          (sha_only (make_tables) f (array_new 64 0) (array_new 64 0) (sha_init)))))
+
+(def main () int
+  (match (open_in (arg 1))
+    ((IoFailed fault why) (let w (write_err why) 1))
+    ((IoOpened f)
+      (let t0 (clock_ns)
+        (let r (phase (arg 0) f)
+          (let t1 (clock_ns)
+            (let w (write_line (digits r))
+              (let x (write_err (append (arg 0) (append " ms " (append (digits (div (sub t1 t0) 1000000)) "\n"))))
+                0))))))))

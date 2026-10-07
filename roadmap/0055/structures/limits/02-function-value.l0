@@ -1,0 +1,15 @@
+; Limit 02: a comparison cannot be passed as a value.
+;
+; The other way to write a heap once is to hand it the order: a function
+; from two elements to bool. L0 has no function values and no function
+; types, so neither the parameter's type nor the argument can be written.
+; Here the order is passed as a name in expression position, which the spec
+; resolves only to a local (section 7).
+
+(def int_less ((a int) (b int)) bool (lt a b))
+
+(def (smaller T) ((a T) (b T) (less bool)) T
+  (if less a b))
+
+(def main () int
+  (smaller 3 4 int_less))

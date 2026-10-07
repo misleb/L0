@@ -1,0 +1,70 @@
+; heap_test.l0 -- the heap at two key types and two payload types.
+
+(def (keys_out T) ((h (Heap T)) (acc (list Key))) (list Key)
+  (match (heap_pop h)
+    ((PopNone) (rev acc))
+    ((Popped k v rest) (keys_out rest (cons k acc)))))
+
+(def (vals_out T) ((h (Heap T)) (acc (list T))) (list T)
+  (match (heap_pop h)
+    ((PopNone) (rev acc))
+    ((Popped k v rest) (vals_out rest (cons v acc)))))
+
+(def push_ints ((h (Heap int)) (xs (list int))) (Heap int)
+  (if (is_empty xs) h (push_ints (heap_push h (KInt (head xs)) (head xs)) (tail xs))))
+
+(def push_words ((h (Heap (list int))) (ws (list (list int)))) (Heap (list int))
+  (if (is_empty ws) h (push_words (heap_push h (key_str (head ws)) (head ws)) (tail ws))))
+
+(def ints_of ((ks (list Key)) (acc (list int))) (list int)
+  (if (is_empty ks)
+      (rev acc)
+      (match (head ks)
+        ((KInt n) (ints_of (tail ks) (cons n acc)))
+        ((KStr s) (ints_of (tail ks) (cons -1 acc))))))
+
+(def test_ints_sorted () int
+  (let h (push_ints ((HeapEmpty int)) (cons 5 (cons 3 (cons 9 (cons 1 (cons 3 (nil int)))))))
+    (add (check_int "size" (heap_size h) 5)
+         (check_true "order" (eq (vals_out h (nil int))
+                                 (cons 1 (cons 3 (cons 3 (cons 5 (cons 9 (nil int)))))))))))
+
+(def test_words_sorted () int
+  (let h (push_words ((HeapEmpty (list int))) (split_spaces "pear apple fig banana apple"))
+    (check_strs "order" (vals_out h (nil (list int))) (split_spaces "apple apple banana fig pear"))))
+
+(def test_empty_pop () int
+  (match (heap_pop ((HeapEmpty int)))
+    ((PopNone) 0)
+    ((Popped k v rest) (fail_because "empty" "popped something"))))
+
+(def countdown ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (countdown (sub n 1) (cons (mod (mul n 7919) 1000) acc))))
+
+(def nondecreasing ((xs (list int))) bool
+  (if (is_empty xs)
+      true
+      (if (is_empty (tail xs))
+          true
+          (if (gt (head xs) (head (tail xs))) false (nondecreasing (tail xs))))))
+
+; Past the first growth of the arrays, and with many repeated keys.
+(def test_many () int
+  (let h (push_ints ((HeapEmpty int)) (countdown 5000 (nil int)))
+    (let out (ints_of (keys_out h (nil Key)) (nil int))
+      (add (check_int "count" (length out) 5000)
+           (check_true "sorted" (nondecreasing out))))))
+
+; The int-keyed copy agrees with the Key heap.
+(def ipush ((h (IHeap int)) (xs (list int))) (IHeap int)
+  (if (is_empty xs) h (ipush (iheap_push h (head xs) (head xs)) (tail xs))))
+
+(def iout ((h (IHeap int)) (acc (list int))) (list int)
+  (match (iheap_pop h)
+    ((IPopNone) (rev acc))
+    ((IPopped k v rest) (iout rest (cons k acc)))))
+
+(def test_int_heap_agrees () int
+  (let xs (countdown 3000 (nil int))
+    (check_true "same" (eq (iout (ipush ((IHeapEmpty int)) xs) (nil int))
+                           (ints_of (keys_out (push_ints ((HeapEmpty int)) xs) (nil Key)) (nil int))))))

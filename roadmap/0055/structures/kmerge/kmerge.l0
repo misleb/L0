@@ -1,0 +1,209 @@
+; kmerge.l0 -- merge k sorted files, or list the distinct lines of files in
+; order, with the heap (heap.l0) and the ordered set (oset.l0), each used at
+; two element types: lines, as KStr, and numbers, as KInt (-n).
+;
+;   kmerge merge [-n] FILE...      the lines of sorted files, merged in order
+;   kmerge distinct [-n] FILE...   every different line of the files, in order
+;   kmerge bench heap|iheap|set|iset N
+;                                  N pseudo-random ints through one structure;
+;                                  iheap and iset are the int-only copies
+;
+; A line's key is its bytes without the newline, or with -n the number it
+; starts with. Merged output writes each key back, so -n writes the number.
+
+; ------------------------------------------------------------ lines as keys
+
+(def parse_int ((s (list int))) int
+  (if (is_empty s)
+      0
+      (if (eq (head s) 45)
+          (neg (int_prefix (tail s) 0))
+          (int_prefix s 0))))
+
+(def line_key ((s (list int)) (numeric bool)) Key
+  (if numeric
+      (KInt (parse_int s))
+      (key_str (take_line s))))
+
+(def write_key ((out IoFile) (k Key)) int
+  (match k
+    ((KInt n) (file_write_str out (digits n)))
+    ((KStr b) (file_write_bytes out b 0 (bytes_len b)))))
+
+(def write_key_line ((out IoFile) (k Key)) int
+  (let w (write_key out k)
+    (file_write_byte out 10)))
+
+; ------------------------------------------------------------------- merge
+
+(def (array_of_list T) ((xs (list T)) (fill T)) (array T)
+  (fill_from (array_new (length xs) fill) 0 xs))
+
+(def (fill_from T) ((a (array T)) (i int) (xs (list T))) (array T)
+  (if (is_empty xs) a (fill_from (array_set a i (head xs)) (add i 1) (tail xs))))
+
+; The heap's payload is which file the key came from.
+(def first_lines ((files (array IoFile)) (i int) (h (Heap int)) (numeric bool))
+    (Heap int)
+  (if (ge i (array_len files))
+      h
+      (match (file_next_line (array_get files i))
+        ((IoLine s) (first_lines files (add i 1) (heap_push h (line_key s numeric) i) numeric))
+        ((IoEnd) (first_lines files (add i 1) h numeric))
+        ((IoError code)
+          (let e (write_err (append "kmerge: read failed: " (append (io_error code) "\n")))
+            (first_lines files (add i 1) h numeric))))))
+
+(def merge_loop ((files (array IoFile)) (h (Heap int)) (numeric bool) (out IoFile)
+                 (status int)) int
+  (match (heap_pop h)
+    ((PopNone) status)
+    ((Popped k i rest)
+      (let w (write_key_line out k)
+        (match (file_next_line (array_get files i))
+          ((IoLine s)
+            (merge_loop files (heap_push rest (line_key s numeric) i) numeric out status))
+          ((IoEnd) (merge_loop files rest numeric out status))
+          ((IoError code)
+            (let e (write_err (append "kmerge: read failed: " (append (io_error code) "\n")))
+              (merge_loop files rest numeric out 1))))))))
+
+; Merges the files, each already in order, onto out. The exit status.
+(def merge_files ((fs (list IoFile)) (numeric bool) (out IoFile)) int
+  (if (is_empty fs)
+      0
+      (let files (array_of_list fs (head fs))
+        (merge_loop files (first_lines files 0 ((HeapEmpty int)) numeric) numeric out 0))))
+
+; ---------------------------------------------------------------- distinct
+
+(data Gathered
+  (Gathered (Tree Key) int))                    ; the set, the exit status
+
+(def gather_file ((f IoFile) (t (Tree Key)) (numeric bool) (status int)) Gathered
+  (match (file_next_line f)
+    ((IoLine s) (gather_file f (set_insert t (line_key s numeric)) numeric status))
+    ((IoEnd) (Gathered t status))
+    ((IoError code)
+      (let e (write_err (append "kmerge: read failed: " (append (io_error code) "\n")))
+        (Gathered t 1)))))
+
+(def gather_all ((fs (list IoFile)) (g Gathered) (numeric bool)) Gathered
+  (if (is_empty fs)
+      g
+      (match g
+        ((Gathered t status)
+          (gather_all (tail fs) (gather_file (head fs) t numeric status) numeric)))))
+
+(def write_keys ((out IoFile) (ks (list Key))) int
+  (if (is_empty ks)
+      0
+      (let w (write_key_line out (head ks))
+        (write_keys out (tail ks)))))
+
+; Writes every different line of the files onto out, in order. The status.
+(def distinct_files ((fs (list IoFile)) (numeric bool) (out IoFile)) int
+  (match (gather_all fs (Gathered ((Tip Key)) 0) numeric)
+    ((Gathered t status)
+      (let w (write_keys out (tree_list t))
+        status))))
+
+; ------------------------------------------------------------------- bench
+
+(def next_rand ((x int)) int
+  (mod (add (mul x 1103515245) 12345) 2147483648))
+
+(def push_rand ((h (Heap int)) (x int) (n int)) (Heap int)
+  (if (eq n 0)
+      h
+      (push_rand (heap_push h (KInt x) n) (next_rand x) (sub n 1))))
+
+; How many pops came out of order, which should be none.
+(def pop_all ((h (Heap int)) (last int) (bad int)) int
+  (match (heap_pop h)
+    ((PopNone) bad)
+    ((Popped k v rest)
+      (match k
+        ((KInt x) (pop_all rest x (if (lt x last) (add bad 1) bad)))
+        ((KStr s) (pop_all rest last (add bad 1)))))))
+
+(def ipush_rand ((h (IHeap int)) (x int) (n int)) (IHeap int)
+  (if (eq n 0)
+      h
+      (ipush_rand (iheap_push h x n) (next_rand x) (sub n 1))))
+
+(def ipop_all ((h (IHeap int)) (last int) (bad int)) int
+  (match (iheap_pop h)
+    ((IPopNone) bad)
+    ((IPopped k v rest) (ipop_all rest k (if (lt k last) (add bad 1) bad)))))
+
+(def insert_rand ((t (Tree Key)) (x int) (n int)) (Tree Key)
+  (if (eq n 0)
+      t
+      (insert_rand (set_insert t (KInt (mod x 1000000000))) (next_rand x) (sub n 1))))
+
+(def remove_rand ((t (Tree Key)) (x int) (n int)) (Tree Key)
+  (if (eq n 0)
+      t
+      (remove_rand (set_remove t (KInt (mod x 1000000000))) (next_rand x) (sub n 1))))
+
+(def bench_report ((what (list int)) (a int) (b int)) (list int)
+  (let p (push what (nil int))
+    (let q (push " " p)
+      (let r (push (digits a) q)
+        (let s (push " " r)
+          (rev (push (digits b) s)))))))
+
+; One structure through n pseudo-random ints: the line it prints.
+(def bench ((which (list int)) (n int)) (list int)
+  (if (eq which "heap")
+      (bench_report "heap out-of-order" (pop_all (push_rand ((HeapEmpty int)) 1 n) -1 0) n)
+      (if (eq which "iheap")
+          (bench_report "iheap out-of-order" (ipop_all (ipush_rand ((IHeapEmpty int)) 1 n) -1 0) n)
+          (if (eq which "iset")
+              (ibench_set n)
+              (let t (insert_rand ((Tip Key)) 1 n)
+                (let size (tree_size t)
+                  (let u (remove_rand t 1 (div n 2))
+                    (bench_report (if (tree_ok u) "set size, after removing half" "set unbalanced")
+                                  size (tree_size u)))))))))
+
+; ----------------------------------------------------------- command line
+
+(data Opened
+  (Files (list IoFile))
+  (OpenBad (list int)))
+
+(def open_all ((paths (list (list int))) (acc (list IoFile))) Opened
+  (if (is_empty paths)
+      (Files (rev acc))
+      (match (open_in (head paths))
+        ((IoFailed fault why) (OpenBad (append (head paths) (append ": " why))))
+        ((IoOpened f) (open_all (tail paths) (cons f acc))))))
+
+(def usage ((ignored int)) int
+  (let w (write_err "usage: kmerge merge|distinct [-n] FILE...\n       kmerge bench heap|iheap|set|iset N\n")
+    2))
+
+(def run_files ((mode (list int)) (rest (list (list int))) (out IoFile)) int
+  (let numeric (if (is_empty rest) false (eq (head rest) "-n"))
+    (let paths (if numeric (tail rest) rest)
+      (match (open_all paths (nil IoFile))
+        ((OpenBad why) (let w (write_err (append "kmerge: " (append why "\n"))) 1))
+        ((Files fs)
+          (if (eq mode "merge")
+              (merge_files fs numeric out)
+              (distinct_files fs numeric out)))))))
+
+(def run ((argv (list (list int))) (out IoFile)) int
+  (if (is_empty argv)
+      (usage 0)
+      (let mode (head argv)
+        (if (eq mode "bench")
+            (if (lt (length argv) 3)
+                (usage 0)
+                (let w (file_write_str out (bench (head (tail argv)) (parse_int (head (tail (tail argv))))))
+                  (let v (file_write_byte out 10) 0)))
+            (if (any_eq mode (split_spaces "merge distinct"))
+                (run_files mode (tail argv) out)
+                (usage 0))))))

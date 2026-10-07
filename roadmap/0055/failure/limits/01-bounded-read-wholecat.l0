@@ -1,0 +1,9 @@
+; Limit 01, the other way: block I/O, but the whole input held at once, so
+; it cannot stream, and memory is the size of the input.
+
+(def main () int
+  (match (read_input)
+    ((IoReadFailed code) 1)
+    ((IoBytes b)
+      (let w (file_write_bytes (IoFile 1) b 0 (bytes_len b))
+        (if (lt (file_flush (IoFile 1)) 0) 1 0)))))

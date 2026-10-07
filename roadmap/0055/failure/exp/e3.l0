@@ -1,0 +1,27 @@
+; Experiment: outputs in an (array IoFile), written with the wrapper
+; file_write_byte, and input read with file_read_byte.
+
+(def write_all ((outs (array IoFile)) (i int) (b int)) int
+  (if (ge i (array_len outs))
+      0
+      (let w (file_write_byte (array_get outs i) b)
+        (write_all outs (add i 1) b))))
+
+(def copy ((input IoFile) (outs (array IoFile)) (n int)) int
+  (let b (file_read_byte input)
+    (if (lt b 0)
+        n
+        (let w (write_all outs 0 b) (copy input outs (add n 1))))))
+
+(def opened ((path (list int))) IoFile
+  (match (open_out path)
+    ((IoFailed fault why) (IoFile 2))
+    ((IoOpened f) f)))
+
+(def main () int
+  (let a (opened (arg 0))
+    (let b (opened (arg 1))
+      (let c (opened (arg 2))
+        (let outs (array_set (array_set (array_set (array_new 4 (IoFile 1)) 1 a) 2 b) 3 c)
+          (let n (copy (IoFile 0) outs 0)
+            (add (file_close a) (add (file_close b) (file_close c)))))))))

@@ -1,0 +1,12 @@
+; Limit 04: a directory cannot be created or listed.
+;
+; unpack cannot create the directories its entries' names need, so unpacking
+; the benchmark's archive needed "mkdir -p DIR/tmp/0055/failure/bench/data"
+; first; pack cannot be given a directory and must be given every file,
+; which the shell's glob did; and the rotator cannot see which LOG.K exist,
+; so it probes LOG.N+1, LOG.N+2, ... with open_in until one is missing,
+; which misses any past a gap.
+
+(def main () int
+  (let m (make_dir "out/sub")
+    (length (list_dir "."))))

@@ -1,0 +1,158 @@
+; calc.l0 -- an exact rational calculator: one expression per line, with
+; integers, + - * /, unary minus, and parentheses, with * and / binding
+; tighter than + and -, and all four associating to the left. Each result is
+; printed in lowest terms and to 20 decimal places.
+;
+;   expr   ::= term (("+" | "-") term)*
+;   term   ::= factor (("*" | "/") factor)*
+;   factor ::= "-" factor | "(" expr ")" | digits
+;
+; exact, passed through every function, says what a result past 64 bits
+; does: true carries on in big numbers (num.l0), false reports an overflow.
+
+; What parsing some of a line gives: its value and the rest, or an error.
+(data Parse (Parsed Num (list int)) (Failed CalcError))
+
+(def places () int 20)
+
+(def skip_ws ((s (list int))) (list int)
+  (if (is_empty s)
+      s
+      (if (or (eq (head s) 32) (eq (head s) 9)) (skip_ws (tail s)) s)))
+
+; Parsed v, or the error, from an operation's result and the rest.
+(def after ((r (Result Num CalcError)) (rest (list int))) Parse
+  (match r
+    ((Ok v) (Parsed v rest))
+    ((Err e) (Failed e))))
+
+(def op_code ((c int)) int
+  (index_of c "+-*/"))
+
+(def parse_expr ((exact bool) (s (list int))) Parse
+  (match (parse_term exact s)
+    ((Failed e) (Failed e))
+    ((Parsed v rest) (expr_tail exact v (skip_ws rest)))))
+
+(def expr_tail ((exact bool) (acc Num) (s (list int))) Parse
+  (if (is_empty s)
+      (Parsed acc s)
+      (if (any_eq (head s) "+-")
+          (match (parse_term exact (tail s))
+            ((Failed e) (Failed e))
+            ((Parsed v rest)
+              (match (after (num_op (op_code (head s)) exact acc v) rest)
+                ((Failed e) (Failed e))
+                ((Parsed r rest2) (expr_tail exact r (skip_ws rest2))))))
+          (Parsed acc s))))
+
+(def parse_term ((exact bool) (s (list int))) Parse
+  (match (parse_factor exact s)
+    ((Failed e) (Failed e))
+    ((Parsed v rest) (term_tail exact v (skip_ws rest)))))
+
+(def term_tail ((exact bool) (acc Num) (s (list int))) Parse
+  (if (is_empty s)
+      (Parsed acc s)
+      (if (any_eq (head s) "*/")
+          (match (parse_factor exact (tail s))
+            ((Failed e) (Failed e))
+            ((Parsed v rest)
+              (match (after (num_op (op_code (head s)) exact acc v) rest)
+                ((Failed e) (Failed e))
+                ((Parsed r rest2) (term_tail exact r (skip_ws rest2))))))
+          (Parsed acc s))))
+
+(def parse_factor ((exact bool) (s0 (list int))) Parse
+  (let s (skip_ws s0)
+    (if (is_empty s)
+        (Failed (Syntax "expected a number, -, or ( at the end"))
+        (let c (head s)
+          (if (eq c 45)
+              (match (parse_factor exact (tail s))
+                ((Failed e) (Failed e))
+                ((Parsed v rest) (Parsed (num_neg v) rest)))
+              (if (eq c 40)
+                  (close_paren (parse_expr exact (tail s)))
+                  (if (is_digit c)
+                      (parse_number exact s (nil int))
+                      (Failed (Syntax (append "expected a number, -, or ( at " (quote_char c)))))))))))
+
+(def close_paren ((p Parse)) Parse
+  (match p
+    ((Failed e) (Failed e))
+    ((Parsed v rest)
+      (let r (skip_ws rest)
+        (if (if (is_empty r) false (eq (head r) 41))
+            (Parsed v (tail r))
+            (Failed (Syntax (if (is_empty r)
+                                "expected ) at the end"
+                                (append "expected ) at " (quote_char (head r)))))))))))
+
+(def quote_char ((c int)) (list int)
+  (cons 39 (cons c (cons 39 (nil int)))))
+
+; The integer s starts with; its digits are gathered in reverse in ds.
+(def parse_number ((exact bool) (s (list int)) (ds (list int))) Parse
+  (if (if (is_empty s) false (is_digit (head s)))
+      (parse_number exact (tail s) (cons (head s) ds))
+      (after (num_of_digits exact (rev ds)) s)))
+
+; The whole line as one expression.
+(def eval_line ((exact bool) (s (list int))) Parse
+  (match (parse_expr exact s)
+    ((Failed e) (Failed e))
+    ((Parsed v rest)
+      (let r (skip_ws rest)
+        (if (is_empty r)
+            (Parsed v r)
+            (Failed (Syntax (append "unexpected " (quote_char (head r))))))))))
+
+(def describe_error ((e CalcError)) (list int)
+  (match e
+    ((DivByZero) "division by zero")
+    ((Overflow) "overflow: a number does not fit in 64 bits")
+    ((Syntax m) (append "syntax: " m))))
+
+; What the calculator prints for one line, without the newline: the result
+; in lowest terms and to 20 places, or the error.
+(def calc_line ((exact bool) (s (list int))) (list int)
+  (match (eval_line exact s)
+    ((Failed e) (append "error: " (describe_error e)))
+    ((Parsed v rest)
+      (append (show_num v) (append " = " (num_decimal v (places)))))))
+
+; The line without its newline, or carriage return and newline.
+(def chomp ((s (list int))) (list int)
+  (let t (take_line s)
+    (if (is_empty t)
+        t
+        (if (eq (head (rev t)) 13) (rev (tail (rev t))) t))))
+
+(def is_blank ((s (list int))) bool
+  (is_empty (skip_ws s)))
+
+; Answers every line of inp on out, skipping blank lines; the exit status:
+; 0, or 1 if any line was an error, or 2 if reading failed.
+(def calc_loop ((exact bool) (inp IoFile) (out IoFile) (status int)) int
+  (match (file_next_line inp)
+    ((IoEnd) status)
+    ((IoError code)
+      (let w (write_err (append "calc: reading input: " (append (io_error code) "\n")))
+        2))
+    ((IoLine raw)
+      (let s (chomp raw)
+        (if (is_blank s)
+            (calc_loop exact inp out status)
+            (let r (calc_line exact s)
+              (let w (file_write_str out r)
+                (let x (file_write_byte out 10)
+                  (calc_loop exact inp out (if (starts_with r "error:") 1 status))))))))))
+
+; The exit status for the arguments: --int64 alone, or nothing.
+(def calc_main ((as (list (list int)))) int
+  (if (is_empty as)
+      (calc_loop true (IoFile 0) (IoFile 1) 0)
+      (if (and (eq (head as) "--int64") (is_empty (tail as)))
+          (calc_loop false (IoFile 0) (IoFile 1) 0)
+          (let w (write_err "usage: calc [--int64] < expressions\n") 2))))

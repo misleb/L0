@@ -1,0 +1,12 @@
+; 04-no-mutable-bytes.l0 -- there is no compact array that can be updated.
+; bytes is one byte per byte but nothing changes it (spec 6.6), and every
+; element of an (array T) is a 64-bit word (spec 10.1), so a flag per number
+; costs 8 bytes: the byte-per-flag sieve to 10^8 needs 802 MB where Python's
+; bytearray needs 115 MB (peak resident set size). Nor can n zero bytes be made except from a list of
+; n, 24 bytes each (2.4 GB for 10^8). What would have been written, with
+; bytes_set updating in place under array_set's rule:
+(def cross ((fs bytes) (j int) (p int) (n int)) bytes
+  (if (gt j n) fs (cross (bytes_set fs j 1) (add j p) p n)))
+
+(def main () int
+  (bytes_get (cross (bytes_new 101 0) 4 2 100) 4))

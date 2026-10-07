@@ -1,0 +1,26 @@
+; heap_fn.l0 -- HYPOTHETICAL: does not check today (limits/02).
+;
+; The other way to write the heap once: the order passed in as a function.
+; It needs a function type, here written (fn T T bool), and a function name
+; usable as a value. It covers what compare cannot: an order that is not
+; the structural one, such as by one field, descending, or ignoring case.
+; Without closures, (fn ...) values are just named defs, which keeps the
+; spec's "every value is one word" (a code pointer) and reference counting.
+
+(data (Heap T)
+  (HeapEmpty (fn T T bool))
+  (HeapA (fn T T bool) (array T) int))         ; the order is kept in the heap
+
+(def (sift_up T) ((less (fn T T bool)) (xs (array T)) (i int) (n int)) (Heap T)
+  (if (eq i 0)
+      (HeapA less xs n)
+      (let p (div (sub i 1) 2)
+        (if (call less (array_get xs i) (array_get xs p))
+            (sift_up less (swap xs i p) p n)
+            (HeapA less xs n)))))
+
+(def by_length ((a (list int)) (b (list int))) bool
+  (lt (length a) (length b)))
+
+(def shortest_first ((ws (list (list int)))) (Heap (list int))
+  (push_all ((HeapEmpty (list int)) by_length) ws))

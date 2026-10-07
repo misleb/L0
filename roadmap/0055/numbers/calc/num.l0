@@ -1,0 +1,75 @@
+; num.l0 -- a number that is a 64-bit rational while it fits, and a big one
+; (big.l0) once it does not, as Python's and Lisp's integers are.
+;
+; Every operation is tried on 64-bit rationals first. If it overflows and
+; exact is true, it is done again on big rationals; if exact is false, the
+; overflow is the answer, which is what --int64 shows. A big result that
+; fits again is made small again, so the fast path comes back.
+;
+; There are no function values, so the operation is passed as a code
+; (0 add, 1 subtract, 2 multiply, 3 divide) and chosen with if.
+
+(data Num (Small Rat) (Large BRat))
+
+(def ok_num ((x Num)) (Result Num CalcError) ((Ok Num CalcError) x))
+
+(def err_num ((e CalcError)) (Result Num CalcError) ((Err Num CalcError) e))
+
+(def to_big ((x Num)) BRat
+  (match x ((Small r) (brat_of_rat r)) ((Large b) b)))
+
+(def demote ((b BRat)) Num
+  (match (brat_small b) ((Some r) (Small r)) ((None) (Large b))))
+
+(def small_op ((op int) (a Rat) (b Rat)) (Result Rat CalcError)
+  (if (eq op 0)
+      (rat_add a b)
+      (if (eq op 1)
+          (rat_sub a b)
+          (if (eq op 2) (rat_mul a b) (rat_div a b)))))
+
+(def big_op ((op int) (a BRat) (b BRat)) (Result Num CalcError)
+  (if (eq op 0)
+      (ok_num (demote (brat_add a b)))
+      (if (eq op 1)
+          (ok_num (demote (brat_add a (brat_neg b))))
+          (if (eq op 2)
+              (ok_num (demote (brat_mul a b)))
+              (if (brat_is_zero b)
+                  (err_num (DivByZero))
+                  (ok_num (demote (brat_div a b))))))))
+
+(def is_overflow ((e CalcError)) bool
+  (match e ((Overflow) true) ((DivByZero) false) ((Syntax m) false)))
+
+(def num_op ((op int) (exact bool) (x Num) (y Num)) (Result Num CalcError)
+  (match x
+    ((Small a)
+      (match y
+        ((Small b)
+          (match (small_op op a b)
+            ((Ok r) (ok_num (Small r)))
+            ((Err e)
+              (if (and exact (is_overflow e))
+                  (big_op op (brat_of_rat a) (brat_of_rat b))
+                  (err_num e)))))
+        ((Large b) (big_op op (brat_of_rat a) b))))
+    ((Large a) (big_op op a (to_big y)))))
+
+(def num_neg ((x Num)) Num
+  (match x ((Small r) (Small (rat_neg r))) ((Large b) (Large (brat_neg b)))))
+
+; The number whose decimal digits, as characters, are ds.
+(def num_of_digits ((exact bool) (ds (list int))) (Result Num CalcError)
+  (if (le (length ds) 18)
+      (ok_num (Small (rat_int (int_prefix ds 0))))
+      (let n (demote (BRat (big false (nat_of_digits ds (nil int))) (nat_of_int 1)))
+        (match n
+          ((Small r) (ok_num n))
+          ((Large b) (if exact (ok_num n) (err_num (Overflow))))))))
+
+(def show_num ((x Num)) (list int)
+  (match x ((Small r) (show_rat r)) ((Large b) (show_brat b))))
+
+(def num_decimal ((x Num) (n int)) (list int)
+  (match x ((Small r) (decimal r n)) ((Large b) (big_decimal b n))))

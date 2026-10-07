@@ -1,0 +1,35 @@
+; Limit 08: hash, the one checksum L0 defines exactly (spec 6.9), takes a
+; whole value, and nothing takes part of a bytes value, so an unpacker
+; holding the archive as one bytes cannot hash one entry's data without
+; copying it out through a list (24 bytes of memory per byte). The archiver
+; computes Adler-32 in L0 instead (CRC-32 would need xor).
+;
+; Built with ../archive/archive.l0 for adler_bytes and bytes_slice_list:
+;
+;   l0 build ../archive/archive.l0 08-hash-range.l0 -o hashrange
+;   hashrange FILE
+;
+; It prints the nanoseconds taken by each way of summing the file.
+
+(def main () int
+  (match (open_in (arg 0))
+    ((IoFailed fault why) 1)
+    ((IoOpened f)
+      (match (file_read_all f)
+        ((IoReadFailed code) 1)
+        ((IoBytes b) (time_all b))))))
+
+(def time_all ((b bytes)) int
+  (let n (bytes_len b)
+    (let t0 (clock_ns)
+      (let h (hash b)
+        (let t1 (clock_ns)
+          (let a (adler_bytes b 0 n 1)
+            (let t2 (clock_ns)
+              (let s (hash (bytes_from_list (bytes_slice_list b 0 n)))
+                (let t3 (clock_ns)
+                  (let w (write_err (append "hash of the whole bytes: " (append (digits (sub t1 t0))
+                           (append " ns\nAdler-32 in L0: " (append (digits (sub t2 t1))
+                             (append " ns\nhash of a slice copied through a list: "
+                               (append (digits (sub t3 t2)) " ns\n")))))))
+                    (if (eq h s) 0 2)))))))))))

@@ -1,0 +1,38 @@
+; flags.l0 -- the same sieve with one flag per number, for comparison.
+;
+; The task asks for a byte per flag. L0 has no byte array that can be
+; changed: bytes cannot be updated at all (spec 6.6), and every element of
+; an (array T) is a 64-bit word (spec 10.1). So this is an (array bool), 8
+; bytes per flag, the nearest L0 has (../limits/04-no-mutable-bytes.l0).
+;
+; true means the number is not prime.
+
+(def cross_flags ((fs (array bool)) (j int) (p int) (n int)) (array bool)
+  (if (gt j n) fs (cross_flags (array_set fs j true) (add j p) p n)))
+
+(def sieve_flags_from ((fs (array bool)) (p int) (n int)) (array bool)
+  (if (gt (mul p p) n)
+      fs
+      (if (array_get fs p)
+          (sieve_flags_from fs (add p 1) n)
+          (sieve_flags_from (cross_flags fs (mul p p) p n) (add p 1) n))))
+
+(def sieve_flags ((n int)) (array bool)
+  (let fs (array_set (array_set (array_new (add n 1) false) 0 true) 1 true)
+    (sieve_flags_from fs 2 n)))
+
+(def count_clear ((fs (array bool)) (i int) (acc int)) int
+  (if (eq i (array_len fs))
+      acc
+      (count_clear fs (add i 1) (if (array_get fs i) acc (add acc 1)))))
+
+(def flags_last_prime ((fs (array bool)) (i int)) int
+  (if (lt i 2)
+      0
+      (if (array_get fs i) (flags_last_prime fs (sub i 1)) i)))
+
+(def primes_flags ((n int)) Primes
+  (if (lt n 2)
+      (Primes 0 0)
+      (let fs (sieve_flags n)
+        (Primes (count_clear fs 0 0) (flags_last_prime fs n)))))

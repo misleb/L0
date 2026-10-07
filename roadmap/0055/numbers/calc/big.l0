@@ -1,0 +1,261 @@
+; big.l0 -- arbitrary-precision integers and rationals.
+;
+; WORKAROUND. L0 has no big integer (../limits/06-no-big-integers.l0), so a
+; result past 64 bits is written here: a natural number is a list of limbs
+; in base 10^9, least significant first, with no zero limb at the high end,
+; so zero is the empty list. Base 10^9 keeps a limb times a limb, plus a
+; carry, inside 63 bits, and makes decimal printing nine digits per limb.
+; Division is decimal long division, a digit at a time by repeated
+; subtraction, which is simple and quadratic, and fine for numbers of a
+; few hundred digits.
+
+(def base () int 1000000000)
+
+; ------------------------------------------------------------ naturals
+
+; acc, most significant limb first, without its high zero limbs, reversed.
+(def trim_rev ((acc (list int))) (list int)
+  (if (is_empty acc)
+      acc
+      (if (eq (head acc) 0) (trim_rev (tail acc)) (rev acc))))
+
+(def head_or_0 ((a (list int))) int (if (is_empty a) 0 (head a)))
+
+(def tail_or_nil ((a (list int))) (list int) (if (is_empty a) a (tail a)))
+
+(def nat_add ((a (list int)) (b (list int))) (list int)
+  (nat_add_acc a b 0 (nil int)))
+
+(def nat_add_acc ((a (list int)) (b (list int)) (c int) (acc (list int))) (list int)
+  (if (and (is_empty a) (is_empty b))
+      (trim_rev (cons c acc))
+      (let x (add (add (head_or_0 a) (head_or_0 b)) c)
+        (nat_add_acc (tail_or_nil a) (tail_or_nil b) (div x (base)) (cons (mod x (base)) acc)))))
+
+; a - b, for a at least b.
+(def nat_sub ((a (list int)) (b (list int))) (list int)
+  (nat_sub_acc a b 0 (nil int)))
+
+(def nat_sub_acc ((a (list int)) (b (list int)) (borrow int) (acc (list int))) (list int)
+  (if (is_empty a)
+      (trim_rev acc)
+      (let x (sub (sub (head a) (head_or_0 b)) borrow)
+        (if (lt x 0)
+            (nat_sub_acc (tail a) (tail_or_nil b) 1 (cons (add x (base)) acc))
+            (nat_sub_acc (tail a) (tail_or_nil b) 0 (cons x acc))))))
+
+; -1, 0, or 1 as a is less than, equal to, or greater than b.
+(def nat_cmp ((a (list int)) (b (list int))) int
+  (let la (length a)
+    (let lb (length b)
+      (if (lt la lb)
+          -1
+          (if (gt la lb) 1 (cmp_high_first (rev a) (rev b)))))))
+
+(def cmp_high_first ((a (list int)) (b (list int))) int
+  (if (is_empty a)
+      0
+      (if (lt (head a) (head b))
+          -1
+          (if (gt (head a) (head b)) 1 (cmp_high_first (tail a) (tail b))))))
+
+; a * k + c, for k and c from 0 to 10^9 - 1.
+(def nat_mul_small ((a (list int)) (k int) (c int)) (list int)
+  (nat_mul_small_acc a k c (nil int)))
+
+(def nat_mul_small_acc ((a (list int)) (k int) (c int) (acc (list int))) (list int)
+  (if (is_empty a)
+      (trim_rev (cons c acc))
+      (let x (add (mul (head a) k) c)
+        (nat_mul_small_acc (tail a) k (div x (base)) (cons (mod x (base)) acc)))))
+
+(def nat_mul ((a (list int)) (b (list int))) (list int)
+  (nat_mul_acc a b (nil int) (nil int)))
+
+; acc plus a times b, where b's first limb weighs base^(length shift).
+(def nat_mul_acc ((a (list int)) (b (list int)) (shift (list int)) (acc (list int))) (list int)
+  (if (is_empty b)
+      acc
+      (nat_mul_acc a (tail b) (cons 0 shift)
+        (nat_add acc (shifted (nat_mul_small a (head b) 0) shift)))))
+
+(def shifted ((x (list int)) (zeros (list int))) (list int)
+  (if (is_empty x) x (append zeros x)))
+
+(def nat_of_int ((n int)) (list int)
+  (if (eq n 0) (nil int) (cons (mod n (base)) (nat_of_int (div n (base))))))
+
+; The natural number whose decimal digits, most significant first, are ds.
+(def nat_of_digits ((ds (list int)) (acc (list int))) (list int)
+  (if (is_empty ds)
+      acc
+      (nat_of_digits (tail ds) (nat_mul_small acc 10 (sub (head ds) 48)))))
+
+; Decimal digits, as characters, of a natural number.
+(def nat_digits ((a (list int))) (list int)
+  (if (is_empty a)
+      "0"
+      (let hi (rev a)
+        (rev (push_limbs (tail hi) (push (digits (head hi)) (nil int)))))))
+
+(def push_limbs ((ls (list int)) (acc (list int))) (list int)
+  (if (is_empty ls)
+      acc
+      (push_limbs (tail ls) (push (pad9 (digits (head ls))) acc))))
+
+(def pad9 ((s (list int))) (list int)
+  (if (lt (length s) 9) (pad9 (cons 48 s)) s))
+
+; Quotient and remainder.
+(data NatQR (NatQR (list int) (list int)))
+
+(data Counted (Counted (list int) int))
+
+; How many times d goes into r, at most 9 here, and what is left.
+(def sub_count ((r (list int)) (d (list int)) (k int)) Counted
+  (if (lt (nat_cmp r d) 0)
+      (Counted r k)
+      (sub_count (nat_sub r d) d (add k 1))))
+
+; n divided by d, d not zero, by decimal long division.
+(def nat_divmod ((n (list int)) (d (list int))) NatQR
+  (div_digits (nat_digits n) d (nil int) (nil int)))
+
+(def div_digits ((ds (list int)) (d (list int)) (r (list int)) (q (list int))) NatQR
+  (if (is_empty ds)
+      (NatQR q r)
+      (match (sub_count (nat_mul_small r 10 (sub (head ds) 48)) d 0)
+        ((Counted r2 k) (div_digits (tail ds) d r2 (nat_mul_small q 10 k))))))
+
+(def nat_div ((n (list int)) (d (list int))) (list int)
+  (match (nat_divmod n d) ((NatQR q r) q)))
+
+(def nat_mod ((n (list int)) (d (list int))) (list int)
+  (match (nat_divmod n d) ((NatQR q r) r)))
+
+(def nat_gcd ((a (list int)) (b (list int))) (list int)
+  (if (is_empty b) a (nat_gcd b (nat_mod a b))))
+
+; ------------------------------------------------------------- integers
+
+; Whether it is negative, and its magnitude. Zero is never negative.
+(data Big (Big bool (list int)))
+
+(def big ((negative bool) (m (list int))) Big
+  (Big (if (is_empty m) false negative) m))
+
+(def big_of_int ((n int)) Big
+  (if (lt n 0) (big true (nat_of_int (neg n))) (big false (nat_of_int n))))
+
+(def big_add ((x Big) (y Big)) Big
+  (match x
+    ((Big sx mx)
+      (match y
+        ((Big sy my)
+          (if (eq sx sy)
+              (big sx (nat_add mx my))
+              (if (ge (nat_cmp mx my) 0)
+                  (big sx (nat_sub mx my))
+                  (big sy (nat_sub my mx)))))))))
+
+(def big_mul ((x Big) (y Big)) Big
+  (match x
+    ((Big sx mx)
+      (match y
+        ((Big sy my) (big (not (eq sx sy)) (nat_mul mx my)))))))
+
+; ------------------------------------------------------------ rationals
+
+; A numerator and a positive denominator with no common factor.
+(data BRat (BRat Big (list int)))
+
+; n / d in lowest terms, for d not zero.
+(def brat_make ((n Big) (d Big)) BRat
+  (match n
+    ((Big sn mn)
+      (match d
+        ((Big sd md)
+          (let g (nat_gcd mn md)
+            (BRat (big (not (eq sn sd)) (nat_div mn g)) (nat_div md g))))))))
+
+(def brat_of_rat ((x Rat)) BRat
+  (match x ((Rat a b) (BRat (big_of_int a) (nat_of_int b)))))
+
+(def pos ((m (list int))) Big (Big false m))
+
+(def brat_add ((x BRat) (y BRat)) BRat
+  (match x
+    ((BRat a b)
+      (match y
+        ((BRat c d)
+          (brat_make (big_add (big_mul a (pos d)) (big_mul c (pos b)))
+                     (pos (nat_mul b d))))))))
+
+(def brat_neg ((x BRat)) BRat
+  (match x ((BRat a b) (match a ((Big s m) (BRat (big (not s) m) b))))))
+
+(def brat_mul ((x BRat) (y BRat)) BRat
+  (match x
+    ((BRat a b)
+      (match y
+        ((BRat c d) (brat_make (big_mul a c) (pos (nat_mul b d))))))))
+
+(def brat_is_zero ((x BRat)) bool
+  (match x ((BRat a b) (match a ((Big s m) (is_empty m))))))
+
+; x / y, for y not zero.
+(def brat_div ((x BRat) (y BRat)) BRat
+  (match x
+    ((BRat a b)
+      (match y
+        ((BRat c d)
+          (match c
+            ((Big sc mc)
+              (brat_make (big_mul a (pos d)) (Big sc (nat_mul b mc))))))))))
+
+; The rational as 64-bit ints, if both parts fit in -(2^63 - 1) .. 2^63 - 1.
+(def brat_small ((x BRat)) (Option Rat)
+  (match x
+    ((BRat a b)
+      (match a
+        ((Big s m)
+          (if (or (gt (nat_cmp m (nat_of_int 9223372036854775807)) 0)
+                  (gt (nat_cmp b (nat_of_int 9223372036854775807)) 0))
+              ((None Rat))
+              (Some (Rat (if s (neg (int_of_nat m)) (int_of_nat m)) (int_of_nat b)))))))))
+
+; A natural number that fits in an int.
+(def int_of_nat ((m (list int))) int
+  (if (is_empty m) 0 (add (head m) (mul (base) (int_of_nat (tail m))))))
+
+; -------------------------------------------------------------- output
+
+(def show_brat ((x BRat)) (list int)
+  (match x
+    ((BRat a b)
+      (match a
+        ((Big s m)
+          (let n (append (if s "-" "") (nat_digits m))
+            (if (eq b (nat_of_int 1)) n (append n (cons 47 (nat_digits b))))))))))
+
+; n places of r / d, as in rat.l0's frac_digits, the last place first.
+(def big_frac_digits ((r (list int)) (d (list int)) (n int) (acc (list int))) (list int)
+  (if (eq n 0)
+      acc
+      (match (sub_count (nat_mul_small r 10 0) d 0)
+        ((Counted r2 k) (big_frac_digits r2 d (sub n 1) (cons k acc))))))
+
+; x to n decimal places, rounding half away from zero, as rat.l0's decimal.
+(def big_decimal ((x BRat) (n int)) (list int)
+  (match x
+    ((BRat a b)
+      (match a
+        ((Big s m)
+          (match (nat_divmod m b)
+            ((NatQR ip r)
+              (let ds (big_frac_digits r b (add n 1) (nil int))
+                (match (if (ge (head ds) 5) (bump (tail ds)) (Bump (tail ds) false))
+                  ((Bump fr carry)
+                    (let whole (if carry (nat_add ip (nat_of_int 1)) ip)
+                      (let acc (push (nat_digits whole) (if s "-" (nil int)))
+                        (rev (push_digit_chars (rev fr) (cons 46 acc)))))))))))))))

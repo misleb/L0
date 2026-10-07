@@ -1,0 +1,150 @@
+; Tests of archive.l0.
+
+(def test_adler_known () int
+  (add (check_int "Wikipedia" (adler_list "Wikipedia" 1) 300286872)
+       (check_int "empty" (adler_list "" 1) 1)))
+
+(def test_adler_bytes_agrees () int
+  (add (check_int "Wikipedia" (adler_bytes (bytes_from_list "Wikipedia") 0 9 1) 300286872)
+       (check_int "continued"
+         (adler_bytes (bytes_from_list "pedia") 0 5 (adler_list "Wiki" 1))
+         300286872)))
+
+; Many bytes, so that the mod deferred to the end of each block is exercised
+; against a sum that takes it every byte.
+(def test_adler_long () int
+  (let xs (rand_bytes 7 20000)
+    (check_int "20000 bytes" (adler_bytes (bytes_from_list xs) 0 20000 1) (adler_list xs 1))))
+
+(def test_u64_round_trip () int
+  (add (check_int "300" (get_u64 (bytes_from_list (u64_bytes 300)) 0) 300)
+    (add (check_int "big" (get_u64 (bytes_from_list (u64_bytes 9000000000000)) 0) 9000000000000)
+         (check_str "bytes of 258" (u64_bytes 258) "\x00\x00\x00\x00\x00\x00\x01\x02"))))
+
+(def test_name_problem () int
+  (add (check_str "plain" (name_problem "a/b.txt") "")
+    (add (check_str "absolute" (name_problem "/etc/passwd") "the name is an absolute path")
+      (add (check_str "climbs" (name_problem "a/../../b")
+                      "the name climbs out of its directory with ..")
+           (check_str "dots in a name" (name_problem "a..b/c") "")))))
+
+(def test_parent_of () int
+  (add (check_str "nested" (parent_of "out/a/b.txt") "out/a")
+       (check_str "none" (parent_of "b.txt") ".")))
+
+(def test_parent_note () int
+  (add (check_str "missing" (parent_note "no/such/x")
+         " (its directory no/such does not exist, and L0 cannot create one)")
+       (check_str "present" (parent_note "x") "")))
+
+; An archive of two entries, built as the packer builds it.
+(def sample () (list int)
+  (let e1 (append (entry_head "a.txt" (bytes_from_list "hello\n")) "hello\n")
+    (let e2 (append (entry_head "dir/b" (bytes_from_list "")) "")
+      (append (archive_head 2) (append e1 (append e2 (end_marker)))))))
+
+(def refusal ((s (list int))) (list int)
+  (match (parse_archive (bytes_from_list s))
+    ((Entries es) "accepted")
+    ((Refused why) why)))
+
+(def test_parse_sample () int
+  (match (parse_archive (bytes_from_list (sample)))
+    ((Refused why) (fail_because "sample" why))
+    ((Entries es)
+      (add (check_int "count" (length es) 2)
+           (match (head es)
+             ((Entry name start len)
+               (add (check_str "name" name "a.txt")
+                    (check_int "length" len 6))))))))
+
+(def test_not_an_archive () int
+  (check_str "tar" (refusal "ustar\x00 and so on") "it is not an L0 archive"))
+
+(def test_truncated_header () int
+  (check_str "short" (refusal "L0ARCH1\n\x00") "it is truncated: it ends inside its header"))
+
+(def test_truncated_data () int
+  (check_str "cut in a.txt" (refusal (take_n (sample) 60))
+    "it is truncated: entry 1 needs 11 bytes and 4 remain"))
+
+(def test_truncated_marker () int
+  (check_str "no marker" (refusal (take_n (sample) (sub (length (sample)) 3)))
+    "it is truncated: its end marker is missing after 2 entries"))
+
+(def test_corrupt_data () int
+  (check_str "flipped byte" (refusal (flip_at (sample) 62))
+    "it is corrupt: entry 1 (a.txt) does not match its checksum"))
+
+(def test_corrupt_length () int
+  (check_str "flipped length" (refusal (flip_at (sample) 31))
+    "it is corrupt: the lengths of entry 1 do not match their checksum"))
+
+(def test_trailing_bytes () int
+  (check_str "extra" (refusal (append (sample) "x"))
+    "it is corrupt: there are bytes after its end marker"))
+
+(def flip_at ((s (list int)) (i int)) (list int)
+  (if (eq i 0)
+      (cons (mod (add (head s) 1) 256) (tail s))
+      (cons (head s) (flip_at (tail s) (sub i 1)))))
+
+; Every prefix of an archive is refused, and none crashes the parser.
+(def every_prefix_refused ((s (list int)) (n int) (bad int)) int
+  (if (ge n (length s))
+      bad
+      (every_prefix_refused s (add n 1)
+        (if (eq (refusal (take_n s n)) "accepted") (add bad 1) bad))))
+
+(def test_every_prefix_refused () int
+  (check_int "accepted prefixes" (every_prefix_refused (sample) 0 0) 0))
+
+; Every single changed byte is refused.
+(def every_flip_refused ((s (list int)) (i int) (bad int)) int
+  (if (ge i (length s))
+      bad
+      (every_flip_refused s (add i 1)
+        (if (eq (refusal (flip_at s i)) "accepted") (add bad 1) bad))))
+
+(def test_every_flip_refused () int
+  (check_int "accepted corruptions" (every_flip_refused (sample) 0 0) 0))
+
+(def test_climbing_name_refused () int
+  (let e (append (entry_head "../x" (bytes_from_list "")) "")
+    (check_str "climbs" (refusal (append (archive_head 1) (append e (end_marker))))
+      "it is corrupt: entry 1 (../x): the name climbs out of its directory with ..")))
+
+; write_entry writes what parse_archive reads back.
+(def test_write_entry () int
+  (match (open_out_buffer)
+    ((IoFailed fault why) (fail_because "buffer" why))
+    ((IoOpened f)
+      (let w (file_write_str f (archive_head 1))
+        (let w2 (write_entry f "x" (bytes_from_list "abc"))
+          (let w3 (file_write_str f (end_marker))
+            (let s (buffer_contents f)
+              (let c (file_close f)
+                (check_str "parses" (refusal s) "accepted")))))))))
+
+(def test_pack_files_reports_missing () int
+  (match (open_out_buffer)
+    ((IoFailed fault why) (fail_because "buffer" why))
+    ((IoOpened f)
+      (let why (pack_files f (cons "no/such/file" (nil (list int))))
+        (let c (file_close f)
+          (check_str "message" (concat_all why (nil int))
+            "pack: cannot open no/such/file to read: no such file"))))))
+
+(def test_pack_files_reports_directory () int
+  (match (open_out_buffer)
+    ((IoFailed fault why) (fail_because "buffer" why))
+    ((IoOpened f)
+      (let why (pack_files f (cons "." (nil (list int))))
+        (let c (file_close f)
+          (check_str "message" (concat_all why (nil int))
+            "pack: cannot open . to read: input or output failed"))))))
+
+(def test_dir_problem () int
+  (add (check_str "missing" (dir_problem "no/such/dir")
+         "the directory does not exist, and L0 cannot create one")
+       (check_str "here" (dir_problem ".") "")))

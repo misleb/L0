@@ -1,0 +1,26 @@
+; What the archiver and the rotator would have written with
+; (remove_file path), imagined as returning 0 or a negative code like
+; rename_file (better, a typed fault: hypothetical/02).
+;
+; This does not compile: remove_file does not exist.
+
+; archive.l0's left_behind: a failed pack leaves nothing.
+(def left_behind ((why (list int)) (partial (list int))) int
+  (let w (write_err (append why "\n"))
+    (let r (remove_file partial)
+      (let w2 (if (lt r 0)
+                  (write_err (append "pack: and removing " (append partial
+                    (append " failed: " (append (io_error r) "\n")))))
+                  0)
+        1))))
+
+; rotate.l0's warn_beyond: drop every file past n, instead of naming it.
+(def drop_beyond ((log (list int)) (n int) (i int)) int
+  (let path (append log (cons 46 (digits i)))
+    (let r (remove_file path)
+      (if (eq r -3)
+          0
+          (if (lt r 0)
+              (write_err (append "rotate: removing " (append path
+                (append ": " (append (io_error r) "\n")))))
+              (drop_beyond log n (add i 1)))))))

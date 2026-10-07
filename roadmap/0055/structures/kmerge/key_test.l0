@@ -1,0 +1,15 @@
+(def test_int_order () int
+  (add (check_true "less" (key_less (KInt -3) (KInt 2)))
+       (check_true "not less" (not (key_less (KInt 2) (KInt 2))))))
+
+(def test_str_order () int
+  (add (check_true "prefix first" (key_less (key_str "ab") (key_str "abc")))
+    (add (check_true "by byte" (key_less (key_str "abd") (key_str "abe")))
+         (check_int "same" (key_cmp (key_str "x") (key_str "x")) 0))))
+
+(def test_ints_before_strings () int
+  (add (check_true "int first" (key_less (KInt 99) (key_str "")))
+       (check_true "string after" (not (key_less (key_str "") (KInt 99))))))
+
+(def test_high_bytes () int
+  (check_true "unsigned" (key_less (key_str "a") (key_str "\xff"))))

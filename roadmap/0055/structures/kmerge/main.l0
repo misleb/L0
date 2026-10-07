@@ -1,0 +1,5 @@
+(def main () int
+  (let st (run (args) (IoFile 1))
+    (if (lt (file_flush (IoFile 1)) 0)
+        (let w (write_err "kmerge: write error\n") 1)
+        st)))

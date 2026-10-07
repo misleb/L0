@@ -1,0 +1,28 @@
+; What unpack and pack would have written with (make_dir path), giving 0, or
+; -3 if its parent does not exist, or another negative code, and
+; (list_dir path), giving the names in a directory.
+;
+; This does not compile: neither exists, nor does the type DirListing.
+
+; unpack: create each directory an entry's name needs, parent first.
+(def make_parents ((dir (list int)) (parts (list (list int)))) int
+  (if (is_empty (tail parts))
+      0
+      (let d (append dir (cons 47 (head parts)))
+        (let r (make_dir d)
+          (if (if (eq r 0) true (eq r -6))          ; -6: imagined "it exists"
+              (make_parents d (tail parts))
+              r)))))
+
+; pack: a directory named on the command line packs everything in it.
+(def expand ((path (list int))) (list (list int))
+  (match (list_dir path)
+    ((DirNames names) (prefix_all path names (nil (list int))))
+    ((NotADirectory) (cons path (nil (list int))))
+    ((DirFailed code) (cons path (nil (list int))))))
+
+(def prefix_all ((dir (list int)) (names (list (list int))) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty names)
+      (rev acc)
+      (prefix_all dir (tail names) (cons (append dir (cons 47 (head names))) acc))))

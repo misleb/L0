@@ -1,0 +1,21 @@
+; sieve_phases_main.l0 -- times the bitset sieve's phases: crossing off,
+; counting, and finding the last prime. Build with ../sieve/bitset.l0,
+; ../sieve/flags.l0, and ../sieve/report.l0.
+
+(def ms ((t0 int) (t1 int)) (list int)
+  (digits (div (sub t1 t0) 1000000)))
+
+(def main () int
+  (let n (int_prefix (arg 0) 0)
+    (let t0 (clock_ns)
+      (let bs (sieve_bits n)
+        (let t1 (clock_ns)
+          (let c (bits_prime_count bs n)
+            (let t2 (clock_ns)
+              (let l (bits_last_prime bs (pow2_table) n)
+                (let t3 (clock_ns)
+                  (let w (write_str (describe n (Primes c l)))
+                    (let x (write_err (append "sieve ms " (append (ms t0 t1)
+                             (append " count ms " (append (ms t1 t2)
+                               (append " last ms " (append (ms t2 t3) "\n")))))))
+                      0)))))))))))

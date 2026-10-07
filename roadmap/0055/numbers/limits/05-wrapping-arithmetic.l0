@@ -1,0 +1,17 @@
+; 05-wrapping-arithmetic.l0 -- add, sub, and mul wrap silently (spec 3),
+; and nothing reports that they did. This type checks and prints
+; 0 and -9223372036854775808: 2^32 * 2^32 and (2^63 - 1) + 1, both wrong,
+; with nothing to say so.
+;
+; What an exact calculator has to write instead is ../calc/rat.l0's c_add,
+; c_mul, o_add, o_mul, both, and times10 (about 45 of its 174 lines,
+; nearly all of 18 to 70 and 127 to 140), and every rational operation
+; then threads an Option through each product. Even so, Knuth's addition
+; (a*(d/g) + c*(b/g)) can overflow in its numerator while the reduced
+; answer fits: 97 of 100,000 random lines (../data/exprs.txt) are reported
+; as overflows that Python answers in 64 bits. A widening multiply or a
+; checked builtin would remove both costs.
+(def main () int
+  (let a (write_line (digits (mul 4294967296 4294967296)))
+    (let b (write_line (digits (add 9223372036854775807 1)))
+      0)))

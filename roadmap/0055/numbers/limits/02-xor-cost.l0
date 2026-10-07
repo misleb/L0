@@ -1,0 +1,52 @@
+; 02-xor-cost.l0 -- what one 32-bit xor costs when it has to be arithmetic.
+; Build with ../hash/bits.l0. `xorcost MODE N` runs N steps of
+;   acc = acc OP (i * 2654435761 mod 2^32)
+; where OP is, by MODE:
+;   add      (add, then mod 2^32): the loop and the multiply alone
+;   divmod   one div and one mod by 256 more than add: what a byte split costs
+;   table    xor32 of bits.l0, four lookups in a 64K table, six divs, six mods
+;   bitloop  xor by 32 single-bit steps, no table: what the table saves
+; The hypothetical builtin (bit_xor acc x) would cost about what add costs.
+
+(def mix ((i int)) int
+  (mod (mul i 2654435761) 4294967296))
+
+(def run_add ((i int) (n int) (acc int)) int
+  (if (eq i n) acc (run_add (add i 1) n (mod (add acc (mix i)) 4294967296))))
+
+(def run_divmod ((i int) (n int) (acc int)) int
+  (if (eq i n)
+      acc
+      (let x (mix i)
+        (run_divmod (add i 1) n
+          (mod (add acc (add (div x 256) (mod x 256))) 4294967296)))))
+
+(def run_table ((xt (array int)) (i int) (n int) (acc int)) int
+  (if (eq i n) acc (run_table xt (add i 1) n (xor32 xt acc (mix i)))))
+
+(def xor_bits ((a int) (b int) (bit int) (acc int)) int
+  (if (eq bit 4294967296)
+      acc
+      (xor_bits (div a 2) (div b 2) (mul bit 2)
+        (if (eq (mod a 2) (mod b 2)) acc (add acc bit)))))
+
+(def run_bitloop ((i int) (n int) (acc int)) int
+  (if (eq i n) acc (run_bitloop (add i 1) n (xor_bits acc (mix i) 1 0))))
+
+(def run ((mode (list int)) (n int)) int
+  (if (eq mode "add")
+      (run_add 0 n 0)
+      (if (eq mode "divmod")
+          (run_divmod 0 n 0)
+          (if (eq mode "table")
+              (match (make_bits) ((Bits xt at) (run_table xt 0 n 0)))
+              (run_bitloop 0 n 0)))))
+
+(def main () int
+  (let n (int_prefix (arg 1) 0)
+    (let t0 (clock_ns)
+      (let r (run (arg 0) n)
+        (let t1 (clock_ns)
+          (let w (write_line (digits r))
+            (let x (write_err (append (arg 0) (append " ns/step " (append (digits (div (mul 100 (sub t1 t0)) n)) "/100\n"))))
+              0)))))))

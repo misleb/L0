@@ -1,0 +1,33 @@
+; hypothetical/rat.l0 -- the calculator's rationals as they would be written
+; if L0 had an integer that cannot overflow: here a type `integer`, with the
+; arithmetic builtins taking it (iadd, isub, imul, idiv, imod, ilt, and
+; integer literals of any size). Under that assumption all of
+; ../calc/big.l0 (261 lines) and ../calc/num.l0 (75 lines) disappear, and
+; rat.l0 loses its overflow checks, about 45 lines: no Option threads
+; through a product, and no result is refused. It does not compile.
+
+(data Rat (Rat integer integer))
+
+(def gcd ((a integer) (b integer)) integer
+  (if (eq b 0) (iabs a) (gcd b (imod a b))))
+
+(def make ((n integer) (d integer)) Rat
+  (let g (gcd n d)
+    (if (ilt d 0)
+        (Rat (ineg (idiv n g)) (ineg (idiv d g)))
+        (Rat (idiv n g) (idiv d g)))))
+
+(def rat_add ((x Rat) (y Rat)) Rat
+  (match x
+    ((Rat a b)
+      (match y
+        ((Rat c d) (make (iadd (imul a d) (imul c b)) (imul b d)))))))
+
+(def rat_mul ((x Rat) (y Rat)) Rat
+  (match x
+    ((Rat a b) (match y ((Rat c d) (make (imul a c) (imul b d)))))))
+
+; Twenty places, rounded half away from zero, is one division.
+(def decimal_places ((x Rat)) integer
+  (match x
+    ((Rat a b) (idiv (iadd (imul (iabs a) 200000000000000000000) b) (imul 2 b)))))

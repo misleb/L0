@@ -1,0 +1,27 @@
+; hypothetical/bitset.l0 -- the bitset sieve as it would be written with
+; bitwise builtins (see hypothetical/sums.l0 for the assumed bit_and,
+; bit_or, shl, shr) and a (popcount x) builtin. It does not compile.
+;
+; With these, a word holds 64 bits rather than 63, the table of powers of
+; two and the 64K popcount table go, and a bit is a shift and a mask rather
+; than two divisions, a remainder, and a lookup.
+
+(def bit_is_set ((bs (array int)) (i int)) bool
+  (not (eq (bit_and (array_get bs (shr i 6)) (shl 1 (bit_and i 63))) 0)))
+
+(def set_bit ((bs (array int)) (i int)) (array int)
+  (let k (shr i 6)
+    (array_set bs k (bit_or (array_get bs k) (shl 1 (bit_and i 63))))))
+
+(def cross_bits ((bs (array int)) (j int) (p int) (n int)) (array int)
+  (if (gt j n) bs (cross_bits (set_bit bs j) (add j p) p n)))
+
+(def count_set ((bs (array int)) (k int) (acc int)) int
+  (if (eq k (array_len bs))
+      acc
+      (count_set bs (add k 1) (add acc (popcount (array_get bs k))))))
+
+; And with a byte array that can be updated (../limits/04-no-mutable-bytes.l0),
+; the flag-per-number version would take 100 MB rather than 800:
+(def cross_flags ((fs bytes) (j int) (p int) (n int)) bytes
+  (if (gt j n) fs (cross_flags (bytes_set fs j 1) (add j p) p n)))

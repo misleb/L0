@@ -1,0 +1,66 @@
+; heap_int.l0 -- heap.l0 again, with int keys instead of Key.
+;
+; This is the copy per element type that the skill says a sort still needs,
+; kept here only to measure what key.l0's boxing costs: it differs from
+; heap.l0 in the key's type and in using lt where heap.l0 uses key_less.
+; Its payload is still any T.
+
+(data (IHeap T)
+  (IHeapEmpty)
+  (IHeapA (array int) (array T) int))
+
+(data (IPopped T)
+  (IPopNone)
+  (IPopped int T (IHeap T)))
+
+(def (iheap_size T) ((h (IHeap T))) int
+  (match h
+    ((IHeapEmpty) 0)
+    ((IHeapA ks vs n) n)))
+
+(def (iheap_push T) ((h (IHeap T)) (k int) (v T)) (IHeap T)
+  (match h
+    ((IHeapEmpty) (IHeapA (array_new 16 k) (array_new 16 v) 1))
+    ((IHeapA ks vs n)
+      (let ks2 (if (lt n (array_len ks)) ks (array_resize ks (mul 2 n) k))
+        (let vs2 (if (lt n (array_len vs)) vs (array_resize vs (mul 2 n) v))
+          (isift_up (array_set ks2 n k) (array_set vs2 n v) n (add n 1)))))))
+
+(def (isift_up T) ((ks (array int)) (vs (array T)) (i int) (n int)) (IHeap T)
+  (if (eq i 0)
+      (IHeapA ks vs n)
+      (let p (div (sub i 1) 2)
+        (if (lt (array_get ks i) (array_get ks p))
+            (isift_up (swap ks i p) (swap vs i p) p n)
+            (IHeapA ks vs n)))))
+
+(def (iheap_pop T) ((h (IHeap T))) (IPopped T)
+  (match h
+    ((IHeapEmpty) ((IPopNone T)))
+    ((IHeapA ks vs n)
+      (if (eq n 0)
+          ((IPopNone T))
+          (let k (array_get ks 0)
+            (let v (array_get vs 0)
+              (let m (sub n 1)
+                (let lk (array_get ks m)
+                  (let lv (array_get vs m)
+                    (IPopped k v
+                      (isift_down (array_set ks 0 lk) (array_set vs 0 lv) 0 m)))))))))))
+
+(def ileast_child ((ks (array int)) (i int) (n int)) int
+  (let l (add (mul 2 i) 1)
+    (let r (add l 1)
+      (if (ge l n)
+          i
+          (if (ge r n)
+              l
+              (if (lt (array_get ks r) (array_get ks l)) r l))))))
+
+(def (isift_down T) ((ks (array int)) (vs (array T)) (i int) (n int)) (IHeap T)
+  (let c (ileast_child ks i n)
+    (if (eq c i)
+        (IHeapA ks vs n)
+        (if (lt (array_get ks c) (array_get ks i))
+            (isift_down (swap ks i c) (swap vs i c) c n)
+            (IHeapA ks vs n)))))

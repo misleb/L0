@@ -1,0 +1,63 @@
+; tree_test.l0 -- tests of the generic AVL tree, at two element types.
+
+(def ints_from ((i int) (n int) (acc (list int))) (list int)
+  (if (ge i n) (rev acc) (ints_from (add i 1) n (cons i acc))))
+
+(def (insert_all T) ((t (Tree T)) (xs (list T))) (Tree T)
+  (if (is_empty xs)
+      t
+      (insert_all (seq_insert t (tree_size t) (head xs)) (tail xs))))
+
+(def (insert_front T) ((t (Tree T)) (xs (list T))) (Tree T)
+  (if (is_empty xs)
+      t
+      (insert_front (seq_insert t 0 (head xs)) (tail xs))))
+
+(def test_build_in_order () int
+  (let t (seq_of_list (ints_from 0 100 (nil int)))
+    (add (check_true "list" (eq (tree_list t) (ints_from 0 100 (nil int))))
+      (add (check_true "balanced" (tree_ok t))
+           (check_int "size" (tree_size t) 100)))))
+
+(def test_append_balanced () int
+  (let t (insert_all ((Tip int)) (ints_from 0 1000 (nil int)))
+    (add (check_true "order" (eq (tree_list t) (ints_from 0 1000 (nil int))))
+      (add (check_true "balanced" (tree_ok t))
+           (check_true "height" (le (tree_height t) 14))))))
+
+(def test_prepend_reverses () int
+  (let t (insert_front ((Tip int)) (ints_from 0 500 (nil int)))
+    (add (check_true "reversed" (eq (tree_list t) (rev (ints_from 0 500 (nil int)))))
+         (check_true "balanced" (tree_ok t)))))
+
+(def test_strings () int
+  (let t (seq_of_list (split_spaces "a b c d e"))
+    (let u (seq_insert (seq_set (seq_delete t 1) 0 "A") 2 "x")
+      (add (check_strs "edited" (tree_list u) (split_spaces "A c x d e"))
+           (check_strs "old kept" (tree_list t) (split_spaces "a b c d e"))))))
+
+(def test_get () int
+  (let t (seq_of_list (split_spaces "zero one two"))
+    (add (match (seq_get t 1)
+           ((None) (fail_because "one" "missing"))
+           ((Some s) (check_str "one" s "one")))
+         (match (seq_get t 3)
+           ((None) 0)
+           ((Some s) (fail_because "past the end" s))))))
+
+(def delete_evens ((t (Tree int)) (i int)) (Tree int)
+  (if (ge i (tree_size t))
+      t
+      (delete_evens (seq_delete t i) (add i 1))))
+
+(def odds_below ((i int) (n int) (acc (list int))) (list int)
+  (if (ge i n) (rev acc) (odds_below (add i 2) n (cons i acc))))
+
+(def test_delete_many () int
+  (let t (delete_evens (seq_of_list (ints_from 0 1000 (nil int))) 0)
+    (add (check_true "odds" (eq (tree_list t) (odds_below 1 1000 (nil int))))
+         (check_true "balanced" (tree_ok t)))))
+
+(def test_delete_out_of_range () int
+  (let t (seq_of_list (ints_from 0 3 (nil int)))
+    (check_int "unchanged" (tree_size (seq_delete t 7)) 3)))

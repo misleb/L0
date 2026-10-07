@@ -1,0 +1,38 @@
+; Limit 02: an open's fault, and the integer code of a rename, flush, or
+; close, cannot say why it failed, so neither can the program.
+;
+;   02-io-codes RODIR NODIR DIR FILE NONEMPTYDIR
+;
+; RODIR is a directory that may not be written, NODIR one that does not
+; exist, DIR a directory, FILE a file, NONEMPTYDIR a directory with something
+; in it. Every line below prints the same fault or the same -5, where the
+; host was told EACCES, ENOENT, EISDIR, EISDIR, and EACCES: a program can
+; report "input or output failed" and nothing more.
+
+(def fault_name ((f CreateFault)) (list int)
+  (match f ((CreateDenied) "CreateDenied") ((CreateFailed) "CreateFailed")))
+
+(def create ((label (list int)) (path (list int))) int
+  (match (open_out path)
+    ((IoFailed fault why)
+      (write_line (append label (append ": " (append (fault_name fault) (append ", " why))))))
+    ((IoOpened f)
+      (let c (file_close f) (write_line (append label ": created"))))))
+
+(def renamed ((label (list int)) (from (list int)) (to (list int))) int
+  (let r (rename_file from to)
+    (write_line (append label (append ": " (append (digits r) (append ", " (io_error r))))))))
+
+(def main () int
+  (let ro (arg 0)
+    (let no (arg 1)
+      (let dir (arg 2)
+        (let file (arg 3)
+          (let full (arg 4)
+            (let a (create "create in a read-only directory" (append ro "/x"))
+              (let b (create "create in a missing directory" (append no "/x"))
+                (let c (create "create a directory" dir)
+                  (let d (renamed "rename a file over a non-empty directory" file full)
+                    (let e (renamed "rename a file out of a read-only directory"
+                             (append ro "/kept") (append ro "/moved"))
+                      0)))))))))))

@@ -1,0 +1,63 @@
+; heap_compare.l0 -- HYPOTHETICAL: does not check today (limits/01).
+;
+; The heap as it would be written with a builtin (compare a b) on any type,
+; returning -1, 0, or 1 by a structural order fixed by the spec, as eq and
+; hash are: ints by value, bools false first, lists and bytes
+; lexicographically, arrays by length and then elements, data values by
+; constructor tag and then fields. Then the element is its own key, Key and
+; its boxing go away (key.l0), and the heap is (Heap T) for every T, records
+; included, at heap_int.l0's speed when T is int.
+
+(data (Heap T)
+  (HeapEmpty)
+  (HeapA (array T) int))
+
+(data (Popped T)
+  (PopNone)
+  (Popped T (Heap T)))
+
+(def (heap_push T) ((h (Heap T)) (x T)) (Heap T)
+  (match h
+    ((HeapEmpty) (HeapA (array_new 16 x) 1))
+    ((HeapA xs n)
+      (let xs2 (if (lt n (array_len xs)) xs (array_resize xs (mul 2 n) x))
+        (sift_up (array_set xs2 n x) n (add n 1))))))
+
+(def (sift_up T) ((xs (array T)) (i int) (n int)) (Heap T)
+  (if (eq i 0)
+      (HeapA xs n)
+      (let p (div (sub i 1) 2)
+        (if (lt (compare (array_get xs i) (array_get xs p)) 0)
+            (sift_up (swap xs i p) p n)
+            (HeapA xs n)))))
+
+(def (heap_pop T) ((h (Heap T))) (Popped T)
+  (match h
+    ((HeapEmpty) ((PopNone T)))
+    ((HeapA xs n)
+      (if (eq n 0)
+          ((PopNone T))
+          (let x (array_get xs 0)
+            (let last (array_get xs (sub n 1))
+              (Popped x (sift_down (array_set xs 0 last) 0 (sub n 1)))))))))
+
+(def (sift_down T) ((xs (array T)) (i int) (n int)) (Heap T)
+  (let l (add (mul 2 i) 1)
+    (if (ge l n)
+        (HeapA xs n)
+        (let r (add l 1)
+          (let c (if (lt r n)
+                     (if (lt (compare (array_get xs r) (array_get xs l)) 0) r l)
+                     l)
+            (if (lt (compare (array_get xs c) (array_get xs i)) 0)
+                (sift_down (swap xs i c) c n)
+                (HeapA xs n)))))))
+
+(def (swap T) ((a (array T)) (i int) (j int)) (array T)
+  (let x (array_get a i)
+    (let y (array_get a j)
+      (array_set (array_set a i y) j x))))
+
+; k-way merge then needs no Key: a (Heap Entry) of
+;   (data Entry (Entry bytes int))     ; line, which file
+; is ordered by line first, then by file, by compare alone.

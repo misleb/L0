@@ -1,0 +1,19 @@
+; Limit 07: spec section 6.3 says handles 0, 1, and 2 are open from the
+; start, but when the program is started with one of them closed, the first
+; file it opens is given that handle, and output meant for standard output
+; goes into the file. Run as
+;
+;   07-closed-stdout OUT >&-
+;
+; and OUT holds both lines; every flush and close returns 0. (BSD tee does
+; the same; GNU coreutils reopens /dev/null on closed standard handles.)
+
+(def main () int
+  (match (open_out (arg 0))
+    ((IoFailed fault why) (let w (write_err (append why "\n")) 1))
+    ((IoOpened f)
+      (let a (file_write_str f "meant for the file\n")
+        (let b (write_str "meant for standard output\n")
+          (let c (file_flush (IoFile 1))
+            (let d (file_close f)
+              (if (lt (add c d) 0) 1 0))))))))

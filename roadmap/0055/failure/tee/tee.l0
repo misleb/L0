@@ -1,0 +1,202 @@
+; tee.l0 -- copy standard input to standard output and to every file named,
+; going on when one fails, and reporting at the end, per file, whether it
+; failed on open, write, flush, or close.
+;
+;   tee [-a] FILE...
+;
+; Writes are held back (spec section 6.3), so a byte that cannot be written
+; shows only when the file is flushed or closed. So "failed on write" here
+; means that a flush made while copying, once per 65536 bytes, found bytes
+; lost: the file is then closed and copying goes on to the others. "Failed on
+; flush" is the flush at the end of the input, and "failed on close" a close
+; after that flush had succeeded.
+;
+; Each output has its position: 0 is standard output, and the files named
+; are 1, 2, ... in order, so a file named twice is reported twice.
+
+(data Out (Out int IoFile bool))                ; position, file, whether it can be closed
+
+(data Fate
+  (Worked)
+  (FailedOpen (list int))                       ; why
+  (FailedWrite int (list int))                  ; bytes copied before the flush that failed, why
+  (FailedFlush (list int))
+  (FailedClose (list int)))
+
+(data Report (Report int Fate))                 ; position, what became of it
+
+(def flush_every () int 65536)
+
+; ------------------------------------------------------------ opening
+
+(data Opened (Opened (list Out) (list Report)))  ; files open, in order; failures
+
+(def open_all ((names (list (list int))) (i int) (appending bool) (outs (list Out))
+               (bad (list Report))) Opened
+  (if (is_empty names)
+      (Opened (rev outs) bad)
+      (match (open_one (head names) appending)
+        ((IoFailed fault why)
+          (open_all (tail names) (add i 1) appending outs (cons (Report i (FailedOpen why)) bad)))
+        ((IoOpened f)
+          (open_all (tail names) (add i 1) appending (cons (Out i f true) outs) bad)))))
+
+(def open_one ((name (list int)) (appending bool)) (IoOpened CreateFault)
+  (if appending (open_appending name) (open_out name)))
+
+; ------------------------------------------------------------ copying
+
+(data Copied (Copied (list Out) (list Report) int int))  ; still open, reports, bytes, read error
+
+; Copies input to every one of outs until the input ends. left counts down
+; to the next flush.
+;
+; WORKAROUND, for speed: the loop that runs once per byte reads and writes
+; the raw handles, with read_from and write_to, from an (array int), rather
+; than file_read_byte and file_write_byte on the IoFile in each Out. On 100
+; MB to standard output and three files that is 0.76 s against 2.03 s for a
+; list of IoFile and the wrappers (exp/e1.l0, exp/e2.l0). The Outs are kept
+; for flushing, closing, and reporting, which happen once per 65536 bytes.
+(def copy ((input int) (outs (list Out)) (hs (array int)) (bad (list Report))
+           (n int) (left int)) Copied
+  (let b (read_from input)
+    (if (lt b 0)
+        (Copied outs bad n (if (eq b -1) 0 b))
+        (let w (write_all hs 0 b)
+          (if (eq left 1)
+              (match (flush_all outs (add n 1) (nil Out) bad)
+                ((Copied still reports m e)
+                  (copy input still (handles still) reports (add n 1) (flush_every))))
+              (copy input outs hs bad (add n 1) (sub left 1)))))))
+
+(def write_all ((hs (array int)) (i int) (b int)) int
+  (if (ge i (array_len hs))
+      0
+      (let w (write_to (array_get hs i) b)
+        (write_all hs (add i 1) b))))
+
+(def handles ((outs (list Out))) (array int)
+  (handles_into outs 0 (array_new (length outs) 0)))
+
+(def handles_into ((outs (list Out)) (i int) (a (array int))) (array int)
+  (if (is_empty outs)
+      a
+      (match (head outs)
+        ((Out k f closeable)
+          (match f
+            ((IoFile h) (handles_into (tail outs) (add i 1) (array_set a i h))))))))
+
+(def handle_of ((f IoFile)) int (match f ((IoFile h) h)))
+
+; Flushes each of outs, keeping those that worked and closing the others.
+(def flush_all ((outs (list Out)) (n int) (kept (list Out)) (bad (list Report))) Copied
+  (if (is_empty outs)
+      (Copied (rev kept) bad n 0)
+      (match (head outs)
+        ((Out i f closeable)
+          (let r (file_flush f)
+            (if (lt r 0)
+                (let c (if closeable (file_close f) 0)
+                  (flush_all (tail outs) n kept
+                    (cons (Report i (FailedWrite n (io_error r))) bad)))
+                (flush_all (tail outs) n (cons (head outs) kept) bad)))))))
+
+; ------------------------------------------------------------ finishing
+
+(def finish_all ((outs (list Out)) (acc (list Report))) (list Report)
+  (if (is_empty outs)
+      acc
+      (finish_all (tail outs) (cons (finish_one (head outs)) acc))))
+
+(def finish_one ((o Out)) Report
+  (match o
+    ((Out i f closeable)
+      (let r (file_flush f)
+        (if (lt r 0)
+            (let c (if closeable (file_close f) 0)
+              (Report i (FailedFlush (io_error r))))
+            (if closeable
+                (let c (file_close f)
+                  (if (lt c 0)
+                      (Report i (FailedClose (io_error c)))
+                      (Report i (Worked))))
+                (Report i (Worked))))))))
+
+; Copies input to outs, and gives a report for every one of them and every
+; one in bad.
+(def tee_into ((input IoFile) (outs (list Out)) (bad (list Report))) Copied
+  (match (copy (handle_of input) outs (handles outs) bad 0 (flush_every))
+    ((Copied still reports n e)
+      (Copied (nil Out) (finish_all still reports) n e))))
+
+; ------------------------------------------------------------ reporting
+
+(def fate_text ((fate Fate) (n int)) (list int)
+  (match fate
+    ((Worked) (append "written in full, " (append (digits n) " bytes")))
+    ((FailedOpen why) (append "failed on open: " why))
+    ((FailedWrite m why)
+      (append "failed on write, found by a flush after " (append (digits m)
+        (append " bytes: " why))))
+    ((FailedFlush why) (append "failed on flush: " why))
+    ((FailedClose why) (append "failed on close: " why))))
+
+(def failed ((fate Fate)) bool
+  (match fate
+    ((Worked) false)
+    ((FailedOpen why) true)
+    ((FailedWrite m why) true)
+    ((FailedFlush why) true)
+    ((FailedClose why) true)))
+
+; The fate of every output, by position.
+(def fates ((rs (list Report)) (a (array Fate))) (array Fate)
+  (if (is_empty rs)
+      a
+      (match (head rs)
+        ((Report i fate) (fates (tail rs) (array_set a i fate))))))
+
+(def count_failed ((a (array Fate)) (i int) (k int)) int
+  (if (ge i (array_len a))
+      k
+      (count_failed a (add i 1) (if (failed (array_get a i)) (add k 1) k))))
+
+; One line per output, standard output first and then the files in order.
+(def report_lines ((a (array Fate)) (names (list (list int))) (i int) (n int)
+                   (acc (list int))) (list int)
+  (if (is_empty names)
+      (rev acc)
+      (report_lines a (tail names) (add i 1) n
+        (push (report_line (head names) (array_get a i) n) acc))))
+
+(def report_line ((name (list int)) (fate Fate) (n int)) (list int)
+  (append "tee: " (append name (append ": " (append (fate_text fate n) "\n")))))
+
+; What to say on standard error, and the exit status: 1 if any output
+; failed or the input could not be read, and every output is named when
+; any failed.
+(data Teed (Teed (list int) int))
+
+(def conclude ((names (list (list int))) (c Copied)) Teed
+  (match c
+    ((Copied none rs n e)
+      (let a (fates rs (array_new (add 1 (length names)) (Worked)))
+        (let read_err (if (eq e 0) ""
+                          (append "tee: reading standard input: " (append (io_error e) "\n")))
+          (if (eq (count_failed a 0 0) 0)
+              (Teed read_err (if (eq e 0) 0 1))
+              (Teed (append read_err
+                      (report_lines a (cons "standard output" names) 0 n (nil int)))
+                    1)))))))
+
+; The whole of tee: copies input to out and to the files named.
+(def tee ((input IoFile) (out IoFile) (names (list (list int))) (appending bool)) Teed
+  (match (open_all names 1 appending (nil Out) (nil Report))
+    ((Opened outs bad)
+      (conclude names (tee_into input (cons (Out 0 out false) outs) bad)))))
+
+(def run ((argv (list (list int)))) int
+  (let appending (if (is_empty argv) false (eq (head argv) "-a"))
+    (match (tee (IoFile 0) (IoFile 1) (if appending (tail argv) argv) appending)
+      ((Teed msg status)
+        (let w (write_err msg) status)))))

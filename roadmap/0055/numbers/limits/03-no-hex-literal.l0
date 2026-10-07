@@ -1,0 +1,7 @@
+; 03-no-hex-literal.l0 -- integer literals are decimal only (spec 2.1).
+; Every published constant of CRC-32 and SHA-256 is given in hex. Written in
+; decimal, 3988292384 cannot be checked against the standard by eye; the
+; workaround in ../hash/sums.l0 parses a hex string when the program starts.
+(def poly () int 0xEDB88320)
+
+(def main () int (poly))

@@ -1,0 +1,87 @@
+; bitset.l0 -- the sieve of Eratosthenes over 0 to n, one bit per number.
+;
+; WORKAROUND for having no bitwise builtins (../limits/01-no-bitwise.l0):
+; a word holds 63 bits, the most a non-negative int holds, and a bit is
+; read with div and mod by its power of two and set by adding it. Words are
+; ints, so 64 bits would need the sign bit, which div and mod cannot reach
+; without care; 63 loses 1/64 of the space.
+;
+; A set bit means the number is not prime.
+
+(def bits_per_word () int 63)
+
+; 2^0 to 2^62, for reading and setting bit k of a word.
+(def pow2_table () (array int)
+  (fill_pow2 0 1 (array_new 63 0)))
+
+(def fill_pow2 ((i int) (p int) (t (array int))) (array int)
+  (if (eq i 63) t (fill_pow2 (add i 1) (mul p 2) (array_set t i p))))
+
+(def bit_is_set ((bs (array int)) (pw (array int)) (i int)) bool
+  (eq (mod (div (array_get bs (div i 63)) (array_get pw (mod i 63))) 2) 1))
+
+(def set_bit ((bs (array int)) (pw (array int)) (i int)) (array int)
+  (let k (div i 63)
+    (let w (array_get bs k)
+      (let p (array_get pw (mod i 63))
+        (if (eq (mod (div w p) 2) 1)
+            bs
+            (array_set bs k (add w p)))))))
+
+; Marks p * p, p * p + p, ... up to n.
+(def cross_bits ((bs (array int)) (pw (array int)) (j int) (p int) (n int)) (array int)
+  (if (gt j n) bs (cross_bits (set_bit bs pw j) pw (add j p) p n)))
+
+(def sieve_bits_from ((bs (array int)) (pw (array int)) (p int) (n int)) (array int)
+  (if (gt (mul p p) n)
+      bs
+      (if (bit_is_set bs pw p)
+          (sieve_bits_from bs pw (add p 1) n)
+          (sieve_bits_from (cross_bits bs pw (mul p p) p n) pw (add p 1) n))))
+
+; The bitset of composites up to n: bit i set when i is 0, 1, or not prime.
+(def sieve_bits ((n int)) (array int)
+  (let pw (pow2_table)
+    (let bs (set_bit (set_bit (array_new (add (div n 63) 1) 0) pw 0) pw 1)
+      (sieve_bits_from bs pw 2 n))))
+
+; ---------------------------------------------------------------- counting
+
+; How many bits each 16-bit value has set.
+(def popcount_table () (array int)
+  (fill_popcount 1 (array_new 65536 0)))
+
+(def fill_popcount ((i int) (t (array int))) (array int)
+  (if (eq i 65536)
+      t
+      (let c (add (array_get t (div i 2)) (mod i 2))
+        (fill_popcount (add i 1) (array_set t i c)))))
+
+(def popcount63 ((pc (array int)) (w int)) int
+  (let w1 (div w 65536)
+    (let w2 (div w1 65536)
+      (add (add (array_get pc (mod w 65536)) (array_get pc (mod w1 65536)))
+           (add (array_get pc (mod w2 65536)) (array_get pc (div w2 65536)))))))
+
+(def count_set ((bs (array int)) (pc (array int)) (k int) (acc int)) int
+  (if (eq k (array_len bs))
+      acc
+      (count_set bs pc (add k 1) (add acc (popcount63 pc (array_get bs k))))))
+
+; The number of primes up to n, given its bitset. Bits past n are never set.
+(def bits_prime_count ((bs (array int)) (n int)) int
+  (if (lt n 2)
+      0
+      (sub (add n 1) (count_set bs (popcount_table) 0 0))))
+
+; The largest prime at most i, or 0 if there is none.
+(def bits_last_prime ((bs (array int)) (pw (array int)) (i int)) int
+  (if (lt i 2)
+      0
+      (if (bit_is_set bs pw i) (bits_last_prime bs pw (sub i 1)) i)))
+
+(data Primes (Primes int int))            ; how many, the largest
+
+(def primes_bits ((n int)) Primes
+  (let bs (sieve_bits n)
+    (Primes (bits_prime_count bs n) (bits_last_prime bs (pow2_table) n))))

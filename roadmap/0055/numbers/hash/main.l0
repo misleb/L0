@@ -1,0 +1,8 @@
+; main.l0 -- sums FILE: the CRC-32 and SHA-256 of FILE.
+(def main () int
+  (if (lt (arg_count) 1)
+      (let w (write_err "usage: sums FILE\n") 2)
+      (let st (run_path (arg 0))
+        (if (lt (file_flush (IoFile 1)) 0)
+            (let w (write_err "sums: write error\n") 1)
+            st))))

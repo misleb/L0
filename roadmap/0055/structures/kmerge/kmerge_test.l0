@@ -1,0 +1,62 @@
+; kmerge_test.l0 -- merging and listing distinct lines, on files in memory.
+
+(def files_of ((texts (list (list int))) (acc (list IoFile))) (list IoFile)
+  (if (is_empty texts)
+      (rev acc)
+      (match (open_in_bytes (head texts))
+        ((IoFailed fault why) (rev acc))
+        ((IoOpened f) (files_of (tail texts) (cons f acc))))))
+
+(def close_all ((fs (list IoFile)) (n int)) int
+  (if (is_empty fs) n (close_all (tail fs) (add n (file_close (head fs))))))
+
+; What merge (or distinct) writes for files holding texts, and its status.
+(def output_of ((mode (list int)) (texts (list (list int))) (numeric bool)) (list int)
+  (match (open_out_buffer)
+    ((IoFailed fault why) why)
+    ((IoOpened out)
+      (let fs (files_of texts (nil IoFile))
+        (let st (if (eq mode "merge")
+                    (merge_files fs numeric out)
+                    (distinct_files fs numeric out))
+          (let s (buffer_contents out)
+            (let c (close_all fs (file_close out))
+              (append s (append "status " (digits st))))))))))
+
+(def three ((a (list int)) (b (list int)) (c (list int))) (list (list int))
+  (cons a (cons b (cons c (nil (list int))))))
+
+(def test_merge_lines () int
+  (check_str "merged" (output_of "merge" (three "apple\npear\n" "banana\nfig\nzoo\n" "") false)
+             "apple\nbanana\nfig\npear\nzoo\nstatus 0"))
+
+(def test_merge_keeps_duplicates () int
+  (check_str "dups" (output_of "merge" (three "a\nb\n" "a\nb\n" "b") false)
+             "a\na\nb\nb\nb\nstatus 0"))
+
+(def test_merge_numbers () int
+  (check_str "numeric" (output_of "merge" (three "-5\n2\n10\n" "3\n100\n" "7\n") true)
+             "-5\n2\n3\n7\n10\n100\nstatus 0"))
+
+(def test_numbers_not_as_text () int
+  (check_str "text order" (output_of "merge" (three "10\n" "9\n" "") false)
+             "10\n9\nstatus 0"))
+
+(def test_distinct_lines () int
+  (check_str "distinct" (output_of "distinct" (three "pear\napple\n" "fig\npear\n" "apple") false)
+             "apple\nfig\npear\nstatus 0"))
+
+(def test_distinct_numbers () int
+  (check_str "numbers" (output_of "distinct" (three "10\n9\n10\n" "-1\n" "9") true)
+             "-1\n9\n10\nstatus 0"))
+
+(def test_no_files () int
+  (check_str "none" (output_of "merge" (nil (list int)) false) "status 0"))
+
+(def test_bench_lines () int
+  (add (check_str "heap" (bench "heap" 2000) "heap out-of-order 0 2000")
+    (add (check_str "iheap" (bench "iheap" 2000) "iheap out-of-order 0 2000")
+         (check_str "iset agrees" (bench "iset" 2000) (bench "set" 2000)))))
+
+(def test_bench_set () int
+  (check_true "set" (starts_with (bench "set" 2000) "set size, after removing half")))

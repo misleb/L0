@@ -1,0 +1,18 @@
+; Limit 01: no read of at most n bytes.
+;
+; A program that must stream (tee, a filter, an unpacker of an archive larger
+; than memory) can read a byte at a time, or everything at once, and nothing
+; between: read_bytes and file_read_all take every byte left on the handle.
+; This is the streaming copy L0 can write: one call per byte in and one per
+; byte out. Compare 01-bounded-read-wholecat.l0, which is fast but holds the
+; whole input, and hypothetical/01-bounded-read.l0, the copy that was wanted.
+
+(def copy ((n int)) int
+  (let b (read_byte)
+    (if (lt b 0)
+        n
+        (let w (write_byte b) (copy (add n 1))))))
+
+(def main () int
+  (let n (copy 0)
+    (if (lt (file_flush (IoFile 1)) 0) 1 0)))

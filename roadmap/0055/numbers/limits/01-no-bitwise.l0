@@ -1,0 +1,11 @@
+; 01-no-bitwise.l0 -- L0 has no bitwise and, or, xor, not, or shifts.
+; One CRC-32 step, as every CRC, hash, checksum, and bitset needs it:
+;   crc = table[(crc xor b) and 255] xor (crc >> 8)
+; None of these names is a builtin (spec section 6), so each is an unknown
+; function. The workaround, ../hash/bits.l0, is div, mod, and 64K tables.
+(def crc_step ((table (array int)) (crc int) (b int)) int
+  (bit_xor (array_get table (bit_and (bit_xor crc b) 255))
+           (shr crc 8)))
+
+(def main () int
+  (crc_step (array_new 256 0) 4294967295 97))

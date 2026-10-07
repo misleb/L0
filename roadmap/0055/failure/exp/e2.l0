@@ -1,0 +1,27 @@
+; Experiment: the same copy with the outputs' handles in an (array int) and
+; the builtins read_from and write_to.
+
+(def write_all ((outs (array int)) (i int) (b int)) int
+  (if (ge i (array_len outs))
+      0
+      (let w (write_to (array_get outs i) b)
+        (write_all outs (add i 1) b))))
+
+(def copy ((outs (array int)) (n int)) int
+  (let b (read_from 0)
+    (if (lt b 0)
+        n
+        (let w (write_all outs 0 b) (copy outs (add n 1))))))
+
+(def opened ((path (list int))) int
+  (match (open_out path)
+    ((IoFailed fault why) 2)
+    ((IoOpened f) (match f ((IoFile h) h)))))
+
+(def main () int
+  (let a (opened (arg 0))
+    (let b (opened (arg 1))
+      (let c (opened (arg 2))
+        (let outs (array_set (array_set (array_set (array_new 4 1) 1 a) 2 b) 3 c)
+          (let n (copy outs 0)
+            (add (close a) (add (close b) (close c)))))))))

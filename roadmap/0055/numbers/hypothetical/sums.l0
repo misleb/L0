@@ -1,0 +1,65 @@
+; hypothetical/sums.l0 -- the CRC-32 and SHA-256 core as it would be written
+; with bitwise builtins and hexadecimal literals. It does not compile: none
+; of bit_and, bit_or, bit_xor, shl, shr, or 0x literals exists in L0.
+;
+; Assumed builtins, all int, int -> int on the 64-bit word, never failing:
+;   (bit_and a b) (bit_or a b) (bit_xor a b)   bitwise
+;   (shl a n)  shift left, bringing in zeros, n from 0 to 63
+;   (shr a n)  logical shift right, bringing in zeros, n from 0 to 63
+; With these, bits.l0 (130 lines, two 64K tables threaded through every
+; call) disappears, and so does the CRC register held as four bytes.
+
+(def mask32 ((x int)) int (bit_and x 0xFFFFFFFF))
+
+(def rotr32 ((x int) (n int)) int
+  (mask32 (bit_or (shr x n) (shl x (sub 32 n)))))
+
+; ---------------------------------------------------------------- CRC-32
+
+(def crc_entry ((c int) (k int)) int
+  (if (eq k 0)
+      c
+      (crc_entry (if (eq (bit_and c 1) 1) (bit_xor 0xEDB88320 (shr c 1)) (shr c 1))
+                 (sub k 1))))
+
+(def crc_block ((ct (array int)) (blk (array int)) (i int) (n int) (crc int)) int
+  (if (eq i n)
+      crc
+      (crc_block ct blk (add i 1) n
+        (bit_xor (array_get ct (bit_and (bit_xor crc (array_get blk i)) 0xFF))
+                 (shr crc 8)))))
+
+; --------------------------------------------------------------- SHA-256
+
+(def extend ((t int) (w (array int))) (array int)
+  (if (eq t 64)
+      w
+      (let x (array_get w (sub t 15))
+        (let y (array_get w (sub t 2))
+          (let s0 (bit_xor (rotr32 x 7) (bit_xor (rotr32 x 18) (shr x 3)))
+            (let s1 (bit_xor (rotr32 y 17) (bit_xor (rotr32 y 19) (shr y 10)))
+              (extend (add t 1)
+                (array_set w t (mask32 (add (add (array_get w (sub t 16)) s0)
+                                            (add (array_get w (sub t 7)) s1)))))))))))
+
+(def rounds ((k (array int)) (w (array int)) (i int)
+             (a int) (b int) (c int) (d int) (e int) (f int) (g int) (h int)) H8
+  (if (eq i 64)
+      (H8 a b c d e f g h)
+      (let s1 (bit_xor (rotr32 e 6) (bit_xor (rotr32 e 11) (rotr32 e 25)))
+        (let ch (bit_xor (bit_and e f) (bit_and (bit_xor e 0xFFFFFFFF) g))
+          (let t1 (add (add (add h s1) (add ch (array_get k i))) (array_get w i))
+            (let s0 (bit_xor (rotr32 a 2) (bit_xor (rotr32 a 13) (rotr32 a 22)))
+              (let mj (bit_xor (bit_and a b) (bit_xor (bit_and a c) (bit_and b c)))
+                (rounds k w (add i 1)
+                  (mask32 (add t1 (add s0 mj))) a b c
+                  (mask32 (add d t1)) e f g))))))))
+
+; The big-endian word at byte j: shifts instead of multiplies.
+(def word_at ((blk (array int)) (j int)) int
+  (bit_or (shl (array_get blk j) 24)
+    (bit_or (shl (array_get blk (add j 1)) 16)
+      (bit_or (shl (array_get blk (add j 2)) 8) (array_get blk (add j 3))))))
+
+; Not missing: reading. The block is read a byte at a time into an
+; (array int) of 64, which costs 0.29 s of the 10.2 s on 100 MB, in 2.8 MB.

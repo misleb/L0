@@ -1,0 +1,168 @@
+; lru.l0 -- a least-recently-used cache, written once for every key and
+; value type, over the library's Map.
+;
+; The cache keeps its entries in numbered slots: the Map gives a key's slot,
+; arrays give each slot's key and value, and two int arrays link the slots
+; into a list from most to least recently used. A hit moves its slot to the
+; front; a miss on a full cache reuses the slot at the back, removing its key
+; from the Map. Every structure is threaded through, taken apart by match
+; and rebuilt, so the Map and every array keep one holder and change in
+; place (checked with L0_ARRAY_STATS).
+;
+; There is no array of a K without a K to fill it with, so the arrays are
+; made on the first put, from what is put, as the Map itself does.
+
+; The recency list over slots: prev, next, the most recent slot, and the
+; least recent. -1 is no slot.
+(data Links
+  (Links (array int) (array int) int int))
+
+(def links_new ((cap int)) Links
+  (Links (array_new cap -1) (array_new cap -1) -1 -1))
+
+; The least recently used slot.
+(def links_back ((l Links)) int
+  (match l ((Links prev next front back) back)))
+
+(def links_front ((l Links)) int
+  (match l ((Links prev next front back) front)))
+
+; l without slot s, which must be on it.
+(def links_unlink ((l Links) (s int)) Links
+  (match l
+    ((Links prev next front back)
+      (let p (array_get prev s)
+        (let n (array_get next s)
+          (let next2 (if (eq p -1) next (array_set next p n))
+            (let prev2 (if (eq n -1) prev (array_set prev n p))
+              (Links prev2 next2
+                     (if (eq p -1) n front)
+                     (if (eq n -1) p back)))))))))
+
+; l with slot s, which must not be on it, at the front.
+(def links_push_front ((l Links) (s int)) Links
+  (match l
+    ((Links prev next front back)
+      (let prev2 (array_set prev s -1)
+        (let next2 (array_set next s front)
+          (let prev3 (if (eq front -1) prev2 (array_set prev2 front s))
+            (Links prev3 next2 s (if (eq back -1) s back))))))))
+
+(def links_to_front ((l Links) (s int)) Links
+  (if (eq (links_front l) s)
+      l
+      (links_push_front (links_unlink l s) s)))
+
+; The slots from most to least recent, for tests.
+(def links_order ((l Links)) (list int)
+  (match l
+    ((Links prev next front back) (rev (walk_next next front (nil int))))))
+
+(def walk_next ((next (array int)) (s int) (acc (list int))) (list int)
+  (if (eq s -1) acc (walk_next next (array_get next s) (cons s acc))))
+
+; ------------------------------------------------------------------- cache
+
+(data (Lru K V)
+  (LruEmpty int)                                        ; capacity
+  (LruT (Map K int) (array K) (array V) Links int))     ; slots, keys, values, links, used
+
+(def (lru_size K V) ((c (Lru K V))) int
+  (match c
+    ((LruEmpty cap) 0)
+    ((LruT slots keys vals links n) n)))
+
+; The value k has, if it is cached, and the cache with k now most recent.
+(data (Got K V)
+  (Got (Option V) (Lru K V)))
+
+(def (lru_get K V) ((c (Lru K V)) (k K)) (Got K V)
+  (match c
+    ((LruEmpty cap) (Got ((None V)) ((LruEmpty K V) cap)))
+    ((LruT slots keys vals links n)
+      (match (map_get slots k)
+        ((None) (Got ((None V)) (LruT slots keys vals links n)))
+        ((Some s)
+          (Got (Some (array_get vals s))
+               (LruT slots keys vals (links_to_front links s) n)))))))
+
+; The cache with k mapped to v and most recent, evicting the least recent
+; entry if the cache was full and k was not in it.
+(def (lru_put K V) ((c (Lru K V)) (k K) (v V)) (Lru K V)
+  (match c
+    ((LruEmpty cap)
+      (if (le cap 0)
+          ((LruEmpty K V) cap)
+          (LruT (map_put ((MapEmpty K int)) k 0) (array_new cap k) (array_new cap v)
+                (links_push_front (links_new cap) 0) 1)))
+    ((LruT slots keys vals links n)
+      (match (map_get slots k)
+        ((Some s)
+          (LruT slots keys (array_set vals s v) (links_to_front links s) n))
+        ((None)
+          (if (lt n (array_len keys))
+              (LruT (map_put slots k n) (array_set keys n k) (array_set vals n v)
+                    (links_push_front links n) (add n 1))
+              (evict_into slots keys vals links n k v)))))))
+
+(def (evict_into K V) ((slots (Map K int)) (keys (array K)) (vals (array V))
+                       (links Links) (n int) (k K) (v V)) (Lru K V)
+  (let s (links_back links)
+    (let old (array_get keys s)
+      (LruT (map_put (map_remove slots old) k s) (array_set keys s k) (array_set vals s v)
+            (links_to_front links s) n))))
+
+; ------------------------------------------------------------- the trace
+
+(data (Tally K V)
+  (Tally (Lru K V) int int))                            ; cache, hits, misses
+
+; One request for k: a hit if it is cached, and otherwise a miss, after
+; which k is cached with the value v.
+(def (request K V) ((t (Tally K V)) (k K) (v V)) (Tally K V)
+  (match t
+    ((Tally c hits misses)
+      (match (lru_get c k)
+        ((Got found c2)
+          (match found
+            ((Some x) (Tally c2 (add hits 1) misses))
+            ((None) (Tally (lru_put c2 k v) hits (add misses 1)))))))))
+
+(def parse_int ((s (list int))) int
+  (if (is_empty s)
+      0
+      (if (eq (head s) 45)
+          (neg (int_prefix (tail s) 0))
+          (int_prefix s 0))))
+
+; Every line of f a request, keyed by the number it holds; the value cached
+; is the line itself.
+(def run_ints ((f IoFile) (t (Tally int (list int)))) (Tally int (list int))
+  (match (file_next_line f)
+    ((IoLine s) (run_ints f (request t (parse_int s) s)))
+    ((IoEnd) t)
+    ((IoError code) t)))
+
+; Every line of f a request, keyed by its bytes; the value is its length.
+(def run_strs ((f IoFile) (t (Tally bytes int))) (Tally bytes int)
+  (match (file_next_line f)
+    ((IoLine s) (run_strs f (request t (bytes_from_list (take_line s)) (length s))))
+    ((IoEnd) t)
+    ((IoError code) t)))
+
+(def (report K V) ((t (Tally K V))) (list int)
+  (match t
+    ((Tally c hits misses)
+      (let a (push "hits " (nil int))
+        (let b (push (digits hits) a)
+          (let d (push " misses " b)
+            (let e (push (digits misses) d)
+              (let g (push " cached " e)
+                (rev (push (digits (lru_size c)) g))))))))))
+
+; Runs the trace on f through a cache of cap entries, keyed as numbers or,
+; with strings, as bytes. The line to print.
+(def simulate ((f IoFile) (cap int) (strings bool)) (list int)
+  (if strings
+      (report (run_strs f (Tally ((LruEmpty bytes int) cap) 0 0)))
+      (report (run_ints f (Tally ((LruEmpty int (list int)) cap) 0 0)))))

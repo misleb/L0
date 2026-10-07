@@ -1,0 +1,8 @@
+; main.l0 -- calc [--int64]: reads expressions from standard input, one per
+; line, and prints each result exactly, or with --int64 reports any result
+; past 64 bits as an overflow.
+(def main () int
+  (let st (calc_main (args))
+    (if (lt (file_flush (IoFile 1)) 0)
+        (let w (write_err "calc: write error\n") 2)
+        st)))

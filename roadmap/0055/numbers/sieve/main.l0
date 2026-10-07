@@ -1,0 +1,7 @@
+; main.l0 -- sieve bits|flags N: how many primes there are up to N, and the
+; largest, by a bitset or by a flag per number.
+(def main () int
+  (let st (run_sieve (arg 0) (arg 1))
+    (if (lt (file_flush (IoFile 1)) 0)
+        (let w (write_err "sieve: write error\n") 1)
+        st)))

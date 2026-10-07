@@ -1,0 +1,13 @@
+; lru [-s] CAPACITY < TRACE
+; Each line of the trace is a request; prints the hits and misses of an LRU
+; cache of CAPACITY entries. Keys are numbers, or with -s the lines' bytes.
+(def main () int
+  (let argv (args)
+    (let strings (if (is_empty argv) false (eq (head argv) "-s"))
+      (let rest (if strings (tail argv) argv)
+        (if (is_empty rest)
+            (let w (write_err "usage: lru [-s] CAPACITY < TRACE\n") 2)
+            (let w (write_line (simulate (IoFile 0) (parse_int (head rest)) strings))
+              (if (lt (file_flush (IoFile 1)) 0)
+                  (let e (write_err "lru: write error\n") 1)
+                  0)))))))

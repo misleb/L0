@@ -1,0 +1,82 @@
+; editor_test.l0 -- scripts run on buffers in memory.
+
+(def lines_of ((text (list int))) (list bytes)
+  (match (open_in_bytes text)
+    ((IoFailed fault why) (nil bytes))
+    ((IoOpened f)
+      (let ls (read_lines f (nil bytes))
+        (let c (file_close f)
+          ls)))))
+
+; What the script prints on the buffer holding text, then its status.
+(def run_on ((text (list int)) (script (list int))) (list int)
+  (match (open_in_bytes script)
+    ((IoFailed fault why) why)
+    ((IoOpened f)
+      (match (open_out_buffer)
+        ((IoFailed fault why) why)
+        ((IoOpened out)
+          (let st (run_script (editor_of (lines_of text)) f out 0)
+            (let s (buffer_contents out)
+              (let c (file_close out)
+                (let d (file_close f)
+                  (append s (append "status " (digits st))))))))))))
+
+(def test_print () int
+  (check_str "as loaded" (run_on "a\nb\nc\n" "p\n") "a\nb\nc\nstatus 0"))
+
+(def test_insert () int
+  (add (check_str "front" (run_on "a\nb\n" "i 0 x\np\n") "x\na\nb\nstatus 0")
+    (add (check_str "append" (run_on "a\nb\n" "i 2 x\np\n") "a\nb\nx\nstatus 0")
+         (check_str "spaces kept" (run_on "a\n" "i 1  two  spaces\np\n") "a\n two  spaces\nstatus 0"))))
+
+(def test_delete_replace () int
+  (add (check_str "delete" (run_on "a\nb\nc\n" "d 1\np\n") "a\nc\nstatus 0")
+       (check_str "replace" (run_on "a\nb\nc\n" "r 2 C\np\n") "a\nb\nC\nstatus 0")))
+
+(def test_undo_redo () int
+  (add (check_str "undo two" (run_on "a\n" "i 1 b\ni 2 c\nu\nu\np\n") "a\nstatus 0")
+    (add (check_str "redo one" (run_on "a\n" "i 1 b\ni 2 c\nu\nu\nR\np\n") "a\nb\nstatus 0")
+         (check_str "edit forgets redo" (run_on "a\n" "d 0\nu\ni 0 z\nR\np\n")
+                    "z\na\nstatus 1"))))
+
+(def test_line () int
+  (check_str "one line" (run_on "zero\none\n" "l 1\nl 0\n") "one\nzero\nstatus 0"))
+
+(def test_empty_buffer () int
+  (check_str "empty" (run_on "" "i 0 only\nl 0\nd 0\np\nu\np\n") "only\nonly\nstatus 0"))
+
+; Errors go to standard error, so the buffer's output holds none of them;
+; only the status shows them.
+(def test_errors () int
+  (add (check_str "out of range" (run_on "a\n" "d 1\nr 5 x\ni 3 y\nl 9\np\n") "a\nstatus 1")
+    (add (check_str "nothing to undo" (run_on "a\n" "u\n") "status 1")
+      (add (check_str "no number" (run_on "a\n" "d x\n") "status 1")
+           (check_str "unknown" (run_on "a\n" "q\n") "status 1")))))
+
+(def test_parse () int
+  (match (parse_cmd "r 12 hello world")
+    ((CReplace n text)
+      (add (check_int "line" n 12)
+           (check_str "text" (bytes_to_list text) "hello world")))
+    ((CInsert n t) (fail_because "kind" "insert"))
+    ((CDelete n) (fail_because "kind" "delete"))
+    ((CUndo) (fail_because "kind" "undo"))
+    ((CRedo) (fail_because "kind" "redo"))
+    ((CLine n) (fail_because "kind" "line"))
+    ((CPrint) (fail_because "kind" "print"))
+    ((CBad why) (fail_because "kind" why))))
+
+; Many edits, each undone, leave the buffer as it began.
+(def edits ((n int) (acc (list int))) (list int)
+  (if (eq n 0)
+      acc
+      (edits (sub n 1) (push "i 0 x\nr 1 y\nd 2\n" acc))))
+
+(def undos ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (undos (sub n 1) (push "u\n" acc))))
+
+(def test_undo_all () int
+  (check_str "back to start"
+    (run_on "a\nb\nc\nd\ne\n" (rev (push "p\n" (undos 300 (edits 100 (nil int))))))
+    "a\nb\nc\nd\ne\nstatus 0"))

@@ -1,0 +1,20 @@
+; Limit 06b: the same as 06, but writing a byte at a time and flushing once
+; per 65536 bytes, as tee does. Run as
+;
+;   06b-sigpipe-unflushed | head -c 10
+;
+; it should say which flush failed, write 1,000,000 bytes to standard error's
+; count, and exit 3. Observed: it is killed (status 141) with nothing said.
+
+(def loop ((n int)) int
+  (if (eq n 1000000)
+      (let w (write_err "done without a failure\n") 0)
+      (let w (write_byte 121)
+        (if (eq (mod (add n 1) 65536) 0)
+            (if (lt (file_flush (IoFile 1)) 0)
+                (let e (write_err (append "flush failed after " (append (digits (add n 1)) " bytes\n")))
+                  3)
+                (loop (add n 1)))
+            (loop (add n 1))))))
+
+(def main () int (loop 0))

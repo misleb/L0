@@ -1,0 +1,174 @@
+; rat.l0 -- exact rationals over 64-bit integers, with every overflow
+; detected and reported rather than wrapped.
+;
+; L0's add, sub, and mul wrap silently (spec 3), and there is no wider
+; integer, no overflow-checking builtin, and no big integer
+; (../limits/05-wrapping-arithmetic.l0, ../limits/06-no-big-integers.l0).
+; So each operation is checked here by hand, and a result that does not fit
+; is an error, not an answer.
+;
+; Values are kept in -(2^63 - 1) to 2^63 - 1: the most negative int is
+; treated as an overflow, so neg and abs never wrap.
+
+(data CalcError (DivByZero) (Overflow) (Syntax (list int)))
+
+; A rational in lowest terms, with a positive denominator.
+(data Rat (Rat int int))
+
+(def min_int () int -9223372036854775808)
+
+; ------------------------------------------------- checked integer arithmetic
+
+(def c_add ((a int) (b int)) (Option int)
+  (let r (add a b)
+    (if (and (eq (ge a 0) (ge b 0)) (not (eq (ge r 0) (ge a 0))))
+        ((None int))
+        (if (eq r (min_int)) ((None int)) (Some r)))))
+
+; Neither a nor b is ever the most negative int, which rules out the one
+; case, -1 times it, that the division test misses.
+(def c_mul ((a int) (b int)) (Option int)
+  (if (or (eq a 0) (eq b 0))
+      (Some 0)
+      (let r (mul a b)
+        (if (or (eq r (min_int)) (not (eq (div r a) b)))
+            ((None int))
+            (Some r)))))
+
+(def o_add ((x (Option int)) (y (Option int))) (Option int)
+  (match x
+    ((None) ((None int)))
+    ((Some a) (match y ((None) ((None int))) ((Some b) (c_add a b))))))
+
+(def o_mul ((x (Option int)) (y (Option int))) (Option int)
+  (match x
+    ((None) ((None int)))
+    ((Some a) (match y ((None) ((None int))) ((Some b) (c_mul a b))))))
+
+(def abs ((a int)) int (if (lt a 0) (neg a) a))
+
+(def gcd ((a int) (b int)) int
+  (if (eq b 0) (abs a) (gcd b (mod a b))))
+
+; ------------------------------------------------------------- rationals
+
+(def ok_rat ((r Rat)) (Result Rat CalcError) ((Ok Rat CalcError) r))
+
+(def overflow () (Result Rat CalcError) ((Err Rat CalcError) (Overflow)))
+
+; The rational n / d, given that n and d have no common factor.
+(def signed_rat ((n int) (d int)) (Result Rat CalcError)
+  (if (lt d 0) (ok_rat (Rat (neg n) (neg d))) (ok_rat (Rat n d))))
+
+(def both ((n (Option int)) (d (Option int))) (Result Rat CalcError)
+  (match n
+    ((None) (overflow))
+    ((Some a)
+      (match d
+        ((None) (overflow))
+        ((Some b) (signed_rat a b))))))
+
+(def rat_int ((n int)) Rat (Rat n 1))
+
+(def rat_neg ((x Rat)) Rat
+  (match x ((Rat a b) (Rat (neg a) b))))
+
+; a/b + c/d, by Knuth's method (TAOCP 4.5.1): the denominator is computed
+; as the reduced one directly, so it overflows only when the answer does.
+(def rat_add ((x Rat) (y Rat)) (Result Rat CalcError)
+  (match x
+    ((Rat a b)
+      (match y
+        ((Rat c d)
+          (let g1 (gcd b d)
+            (if (eq g1 1)
+                (both (o_add (c_mul a d) (c_mul b c)) (c_mul b d))
+                (match (o_add (c_mul a (div d g1)) (c_mul c (div b g1)))
+                  ((None) (overflow))
+                  ((Some t)
+                    (let g2 (gcd t g1)
+                      (both (Some (div t g2)) (c_mul (div b g1) (div d g2)))))))))))))
+
+(def rat_sub ((x Rat) (y Rat)) (Result Rat CalcError)
+  (rat_add x (rat_neg y)))
+
+; a/b * c/d, cancelling before multiplying, so both products are the
+; reduced ones and overflow only when the answer does.
+(def rat_mul ((x Rat) (y Rat)) (Result Rat CalcError)
+  (match x
+    ((Rat a b)
+      (match y
+        ((Rat c d)
+          (let g1 (gcd a d)
+            (let g2 (gcd c b)
+              (if (or (eq a 0) (eq c 0))
+                  (ok_rat (Rat 0 1))
+                  (both (c_mul (div a g1) (div c g2))
+                        (c_mul (div b g2) (div d g1)))))))))))
+
+(def rat_div ((x Rat) (y Rat)) (Result Rat CalcError)
+  (match y
+    ((Rat c d)
+      (if (eq c 0)
+          ((Err Rat CalcError) (DivByZero))
+          (if (lt c 0)
+              (rat_mul x (Rat (neg d) (neg c)))
+              (rat_mul x (Rat d c)))))))
+
+; ---------------------------------------------------------------- output
+
+; n/d in lowest terms, or n alone when d is 1.
+(def show_rat ((x Rat)) (list int)
+  (match x
+    ((Rat a b)
+      (if (eq b 1) (digits a) (append (digits a) (cons 47 (digits b)))))))
+
+(data QR (QR int int))
+
+; 10 * r = q * d + r', for 0 <= r < d, without forming 10 * r when it
+; would not fit: then r is added ten times modulo d, counting the wraps.
+(def times10 ((r int) (d int)) QR
+  (if (le r 922337203685477580)
+      (let x (mul r 10) (QR (div x d) (mod x d)))
+      (add_times r d 10 0 0)))
+
+(def add_times ((r int) (d int) (k int) (q int) (acc int)) QR
+  (if (eq k 0)
+      (QR q acc)
+      (if (ge acc (sub d r))
+          (add_times r d (sub k 1) (add q 1) (sub acc (sub d r)))
+          (add_times r d (sub k 1) q (add acc r)))))
+
+; n places of r / d, 0 <= r < d, as digit values, the last place first.
+(def frac_digits ((r int) (d int) (n int) (acc (list int))) (list int)
+  (if (eq n 0)
+      acc
+      (match (times10 r d)
+        ((QR q r2) (frac_digits r2 d (sub n 1) (cons q acc))))))
+
+; Adds one to the last place of ds (last place first); the result, and
+; whether it carried out of the first place.
+(data Bump (Bump (list int) bool))
+
+(def bump ((ds (list int))) Bump
+  (if (is_empty ds)
+      (Bump ds true)
+      (if (eq (head ds) 9)
+          (match (bump (tail ds)) ((Bump rest c) (Bump (cons 0 rest) c)))
+          (Bump (cons (add (head ds) 1) (tail ds)) false))))
+
+(def push_digit_chars ((ds (list int)) (acc (list int))) (list int)
+  (if (is_empty ds) acc (push_digit_chars (tail ds) (cons (add 48 (head ds)) acc))))
+
+; x to n decimal places, rounding half away from zero.
+(def decimal ((x Rat) (n int)) (list int)
+  (match x
+    ((Rat a b)
+      (let m (abs a)
+        (let ds (frac_digits (mod m b) b (add n 1) (nil int))
+          (let up (ge (head ds) 5)
+            (match (if up (bump (tail ds)) (Bump (tail ds) false))
+              ((Bump fr carry)
+                (let ip (if carry (add (div m b) 1) (div m b))
+                  (let s (push (digits ip) (if (lt a 0) "-" (nil int)))
+                    (rev (push_digit_chars (rev fr) (cons 46 s)))))))))))))

@@ -1,0 +1,43 @@
+; oset_int.l0 -- oset.l0 again, over (Tree int) with int_cmp instead of Key.
+;
+; Kept only to measure what key.l0's boxing costs the set, as heap_int.l0
+; does for the heap. The balancing is still tree.l0's, at T = int.
+
+(def iset_insert ((t (Tree int)) (k int)) (Tree int)
+  (match t
+    ((Tip) (Node ((Tip int)) k ((Tip int)) 1 1))
+    ((Node l x r h s)
+      (let c (int_cmp k x)
+        (if (lt c 0)
+            (balance (iset_insert l k) x r)
+            (if (gt c 0)
+                (balance l x (iset_insert r k))
+                (Node l x r h s)))))))
+
+(def iset_remove ((t (Tree int)) (k int)) (Tree int)
+  (match t
+    ((Tip) ((Tip int)))
+    ((Node l x r h s)
+      (let c (int_cmp k x)
+        (if (lt c 0)
+            (balance (iset_remove l k) x r)
+            (if (gt c 0)
+                (balance l x (iset_remove r k))
+                (tree_join l r)))))))
+
+(def iinsert_rand ((t (Tree int)) (x int) (n int)) (Tree int)
+  (if (eq n 0)
+      t
+      (iinsert_rand (iset_insert t (mod x 1000000000)) (next_rand x) (sub n 1))))
+
+(def iremove_rand ((t (Tree int)) (x int) (n int)) (Tree int)
+  (if (eq n 0)
+      t
+      (iremove_rand (iset_remove t (mod x 1000000000)) (next_rand x) (sub n 1))))
+
+(def ibench_set ((n int)) (list int)
+  (let t (iinsert_rand ((Tip int)) 1 n)
+    (let size (tree_size t)
+      (let u (iremove_rand t 1 (div n 2))
+        (bench_report (if (tree_ok u) "set size, after removing half" "set unbalanced")
+                      size (tree_size u))))))

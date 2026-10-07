@@ -1,0 +1,31 @@
+; oset_compare.l0 -- HYPOTHETICAL: does not check today (limits/01).
+;
+; oset.l0's three functions with compare on any type: the ordered set is
+; then (Tree T) for every T, over common/tree.l0 unchanged, and an ordered
+; map is (Tree (Entry K V)) with compare on the key alone, or a set of
+; entries if the language's compare orders by the first field first.
+
+(def (set_has T) ((t (Tree T)) (k T)) bool
+  (match t
+    ((Tip) false)
+    ((Node l x r h s)
+      (let c (compare k x)
+        (if (lt c 0) (set_has l k) (if (gt c 0) (set_has r k) true))))))
+
+(def (set_insert T) ((t (Tree T)) (k T)) (Tree T)
+  (match t
+    ((Tip) (Node ((Tip T)) k ((Tip T)) 1 1))
+    ((Node l x r h s)
+      (let c (compare k x)
+        (if (lt c 0)
+            (balance (set_insert l k) x r)
+            (if (gt c 0) (balance l x (set_insert r k)) (Node l x r h s)))))))
+
+(def (set_remove T) ((t (Tree T)) (k T)) (Tree T)
+  (match t
+    ((Tip) ((Tip T)))
+    ((Node l x r h s)
+      (let c (compare k x)
+        (if (lt c 0)
+            (balance (set_remove l k) x r)
+            (if (gt c 0) (balance l x (set_remove r k)) (tree_join l r)))))))

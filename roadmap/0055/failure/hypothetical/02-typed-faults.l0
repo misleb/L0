@@ -1,0 +1,39 @@
+; What would have been written if rename, flush, and close returned a typed
+; failure, as open does since 0050, with a case per thing the host can say.
+; The names are imagined: RenameFault, WriteFault, and the result types.
+;
+; This does not compile: none of these types exists.
+
+; The rotator's step, telling the user why a rename failed.
+(def rename_step ((from (list int)) (to (list int))) (list int)
+  (match (rename_file from to)
+    ((Renamed) "")
+    ((RenameFailed fault why)
+      (match fault
+        ((RenameMissing) "")                                   ; skipped, as now
+        ((RenameDenied) (append "may not rename " from))
+        ((RenameTargetIsDirectory) (append to " is a directory"))
+        ((RenameCrossDevice) (append to " is on another file system"))
+        ((RenameOther) why)))))
+
+; tee and the packer, telling a full disk from a broken device.
+(def closed_why ((f IoFile)) (list int)
+  (match (file_close f)
+    ((Closed) "")
+    ((CloseFailed fault why)
+      (match fault
+        ((WriteNoSpace) "the disk is full")
+        ((WriteQuota) "over quota")
+        ((WriteBrokenPipe) "the reader has gone")
+        ((WriteOther) why)))))
+
+; unpack, telling the user which of its three reasons it was.
+(def create_why ((path (list int))) (list int)
+  (match (open_out path)
+    ((IoOpened f) (closed_why f))
+    ((IoFailed fault why)
+      (match fault
+        ((CreateDenied) "permission denied")
+        ((CreateNoDirectory) "its directory does not exist")
+        ((CreateIsDirectory) "it is a directory")
+        ((CreateFailed) why)))))

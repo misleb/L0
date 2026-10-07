@@ -1,0 +1,22 @@
+; Limit 03 (cost): a Map threaded through a loop of map_remove and map_put,
+; held by nothing else, still copies its arrays.
+;
+; The loop keeps a sliding window of w keys: each step adds key i and removes
+; key i - w, so the map's size stays w. The map has one name and is passed
+; straight on, as l0 doc Map says to. Run with L0_ARRAY_STATS=1:
+;
+;   window ARG1 STEPS ARG2
+;
+; and compare "array copies" with zero.
+
+(def slide ((m (Map int int)) (i int) (n int) (w int)) (Map int int)
+  (if (ge i n)
+      m
+      (slide (map_remove (map_put m i i) (sub i w)) (add i 1) n w)))
+
+(def main () int
+  (let w (int_prefix (arg 0) 0)
+    (let n (int_prefix (arg 1) 0)
+      (let m (slide ((MapEmpty int int)) 0 n w)
+        (let o (write_line (digits (map_size m)))
+          0)))))

@@ -1,0 +1,19 @@
+; What would have been written with a read of at most n bytes, here imagined
+; as (file_read_some f n), giving IoBytes: at most n bytes, empty bytes only
+; at end of input, or IoReadFailed. tee, and an unpacker that streams an
+; archive instead of holding it, are this loop with more writes in it.
+;
+; This does not compile: file_read_some does not exist.
+
+(def copy ((f IoFile) (out IoFile)) int
+  (match (file_read_some f 65536)
+    ((IoReadFailed code) code)
+    ((IoBytes b)
+      (if (eq (bytes_len b) 0)
+          0
+          (let w (file_write_bytes out b 0 (bytes_len b))
+            (copy f out))))))
+
+(def main () int
+  (let r (copy (IoFile 0) (IoFile 1))
+    (if (lt (file_flush (IoFile 1)) 0) 1 (if (lt r 0) 1 0))))

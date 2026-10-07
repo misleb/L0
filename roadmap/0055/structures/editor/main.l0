@@ -1,0 +1,17 @@
+; editor FILE < SCRIPT
+; Loads FILE as the buffer and runs the script of edits read from standard
+; input, printing what it asks for.
+(def main () int
+  (if (lt (arg_count) 1)
+      (let w (write_err "usage: editor FILE < SCRIPT\n") 2)
+      (match (open_in (arg 0))
+        ((IoFailed fault why)
+          (let w (write_err (append "editor: " (append (arg 0) (append ": " (append why "\n")))))
+            1))
+        ((IoOpened f)
+          (let lines (read_lines f (nil bytes))
+            (let c (file_close f)
+              (let st (run_script (editor_of lines) (IoFile 0) (IoFile 1) 0)
+                (if (lt (file_flush (IoFile 1)) 0)
+                    (let w (write_err "editor: write error\n") 1)
+                    st))))))))

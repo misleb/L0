@@ -1,0 +1,21 @@
+; Limit 05: there is no empty (array T) without a value of T in hand.
+;
+; A heap, a stack, or an LRU cache written once for every T keeps its
+; elements in an (array T), and its natural empty value holds an empty
+; array. array_new needs an element even for length 0, and a function with
+; type parameters has no T until one is given to it, so the type checks only
+; with a T that does not exist. This one checks, and fails when it runs:
+;
+;   l0 run 05-empty-array-of-T.l0   ->  l0: runtime error: head of empty list
+;
+; The structures here instead give their type an extra empty case (HeapEmpty,
+; IHeapEmpty, LruEmpty, as the library's MapEmpty), make the arrays on the
+; first push from what is pushed, and match the extra case in every
+; operation: one more constructor and one more arm per function, and a
+; result type (Popped, Got) with a case for "nothing yet".
+
+(def (empty_stack T) ((proxy (list T))) (array T)
+  (array_new 0 (head proxy)))
+
+(def main () int
+  (array_len (empty_stack (nil int))))

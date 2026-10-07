@@ -1,0 +1,37 @@
+; oset.l0 -- an ordered set: common/tree.l0's AVL tree, kept in Key order.
+;
+; The balancing is written once for every T, in tree.l0. Only the descent,
+; which asks which of two elements comes first, is written here, over Key
+; (the named workaround of key.l0): with compare, or a function argument,
+; these three would be (Tree T) too (hypothetical/oset.l0).
+
+(def set_has ((t (Tree Key)) (k Key)) bool
+  (match t
+    ((Tip) false)
+    ((Node l x r h s)
+      (let c (key_cmp k x)
+        (if (lt c 0)
+            (set_has l k)
+            (if (gt c 0) (set_has r k) true))))))
+
+(def set_insert ((t (Tree Key)) (k Key)) (Tree Key)
+  (match t
+    ((Tip) (Node ((Tip Key)) k ((Tip Key)) 1 1))
+    ((Node l x r h s)
+      (let c (key_cmp k x)
+        (if (lt c 0)
+            (balance (set_insert l k) x r)
+            (if (gt c 0)
+                (balance l x (set_insert r k))
+                (Node l x r h s)))))))
+
+(def set_remove ((t (Tree Key)) (k Key)) (Tree Key)
+  (match t
+    ((Tip) ((Tip Key)))
+    ((Node l x r h s)
+      (let c (key_cmp k x)
+        (if (lt c 0)
+            (balance (set_remove l k) x r)
+            (if (gt c 0)
+                (balance l x (set_remove r k))
+                (tree_join l r)))))))

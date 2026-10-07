@@ -1,0 +1,75 @@
+; heap.l0 -- a binary min-heap priority queue, written once for every
+; payload type T, ordered by a Key (key.l0, the named workaround for having
+; no order on T).
+;
+; Two arrays, keys and payloads, in heap order, grown by doubling. The heap
+; is taken apart by match at each step and rebuilt, so each array has one
+; holder and every array_set is in place (checked with L0_ARRAY_STATS).
+; There is no empty array of a T without a T to fill it with, so the arrays
+; are made on the first push, from what is pushed, as the library's Map does.
+
+(data (Heap T)
+  (HeapEmpty)
+  (HeapA (array Key) (array T) int))            ; keys, payloads, count
+
+(data (Popped T)
+  (PopNone)
+  (Popped Key T (Heap T)))                      ; least key, its payload, rest
+
+(def (heap_size T) ((h (Heap T))) int
+  (match h
+    ((HeapEmpty) 0)
+    ((HeapA ks vs n) n)))
+
+(def (swap T) ((a (array T)) (i int) (j int)) (array T)
+  (let x (array_get a i)
+    (let y (array_get a j)
+      (array_set (array_set a i y) j x))))
+
+(def (heap_push T) ((h (Heap T)) (k Key) (v T)) (Heap T)
+  (match h
+    ((HeapEmpty) (HeapA (array_new 16 k) (array_new 16 v) 1))
+    ((HeapA ks vs n)
+      (let ks2 (if (lt n (array_len ks)) ks (array_resize ks (mul 2 n) k))
+        (let vs2 (if (lt n (array_len vs)) vs (array_resize vs (mul 2 n) v))
+          (sift_up (array_set ks2 n k) (array_set vs2 n v) n (add n 1)))))))
+
+(def (sift_up T) ((ks (array Key)) (vs (array T)) (i int) (n int)) (Heap T)
+  (if (eq i 0)
+      (HeapA ks vs n)
+      (let p (div (sub i 1) 2)
+        (if (key_less (array_get ks i) (array_get ks p))
+            (sift_up (swap ks i p) (swap vs i p) p n)
+            (HeapA ks vs n)))))
+
+(def (heap_pop T) ((h (Heap T))) (Popped T)
+  (match h
+    ((HeapEmpty) ((PopNone T)))
+    ((HeapA ks vs n)
+      (if (eq n 0)
+          ((PopNone T))
+          (let k (array_get ks 0)
+            (let v (array_get vs 0)
+              (let m (sub n 1)
+                (let lk (array_get ks m)
+                  (let lv (array_get vs m)
+                    (Popped k v
+                      (sift_down (array_set ks 0 lk) (array_set vs 0 lv) 0 m)))))))))))
+
+; The smaller child of i, if it has one; or i itself if it has none.
+(def least_child ((ks (array Key)) (i int) (n int)) int
+  (let l (add (mul 2 i) 1)
+    (let r (add l 1)
+      (if (ge l n)
+          i
+          (if (ge r n)
+              l
+              (if (key_less (array_get ks r) (array_get ks l)) r l))))))
+
+(def (sift_down T) ((ks (array Key)) (vs (array T)) (i int) (n int)) (Heap T)
+  (let c (least_child ks i n)
+    (if (eq c i)
+        (HeapA ks vs n)
+        (if (key_less (array_get ks c) (array_get ks i))
+            (sift_down (swap ks i c) (swap vs i c) c n)
+            (HeapA ks vs n)))))

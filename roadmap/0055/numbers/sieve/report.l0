@@ -1,0 +1,22 @@
+; report.l0 -- what the sieve prints, and choosing which sieve to run.
+
+(def describe ((n int) (p Primes)) (list int)
+  (match p
+    ((Primes count last)
+      (let a (push (digits count) (nil int))
+        (let b (push " primes up to " a)
+          (let c (push (digits n) b)
+            (let d (push ", the last " c)
+              (let e (push (digits last) d)
+                (rev (push "\n" e))))))))))
+
+; MODE is bits or flags; anything else is a usage error, as is a bad N.
+(def run_sieve ((mode (list int)) (arg_n (list int))) int
+  (let n (int_prefix arg_n 0)
+    (if (or (is_empty arg_n) (not (is_empty (skip_digits arg_n))))
+        (let w (write_err "usage: sieve bits|flags N\n") 2)
+        (if (eq mode "bits")
+            (let w (write_str (describe n (primes_bits n))) 0)
+            (if (eq mode "flags")
+                (let w (write_str (describe n (primes_flags n))) 0)
+                (let w (write_err "usage: sieve bits|flags N\n") 2))))))

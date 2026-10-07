@@ -1,0 +1,6 @@
+; Limit 03: a file cannot be deleted. The packer leaves OUT.partial behind
+; when it fails, the unpacker leaves a file it could not finish, and the
+; rotator keeps LOG.rotating forever and cannot drop LOG.N+1 and older.
+
+(def main () int
+  (remove_file "out.partial"))

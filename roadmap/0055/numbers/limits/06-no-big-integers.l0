@@ -1,0 +1,14 @@
+; 06-no-big-integers.l0 -- int is the only integer, and it has 64 bits.
+; An exact calculator over 64-bit rationals cannot answer 47,596 of
+; 100,000 random lines of integers up to 999, four levels deep
+; (../data/exprs.txt). The literal below is a compile error, and there is
+; no type it could have been.
+;
+; The workaround, ../calc/big.l0, is 261 lines of limb arithmetic in
+; lists; with it the calculator answers every line, identically to
+; Python's Fraction, in 19.8 s against Python's 3.6 s (0.77 s when every
+; result past 64 bits is refused instead).
+(def two_to_the_64 () int 18446744073709551616)
+
+(def main () int
+  (let w (write_line (digits (two_to_the_64))) 0))

@@ -31,19 +31,34 @@ can hash a value of a type parameter. `hash` now gives any value a
 specified integer (0052), and the prelude has a `(Map K V)` for every key
 and value type (0053), which the compiler's pad table and the suite's graph
 now use (0054). A persistent map and an ordered one wait for code that
-needs them. The Linux runs of 0045 and 0052 are owed. 0055, a third round
-of programs, is finding which of the waiting candidates code earns.
+needs them. Everything through 0054 has passed on Linux. 0055's third round
+of programs found a copying bug in the map (0056), three places the runtime
+breaks section 6.3 (0057), and earned bitwise operations (0058), a delete
+(0061), typed failures beyond opening (0062), and research on ordering any
+type (0059) and on bounded reads with updatable bytes (0060).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0056](0056-map-remove-in-place.md) `map_remove` updates in place —
+   queued, next
+2. [0057](0057-io-keeps-section-6-3.md) the runtime keeps section 6.3's
+   promises — queued, needs 0056
+3. [0058](0058-bitwise-operations.md) bitwise operations — queued, needs
+   0057
+4. [0061](0061-delete-a-file.md) delete a file — queued, needs 0058
+5. [0062](0062-typed-rename-flush-close.md) rename, flush, and close say
+   which failure it was — queued, needs 0061
 
 ## Other open items
 
-- [0055](0055-programs-round-three.md) program: a third round of ordinary
-  programs — active
+- [0059](0059-compare-or-function-values.md) research: ordering a value of
+  any type, by `compare` or by function values — proposed
+- [0060](0060-bounded-reads-and-updatable-bytes.md) research: reading at
+  most n bytes, and bytes that update in place — proposed
+- [0063](0063-docs-and-tools-from-0055.md) tooling: the doc and tool
+  findings of 0055 — proposed
 
 ## Done and dropped
 
@@ -156,7 +171,8 @@ Empty.
   0046 and 0047
 - [0045](0045-tools-without-stage0.md) tooling: the tools stop running the
   compiler under stage 0 — done, changelog "The compiler's source is no
-  longer run by stage 0, and no language change for it"; Linux runs owed
+  longer run by stage 0, and no language change for it"; Linux run with
+  0054, after a fix
 - [0046](0046-prelude-generics.md) the prelude takes back the generic
   definitions — done, changelog "The prelude takes back the generic
   definitions, and no language change for it"
@@ -175,10 +191,12 @@ Empty.
   done; `hash` (0052), then a library map (0053), then its users (0054)
 - [0052](0052-hash-builtin.md) `hash` gives a value of any type a specified
   integer — done, changelog "`hash` gives a value of any type a specified
-  integer"; Linux runs owed
+  integer"; Linux run with 0054
 - [0053](0053-library-map.md) the prelude has a map for every key and value
   type — done, changelog "The prelude has a map for every key and value
   type"
 - [0054](0054-map-users.md) tooling: the compiler and the suite use the
   library's map — done, changelog "The compiler and the suite keep their
   tables in the library's map, and no language change for it"
+- [0055](0055-programs-round-three.md) program: a third round of ordinary
+  programs — done; nine programs, which chose 0056 to 0063

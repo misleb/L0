@@ -1,0 +1,103 @@
+; lru_test.l0 -- the cache at two key types, and against a list model.
+
+(def (value_of K V) ((g (Got K V)) (fallback V)) V
+  (match g
+    ((Got found c) (match found ((None) fallback) ((Some v) v)))))
+
+(def (cache_of K V) ((g (Got K V))) (Lru K V)
+  (match g ((Got found c) c)))
+
+(def put_ints ((c (Lru int int)) (ks (list int))) (Lru int int)
+  (if (is_empty ks) c (put_ints (lru_put c (head ks) (mul 10 (head ks))) (tail ks))))
+
+(def test_get_after_put () int
+  (let c (put_ints ((LruEmpty int int) 3) (cons 1 (cons 2 (nil int))))
+    (add (check_int "one" (value_of (lru_get c 1) -1) 10)
+      (add (check_int "absent" (value_of (lru_get c 9) -1) -1)
+           (check_int "size" (lru_size c) 2)))))
+
+(def test_evicts_least_recent () int
+  (let c (put_ints ((LruEmpty int int) 2) (cons 1 (cons 2 (nil int))))
+    (let c2 (cache_of (lru_get c 1))
+      (let c3 (lru_put c2 3 30)
+        (add (check_int "2 evicted" (value_of (lru_get c3 2) -1) -1)
+          (add (check_int "1 kept" (value_of (lru_get c3 1) -1) 10)
+               (check_int "3 in" (value_of (lru_get c3 3) -1) 30)))))))
+
+(def test_put_replaces () int
+  (let c (lru_put (put_ints ((LruEmpty int int) 2) (cons 1 (nil int))) 1 99)
+    (add (check_int "new value" (value_of (lru_get c 1) -1) 99)
+         (check_int "size" (lru_size c) 1))))
+
+(def test_zero_capacity () int
+  (let c (lru_put ((LruEmpty int int) 0) 1 1)
+    (check_int "nothing kept" (value_of (lru_get c 1) -1) -1)))
+
+(def test_string_keys () int
+  (let c (lru_put (lru_put ((LruEmpty bytes int) 1) (bytes_from_list "a") 1)
+                  (bytes_from_list "b") 2)
+    (add (check_int "a gone" (value_of (lru_get c (bytes_from_list "a")) -1) -1)
+         (check_int "b" (value_of (lru_get c (bytes_from_list "b")) -1) 2))))
+
+(def test_links () int
+  (let l (links_push_front (links_push_front (links_push_front (links_new 3) 0) 1) 2)
+    (add (check_true "pushed" (eq (links_order l) (cons 2 (cons 1 (cons 0 (nil int))))))
+      (add (check_true "middle to front"
+             (eq (links_order (links_to_front l 1)) (cons 1 (cons 2 (cons 0 (nil int))))))
+           (check_true "back to front"
+             (eq (links_order (links_to_front l 0)) (cons 0 (cons 2 (cons 1 (nil int))))))))))
+
+(def test_report () int
+  (match (open_in_bytes "1\n2\n1\n3\n2\n1\n")
+    ((IoFailed fault why) (fail_because "open" why))
+    ((IoOpened f)
+      (let s (simulate f 2 false)
+        (let c (file_close f)
+          (check_str "trace" s "hits 1 misses 5 cached 2"))))))
+
+(def test_report_strings () int
+  (match (open_in_bytes "x\ny\nx\nz\ny\nx\n")
+    ((IoFailed fault why) (fail_because "open" why))
+    ((IoOpened f)
+      (let s (simulate f 2 true)
+        (let c (file_close f)
+          (check_str "trace" s "hits 1 misses 5 cached 2"))))))
+
+; The model: keys most recent first, at most cap of them.
+(data Model
+  (Model (list int) bool))                       ; order, whether it was a hit
+
+(def without ((xs (list int)) (k int) (acc (list int))) (list int)
+  (if (is_empty xs)
+      (rev acc)
+      (if (eq (head xs) k) (rev_onto acc (tail xs)) (without (tail xs) k (cons (head xs) acc)))))
+
+(def take_n ((xs (list int)) (n int) (acc (list int))) (list int)
+  (if (or (eq n 0) (is_empty xs)) (rev acc) (take_n (tail xs) (sub n 1) (cons (head xs) acc))))
+
+(def model_request ((order (list int)) (k int) (cap int)) Model
+  (Model (take_n (cons k (without order k (nil int))) cap (nil int)) (any_eq k order)))
+
+; Runs n random requests over keys below 40 through both, counting the
+; requests where they disagree about whether it was a hit.
+(def disagreements ((s int) (n int) (cap int) (order (list int)) (c (Lru int int))
+                    (bad int)) int
+  (if (eq n 0)
+      bad
+      (let k (rand_below s 40)
+        (match (model_request order k cap)
+          ((Model order2 hit)
+            (match (lru_get c k)
+              ((Got found c2)
+                (match found
+                  ((Some v)
+                    (disagreements (rand_next s) (sub n 1) cap order2 c2
+                                   (if (and hit (eq v k)) bad (add bad 1))))
+                  ((None)
+                    (disagreements (rand_next s) (sub n 1) cap order2 (lru_put c2 k k)
+                                   (if hit (add bad 1) bad)))))))))))
+
+(def test_agrees_with_model () int
+  (add (check_int "cap 10" (disagreements 7 3000 10 (nil int) ((LruEmpty int int) 10) 0) 0)
+    (add (check_int "cap 1" (disagreements 9 2000 1 (nil int) ((LruEmpty int int) 1) 0) 0)
+         (check_int "cap 39" (disagreements 11 3000 39 (nil int) ((LruEmpty int int) 39) 0) 0))))

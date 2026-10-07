@@ -1,0 +1,14 @@
+; Limit 01: a value of a type parameter cannot be ordered.
+;
+; A heap or a balanced tree written once for every element type needs to ask
+; which of two elements comes first. eq works on a T, hash works on a T, but
+; lt takes only int, and there is no compare. This is the smallest function
+; a heap's sift-up needs, and it does not check.
+
+(def (smaller T) ((a T) (b T)) T
+  (if (lt a b) a b))
+
+(def main () int
+  (let s (smaller 3 4)
+    (let t (smaller "abc" "abd")
+      0)))

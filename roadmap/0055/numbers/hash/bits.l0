@@ -1,0 +1,137 @@
+; bits.l0 -- unsigned 32-bit word operations written with arithmetic.
+;
+; WORKAROUND. L0 has no bitwise builtins (no and, or, xor, or shifts; see
+; ../limits/01-no-bitwise.l0), so every one of them here is division,
+; remainder, and a lookup in a table of all 256 * 256 byte pairs. The
+; tables cannot be global, since L0 has no top-level values, so they are
+; built once and passed to every function that needs them.
+;
+; A word is an int from 0 to 4294967295. Every function keeps that range.
+
+; The two tables: (array_get xt (add (mul a 256) b)) is a xor b for bytes a
+; and b, and the same index into at is a and b.
+(data Bits (Bits (array int) (array int)))
+
+; a xor b for bytes, one bit at a time; used only to fill the table.
+(def xor_slow ((a int) (b int) (bit int) (acc int)) int
+  (if (eq bit 256)
+      acc
+      (let x (mod (div a bit) 2)
+        (let y (mod (div b bit) 2)
+          (xor_slow a b (mul bit 2) (if (eq x y) acc (add acc bit)))))))
+
+; a and b for bytes, one bit at a time; used only to fill the table.
+(def and_slow ((a int) (b int) (bit int) (acc int)) int
+  (if (eq bit 256)
+      acc
+      (let x (mod (div a bit) 2)
+        (let y (mod (div b bit) 2)
+          (and_slow a b (mul bit 2)
+            (if (and (eq x 1) (eq y 1)) (add acc bit) acc))))))
+
+(def fill_bits ((i int) (xt (array int)) (at (array int))) Bits
+  (if (eq i 65536)
+      (Bits xt at)
+      (let a (div i 256)
+        (let b (mod i 256)
+          (fill_bits (add i 1)
+            (array_set xt i (xor_slow a b 1 0))
+            (array_set at i (and_slow a b 1 0)))))))
+
+(def make_bits () Bits
+  (fill_bits 0 (array_new 65536 0) (array_new 65536 0)))
+
+; Bytes: (xor8 xt a b) is a xor b for a and b from 0 to 255.
+(def xor8 ((xt (array int)) (a int) (b int)) int
+  (array_get xt (add (mul a 256) b)))
+
+; x xor y for words: four byte lookups.
+(def xor32 ((xt (array int)) (x int) (y int)) int
+  (bytewise xt x y))
+
+; x and y for words, the same way with the other table.
+(def and32 ((at (array int)) (x int) (y int)) int
+  (bytewise at x y))
+
+; The operation table t gives on bytes, applied to each byte of two words.
+(def bytewise ((xt (array int)) (x int) (y int)) int
+  (let x1 (div x 256)
+    (let y1 (div y 256)
+      (let x2 (div x1 256)
+        (let y2 (div y1 256)
+          (let x3 (div x2 256)
+            (let y3 (div y2 256)
+              (join4
+                (xor8 xt (mod x 256) (mod y 256))
+                (xor8 xt (mod x1 256) (mod y1 256))
+                (xor8 xt (mod x2 256) (mod y2 256))
+                (xor8 xt x3 y3)))))))))
+
+; x xor y xor z for words, splitting each once.
+(def xor3 ((xt (array int)) (x int) (y int) (z int)) int
+  (let x1 (div x 256)
+    (let y1 (div y 256)
+      (let z1 (div z 256)
+        (let x2 (div x1 256)
+          (let y2 (div y1 256)
+            (let z2 (div z1 256)
+              (let x3 (div x2 256)
+                (let y3 (div y2 256)
+                  (let z3 (div z2 256)
+                    (join4
+                      (xor8 xt (xor8 xt (mod x 256) (mod y 256)) (mod z 256))
+                      (xor8 xt (xor8 xt (mod x1 256) (mod y1 256)) (mod z1 256))
+                      (xor8 xt (xor8 xt (mod x2 256) (mod y2 256)) (mod z2 256))
+                      (xor8 xt (xor8 xt x3 y3) z3))))))))))))
+
+; The word whose bytes, least significant first, are b0 to b3.
+(def join4 ((b0 int) (b1 int) (b2 int) (b3 int)) int
+  (add b0 (mul 256 (add b1 (mul 256 (add b2 (mul 256 b3)))))))
+
+; x rotated right by n bits, given p = 2^n and q = 2^(32 - n).
+(def rotr ((x int) (p int) (q int)) int
+  (add (div x p) (mul (mod x p) q)))
+
+(def not32 ((x int)) int
+  (sub 4294967295 x))
+
+(def add32 ((x int) (y int)) int
+  (mod (add x y) 4294967296))
+
+; ------------------------------------------------------ hexadecimal
+
+; WORKAROUND for having no hexadecimal literals: constants published in hex
+; are written as a string of words and parsed when the program starts.
+; The words of s, each a run of hex digits, as words, onto acc in reverse.
+(def hex_words ((s (list int)) (cur int) (in_word bool) (acc (list int))) (list int)
+  (if (is_empty s)
+      (rev (if in_word (cons cur acc) acc))
+      (let v (hex_val (head s))
+        (if (lt v 0)
+            (hex_words (tail s) 0 false (if in_word (cons cur acc) acc))
+            (hex_words (tail s) (add (mul cur 16) v) true acc)))))
+
+(def parse_hex_words ((s (list int))) (list int)
+  (hex_words s 0 false (nil int)))
+
+; A list of ints as an array.
+(def array_of ((xs (list int))) (array int)
+  (fill_from xs 0 (array_new (length xs) 0)))
+
+(def fill_from ((xs (list int)) (i int) (a (array int))) (array int)
+  (if (is_empty xs)
+      a
+      (fill_from (tail xs) (add i 1) (array_set a i (head xs)))))
+
+; x as exactly n lowercase hexadecimal digits, onto a reversed accumulator.
+(def push_hex ((x int) (n int) (acc (list int))) (list int)
+  (if (eq n 0)
+      acc
+      (let p (pow16 (sub n 1) 1)
+        (push_hex (mod x p) (sub n 1) (cons (hex_digit (div x p)) acc)))))
+
+(def pow16 ((n int) (acc int)) int
+  (if (eq n 0) acc (pow16 (sub n 1) (mul acc 16))))
+
+(def hex_digit ((d int)) int
+  (if (lt d 10) (add 48 d) (add 87 d)))

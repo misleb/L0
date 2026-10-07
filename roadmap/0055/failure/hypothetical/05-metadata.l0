@@ -1,0 +1,13 @@
+; What the archiver would have written with (file_info path), imagined as
+; giving a FileInfo, or a fault.
+;
+; This does not compile: file_info and its types do not exist.
+
+(def dir_problem ((dir (list int))) (list int)
+  (match (file_info dir)
+    ((InfoFailed fault why) why)
+    ((Info kind size mode mtime)
+      (match kind
+        ((KindDirectory) "")
+        ((KindFile) "it is a file, not a directory")
+        ((KindOther) "it is not a directory")))))

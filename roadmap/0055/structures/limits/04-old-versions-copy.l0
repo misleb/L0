@@ -1,0 +1,41 @@
+; Limit 04 (cost): an array or a Map whose old version is kept copies whole on
+; every update, so neither can be the buffer of an editor with undo.
+;
+; Each step replaces one entry and keeps the version before it on an undo
+; list, as an editor that keeps old versions must. The array then has two
+; holders at every array_set, and the Map at every map_put, so each copies
+; all n entries: n * edits words. Run with L0_ARRAY_STATS=1:
+;
+;   04-old-versions-copy array|map N EDITS
+;
+; The editor (editor/) keeps old versions in common/tree.l0's AVL tree
+; instead, at O(log n) per edit. The library has no persistent sequence or
+; map, and an ordered persistent map over any K cannot be written without
+; compare (limits/01).
+
+(def array_edits ((a (array int)) (undo (list (array int))) (i int) (k int)) int
+  (if (eq k 0)
+      (length undo)
+      (let j (mod (mul i 7919) (array_len a))
+        (array_edits (array_set a j i) (cons a undo) (add i 1) (sub k 1)))))
+
+(def fill_map ((m (Map int int)) (i int) (n int)) (Map int int)
+  (if (ge i n) m (fill_map (map_put m i i) (add i 1) n)))
+
+(def map_edits ((m (Map int int)) (undo (list (Map int int))) (i int) (k int) (n int)) int
+  (if (eq k 0)
+      (length undo)
+      (let j (mod (mul i 7919) n)
+        (map_edits (map_put m j i) (cons m undo) (add i 1) (sub k 1) n))))
+
+(def main () int
+  (let n (int_prefix (arg 1) 0)
+    (let k (int_prefix (arg 2) 0)
+      (let t0 (clock_ns)
+        (let r (if (eq (arg 0) "map")
+                   (map_edits (fill_map ((MapEmpty int int)) 0 n) (nil (Map int int)) 0 k n)
+                   (array_edits (array_new n 0) (nil (array int)) 0 k))
+          (let t1 (clock_ns)
+            (let w (write_line (append (digits r) (append " versions, ns per edit "
+                                 (digits (div (sub t1 t0) (if (eq k 0) 1 k))))))
+              0)))))))

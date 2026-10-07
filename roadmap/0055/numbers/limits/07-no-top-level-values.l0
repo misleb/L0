@@ -1,0 +1,15 @@
+; 07-no-top-level-values.l0 -- a declaration is a def or a data (spec 4),
+; so a table computed once, such as CRC-32's 256 entries or SHA-256's 64
+; round constants, cannot be named at the top level. A def with no
+; parameters is recomputed at every call, so the table is built once and
+; then passed as a parameter to every function that reads it: ../hash/sums.l0
+; carries a Tables value through nine functions, and bits.l0's xor and and
+; tables through every call that splits a word. Passing is free (spec 10.3,
+; read-only parameters), so the cost is in signatures, not time.
+; What would have been written:
+(def crc_table (array int) (array_new 256 0))
+
+(def crc_step ((crc int) (b int)) int
+  (array_get crc_table (mod (add crc b) 256)))
+
+(def main () int (crc_step 0 97))

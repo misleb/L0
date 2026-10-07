@@ -1,0 +1,127 @@
+; sums_test.l0 -- tests of bits.l0 and sums.l0. Expected values are from
+; Python's zlib.crc32 and hashlib.sha256 (../ref/hash_vectors.py).
+
+; The digest of the bytes of s, read through the same code a file is.
+(def digest_of ((s (list int))) (Result Digest int)
+  (match (open_in_bytes s)
+    ((IoFailed fault why) ((Err Digest int) -100))
+    ((IoOpened f)
+      (let r (sum_file f)
+        (let c (file_close f)
+          r)))))
+
+; 0 if s has CRC crc and SHA-256 sha, as hex, and the failures otherwise.
+(def check_sums ((name (list int)) (s (list int)) (crc (list int)) (sha (list int))) int
+  (match (digest_of s)
+    ((Err code) (fail_because name (io_error code)))
+    ((Ok d)
+      (add (check_str (append name " crc") (crc_hex d) crc)
+           (check_str (append name " sha") (sha_hex d) sha)))))
+
+(def repeat ((c int) (n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (repeat c (sub n 1) (cons c acc))))
+
+(def a_times ((n int)) (list int)
+  (repeat 97 n (nil int)))
+
+(def count_down ((i int) (acc (list int))) (list int)
+  (if (lt i 0) acc (count_down (sub i 1) (cons i acc))))
+
+; ------------------------------------------------------------ bits.l0
+
+(def test_xor32 () int
+  (match (make_bits)
+    ((Bits xt at)
+      (add (check_int "xor" (xor32 xt 4042322160 4278255360) 267390960)
+           (check_int "xor self" (xor32 xt 2863311530 2863311530) 0)))))
+
+(def test_and32 () int
+  (match (make_bits)
+    ((Bits xt at)
+      (add (check_int "and" (and32 at 4042322160 4278255360) 4026593280)
+           (check_int "and ones" (and32 at 4294967295 305419896) 305419896)))))
+
+(def test_xor3 () int
+  (match (make_bits)
+    ((Bits xt at)
+      (check_int "xor3" (xor3 xt 1 2 4294967295) 4294967292))))
+
+(def test_rotr () int
+  (add (check_int "rotr 8" (rotr 305419896 256 16777216) 2014458966)
+       (check_int "rotr 1 of 1" (rotr 1 2 2147483648) 2147483648)))
+
+(def test_hex () int
+  (add (check_str "hex" (rev (push_hex 3988292384 8 (nil int))) "edb88320")
+       (check_str "padded" (rev (push_hex 255 8 (nil int))) "000000ff")))
+
+(def test_parse_hex () int
+  (check_int "sum" (length (parse_hex_words "1 ff  abc")) 3))
+
+; ------------------------------------------------------------ vectors
+
+(def test_empty () int
+  (check_sums "empty" ""
+    "00000000" "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"))
+
+(def test_abc () int
+  (check_sums "abc" "abc"
+    "352441c2" "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"))
+
+(def test_fox () int
+  (check_sums "fox" "The quick brown fox jumps over the lazy dog"
+    "414fa339" "d7a8fbb307d7809469ca9abcb0082e4f8d5651e46d3cdb762d02d0bf37c9e592"))
+
+; 56 bytes: the length no longer fits in the last block, so padding adds one.
+(def test_nist_two_blocks () int
+  (check_sums "nist2" "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"
+    "171a3f5f" "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"))
+
+(def test_a55 () int
+  (check_sums "a55" (a_times 55)
+    "aadfe34e" "9f4390f8d30c2dd92ec9f095b65e2b9ae9b0a925a5258e241c9f1e910f734318"))
+
+(def test_a63 () int
+  (check_sums "a63" (a_times 63)
+    "6824c5de" "7d3e74a05d7db15bce4ad9ec0658ea98e3f06eeecf16b4c6fff2da457ddc2f34"))
+
+(def test_a64 () int
+  (check_sums "a64" (a_times 64)
+    "89b46555" "ffe054fe7ae0cb6dc65c3af9b61d5209f439851db43d0ba5997337df154668eb"))
+
+(def test_a65 () int
+  (check_sums "a65" (a_times 65)
+    "f33faf5d" "635361c48bb9eab14198e76ea8ab7f1a41685d6ad62aa9146d301d4f17eb0ae0"))
+
+(def test_a119 () int
+  (check_sums "a119" (a_times 119)
+    "4144ebae" "31eba51c313a5c08226adf18d4a359cfdfd8d2e816b13f4af952f7ea6584dcfb"))
+
+(def test_a120 () int
+  (check_sums "a120" (a_times 120)
+    "d9987447" "2f3d335432c70b580af0e8e1b3674a7c020d683aa5f73aaaedfdc55af904c21c"))
+
+(def test_a128 () int
+  (check_sums "a128" (a_times 128)
+    "f12b368c" "6836cf13bac400e9105071cd6af47084dfacad4e5e302c94bfed24e013afb73e"))
+
+(def test_a1000 () int
+  (check_sums "a1000" (a_times 1000)
+    "9a38da03" "41edece42d63e8d9bf515a9ba6932e1c20cbc9f5a5d134645adb5db1b9737ea3"))
+
+(def test_all_bytes () int
+  (let once (count_down 255 (nil int))
+    (check_sums "allbytes" (append once once)
+      "1c613576" "110009dcee21620b166f3abfecb5eff7a873be729d1c2d53822e7acc5f34eb9b")))
+
+(def test_crc_decimal () int
+  (match (digest_of "abc")
+    ((Err code) (fail_because "abc" (io_error code)))
+    ((Ok d) (check_int "decimal" (crc_value d) 891568578))))
+
+; The report is what crc32, cksum -o 3, and shasum -a 256 print.
+(def test_report () int
+  (match (digest_of "abc\n")
+    ((Err code) (fail_because "abc" (io_error code)))
+    ((Ok d)
+      (check_str "report" (report "f.txt" d)
+        "4788814e\n1200128334 4 f.txt\nedeaaff3f1774ad2888673770c6d64097e391bc362d7d6fb34982ddf0efd18cb  f.txt\n"))))

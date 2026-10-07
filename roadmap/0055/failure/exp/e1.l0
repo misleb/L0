@@ -1,0 +1,26 @@
+; Experiment: where tee's time goes. Copy stdin to stdout and three files,
+; a byte at a time, with the outputs in a list of IoFile and the wrappers.
+
+(def write_all ((outs (list IoFile)) (b int)) int
+  (if (is_empty outs)
+      0
+      (let w (file_write_byte (head outs) b)
+        (write_all (tail outs) b))))
+
+(def copy ((input IoFile) (outs (list IoFile)) (n int)) int
+  (let b (file_read_byte input)
+    (if (lt b 0)
+        n
+        (let w (write_all outs b) (copy input outs (add n 1))))))
+
+(def opened ((path (list int))) IoFile
+  (match (open_out path)
+    ((IoFailed fault why) (IoFile 2))
+    ((IoOpened f) f)))
+
+(def main () int
+  (let a (opened (arg 0))
+    (let b (opened (arg 1))
+      (let c (opened (arg 2))
+        (let n (copy (IoFile 0) (cons (IoFile 1) (cons a (cons b (cons c (nil IoFile))))) 0)
+          (add (file_close a) (add (file_close b) (file_close c))))))))

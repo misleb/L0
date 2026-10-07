@@ -1,0 +1,21 @@
+; Limit 06: a write to a pipe whose reader has gone kills the program, so
+; it never learns that the write failed.
+;
+; This writes lines, flushing after each, and stops with a message and
+; status 3 when a flush fails, as spec section 6.3 says it will (-5). Run as
+;
+;   06-sigpipe | head -c 10
+;
+; it exits 141, killed by SIGPIPE, without the message: the flush never
+; returns. tee cannot go on to its other files, or report, when standard
+; output is such a pipe. Neither spec section 6.3 nor section 8 mentions
+; signals, and section 8 says a runtime error exits with status 70.
+
+(def loop ((n int)) int
+  (let w (write_str "y\n")
+    (if (lt (file_flush (IoFile 1)) 0)
+        (let e (write_err (append "flush failed after " (append (digits n) " lines\n")))
+          3)
+        (loop (add n 1)))))
+
+(def main () int (loop 0))

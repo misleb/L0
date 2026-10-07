@@ -1,0 +1,30 @@
+; Limit 05: nothing says what a path is, how large a file is, or its mode
+; and times.
+;
+; The archiver's WORKAROUND tells a directory from a missing path by opening
+; it to read: a directory gives OpenFailed, but so does every other failure
+; spec section 6.3 does not name, so the probe can only guess.
+;
+; Run on a symbolic link that points at itself (ELOOP from the host), or on
+; a name longer than 255 bytes (ENAMETOOLONG), this prints "missing": the
+; open gives OpenMissing, "no such file", which spec section 6.3 keeps for a
+; file that does not exist. So the probe says the directory is missing.
+;
+;   ln -s loop tmp/0055/failure/scen/loop
+;   l0 run 05-metadata.l0 -- tmp/0055/failure/scen/loop
+;
+; A file's size is known only by reading all of it (bytes_len of
+; file_read_all), so pack holds each file whole; and an archive cannot keep a
+; file's mode or times, which tar does.
+
+(def what_is ((path (list int))) (list int)
+  (match (open_in path)
+    ((IoFailed fault why)
+      (match fault
+        ((OpenMissing) "missing")
+        ((OpenDenied) "unreadable")
+        ((OpenFailed) "a directory, as far as the workaround can tell")))
+    ((IoOpened f) (let c (file_close f) "a file"))))
+
+(def main () int
+  (write_line (append (arg 0) (append ": " (what_is (arg 0))))))

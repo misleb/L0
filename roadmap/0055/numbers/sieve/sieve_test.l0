@@ -1,0 +1,55 @@
+; sieve_test.l0 -- tests of bitset.l0, flags.l0, and report.l0.
+
+(def check_primes ((name (list int)) (p Primes) (count int) (last int)) int
+  (match p
+    ((Primes c l)
+      (add (check_int (append name " count") c count)
+           (check_int (append name " last") l last)))))
+
+(def test_bits_small () int
+  (add (check_primes "10" (primes_bits 10) 4 7)
+       (check_primes "100" (primes_bits 100) 25 97)))
+
+(def test_bits_tiny () int
+  (add (check_primes "0" (primes_bits 0) 0 0)
+    (add (check_primes "1" (primes_bits 1) 0 0)
+         (check_primes "2" (primes_bits 2) 1 2))))
+
+; Around the edges of a 63-bit word.
+(def test_bits_word_edges () int
+  (add (check_primes "63" (primes_bits 63) 18 61)
+    (add (check_primes "126" (primes_bits 126) 30 113)
+         (check_primes "127" (primes_bits 127) 31 127))))
+
+(def test_bits_million () int
+  (check_primes "1e6" (primes_bits 1000000) 78498 999983))
+
+(def test_flags_small () int
+  (add (check_primes "10" (primes_flags 10) 4 7)
+    (add (check_primes "1" (primes_flags 1) 0 0)
+         (check_primes "1000" (primes_flags 1000) 168 997))))
+
+(def test_flags_million () int
+  (check_primes "1e6" (primes_flags 1000000) 78498 999983))
+
+; The two sieves agree on every n up to 400.
+(def agree_from ((n int) (limit int) (fails int)) int
+  (if (gt n limit)
+      fails
+      (agree_from (add n 1) limit
+        (if (eq (primes_bits n) (primes_flags n)) fails (add fails 1)))))
+
+(def test_bits_agree_with_flags () int
+  (check_int "disagreements" (agree_from 0 400 0) 0))
+
+(def test_set_bit_twice () int
+  (let pw (pow2_table)
+    (let bs (set_bit (set_bit (array_new 2 0) pw 70) pw 70)
+      (add (check_int "word" (array_get bs 1) 128)
+           (check_bool "set" (bit_is_set bs pw 70) true)))))
+
+(def test_popcount () int
+  (check_int "all 63" (popcount63 (popcount_table) 9223372036854775807) 63))
+
+(def test_describe () int
+  (check_str "line" (describe 10 (Primes 4 7)) "4 primes up to 10, the last 7\n"))

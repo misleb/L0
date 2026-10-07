@@ -1,0 +1,47 @@
+; key.l0 -- the order the heap and the ordered set use.
+;
+; WORKAROUND for limits/01 and limits/02. A heap or a set written once for
+; every element type T would compare two T's, and L0 can neither order a T
+; (lt takes only int, and there is no compare) nor be handed the order as a
+; function. So the order is written once, here, over a closed sum of the
+; element types the structures are used at, and every element is boxed in a
+; Key on its way in. Adding an element type means adding a case here; a
+; record type, say, could not be ordered without one. What the boxing costs
+; is measured against heap_int.l0, the same heap written for int alone.
+
+(data Key
+  (KInt int)
+  (KStr bytes))
+
+(def int_cmp ((a int) (b int)) int
+  (if (lt a b) -1 (if (gt a b) 1 0)))
+
+; Bytes in lexicographic order, from index i: -1, 0, or 1.
+(def bytes_cmp ((a bytes) (b bytes) (i int)) int
+  (if (ge i (bytes_len a))
+      (if (ge i (bytes_len b)) 0 -1)
+      (if (ge i (bytes_len b))
+          1
+          (let ca (bytes_get a i)
+            (let cb (bytes_get b i)
+              (if (eq ca cb)
+                  (bytes_cmp a b (add i 1))
+                  (if (lt ca cb) -1 1)))))))
+
+; Every KInt comes before every KStr; within each, the usual order.
+(def key_cmp ((a Key) (b Key)) int
+  (match a
+    ((KInt x)
+      (match b
+        ((KInt y) (int_cmp x y))
+        ((KStr t) -1)))
+    ((KStr s)
+      (match b
+        ((KInt y) 1)
+        ((KStr t) (bytes_cmp s t 0))))))
+
+(def key_less ((a Key) (b Key)) bool
+  (lt (key_cmp a b) 0))
+
+(def key_str ((s (list int))) Key
+  (KStr (bytes_from_list s)))

@@ -1,0 +1,59 @@
+; oset_test.l0 -- the ordered set at ints and at strings.
+
+(def insert_ints ((t (Tree Key)) (xs (list int))) (Tree Key)
+  (if (is_empty xs) t (insert_ints (set_insert t (KInt (head xs))) (tail xs))))
+
+(def insert_words ((t (Tree Key)) (ws (list (list int)))) (Tree Key)
+  (if (is_empty ws) t (insert_words (set_insert t (key_str (head ws))) (tail ws))))
+
+(def key_ints ((ks (list Key)) (acc (list int))) (list int)
+  (if (is_empty ks)
+      (rev acc)
+      (match (head ks)
+        ((KInt n) (key_ints (tail ks) (cons n acc)))
+        ((KStr s) (key_ints (tail ks) (cons -1 acc))))))
+
+(def key_words ((ks (list Key)) (acc (list (list int)))) (list (list int))
+  (if (is_empty ks)
+      (rev acc)
+      (match (head ks)
+        ((KInt n) (key_words (tail ks) (cons (digits n) acc)))
+        ((KStr s) (key_words (tail ks) (cons (bytes_to_list s) acc))))))
+
+(def test_ints_distinct_sorted () int
+  (let t (insert_ints ((Tip Key)) (cons 4 (cons 1 (cons 4 (cons -2 (cons 1 (nil int)))))))
+    (add (check_true "list" (eq (key_ints (tree_list t) (nil int))
+                                (cons -2 (cons 1 (cons 4 (nil int))))))
+         (check_int "size" (tree_size t) 3))))
+
+(def test_words_distinct_sorted () int
+  (let t (insert_words ((Tip Key)) (split_spaces "b a c a b"))
+    (check_strs "words" (key_words (tree_list t) (nil (list int))) (split_spaces "a b c"))))
+
+(def test_has_and_remove () int
+  (let t (insert_words ((Tip Key)) (split_spaces "x y z"))
+    (let u (set_remove t (key_str "y"))
+      (add (check_true "had y" (set_has t (key_str "y")))
+        (add (check_true "y gone" (not (set_has u (key_str "y"))))
+             (check_strs "rest" (key_words (tree_list u) (nil (list int))) (split_spaces "x z")))))))
+
+(def scrambled ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (scrambled (sub n 1) (cons (mod (mul n 7919) 2003) acc))))
+
+(def remove_ints ((t (Tree Key)) (xs (list int))) (Tree Key)
+  (if (is_empty xs) t (remove_ints (set_remove t (KInt (head xs))) (tail xs))))
+
+(def evens_below ((i int) (n int) (acc (list int))) (list int)
+  (if (ge i n) (rev acc) (evens_below (add i 2) n (cons i acc))))
+
+(def odds ((i int) (n int) (acc (list int))) (list int)
+  (if (ge i n) acc (odds (add i 2) n (cons i acc))))
+
+; 2003 is prime, so n * 7919 mod 2003 for n = 1..2003 is every residue once.
+(def test_many_balanced () int
+  (let t (insert_ints ((Tip Key)) (scrambled 2003 (nil int)))
+    (let u (remove_ints t (odds 1 2003 (nil int)))
+      (add (check_int "all" (tree_size t) 2003)
+        (add (check_true "balanced" (and (tree_ok t) (tree_ok u)))
+             (check_true "evens" (eq (key_ints (tree_list u) (nil int))
+                                     (evens_below 0 2003 (nil int)))))))))
