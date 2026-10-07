@@ -491,7 +491,7 @@
   (fn_sym n (env_prelude env)))
 
 (def is_borrowing ((n (list int))) bool
-  (any_eq n (split_spaces "head tail is_empty eq hash open_read open_write open_append rename open_bytes array_len array_get bytes_len bytes_get write_bytes")))
+  (any_eq n (split_spaces "head tail is_empty eq hash open_read open_write open_append rename remove open_bytes array_len array_get bytes_len bytes_get write_bytes")))
 
 ; A call to a function in tail position is a tail call, spec 8, and nothing
 ; may come between it and the ret. Nothing does: live is empty there, so the
@@ -924,7 +924,7 @@
 ; Spec 10.3.
 (def io_names ((i int)) (list (list int))
   (split_spaces
-    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes clock_ns"))
+    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes clock_ns remove"))
 
 (def rt_names ((i int)) (list (list int))
   (append (split_spaces "div mod head tail is_empty array_len array_get array_set bit_shl bit_shr bit_count")
@@ -1681,7 +1681,8 @@
 (def bit_decls ((i int)) (list int)
   (append "declare i64 @l0_bit_shl(i64, i64)\n"
     (append "declare i64 @l0_bit_shr(i64, i64)\n"
-      "declare i64 @l0_bit_count(i64)\n\n")))
+      (append "declare i64 @l0_bit_count(i64)\n"
+        "declare i64 @l0_remove(i64)\n\n"))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

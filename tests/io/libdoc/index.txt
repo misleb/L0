@@ -101,6 +101,8 @@
       Opens the file at path for writing at its end, creating it if it does not exist; what it already holds is kept.
   rename_file ((from (list int)) (to (list int))) int
       Gives the file at from the name to, replacing any file already there in one step, and returns 0, or a negative code with neither name changed.
+  remove_file ((path (list int))) int
+      Deletes the file at path, in one step, and returns 0, or a negative code with the file still there: (io_error code) says why, and -3 means there was no such file, which a program cleaning up may take as done.
   open_in_bytes ((s (list int))) (IoOpened OpenFault)
       Opens a file that reads the bytes of s and then ends, held in memory.
   open_out_buffer () (IoOpened CreateFault)

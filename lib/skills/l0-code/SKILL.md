@@ -361,7 +361,10 @@ use `(open_appending path)`, which keeps what the file holds and costs only
 what you write. To replace it, write the new contents to another name such
 as `path.tmp`, check that `file_close` returned 0, then `(rename_file tmp
 path)`: a crash at any point leaves the old file or the new one, never a
-half-written one.
+half-written one. If writing or renaming it fails, `(remove_file tmp)`
+deletes it, so nothing half-written is left under either name; a result of
+-3 from `remove_file` means it was already gone. A directory is never
+deleted, and deleting a link leaves what it leads to.
 
 **Testing code that reads or writes a file.** Write it against `IoFile`
 arguments, not against standard input and output, and have `main` pass it

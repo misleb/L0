@@ -65,3 +65,5 @@ ok
 35: bit_shl takes 2 arguments, but got 1
 35: bit_count takes 1 argument, but got 2
 35: head must be a list, but this is int
+35: an argument of remove must be (list int), but this is int
+35: remove takes 1 argument, but got 2

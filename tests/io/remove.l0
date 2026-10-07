@@ -1,0 +1,20 @@
+; remove MODE PATH. rm: deletes PATH with the library's remove_file and
+; writes the code. held: opens PATH, deletes it, then writes the code, the
+; byte read through the handle it already had, and what opening PATH again
+; gives. remove.sh sets up each case of spec 6.3's remove.
+
+(def held ((path (list int))) (list int)
+  (let h (open_read path)
+    (let r (remove_file path)
+      (let b (read_from h)
+        (let c (close h)
+          (let again (open_read path)
+            (append (digits r) (append " " (append (digits b)
+              (append " " (digits again)))))))))))
+
+(def main () int
+  (let w (write_line
+           (if (eq (arg 0) "held")
+               (held (arg 1))
+               (digits (remove_file (arg 1)))))
+    0))

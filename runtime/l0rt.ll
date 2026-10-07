@@ -36,6 +36,7 @@ declare i32 @creat(ptr, i32)
 declare i32 @close(i32)
 declare i32 @access(ptr, i32)
 declare i32 @rename(ptr, ptr)
+declare i32 @unlink(ptr)
 declare i32 @dup(i32)
 declare ptr @fopen(ptr, ptr)
 declare i32 @fileno(ptr)
@@ -2120,6 +2121,53 @@ why:
   %missing = and i1 %unfound, %nothing
   %c = select i1 %missing, i64 -3, i64 -5
   ret i64 %c
+}
+
+; unlink deletes a name in one step, and a link rather than what it leads
+; to, as spec section 6.3 requires. When it fails, a directory is told apart
+; first, since macOS refuses one with EPERM, which otherwise means denied;
+; then errno says missing (-3) or denied (-4). Without errno, a name access
+; cannot find is missing, and every other failure -5.
+define i64 @l0_remove(i64 %path) {
+entry:
+  %s = call ptr @to_cstr(i64 %path)
+  %nos = icmp eq ptr %s, null
+  br i1 %nos, label %bad, label %go
+bad:
+  ret i64 -5
+go:
+  %r = call i32 @unlink(ptr %s)
+  %ok = icmp eq i32 %r, 0
+  br i1 %ok, label %done, label %why
+done:
+  call void @free(ptr %s)
+  ret i64 0
+why:
+  %e = call i32 @last_errno()
+  %dp = call ptr @opendir(ptr %s)
+  %dir = icmp ne ptr %dp, null
+  br i1 %dir, label %directory, label %file
+directory:
+  %cd = call i32 @closedir(ptr %dp)
+  call void @free(ptr %s)
+  ret i64 -5
+file:
+  %ex = call i32 @access(ptr %s, i32 0)
+  call void @free(ptr %s)
+  %unknown = icmp eq i32 %e, -1
+  br i1 %unknown, label %guess, label %known
+guess:
+  %unfound = icmp ne i32 %ex, 0
+  %g = select i1 %unfound, i64 -3, i64 -5
+  ret i64 %g
+known:
+  %nothing = call i1 @errno_missing(i32 %e)
+  %eacces = icmp eq i32 %e, 13
+  %eperm = icmp eq i32 %e, 1
+  %refused = or i1 %eacces, %eperm
+  %rr = select i1 %refused, i64 -4, i64 -5
+  %rk = select i1 %nothing, i64 -3, i64 %rr
+  ret i64 %rk
 }
 
 ; --------------------------------------------------------------- arguments

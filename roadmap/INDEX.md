@@ -32,8 +32,9 @@ specified integer (0052), and the prelude has a `(Map K V)` for every key
 and value type (0053), which the compiler's pad table and the suite's graph
 now use (0054). A persistent map and an ordered one wait for code that
 needs them. Everything through 0054 has passed on Linux, 0056 needed no
-run, and 0057 and 0058 have passed on arm64. Bitwise operations are in
-(0058), and 0055's hash program is 4.2 times faster with them. 0055's third round
+run, and 0057, 0058, and 0061 have passed on arm64. Bitwise operations are
+in (0058), and 0055's hash program is 4.2 times faster with them; a program
+can delete a file (0061). 0055's third round
 of programs found a copying bug in the map (0056), three places the runtime
 breaks section 6.3 (0057), and earned bitwise operations (0058), a delete
 (0061), typed failures beyond opening (0062), and research on ordering any
@@ -43,9 +44,8 @@ type (0059) and on bounded reads with updatable bytes (0060).
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0061](0061-delete-a-file.md) delete a file — queued, next
-2. [0062](0062-typed-rename-flush-close.md) rename, flush, and close say
-   which failure it was — queued, needs 0061
+1. [0062](0062-typed-rename-flush-close.md) rename, flush, and close say
+   which failure it was — queued, next
 
 ## Other open items
 
@@ -205,3 +205,5 @@ Changes to the language, strictly in order. At most one is active.
   on Linux arm64
 - [0058](0058-bitwise-operations.md) bitwise operations — done, changelog
   "Bitwise operations"; passed on Linux arm64
+- [0061](0061-delete-a-file.md) delete a file — done, changelog "Deleting a
+  file"; passed on Linux arm64

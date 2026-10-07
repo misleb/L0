@@ -154,6 +154,18 @@
   (check_str "missing directory" (replace_file "no/such/dir/notes" "x")
              "input or output failed"))
 
+; "." is a directory, so renaming the new file over it fails, and the new
+; file, "..new", must not be left behind.
+(def test_replace_file_cleans_up () int
+  (let why (replace_file "." "x")
+    (add (check_true "failed" (not (is_empty why)))
+         (check_true "removed" (is_missing "..new")))))
+
+(def is_missing ((path (list int))) bool
+  (match (open_in path)
+    ((IoFailed fault why) (eq fault (OpenMissing)))
+    ((IoOpened f) (let c (file_close f) false))))
+
 (def test_log_line_reports () int
   (check_str "missing directory" (log_line "no/such/dir/log" "x")
              "input or output failed"))

@@ -320,7 +320,8 @@
 ; in what file_close or file_flush returns: check it after writing. To replace
 ; a file, write the new contents under another name and rename that over the
 ; old, so a reader sees the old file or the new one and never half of one.
-; The result is "" when it worked, and otherwise why it did not.
+; If that fails, remove_file deletes the half-written one rather than leave
+; it behind. The result is "" when it worked, and otherwise why it did not.
 (def replace_file ((path (list int)) (text (list int))) (list int)
   (let tmp (append path ".new")
     (match (open_out tmp)
@@ -329,9 +330,11 @@
         (let w (file_write_str f text)
           (let c (file_close f)
             (if (lt c 0)
-                (io_error c)
+                (let d (remove_file tmp) (io_error c))
                 (let r (rename_file tmp path)
-                  (if (lt r 0) (io_error r) "")))))))))
+                  (if (lt r 0)
+                      (let d (remove_file tmp) (io_error r))
+                      "")))))))))
 
 ; open_appending writes at the end of a file, creating it if need be, so a
 ; log keeps every line written to it.

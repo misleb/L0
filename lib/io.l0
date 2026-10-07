@@ -172,6 +172,14 @@
 (def rename_file ((from (list int)) (to (list int))) int
   (rename from to))
 
+;; Deletes the file at path, in one step, and returns 0, or a negative code
+;; with the file still there: (io_error code) says why, and -3 means there
+;; was no such file, which a program cleaning up may take as done. A
+;; directory is never deleted, and a link is deleted rather than what it
+;; leads to. A handle already open on the file keeps working until closed.
+(def remove_file ((path (list int))) int
+  (remove path))
+
 ;; Opens a file that reads the bytes of s and then ends, held in memory. Code
 ;; that reads an IoFile cannot tell it from a file on disk, which is how to
 ;; test such code on a string.

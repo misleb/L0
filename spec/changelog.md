@@ -7,6 +7,50 @@ New entries go at the top.
 
 ---
 
+## Deleting a file
+
+**`(remove path)` deletes a file** (section 6.3, roadmap item 0061), and
+`lib/io.l0`'s `remove_file` wraps it as `rename_file` wraps `rename`. It
+returns 0, or -3 if nothing is there, -4 if the file may not be deleted, or
+-5 otherwise, with the file still there. A directory is never deleted, a
+link is deleted rather than what it leads to, and deleting is one step. A
+handle already open on the file keeps working until it is closed, which is
+what POSIX does and what a program holding a file it has decided to
+discard needs.
+
+**Why.** 0055's failure worker could not write `(remove_file
+"out.partial")`: `unknown function remove_file`. So a failed pack left
+`OUT.partial` behind and said so, an unpacker left a file it could not
+finish, and the log rotator kept its journal forever, saying "idle", and
+could only name the logs older than it keeps. With `remove_file`, copies of
+both, changed for 0061 and not kept, cleaned up: the rotator drops logs past N and then deletes
+its journal, last, so a run stopped at any point still resumes rather than
+rotating again, which 0055's interruption harness confirms over 536
+interrupted runs and 200 kills, now also requiring that a finished rotation
+leaves no journal; and a pack whose final rename fails leaves nothing. The
+example `replace_file` in `lib/examples.l0` deletes its half-written file
+the same way when the write or the rename fails.
+
+**The choices.**
+
+- *A directory is -5, not deleted.* Deleting an empty directory is a
+  separate operation with its own failures, and no program here needed it;
+  directories wait with listing and creating them (0055).
+- *The name.* `remove` is C's name for exactly this, and `remove_file`
+  reads beside `rename_file` and was the name 0055's worker guessed.
+- *Telling a directory apart.* `unlink` refuses a directory with EPERM on
+  macOS and EISDIR on Linux, and EPERM otherwise means denied, so on a
+  failure the runtime asks `opendir` first, and only then reads errno, as
+  0057 does: ENOENT or ENOTDIR is -3, EACCES or EPERM is -4. Asking before
+  `unlink` instead would refuse a link to a directory, which is a link and
+  should go.
+
+`tests/io/remove` covers each result and what it leaves, and a handle that
+keeps reading a deleted file; two checker cases are in
+`tests/compiler/check_errors`.
+
+---
+
 ## Bitwise operations
 
 **Six builtins work on the 64 bits of an `int`** (section 6.10, roadmap
