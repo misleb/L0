@@ -254,7 +254,8 @@
 
 ; --------------------------------------------------------------- builtins
 
-(def bi_int_int_int ((i int)) (list (list int)) (split_spaces "add sub mul div mod"))
+(def bi_int_int_int ((i int)) (list (list int))
+  (split_spaces "add sub mul div mod bit_and bit_or bit_xor bit_shl bit_shr"))
 (def bi_int_int_bool ((i int)) (list (list int)) (split_spaces "lt le gt ge"))
 (def bi_bool_bool ((i int)) (list (list int)) (split_spaces "and or"))
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
@@ -283,7 +284,7 @@
             (names_then (bi_path 0)
               (names_then (bi_to_list 0)
                 (names_then (bi_array 0)
-                  (names_then (bi_bytes 0) (split_spaces "neg not eq hash")))))))))))
+                  (names_then (bi_bytes 0) (split_spaces "neg bit_count not eq hash")))))))))))
 
 (def names_then ((xs (list (list int))) (ys (list (list int))))
     (list (list int))
@@ -293,7 +294,7 @@
   (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns"))
       0
       (if (any_eq n (split_spaces
-            "neg not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list"))
+            "neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list"))
           1
           (if (eq n "array_set") 3 (if (eq n "write_bytes") 4 2)))))
 
@@ -318,7 +319,7 @@
               (need_all n ats o (TyInt) (TyBool))
               (if (any_eq n (bi_bool_bool 0))
                   (need_all n ats o (TyBool) (TyBool))
-                  (if (or (eq n "neg") (any_eq n (bi_io 0)))
+                  (if (or (or (eq n "neg") (eq n "bit_count")) (any_eq n (bi_io 0)))
                       (need_all n ats o (TyInt) (TyInt))
                       (if (eq n "not")
                           (need_all n ats o (TyBool) (TyBool))

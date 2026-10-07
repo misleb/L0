@@ -84,7 +84,12 @@
   (let bj (push (check_source (m "(hash)")) bi)
   (let bk (push (check_source (m "(hash 1 2)")) bj)
   (let bl (push (check_source (m "(head (hash \"a\"))")) bk)
-    (rev bl))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let bm (push (check_source (m "(bit_and true 1)")) bl)
+  (let bn (push (check_source (m "(bit_xor 1 \"a\")")) bm)
+  (let bo (push (check_source (m "(bit_shl 1)")) bn)
+  (let bp (push (check_source (m "(bit_count 1 2)")) bo)
+  (let bq (push (check_source (m "(head (bit_count 1))")) bp)
+    (rev bq)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

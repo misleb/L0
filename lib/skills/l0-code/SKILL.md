@@ -454,6 +454,16 @@ fine. What copies, silently, with correct results:
 To check a loop, run the program with `L0_ARRAY_STATS=1`: it reports on
 standard error how many updates copied.
 
+**Bits.** `bit_and`, `bit_or`, `bit_xor`, `bit_shl`, `bit_shr`, and
+`bit_count` work on the 64 bits of an `int` (spec section 6.10); `not`,
+`and`, and `or` are for `bool` only. `bit_shr` brings in zeros, so it is the
+unsigned shift; shifting by 64 or more gives 0, and by a negative amount is
+a runtime error. There is no bitwise not: write `(bit_xor x -1)`. There is
+no hexadecimal literal either: write the constant in decimal with its hex
+in a comment. To keep 32 bits, as a hash does, `(bit_and x 4294967295)` after
+each `add` or `mul`. A set of up to 64 small ints fits in one `int`, and a
+bitset in an `(array int)` of 64 bits a word.
+
 **Timing part of a program.** `(clock_ns)` reads a clock in nanoseconds
 that never goes back (spec section 6.7). Only differences mean anything:
 bind a reading with `let` before the part and another after, since `let`

@@ -1,0 +1,270 @@
+; sums.l0 -- CRC-32 (as zlib, cksum -o 3, and crc32 compute it) and SHA-256
+; (FIPS 180-4) of a file, in one pass that reads it 64 bytes at a time and
+; holds nothing more: roadmap item 0055's sums, rewritten by 0058 with the
+; bit builtins of spec 6.10 in place of its byte tables. sums_test.l0 holds
+; it to published vectors, which every mask, shift, and rotation must get
+; right; with a main calling run_path on (arg 0), it is the whole program.
+
+; The CRC table and SHA-256's 64 round constants.
+(data Tables (Tables (array int) (array int)))
+
+; A SHA-256 state, a to h.
+(data H8 (H8 int int int int int int int int))
+
+; What compressing one block leaves: the schedule array, for the next block
+; to reuse, and the state.
+(data Step (Step (array int) H8))
+
+; A block read from the file: the block, how many bytes were read into it,
+; and 0, or the negative code of a failed read.
+(data Fill (Fill (array int) int int))
+
+; The result: the CRC as a word, the length in bytes, and the SHA-256 state.
+(data Digest (Digest int int H8))
+
+(def mask32 ((x int)) int (bit_and x 4294967295))
+
+(def rotr32 ((x int) (n int)) int
+  (mask32 (bit_or (bit_shr x n) (bit_shl x (sub 32 n)))))
+
+; ------------------------------------------------------------- tables
+
+(def make_tables () Tables
+  (Tables (crc_table 0 (array_new 256 0)) (array_of (parse_hex_words (sha_k_hex)))))
+
+; One entry of the CRC table for the reflected polynomial 0xEDB88320.
+(def crc_entry ((c int) (k int)) int
+  (if (eq k 0)
+      c
+      (crc_entry (if (eq (bit_and c 1) 1)
+                     (bit_xor 3988292384 (bit_shr c 1))
+                     (bit_shr c 1))
+                 (sub k 1))))
+
+(def crc_table ((n int) (t (array int))) (array int)
+  (if (eq n 256) t (crc_table (add n 1) (array_set t n (crc_entry n 8)))))
+
+(def sha_k_hex () (list int)
+  (append "428a2f98 71374491 b5c0fbcf e9b5dba5 3956c25b 59f111f1 923f82a4 ab1c5ed5 "
+  (append "d807aa98 12835b01 243185be 550c7dc3 72be5d74 80deb1fe 9bdc06a7 c19bf174 "
+  (append "e49b69c1 efbe4786 0fc19dc6 240ca1cc 2de92c6f 4a7484aa 5cb0a9dc 76f988da "
+  (append "983e5152 a831c66d b00327c8 bf597fc7 c6e00bf3 d5a79147 06ca6351 14292967 "
+  (append "27b70a85 2e1b2138 4d2c6dfc 53380d13 650a7354 766a0abb 81c2c92e 92722c85 "
+  (append "a2bfe8a1 a81a664b c24b8b70 c76c51a3 d192e819 d6990624 f40e3585 106aa070 "
+  (append "19a4c116 1e376c08 2748774c 34b0bcb5 391c0cb3 4ed8aa4a 5b9cca4f 682e6ff3 "
+          "748f82ee 78a5636f 84c87814 8cc70208 90befffa a4506ceb bef9a3f7 c67178f2"))))))))
+
+(def sha_init () H8
+  (h8_of (array_of (parse_hex_words
+    "6a09e667 bb67ae85 3c6ef372 a54ff53a 510e527f 9b05688c 1f83d9ab 5be0cd19"))))
+
+(def h8_of ((a (array int))) H8
+  (H8 (array_get a 0) (array_get a 1) (array_get a 2) (array_get a 3)
+      (array_get a 4) (array_get a 5) (array_get a 6) (array_get a 7)))
+
+; ---------------------------------------------------------------- CRC-32
+
+; The register after bytes i up to n of blk.
+(def crc_block ((ct (array int)) (blk (array int)) (i int) (n int) (crc int)) int
+  (if (eq i n)
+      crc
+      (crc_block ct blk (add i 1) n
+        (bit_xor (array_get ct (bit_and (bit_xor crc (array_get blk i)) 255))
+                 (bit_shr crc 8)))))
+
+(def crc_update ((tb Tables) (blk (array int)) (n int) (crc int)) int
+  (match tb ((Tables ct k) (crc_block ct blk 0 n crc))))
+
+; --------------------------------------------------------------- SHA-256
+
+; The big-endian word at byte j of blk.
+(def word_at ((blk (array int)) (j int)) int
+  (bit_or (bit_shl (array_get blk j) 24)
+    (bit_or (bit_shl (array_get blk (add j 1)) 16)
+      (bit_or (bit_shl (array_get blk (add j 2)) 8) (array_get blk (add j 3))))))
+
+(def load_words ((blk (array int)) (i int) (w (array int))) (array int)
+  (if (eq i 16)
+      w
+      (load_words blk (add i 1) (array_set w i (word_at blk (mul i 4))))))
+
+; The message schedule, words 16 to 63.
+(def extend ((t int) (w (array int))) (array int)
+  (if (eq t 64)
+      w
+      (let x (array_get w (sub t 15))
+        (let y (array_get w (sub t 2))
+          (let s0 (bit_xor (rotr32 x 7) (bit_xor (rotr32 x 18) (bit_shr x 3)))
+            (let s1 (bit_xor (rotr32 y 17) (bit_xor (rotr32 y 19) (bit_shr y 10)))
+              (let v (add (add (array_get w (sub t 16)) s0)
+                          (add (array_get w (sub t 7)) s1))
+                (extend (add t 1) (array_set w t (mask32 v))))))))))
+
+; Rounds i to 63.
+(def rounds ((k (array int)) (w (array int)) (i int)
+             (a int) (b int) (c int) (d int) (e int) (f int) (g int) (h int)) H8
+  (if (eq i 64)
+      (H8 a b c d e f g h)
+      (let s1 (bit_xor (rotr32 e 6) (bit_xor (rotr32 e 11) (rotr32 e 25)))
+        (let ch (bit_xor (bit_and e f) (bit_and (bit_xor e 4294967295) g))
+          (let t1 (add (add (add h s1) (add ch (array_get k i))) (array_get w i))
+            (let s0 (bit_xor (rotr32 a 2) (bit_xor (rotr32 a 13) (rotr32 a 22)))
+              (let mj (bit_xor (bit_and a b) (bit_xor (bit_and a c) (bit_and b c)))
+                (rounds k w (add i 1)
+                  (mask32 (add t1 (add s0 mj))) a b c
+                  (mask32 (add d t1)) e f g))))))))
+
+(def add32 ((x int) (y int)) int (mask32 (add x y)))
+
+(def add_h8 ((x H8) (y H8)) H8
+  (match x
+    ((H8 a b c d e f g h)
+      (match y
+        ((H8 a2 b2 c2 d2 e2 f2 g2 h2)
+          (H8 (add32 a a2) (add32 b b2) (add32 c c2) (add32 d d2)
+              (add32 e e2) (add32 f f2) (add32 g g2) (add32 h h2)))))))
+
+; The state after one 64-byte block.
+(def compress ((tb Tables) (blk (array int)) (w0 (array int)) (h H8)) Step
+  (match tb
+    ((Tables ct k)
+      (let w (extend 16 (load_words blk 0 w0))
+        (match h
+          ((H8 a b c d e f g hh)
+            (let r (rounds k w 0 a b c d e f g hh)
+              (Step w (add_h8 h r)))))))))
+
+; ------------------------------------------------------------ the stream
+
+; Up to 64 more bytes of f into blk, from position i.
+(def fill ((f IoFile) (blk (array int)) (i int)) Fill
+  (if (eq i 64)
+      (Fill blk 64 0)
+      (let b (file_read_byte f)
+        (if (lt b 0)
+            (Fill blk i (if (eq b -1) 0 b))
+            (fill f (array_set blk i b) (add i 1))))))
+
+(def zero_from ((blk (array int)) (i int)) (array int)
+  (if (eq i 64) blk (zero_from (array_set blk i 0) (add i 1))))
+
+; The message length in bits, big-endian, in bytes 56 to 63.
+(def put_len ((blk (array int)) (len int)) (array int)
+  (put_be blk 63 (bit_shl len 3)))
+
+(def put_be ((blk (array int)) (i int) (x int)) (array int)
+  (if (lt i 56)
+      blk
+      (put_be (array_set blk i (bit_and x 255)) (sub i 1) (bit_shr x 8))))
+
+; The last block, n bytes long, padded: one block more if the length no
+; longer fits after the marker byte.
+(def finish ((tb Tables) (blk (array int)) (n int) (w (array int)) (crc int) (h H8)
+             (len int)) Digest
+  (let b1 (zero_from (array_set blk n 128) (add n 1))
+    (let c (bit_xor crc 4294967295)
+      (if (lt n 56)
+          (match (compress tb (put_len b1 len) w h)
+            ((Step w2 h2) (Digest c len h2)))
+          (match (compress tb b1 w h)
+            ((Step w2 h2)
+              (match (compress tb (put_len (zero_from b1 0) len) w2 h2)
+                ((Step w3 h3) (Digest c len h3)))))))))
+
+(def sum_loop ((tb Tables) (f IoFile) (blk (array int)) (w (array int)) (crc int) (h H8)
+               (len int)) (Result Digest int)
+  (match (fill f blk 0)
+    ((Fill b n st)
+      (if (lt st 0)
+          ((Err Digest int) st)
+          (let c2 (crc_update tb b n crc)
+            (if (eq n 64)
+                (match (compress tb b w h)
+                  ((Step w2 h2) (sum_loop tb f b w2 c2 h2 (add len 64))))
+                ((Ok Digest int) (finish tb b n w c2 h (add len n)))))))))
+
+; The CRC-32 and SHA-256 of everything left in f, or the code of a failed read.
+(def sum_file ((f IoFile)) (Result Digest int)
+  (sum_loop (make_tables) f (array_new 64 0) (array_new 64 0) 4294967295 (sha_init) 0))
+
+; ----------------------------------------------------------- hexadecimal
+
+; The words of s, each a run of hex digits, as ints. L0 has no hexadecimal
+; literals, and the constants are published in hex.
+(def hex_words ((s (list int)) (cur int) (in_word bool) (acc (list int))) (list int)
+  (if (is_empty s)
+      (rev (if in_word (cons cur acc) acc))
+      (let v (hex_val (head s))
+        (if (lt v 0)
+            (hex_words (tail s) 0 false (if in_word (cons cur acc) acc))
+            (hex_words (tail s) (bit_or (bit_shl cur 4) v) true acc)))))
+
+(def parse_hex_words ((s (list int))) (list int)
+  (hex_words s 0 false (nil int)))
+
+(def array_of ((xs (list int))) (array int)
+  (fill_from xs 0 (array_new (length xs) 0)))
+
+(def fill_from ((xs (list int)) (i int) (a (array int))) (array int)
+  (if (is_empty xs)
+      a
+      (fill_from (tail xs) (add i 1) (array_set a i (head xs)))))
+
+; x as exactly n lowercase hexadecimal digits, onto a reversed accumulator.
+(def push_hex ((x int) (n int) (acc (list int))) (list int)
+  (if (eq n 0)
+      acc
+      (push_hex x (sub n 1)
+        (cons (hex_digit (bit_and (bit_shr x (mul 4 (sub n 1))) 15)) acc))))
+
+(def hex_digit ((d int)) int
+  (if (lt d 10) (add 48 d) (add 87 d)))
+
+; -------------------------------------------------------------- output
+
+(def push_h8 ((h H8) (acc (list int))) (list int)
+  (match h
+    ((H8 a b c d e f g hh)
+      (push_hex hh 8 (push_hex g 8 (push_hex f 8 (push_hex e 8
+        (push_hex d 8 (push_hex c 8 (push_hex b 8 (push_hex a 8 acc)))))))))))
+
+(def sha_hex ((d Digest)) (list int)
+  (match d ((Digest crc len h) (rev (push_h8 h (nil int))))))
+
+(def crc_hex ((d Digest)) (list int)
+  (match d ((Digest crc len h) (rev (push_hex crc 8 (nil int))))))
+
+(def crc_value ((d Digest)) int
+  (match d ((Digest crc len h) crc)))
+
+; Three lines: what crc32, cksum -o 3, and shasum -a 256 print for the file.
+(def report ((path (list int)) (d Digest)) (list int)
+  (match d
+    ((Digest crc len h)
+      (let a (push_hex crc 8 (nil int))
+        (let b (push "\n" a)
+          (let c (push (digits crc) b)
+            (let e (push " " c)
+              (let g (push (digits len) e)
+                (let i (push " " g)
+                  (let j (push path i)
+                    (let l (push "\n" j)
+                      (let m (push_h8 h l)
+                        (let o (push "  " m)
+                          (let p (push path o)
+                            (rev (push "\n" p))))))))))))))))
+
+; Sums the file at path and writes the report, returning the exit status.
+(def run_path ((path (list int))) int
+  (match (open_in path)
+    ((IoFailed fault why)
+      (let w (write_err (append "sums: " (append path (append ": " (append why "\n")))))
+        1))
+    ((IoOpened f)
+      (let r (sum_file f)
+        (let c (file_close f)
+          (match r
+            ((Err code)
+              (let w (write_err (append "sums: " (append path (append ": " (append (io_error code) "\n")))))
+                1))
+            ((Ok d) (let w (write_str (report path d)) 0))))))))

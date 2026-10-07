@@ -40,7 +40,8 @@ up.
 --path` names two files: working programs covering recursion, strings, data
 types, `match`, returning several values, reporting failure, type
 parameters, maps and hashing, reading and writing, files and telling their
-failures apart, arrays and grids, bytes, and timing, and tests of them.
+failures apart, arrays and grids, bytes, bits, and timing, and tests of
+them.
 
 Everything these commands show comes from the installed toolchain, so it
 always describes the compiler that builds this project. Nothing of it is

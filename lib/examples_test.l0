@@ -176,6 +176,17 @@
     (add (check_int "set" (grid_get g 1 2) 5)
          (check_int "other row" (grid_get g 0 2) 0))))
 
+(def test_bit_set () int
+  (let s (set_add (set_add 0 3) 63)
+    (add (check_true "has 3" (set_has s 3))
+      (add (check_true "has 63" (set_has s 63))
+        (add (check_true "not 4" (not (set_has s 4)))
+          (check_int "two members" (bit_count s) 2))))))
+
+; The published check value of CRC-32, 0xCBF43926.
+(def test_crc32 () int
+  (check_int "check value" (crc32 "123456789" 4294967295) 3421780262))
+
 (def test_vowel_count_ns () int
   (check_true "never negative" (ge (vowel_count_ns "education") 0)))
 

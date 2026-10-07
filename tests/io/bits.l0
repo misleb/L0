@@ -1,0 +1,56 @@
+; The bit builtins of spec 6.10: each example the spec gives, the shifts at
+; and past the edges, and a bitwise CRC-32, whose check value for
+; "123456789" is 3421780262 (0xCBF43926) in every published table.
+
+(def show ((what (list int)) (v int)) int
+  (write_line (append what (append " " (digits v)))))
+
+; One byte into a CRC-32, eight shifts of the reflected polynomial
+; 0xEDB88320.
+(def crc_bits ((c int) (k int)) int
+  (if (eq k 0)
+      c
+      (crc_bits (if (eq (bit_and c 1) 1)
+                    (bit_xor (bit_shr c 1) 3988292384)
+                    (bit_shr c 1))
+                (sub k 1))))
+
+(def crc_of ((s (list int)) (c int)) int
+  (if (is_empty s)
+      (bit_xor c 4294967295)
+      (crc_of (tail s) (crc_bits (bit_xor c (head s)) 8))))
+
+(def logic () int
+  (let a (show "and" (bit_and 12 10))
+    (let b (show "or" (bit_or 12 10))
+      (let c (show "xor" (bit_xor 12 10))
+        (let d (show "and_low_byte" (bit_and -1 255))
+          (show "xor_all" (bit_xor 5 -1)))))))
+
+(def shifts () int
+  (let a (show "shl" (bit_shl 1 4))
+    (let b (show "shr" (bit_shr 256 4))
+      (let c (show "shl_sign" (bit_shl -1 63))
+        (let d (show "shr_negative" (bit_shr -1 60))
+          (let e (show "shr_one" (bit_shr -1 1))
+            (let f (show "shl_zero" (bit_shl 3 0))
+              (edges))))))))
+
+(def edges () int
+  (let a (show "shr_64" (bit_shr -1 64))
+    (let b (show "shl_64" (bit_shl 1 64))
+      (let c (show "shl_far" (bit_shl 5 1000))
+        (let d (show "mask_64" (sub (bit_shl 1 64) 1))
+          (show "mask_0" (sub (bit_shl 1 0) 1)))))))
+
+(def counts () int
+  (let a (show "count" (bit_count 255))
+    (let b (show "count_all" (bit_count -1))
+      (let c (show "count_none" (bit_count 0))
+        (show "crc32" (crc_of "123456789" 4294967295))))))
+
+(def main () int
+  (let a (logic)
+    (let b (shifts)
+      (let c (counts)
+        0))))

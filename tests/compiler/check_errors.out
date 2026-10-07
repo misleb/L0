@@ -60,3 +60,8 @@ ok
 35: hash takes 1 argument, but got 0
 35: hash takes 1 argument, but got 2
 35: head must be a list, but this is int
+35: an argument of bit_and must be int, but this is bool
+35: an argument of bit_xor must be int, but this is (list int)
+35: bit_shl takes 2 arguments, but got 1
+35: bit_count takes 1 argument, but got 2
+35: head must be a list, but this is int

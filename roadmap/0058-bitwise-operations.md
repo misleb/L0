@@ -1,7 +1,7 @@
 # 0058: bitwise operations
 
 Kind: language
-Status: queued
+Status: done, changelog "Bitwise operations"; passed on Linux arm64
 Needs: 0057
 
 ## Why
@@ -47,3 +47,35 @@ shift, which no L0 program can write.
 ## Log
 
 - 2026-10-06: queued by 0055, with the user's agreement.
+- 2026-10-07: done.
+  - spec 6.10: `bit_and`, `bit_or`, `bit_xor`, `bit_shl`, `bit_shr`
+    (logical), and `bit_count`; a shift by 64 or more gives 0, by a negative
+    amount is the runtime error `negative shift`, added to section 8's
+    table. 6.9 now names `bit_xor` and `bit_shr` for its hash; 10.3 gains
+    `@l0_bit_shl`, `@l0_bit_shr`, and `@l0_bit_count`, and says the logical
+    three are LLVM's `and`, `or`, and `xor`. Left out, with the reasons in
+    the changelog: a sign-copying shift, a bitwise not, rotation, and
+    hexadecimal literals
+  - 0031's rule checked: the names are new, and a program's own `def` of
+    one still wins. Nothing in `compiler/` or `lib/` defined any of them
+  - compiler: the checker's int groups and arities, and the emitter's
+    instructions, runtime calls, and declarations; the compiler's source
+    uses none of them, so one step, and the seed is refreshed
+  - tests: `tests/io/bits` (every example in 6.10, the shift edges, and the
+    CRC-32 check value 3421780262), `tests/io/bits_negative_shift`, five
+    cases in `tests/compiler/check_errors`, and `tests/unit/sums_test.l0`.
+    `bundle_prelude` and `emit_tail` blessed for the three new declarations
+    in every module's header, and nothing else
+  - **0055's sums rewritten** as `tests/unit/sums.l0`: 18 published vectors
+    pass, the same sums on 100 MB in 2.33 s of user time against 9.90 s for
+    the workaround (4.2 times), 268 lines against 400. `cksum` and `shasum`
+    together take 0.35 s; the rest of the gap is reading a byte at a time
+    and an eight-field state per round, which is 0060's business, not this
+    item's
+  - docs: `lib/examples.l0` gains a bits section (a set in an int, and
+    CRC-32 without a table) with two tests; the shipped skill a paragraph
+    on bits; `lib/AGENTS.md` and the repository's skill name them
+  - both suites green (63, 121); fixpoint at 1,235,167 bytes, seed
+    refreshed and reproduces itself; `tools/linux-test.sh arm64` green
+    (63, 121); amd64 not run
+  - next: 0061

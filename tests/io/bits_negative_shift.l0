@@ -1,0 +1,4 @@
+; Shifting by a negative amount is a runtime error, spec 6.10.
+
+(def main () int
+  (bit_shr 256 (sub 0 1)))

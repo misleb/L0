@@ -48,6 +48,7 @@ declare ptr @dlsym(ptr, ptr)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
+declare i64 @llvm.ctpop.i64(i64)
 declare i32 @memcmp(ptr, ptr, i64)
 
 ; Defined by the generated IR. Spec section 10.2.
@@ -108,6 +109,7 @@ declare i64 @l0_f_main(i64)
 @m_live = private constant [23 x i8] c"l0: blocks still live: "
 @m_range = private constant [24 x i8] c"array index out of range"
 @m_alen = private constant [21 x i8] c"negative array length"
+@m_shift = private constant [14 x i8] c"negative shift"
 @stats_name = private constant [15 x i8] c"L0_ARRAY_STATS\00"
 @m_copies = private constant [18 x i8] c"l0: array copies: "
 @m_inplace = private constant [25 x i8] c"l0: array sets in place: "
@@ -976,6 +978,48 @@ zero:
   ret i64 0
 do:
   %r = srem i64 %a, %b
+  ret i64 %r
+}
+
+; Spec section 6.10. An LLVM shift by 64 or more is poison, and L0's is every
+; bit shifted out, 0; a negative amount is a runtime error.
+define i64 @l0_bit_shl(i64 %a, i64 %n) {
+entry:
+  %neg = icmp slt i64 %n, 0
+  br i1 %neg, label %err, label %chk
+err:
+  call void @rt_error(ptr @m_shift, i64 14)
+  unreachable
+chk:
+  %out = icmp sge i64 %n, 64
+  br i1 %out, label %zero, label %do
+zero:
+  ret i64 0
+do:
+  %r = shl i64 %a, %n
+  ret i64 %r
+}
+
+define i64 @l0_bit_shr(i64 %a, i64 %n) {
+entry:
+  %neg = icmp slt i64 %n, 0
+  br i1 %neg, label %err, label %chk
+err:
+  call void @rt_error(ptr @m_shift, i64 14)
+  unreachable
+chk:
+  %out = icmp sge i64 %n, 64
+  br i1 %out, label %zero, label %do
+zero:
+  ret i64 0
+do:
+  %r = lshr i64 %a, %n
+  ret i64 %r
+}
+
+define i64 @l0_bit_count(i64 %a) {
+entry:
+  %r = call i64 @llvm.ctpop.i64(i64 %a)
   ret i64 %r
 }
 

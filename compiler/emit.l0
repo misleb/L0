@@ -927,11 +927,16 @@
     "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes clock_ns"))
 
 (def rt_names ((i int)) (list (list int))
-  (append (split_spaces "div mod head tail is_empty array_len array_get array_set")
+  (append (split_spaces "div mod head tail is_empty array_len array_get array_set bit_shl bit_shr bit_count")
                (io_names 0)))
 (def rt_syms ((i int)) (list (list int))
-  (append (split_spaces "l0_div l0_mod l0_head l0_tail l0_is_empty l0_array_len l0_array_get l0_array_set")
+  (append (split_spaces "l0_div l0_mod l0_head l0_tail l0_is_empty l0_array_len l0_array_get l0_array_set l0_bit_shl l0_bit_shr l0_bit_count")
                (l0_prefixed (io_names 0))))
+
+; bit_and, bit_or, and bit_xor are the LLVM instructions of those names.
+; Spec 6.10 and 10.3.
+(def bit_ops ((i int)) (list (list int)) (split_spaces "bit_and bit_or bit_xor"))
+(def bit_insts ((i int)) (list (list int)) (split_spaces "and or xor"))
 
 (def l0_prefixed ((ns (list (list int)))) (list (list int))
   (if (is_empty ns)
@@ -971,16 +976,23 @@
                    (st Emit)) EmitVal
   (if (eq n "neg")
       (emit_binop "sub" "0" (head ops) st)
-      (if (eq n "not")
-          (emit_binop "xor" (head ops) "1" st)
-          (if (eq n "array_new")
-              (emit_rt_call "l0_array_new"
-                (append ops
-                  (one_op (if (ty_is_ptr (head (tail ts))) "1" "0")))
-                st)
-              (emit_rt_call "l0_new_cons"
-                (append ops (one_op (cons_mask (ty_elem (head (tail ts))))))
-                st)))))
+      (if (ge (index_of n (bit_ops 0)) 0)
+          (emit_binop (nth_str (bit_insts 0) (index_of n (bit_ops 0)))
+                      (head ops) (head (tail ops)) st)
+          (emit_op_more n ops ts st))))
+
+(def emit_op_more ((n (list int)) (ops (list (list int))) (ts (list Ty))
+                   (st Emit)) EmitVal
+  (if (eq n "not")
+      (emit_binop "xor" (head ops) "1" st)
+      (if (eq n "array_new")
+          (emit_rt_call "l0_array_new"
+            (append ops
+              (one_op (if (ty_is_ptr (head (tail ts))) "1" "0")))
+            st)
+          (emit_rt_call "l0_new_cons"
+            (append ops (one_op (cons_mask (ty_elem (head (tail ts))))))
+            st))))
 
 ; ------------------------------------------------------------- tail calls
 ;
@@ -1664,7 +1676,12 @@
             (append "declare i64 @l0_write_bytes(i64, i64, i64, i64)\n"
               (append "declare i64 @l0_clock_ns()\n"
                 (append "declare i64 @l0_equal(i64, i64)\n"
-                  "declare i64 @l0_hash(i64, i64)\n\n")))))))))
+                  (append "declare i64 @l0_hash(i64, i64)\n" (bit_decls 0)))))))))))
+
+(def bit_decls ((i int)) (list int)
+  (append "declare i64 @l0_bit_shl(i64, i64)\n"
+    (append "declare i64 @l0_bit_shr(i64, i64)\n"
+      "declare i64 @l0_bit_count(i64)\n\n")))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

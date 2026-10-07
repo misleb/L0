@@ -7,6 +7,60 @@ New entries go at the top.
 
 ---
 
+## Bitwise operations
+
+**Six builtins work on the 64 bits of an `int`** (section 6.10, roadmap
+item 0058): `bit_and`, `bit_or`, and `bit_xor`; `bit_shl`, and `bit_shr`,
+which brings in zeros; and `bit_count`, how many bits are 1. A shift by 64
+or more moves every bit out and gives 0, and a shift by a negative amount
+is the new runtime error `negative shift`. `bit_and`, `bit_or`, and
+`bit_xor` are the LLVM instructions; the shifts and `bit_count` are runtime
+calls, `@l0_bit_shl`, `@l0_bit_shr`, and `@l0_bit_count`, added to 10.3.
+
+**Why.** 0055's numbers worker could not write one CRC-32 step,
+`(bit_xor (array_get table (bit_and (bit_xor crc b) 255)) (shr crc 8))`.
+Its workaround, 137 lines of 64K tables with `div` and `mod`, made one xor
+13.1 ns against 1.6 ns for the loop around it, and the CRC-32 and SHA-256
+of 100 MB 9.9 s of user time. 0028's grids found masks by `div` and `mod`
+17 times slower than flag arrays, and 0055's sieve held 63 bits a word,
+since the sign bit could not be reached by arithmetic, and counted them
+through a 64K table. Section 6.9 defined `hash` with xor and a logical
+shift that no L0 program could write.
+
+**What it bought.** The same program written with them, now
+`tests/unit/sums.l0`, takes 2.33 s on the 100 MB, with the same sums: 4.2
+times faster, in 268 lines where there were 400, and the CRC register is an
+`int` instead of four bytes. The rest of the gap to `cksum` and `shasum`
+(0.35 s together) is not in the bits: it reads a byte at a time and builds
+a state of eight fields per round.
+
+**The choices.**
+
+- *Names.* The `bit_` prefix keeps them together, as `array_` and `bytes_`
+  do, and leaves `and`, `or`, and `not` to `bool`. 0031's rule means a
+  program that already defines one of these names keeps its own.
+- *Shifts past the word.* LLVM gives a shift by 64 or more no value; L0
+  gives the one the bits imply, 0, so `(sub (bit_shl 1 n) 1)` is the mask of
+  `n` bits for every `n` from 0 to 64 and needs no special case at 64. A
+  negative amount has no such reading, and is more likely a mistake than a
+  request to shift the other way, so it fails where it happens.
+- *Left out.* A shift right that copies the sign, since no program here
+  needed it and `div` by a power of two already divides a negative integer;
+  a bitwise not, which is `(bit_xor x -1)`; a rotation, since the one SHA-256
+  needs is of 32 bits within a 64-bit `int`, two shifts and a `bit_or` under a
+  mask; and hexadecimal literals, which 0055 also asked for, as a separate
+  change to section 2.1 waiting for more code than constants read from a
+  string once.
+
+Stage 0 is frozen and knows none of them, so the tests are in `tests/io`
+(`bits`, every example 6.10 gives, the edges of the shifts, and a CRC-32
+check value; `bits_negative_shift`) and `tests/unit/sums_test.l0` (18
+published CRC-32 and SHA-256 vectors), with five checker cases in
+`tests/compiler/check_errors`. The compiler's own source uses none of them;
+the seed is refreshed so that `tools/l0` compiles programs that do.
+
+---
+
 ## A broken pipe is a write failure, a closed standard handle is open on nothing, and -3 means nothing is there
 
 Three places where the runtime broke section 6.3, found by 0055's failure

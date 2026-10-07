@@ -432,6 +432,33 @@
       i
       (if (eq (bytes_get b i) 10) (add i 1) (line_end b (add i 1)))))
 
+; --------------------------------------------------------------------- bits
+
+; bit_and, bit_or, bit_xor, bit_shl, bit_shr, and bit_count work on the 64
+; bits of an int. A set of small ints as one int: bit i is whether i is in
+; it. bit_shl and bit_shr bring in zeros, and shifting by 64 or more gives 0.
+(def set_add ((s int) (i int)) int
+  (bit_or s (bit_shl 1 i)))
+
+(def set_has ((s int) (i int)) bool
+  (not (eq (bit_and (bit_shr s i) 1) 0)))
+
+; A checksum a byte at a time: CRC-32, as zlib computes it, without a table.
+; There are no hexadecimal literals: 3988292384 is 0xEDB88320, and
+; 4294967295 is 0xFFFFFFFF, the 32 bits a CRC keeps.
+(def crc32 ((s (list int)) (c int)) int
+  (if (is_empty s)
+      (bit_xor c 4294967295)
+      (crc32 (tail s) (crc_byte (bit_xor c (head s)) 8))))
+
+(def crc_byte ((c int) (k int)) int
+  (if (eq k 0)
+      c
+      (crc_byte (if (eq (bit_and c 1) 1)
+                    (bit_xor (bit_shr c 1) 3988292384)
+                    (bit_shr c 1))
+                (sub k 1))))
+
 ; -------------------------------------------------------------------- time
 
 ; clock_ns reads a clock that never goes back, so the difference of two
