@@ -49,7 +49,7 @@
     ((IoFailed fault why) (let e (write_err why) 1))
     ((IoOpened f)
       (let w (file_write_str f "abc")
-        (let fl (file_flush f)
+        (let fl (match f ((IoFile h) (flush h)))
           (let seen (read_back path)
             (let c (file_close f)
               (let o (write_str (code_line "flush file:" fl))

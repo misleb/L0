@@ -12,7 +12,7 @@
         (let b (write_str "meant for standard output\n")
           (let c (file_flush (IoFile 1))
             (let d (file_close f)
-              (if (lt c 0) (if (eq d 0) 0 1) 1))))))))
+              (if (is_done c) 1 (if (is_done d) 0 1)))))))))
 
 (def main () int
   (if (eq (arg 0) "out")

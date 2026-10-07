@@ -14,7 +14,7 @@
 (def test_library_flush () int
   (match (open_out_buffer)
     ((IoFailed fault why) (check_str "open" why ""))
-    ((IoOpened f) (check_int "the library's flush" (file_flush f) 0))))
+    ((IoOpened f) (check_true "the library's flush" (is_done (file_flush f))))))
 
 ; A program written before hash was a builtin, as several here were.
 (def hash ((s (list int))) int (length s))

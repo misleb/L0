@@ -52,8 +52,8 @@
                 (if (is_empty acc) (IoEnd) (IoLine (rev acc))))))))
 
 ;; Writes every byte of s to standard output, in order, and returns 0. A
-;; failure to write shows only when (flush 1) returns -5; one never checked
-;; is a runtime error when the program ends.
+;; failure to write shows only when (file_flush (IoFile 1)) says so; one
+;; never checked is a runtime error when the program ends.
 (def write_str ((s (list int))) int
   (if (is_empty s)
       0
@@ -136,20 +136,73 @@
   (IoFailed E (list int)))
 
 ;; Why opening a file to read failed: it does not exist, it may not be read,
-;; or anything else, such as its being a directory (spec section 6.3's -3,
-;; -4, and -5).
+;; it is a directory, or anything else (spec section 6.3's -3, -4, -8, and
+;; -5).
 (data OpenFault
   (OpenMissing)
   (OpenDenied)
+  (OpenIsDirectory)
   (OpenFailed))
 
-;; Why creating a file, or opening one to append, failed: it exists and may
-;; not be written, or anything else, such as its directory not existing (spec
-;; section 6.3's -4 and -5). A missing file is not a failure here, since
-;; these create it.
+;; Why creating a file, or opening one to append, failed: the file, or the
+;; directory it would be created in, may not be written; that directory does
+;; not exist; the name is a directory; or anything else (spec section 6.3's
+;; -4, -9, -8, and -5). A missing file is not a failure here, since these
+;; create it.
 (data CreateFault
   (CreateDenied)
+  (CreateNoDirectory)
+  (CreateIsDirectory)
   (CreateFailed))
+
+;; The result of renaming, removing, flushing, or closing a file: (Done), or
+;; (NotDone fault why), where fault says which failure it was, as a case of
+;; E, and why says it in words, for a message. E is the operation's failures:
+;; RenameFault, RemoveFault, or WriteFault. Tell them apart with eq or match,
+;; and use is_done where only success matters.
+(data (IoDone E)
+  (Done)
+  (NotDone E (list int)))
+
+;; Whether r is (Done).
+(def (is_done E) ((r (IoDone E))) bool
+  (match r
+    ((Done) true)
+    ((NotDone fault why) false)))
+
+;; Why renaming failed: there is no file by the first name; either directory
+;; may not be written; the new name is a directory; the directory the new
+;; name would be in does not exist; the two are on different file systems; or
+;; anything else (spec section 6.3's -3, -4, -8, -9, -10, and -5). Neither
+;; name has changed.
+(data RenameFault
+  (RenameMissing)
+  (RenameDenied)
+  (RenameIsDirectory)
+  (RenameNoDirectory)
+  (RenameCrossDevice)
+  (RenameFailed))
+
+;; Why deleting a file failed: there is no file by that name, which a program
+;; cleaning up may take as done; it may not be deleted; it is a directory; or
+;; anything else (spec section 6.3's -3, -4, -8, and -5). The file is still
+;; there.
+(data RemoveFault
+  (RemoveMissing)
+  (RemoveDenied)
+  (RemoveIsDirectory)
+  (RemoveFailed))
+
+;; Why bytes written to a file were lost, as flushing or closing it says:
+;; there was no space for them; it is a pipe whose reader had gone; it is not
+;; open for writing, as when it was already closed; or anything else (spec
+;; section 6.3's -6, -7, -2, and -5). The first loss is the one reported, on
+;; every later flush and the close.
+(data WriteFault
+  (WriteNoSpace)
+  (WriteBrokenPipe)
+  (WriteNotOpen)
+  (WriteFailed))
 
 ;; Opens the file at path for reading.
 (def open_in ((path (list int))) (IoOpened OpenFault)
@@ -166,19 +219,21 @@
   (opened_out (open_append path)))
 
 ;; Gives the file at from the name to, replacing any file already there in
-;; one step, and returns 0, or a negative code with neither name changed. To
-;; update a file safely, write the new contents under another name, check
-;; file_close, and rename that over the old.
-(def rename_file ((from (list int)) (to (list int))) int
-  (rename from to))
+;; one step, or says why not, with neither name changed. To update a file
+;; safely, write the new contents under another name, check file_close, and
+;; rename that over the old.
+(def rename_file ((from (list int)) (to (list int))) (IoDone RenameFault)
+  (let c (rename from to)
+    (done_or c (rename_fault c))))
 
-;; Deletes the file at path, in one step, and returns 0, or a negative code
-;; with the file still there: (io_error code) says why, and -3 means there
-;; was no such file, which a program cleaning up may take as done. A
-;; directory is never deleted, and a link is deleted rather than what it
-;; leads to. A handle already open on the file keeps working until closed.
-(def remove_file ((path (list int))) int
-  (remove path))
+;; Deletes the file at path, in one step, or says why not, with the file still
+;; there; RemoveMissing means there was no such file, which a program cleaning
+;; up may take as done. A directory is never deleted, and a link is deleted
+;; rather than what it leads to. A handle already open on the file keeps
+;; working until closed.
+(def remove_file ((path (list int))) (IoDone RemoveFault)
+  (let c (remove path)
+    (done_or c (remove_fault c))))
 
 ;; Opens a file that reads the bytes of s and then ends, held in memory. Code
 ;; that reads an IoFile cannot tell it from a file on disk, which is how to
@@ -197,33 +252,69 @@
 (def buffer_contents ((f IoFile)) (list int)
   (match f ((IoFile h) (buffer_bytes h))))
 
-; The two places a code from opening becomes a case: h is a handle, or one of
-; the codes spec section 6.3 lets that kind of open return.
+; The places a code from the builtins becomes a case: each takes a handle or
+; 0, or one of the codes spec section 6.3 lets that operation return, and
+; any other code is the operation's Failed case.
 (def opened_in ((h int)) (IoOpened OpenFault)
   (if (ge h 0)
       ((IoOpened OpenFault) (IoFile h))
-      (IoFailed (if (eq h -3) (OpenMissing) (if (eq h -4) (OpenDenied) (OpenFailed)))
-                (io_error h))))
+      (IoFailed (open_fault h) (io_error h))))
+
+(def open_fault ((c int)) OpenFault
+  (if (eq c -3) (OpenMissing)
+    (if (eq c -4) (OpenDenied)
+      (if (eq c -8) (OpenIsDirectory) (OpenFailed)))))
 
 (def opened_out ((h int)) (IoOpened CreateFault)
   (if (ge h 0)
       ((IoOpened CreateFault) (IoFile h))
-      (IoFailed (if (eq h -4) (CreateDenied) (CreateFailed)) (io_error h))))
+      (IoFailed (create_fault h) (io_error h))))
 
-;; What a negative result from an I/O builtin means, in words: -1 "end of
-;; input", -2 "not open in that direction", -3 "no such file", -4
-;; "permission denied", and anything else "input or output failed". Spec
-;; section 6.3.
+(def create_fault ((c int)) CreateFault
+  (if (eq c -4) (CreateDenied)
+    (if (eq c -9) (CreateNoDirectory)
+      (if (eq c -8) (CreateIsDirectory) (CreateFailed)))))
+
+; (Done) for 0, and otherwise fault, with the words for c.
+(def (done_or E) ((c int) (fault E)) (IoDone E)
+  (if (eq c 0) ((Done E)) (NotDone fault (io_error c))))
+
+(def rename_fault ((c int)) RenameFault
+  (if (eq c -3) (RenameMissing)
+    (if (eq c -4) (RenameDenied)
+      (if (eq c -8) (RenameIsDirectory)
+        (if (eq c -9) (RenameNoDirectory)
+          (if (eq c -10) (RenameCrossDevice) (RenameFailed)))))))
+
+(def remove_fault ((c int)) RemoveFault
+  (if (eq c -3) (RemoveMissing)
+    (if (eq c -4) (RemoveDenied)
+      (if (eq c -8) (RemoveIsDirectory) (RemoveFailed)))))
+
+(def write_fault ((c int)) WriteFault
+  (if (eq c -6) (WriteNoSpace)
+    (if (eq c -7) (WriteBrokenPipe)
+      (if (eq c -2) (WriteNotOpen) (WriteFailed)))))
+
+;; What a negative result from an I/O builtin means, in words, for each code
+;; of spec section 6.3: -1 "end of input", -2 "not open in that direction",
+;; -3 "no such file", -4 "permission denied", -6 "no space left", -7 "the
+;; reader has gone", -8 "is a directory", -9 "no such directory", -10 "on
+;; another file system", and anything else "input or output failed".
 (def io_error ((code int)) (list int)
-  (if (eq code -1)
-      "end of input"
-      (if (eq code -2)
-          "not open in that direction"
-          (if (eq code -3)
-              "no such file"
-              (if (eq code -4)
-                  "permission denied"
-                  "input or output failed")))))
+  (if (eq code -1) "end of input"
+    (if (eq code -2) "not open in that direction"
+      (if (eq code -3) "no such file"
+        (if (eq code -4) "permission denied"
+          (io_error_more code))))))
+
+(def io_error_more ((code int)) (list int)
+  (if (eq code -6) "no space left"
+    (if (eq code -7) "the reader has gone"
+      (if (eq code -8) "is a directory"
+        (if (eq code -9) "no such directory"
+          (if (eq code -10) "on another file system"
+            "input or output failed"))))))
 
 ;; The next byte of f, or -1 at end of input, or another negative code if the
 ;; read failed. Test for -1 and for other negatives separately.
@@ -265,14 +356,17 @@
 (def file_next_line ((f IoFile)) IoLine
   (match f ((IoFile h) (next_line_from h (nil int)))))
 
-;; Delivers the bytes written to f so far, leaving it open, and returns 0, or
-;; a negative code if any byte written to it could not be written. A failure
-;; shows only here and in file_close, since writes are held back.
-(def file_flush ((f IoFile)) int
-  (match f ((IoFile h) (flush h))))
+;; Delivers the bytes written to f so far, leaving it open, or says why some
+;; byte written to it could not be written. A failure shows only here and in
+;; file_close, since writes are held back.
+(def file_flush ((f IoFile)) (IoDone WriteFault)
+  (match f
+    ((IoFile h) (let c (flush h) (done_or c (write_fault c))))))
 
-;; Closes f, and returns 0, or a negative code if any byte written to it
-;; could not be written. Check it after writing: with file_flush, it is the
-;; only place such a failure shows.
-(def file_close ((f IoFile)) int
-  (match f ((IoFile h) (close h))))
+;; Closes f, or says why some byte written to it could not be written. Check
+;; it after writing, as (is_done (file_close f)) or by its case: with
+;; file_flush, it is the only place such a failure shows. f is closed either
+;; way.
+(def file_close ((f IoFile)) (IoDone WriteFault)
+  (match f
+    ((IoFile h) (let c (close h) (done_or c (write_fault c))))))

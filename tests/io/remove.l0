@@ -1,7 +1,17 @@
 ; remove MODE PATH. rm: deletes PATH with the library's remove_file and
-; writes the code. held: opens PATH, deletes it, then writes the code, the
-; byte read through the handle it already had, and what opening PATH again
-; gives. remove.sh sets up each case of spec 6.3's remove.
+; writes the result's case. held: opens PATH, deletes it, then writes the
+; case, the byte read through the handle it already had, and what opening
+; PATH again gives. remove.sh sets up each case of spec 6.3's remove.
+
+(def removed ((r (IoDone RemoveFault))) (list int)
+  (match r
+    ((Done) "Done")
+    ((NotDone fault why)
+      (match fault
+        ((RemoveMissing) "RemoveMissing")
+        ((RemoveDenied) "RemoveDenied")
+        ((RemoveIsDirectory) "RemoveIsDirectory")
+        ((RemoveFailed) "RemoveFailed")))))
 
 (def held ((path (list int))) (list int)
   (let h (open_read path)
@@ -9,12 +19,12 @@
       (let b (read_from h)
         (let c (close h)
           (let again (open_read path)
-            (append (digits r) (append " " (append (digits b)
+            (append (removed r) (append " " (append (digits b)
               (append " " (digits again)))))))))))
 
 (def main () int
   (let w (write_line
            (if (eq (arg 0) "held")
                (held (arg 1))
-               (digits (remove_file (arg 1)))))
+               (removed (remove_file (arg 1)))))
     0))

@@ -144,15 +144,19 @@
          ((Err why) (check_str "should have been none" why "")))
        (match (lines_or_none ".")
          ((Ok n) (check_true "a directory should fail" false))
-         ((Err why) (check_str "directory" why "input or output failed")))))
+         ((Err why) (check_str "directory" why "is a directory")))))
 
 ; A test must not leave files behind, since l0 test runs wherever it is
 ; started, so code that writes files is tested where it fails. Creating a
-; file in a directory that does not exist is spec section 6.3's -5, any
-; other failure, which io_error words as "input or output failed".
+; file in a directory that does not exist is spec section 6.3's -9, which
+; io_error words as "no such directory".
 (def test_replace_file_reports () int
   (check_str "missing directory" (replace_file "no/such/dir/notes" "x")
-             "input or output failed"))
+             "no such directory"))
+
+; Renaming a file that is not there says so by its case and its words.
+(def test_rename_why () int
+  (check_str "missing" (rename_why "no/such/file" "elsewhere") "no such file"))
 
 ; "." is a directory, so renaming the new file over it fails, and the new
 ; file, "..new", must not be left behind.
@@ -168,7 +172,7 @@
 
 (def test_log_line_reports () int
   (check_str "missing directory" (log_line "no/such/dir/log" "x")
-             "input or output failed"))
+             "no such directory"))
 
 ; Many pushes, so that a stack copying its array on every push, rather than
 ; growing it by doubling and updating it in place, would take far too long.

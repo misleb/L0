@@ -1,18 +1,31 @@
 ; open_faults MODE PATH: opens PATH to read (r), to write (w), or to append
 ; (a), and writes which failure it was, by its case, or "opened" if it
-; opened; or renames PATH to PATH.moved (m), and writes the code.
-; open_faults.sh makes each failure happen.
+; opened; or renames PATH to PATH.moved (m), or to the second argument (mv
+; PATH TO), and writes the result's case. open_faults.sh makes each failure
+; happen.
 
 (def open_fault_name ((f OpenFault)) (list int)
   (match f
     ((OpenMissing) "OpenMissing")
     ((OpenDenied) "OpenDenied")
+    ((OpenIsDirectory) "OpenIsDirectory")
     ((OpenFailed) "OpenFailed")))
 
 (def create_fault_name ((f CreateFault)) (list int)
   (match f
     ((CreateDenied) "CreateDenied")
+    ((CreateNoDirectory) "CreateNoDirectory")
+    ((CreateIsDirectory) "CreateIsDirectory")
     ((CreateFailed) "CreateFailed")))
+
+(def rename_fault_name ((f RenameFault)) (list int)
+  (match f
+    ((RenameMissing) "RenameMissing")
+    ((RenameDenied) "RenameDenied")
+    ((RenameIsDirectory) "RenameIsDirectory")
+    ((RenameNoDirectory) "RenameNoDirectory")
+    ((RenameCrossDevice) "RenameCrossDevice")
+    ((RenameFailed) "RenameFailed")))
 
 (def reading ((path (list int))) (list int)
   (match (open_in path)
@@ -25,6 +38,11 @@
     ((IoFailed fault why) (append (create_fault_name fault) (append ": " why)))
     ((IoOpened f) (let c (file_close f) "opened"))))
 
+(def renaming ((from (list int)) (to (list int))) (list int)
+  (match (rename_file from to)
+    ((Done) "Done")
+    ((NotDone fault why) (append (rename_fault_name fault) (append ": " why)))))
+
 (def main () int
   (let mode (arg 0)
     (let path (arg 1)
@@ -34,6 +52,8 @@
                    (if (eq mode "w")
                        (writing (open_out path))
                        (if (eq mode "m")
-                           (digits (rename_file path (append path ".moved")))
-                           (writing (open_appending path))))))
+                           (renaming path (append path ".moved"))
+                           (if (eq mode "mv")
+                               (renaming path (arg 2))
+                               (writing (open_appending path)))))))
         0))))

@@ -85,6 +85,9 @@ declare i64 @l0_f_main(i64)
 @h_fd = internal global [64 x i64] zeroinitializer
 @h_mode = internal global [64 x i64] zeroinitializer
 @h_state = internal global [64 x i64] zeroinitializer
+; For a writing handle in state 3 or 4, the spec section 6.3 code of the first
+; byte lost: -5, -6, or -7. 0 until one is.
+@h_err = internal global [64 x i64] zeroinitializer
 @h_buf = internal global [64 x ptr] zeroinitializer
 @h_pos = internal global [64 x i64] zeroinitializer
 @h_len = internal global [64 x i64] zeroinitializer
@@ -1052,6 +1055,8 @@ entry:
   store i64 %mode, ptr %mp
   %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
   store i64 0, ptr %sp
+  %ep = getelementptr [64 x i64], ptr @h_err, i64 0, i64 %h
+  store i64 0, ptr %ep
   %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
   store ptr %buf, ptr %bp
   %pp = getelementptr [64 x i64], ptr @h_pos, i64 0, i64 %h
@@ -1172,13 +1177,36 @@ write:
   %bad = icmp ne i64 %rc, 0
   br i1 %bad, label %failed, label %done
 failed:
+  %why = call i64 @write_code()
   store i64 3, ptr %sp
+  %ep = getelementptr [64 x i64], ptr @h_err, i64 0, i64 %h
+  %was = load i64, ptr %ep
+  %first = icmp eq i64 %was, 0
+  %keep = select i1 %first, i64 %why, i64 %was
+  store i64 %keep, ptr %ep
   br label %done
 done:
   %st = load i64, ptr %sp
   %err = icmp uge i64 %st, 3
-  %r = select i1 %err, i64 -5, i64 0
+  %ep2 = getelementptr [64 x i64], ptr @h_err, i64 0, i64 %h
+  %code = load i64, ptr %ep2
+  %none = icmp eq i64 %code, 0
+  %lost = select i1 %none, i64 -5, i64 %code
+  %r = select i1 %err, i64 %lost, i64 0
   ret i64 %r
+}
+
+; The spec section 6.3 code for a write or close that just failed, by errno:
+; ENOSPC (28) is -6 and EPIPE (32) -7, the same numbers on macOS and Linux,
+; and anything else, or no errno, -5.
+define internal i64 @write_code() {
+entry:
+  %e = call i32 @last_errno()
+  %full = icmp eq i32 %e, 28
+  %pipe = icmp eq i32 %e, 32
+  %a = select i1 %pipe, i64 -7, i64 -5
+  %b = select i1 %full, i64 -6, i64 %a
+  ret i64 %b
 }
 
 define i64 @l0_flush(i64 %h) {
@@ -1869,19 +1897,23 @@ shutfd:
   %fd = load i64, ptr %fp
   %fd32 = trunc i64 %fd to i32
   %cfd = call i32 @close(i32 %fd32)
+  %cwhy = call i64 @write_code()
   br label %release
 memory:
   call void @h_drop_list(i64 %h)
   br label %release
 release:
   %c = phi i32 [ %cfd, %shutfd ], [ 0, %memory ]
+  %cw = phi i64 [ %cwhy, %shutfd ], [ -5, %memory ]
   %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
   %buf = load ptr, ptr %bp
   call void @free(ptr %buf)
   %mp = getelementptr [64 x i64], ptr @h_mode, i64 0, i64 %h
   store i64 0, ptr %mp
   %cfail = icmp ne i32 %c, 0
-  %final = select i1 %cfail, i64 -5, i64 %res
+  %earlier = icmp ne i64 %res, 0
+  %closed = select i1 %earlier, i64 %res, i64 %cw
+  %final = select i1 %cfail, i64 %closed, i64 %res
   ret i64 %final
 }
 
@@ -1991,11 +2023,10 @@ fail:
 ; mode 1 opens for reading, 2 creates or empties for writing, and 3 opens
 ; for writing at the end. The results are spec section 6.3's. Reading only
 ; opens with flags 0 and writing uses creat, because O_CREAT and O_TRUNC
-; differ between macOS and Linux. access() tells why an open failed, and
-; when it cannot find the name, its errno tells a missing name from one
-; that cannot be looked up, or a directory on the way that may not be
-; searched. A directory opens with flags 0 but cannot be read, so opendir
-; tells it apart first.
+; differ between macOS and Linux. The open's errno tells why it failed
+; (open_code); without errno, access() tells a missing name from a denied
+; one, and everything else is -5. A directory opens with flags 0 but cannot
+; be read, so opendir tells it apart first.
 define internal i64 @open_handle(i64 %path, i64 %mode) {
 entry:
   %rd = icmp eq i64 %mode, 1
@@ -2019,7 +2050,8 @@ isdir:
 directory:
   %cd = call i32 @closedir(ptr %dp)
   call void @free(ptr %b)
-  br label %other_free
+  call void @free(ptr %s)
+  ret i64 -8
 writing:
   %ap = icmp eq i64 %mode, 3
   br i1 %ap, label %opena, label %openw
@@ -2043,9 +2075,16 @@ ok:
   call void @free(ptr %s)
   ret i64 %h
 why:
+  %oe = call i32 @last_errno()
   call void @free(ptr %b)
+  %known = icmp ne i32 %oe, -1
+  br i1 %known, label %by_errno, label %guess
+by_errno:
+  call void @free(ptr %s)
+  %code = call i64 @open_code(i32 %oe, i1 %rd)
+  ret i64 %code
+guess:
   %exists = call i32 @access(ptr %s, i32 0)
-  %e = call i32 @last_errno()
   %unfound = icmp ne i32 %exists, 0
   %want = select i1 %rd, i32 4, i32 2
   %may = call i32 @access(ptr %s, i32 %want)
@@ -2053,13 +2092,7 @@ why:
   call void @free(ptr %s)
   br i1 %unfound, label %gone, label %present
 gone:
-  %nothing = call i1 @errno_missing(i32 %e)
-  %eacces = icmp eq i32 %e, 13
-  %eperm = icmp eq i32 %e, 1
-  %refused = or i1 %eacces, %eperm
-  %rr = select i1 %refused, i64 -4, i64 -5
-  %rg = select i1 %nothing, i64 -3, i64 %rr
-  %g = select i1 %rd, i64 %rg, i64 -5
+  %g = select i1 %rd, i64 -3, i64 -5
   ret i64 %g
 present:
   %p = select i1 %denied, i64 -4, i64 -5
@@ -2069,6 +2102,37 @@ other_free:
   br label %other
 other:
   ret i64 -5
+}
+
+; Whether errno e says permission was refused: EACCES (13), EPERM (1), or
+; EROFS (30), a read-only file system, the same numbers on macOS and Linux.
+define internal i1 @errno_refused(i32 %e) {
+entry:
+  %acces = icmp eq i32 %e, 13
+  %perm = icmp eq i32 %e, 1
+  %rofs = icmp eq i32 %e, 30
+  %a = or i1 %acces, %perm
+  %b = or i1 %a, %rofs
+  ret i1 %b
+}
+
+; The spec section 6.3 code of an open that failed with errno e. Reading: a
+; missing name is -3, refused -4, a directory (EISDIR, 21) -8. Writing: a
+; directory -8; a missing name means the directory it would be in is
+; missing, -9; refused -4. Anything else is -5.
+define internal i64 @open_code(i32 %e, i1 %rd) {
+entry:
+  %missing = call i1 @errno_missing(i32 %e)
+  %refused = call i1 @errno_refused(i32 %e)
+  %isdir = icmp eq i32 %e, 21
+  %r1 = select i1 %isdir, i64 -8, i64 -5
+  %r2 = select i1 %refused, i64 -4, i64 %r1
+  %r3 = select i1 %missing, i64 -3, i64 %r2
+  %w1 = select i1 %refused, i64 -4, i64 -5
+  %w2 = select i1 %missing, i64 -9, i64 %w1
+  %w3 = select i1 %isdir, i64 -8, i64 %w2
+  %r = select i1 %rd, i64 %r3, i64 %w3
+  ret i64 %r
 }
 
 define i64 @l0_open_read(i64 %path) {
@@ -2089,8 +2153,12 @@ entry:
   ret i64 %h
 }
 
-; POSIX rename replaces to in one step, as spec section 6.3 requires. Only a
-; missing source is told apart, by access and its errno.
+; POSIX rename replaces to in one step, as spec section 6.3 requires. When
+; it fails, its errno says why: EXDEV (18) is -10, refused -4, a missing name
+; -3 if from is missing and otherwise -9, since then to's directory is; and
+; to being a directory, by EISDIR (21) or by opendir, since a full one gives
+; ENOTEMPTY, numbered differently on macOS and Linux, is -8. Without errno,
+; only a missing from is told apart, by access.
 define i64 @l0_rename(i64 %from, i64 %to) {
 entry:
   %a = call ptr @to_cstr(i64 %from)
@@ -2112,22 +2180,45 @@ done:
   call void @free(ptr %b)
   ret i64 0
 why:
+  %re = call i32 @last_errno()
   %ex = call i32 @access(ptr %a, i32 0)
-  %e = call i32 @last_errno()
+  %ae = call i32 @last_errno()
+  %dp = call ptr @opendir(ptr %b)
+  %todir = icmp ne ptr %dp, null
+  br i1 %todir, label %shut, label %decide
+shut:
+  %cd = call i32 @closedir(ptr %dp)
+  br label %decide
+decide:
   call void @free(ptr %a)
   call void @free(ptr %b)
   %unfound = icmp ne i32 %ex, 0
-  %nothing = call i1 @errno_missing(i32 %e)
-  %missing = and i1 %unfound, %nothing
-  %c = select i1 %missing, i64 -3, i64 -5
-  ret i64 %c
+  %srcgone = call i1 @errno_missing(i32 %ae)
+  %fromgone = and i1 %unfound, %srcgone
+  %known = icmp ne i32 %re, -1
+  br i1 %known, label %by_errno, label %guess
+guess:
+  %g = select i1 %fromgone, i64 -3, i64 -5
+  ret i64 %g
+by_errno:
+  %xdev = icmp eq i32 %re, 18
+  %refused = call i1 @errno_refused(i32 %re)
+  %missing = call i1 @errno_missing(i32 %re)
+  %eisdir = icmp eq i32 %re, 21
+  %isdir = or i1 %eisdir, %todir
+  %nodir = select i1 %fromgone, i64 -3, i64 -9
+  %c1 = select i1 %isdir, i64 -8, i64 -5
+  %c2 = select i1 %missing, i64 %nodir, i64 %c1
+  %c3 = select i1 %refused, i64 -4, i64 %c2
+  %c4 = select i1 %xdev, i64 -10, i64 %c3
+  ret i64 %c4
 }
 
 ; unlink deletes a name in one step, and a link rather than what it leads
-; to, as spec section 6.3 requires. When it fails, a directory is told apart
-; first, since macOS refuses one with EPERM, which otherwise means denied;
-; then errno says missing (-3) or denied (-4). Without errno, a name access
-; cannot find is missing, and every other failure -5.
+; to, as spec section 6.3 requires. When it fails, a directory (-8) is told
+; apart first, since macOS refuses one with EPERM, which otherwise means
+; denied; then errno says missing (-3) or denied (-4). Without errno, a name
+; access cannot find is missing, and every other failure -5.
 define i64 @l0_remove(i64 %path) {
 entry:
   %s = call ptr @to_cstr(i64 %path)
@@ -2150,7 +2241,7 @@ why:
 directory:
   %cd = call i32 @closedir(ptr %dp)
   call void @free(ptr %s)
-  ret i64 -5
+  ret i64 -8
 file:
   %ex = call i32 @access(ptr %s, i32 0)
   call void @free(ptr %s)
@@ -2162,9 +2253,7 @@ guess:
   ret i64 %g
 known:
   %nothing = call i1 @errno_missing(i32 %e)
-  %eacces = icmp eq i32 %e, 13
-  %eperm = icmp eq i32 %e, 1
-  %refused = or i1 %eacces, %eperm
+  %refused = call i1 @errno_refused(i32 %e)
   %rr = select i1 %refused, i64 -4, i64 -5
   %rk = select i1 %nothing, i64 -3, i64 %rr
   ret i64 %rk

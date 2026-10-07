@@ -32,7 +32,7 @@ run "$exe" "$d/missing" "$d/out2"
 
 run "$exe" "$d/small" "$d/nodir/out"
 [ "$st" = 1 ] || fail "an unwritable destination exited $st, not 1"
-[ "$(cat "$d/err")" = "filecopy: $d/nodir/out: input or output failed" ] ||
+[ "$(cat "$d/err")" = "filecopy: $d/nodir/out: no such directory" ] ||
     fail "for an unwritable destination: $(cat "$d/err")"
 
 run "$exe" only-one

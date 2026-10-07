@@ -26,7 +26,9 @@
         (let closed (file_close dst)
           (if (lt status 0)
               (complain from (io_error status))
-              (if (lt closed 0) (complain to (io_error closed)) 0)))))))
+              (match closed
+                ((NotDone fault why) (complain to why))
+                ((Done) 0))))))))
 
 (def copy ((from (list int)) (to (list int))) int
   (match (open_in from)

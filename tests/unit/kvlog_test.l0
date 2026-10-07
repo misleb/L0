@@ -86,4 +86,4 @@
 
 ; A store that cannot be read is a failure, not an empty store.
 (def test_directory_is_not_a_store () int
-  (check_str "get" (show (kv_get "." "a")) "failed: input or output failed"))
+  (check_str "get" (show (kv_get "." "a")) "failed: is a directory"))

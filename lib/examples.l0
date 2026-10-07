@@ -317,24 +317,36 @@
       (first_line_of (arg 0))))
 
 ; Writes are held back, so a write that fails, on a full disk say, shows only
-; in what file_close or file_flush returns: check it after writing. To replace
-; a file, write the new contents under another name and rename that over the
-; old, so a reader sees the old file or the new one and never half of one.
-; If that fails, remove_file deletes the half-written one rather than leave
-; it behind. The result is "" when it worked, and otherwise why it did not.
+; in what file_close or file_flush returns, an IoDone: (Done), or (NotDone
+; fault why). Check it after writing. To replace a file, write the new
+; contents under another name and rename that over the old, so a reader sees
+; the old file or the new one and never half of one. If that fails,
+; remove_file deletes the half-written one rather than leave it behind. The
+; result is "" when it worked, and otherwise why it did not.
 (def replace_file ((path (list int)) (text (list int))) (list int)
   (let tmp (append path ".new")
     (match (open_out tmp)
       ((IoFailed fault why) why)
       ((IoOpened f)
         (let w (file_write_str f text)
-          (let c (file_close f)
-            (if (lt c 0)
-                (let d (remove_file tmp) (io_error c))
-                (let r (rename_file tmp path)
-                  (if (lt r 0)
-                      (let d (remove_file tmp) (io_error r))
-                      "")))))))))
+          (match (file_close f)
+            ((NotDone fault why) (let d (remove_file tmp) why))
+            ((Done)
+              (match (rename_file tmp path)
+                ((NotDone fault why) (let d (remove_file tmp) why))
+                ((Done) "")))))))))
+
+; Each operation's failures are a type of their own, as opening's are, so
+; code can tell them apart with eq: renaming a file onto a directory, or
+; across file systems, says so. A program that only needs to know whether it
+; worked asks is_done.
+(def rename_why ((from (list int)) (to (list int))) (list int)
+  (match (rename_file from to)
+    ((Done) "")
+    ((NotDone fault why)
+      (if (eq fault (RenameCrossDevice))
+          (append to " is on another file system: copy it, then remove the first")
+          why))))
 
 ; open_appending writes at the end of a file, creating it if need be, so a
 ; log keeps every line written to it.
@@ -343,8 +355,9 @@
     ((IoFailed fault why) why)
     ((IoOpened f)
       (let w (file_write_str f (append line "\n"))
-        (let c (file_close f)
-          (if (lt c 0) (io_error c) ""))))))
+        (match (file_close f)
+          ((NotDone fault why) why)
+          ((Done) ""))))))
 
 ; A function that reads or writes an IoFile cannot tell a file on disk from
 ; one in memory, so it is tested on a string: open_in_bytes reads one, and

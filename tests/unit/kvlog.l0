@@ -24,7 +24,7 @@
     ((IoFailed fault why) 1)
     ((IoOpened f)
       (let w (file_write_str f rec)
-        (if (lt (file_close f) 0) 1 0)))))
+        (if (is_done (file_close f)) 0 1)))))
 
 (def kv_set ((path (list int)) (key (list int)) (value (list int))) int
   (kv_append path (record 43 key value)))
@@ -108,9 +108,9 @@
       ((IoFailed fault why) 1)
       ((IoOpened f)
         (let w (write_entries f es)
-          (if (lt (file_close f) 0)
-              1
-              (if (lt (rename_file tmp path) 0) 1 0)))))))
+          (if (is_done (file_close f))
+              (if (is_done (rename_file tmp path)) 0 1)
+              1))))))
 
 (def write_entries ((f IoFile) (es (list Entry))) int
   (if (is_empty es)

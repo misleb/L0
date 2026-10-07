@@ -173,11 +173,13 @@
     ((IoFailed fault why) (fail_because name (append path (append ": " why))))
     ((IoOpened f)
       (let w (file_write_str f got)
-        (if (lt (file_close f) 0)
-            (fail_because name (append "could not write " path))
+        (match (file_close f)
+          ((NotDone fault why)
+            (fail_because name (append "could not write " (append path (append ": " why)))))
+          ((Done)
             (let p (write_line (append "ok " (append name
                      (append " (blessed " (append path ")")))))
-              0))))))
+              0)))))))
 
 ; ------------------------------------------------------------ random inputs
 

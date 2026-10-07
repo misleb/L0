@@ -23,7 +23,16 @@
     (add (check_str "-2" (io_error -2) "not open in that direction")
       (add (check_str "-3" (io_error -3) "no such file")
         (add (check_str "-4" (io_error -4) "permission denied")
-             (check_str "-5" (io_error -5) "input or output failed"))))))
+          (add (check_str "-5" (io_error -5) "input or output failed")
+               (io_error_more_messages)))))))
+
+(def io_error_more_messages () int
+  (add (check_str "-6" (io_error -6) "no space left")
+    (add (check_str "-7" (io_error -7) "the reader has gone")
+      (add (check_str "-8" (io_error -8) "is a directory")
+        (add (check_str "-9" (io_error -9) "no such directory")
+          (add (check_str "-10" (io_error -10) "on another file system")
+               (check_str "-11" (io_error -11) "input or output failed")))))))
 
 (def test_wrong_direction () int
   (add (check_int "write to standard input" (write_to 0 65) -2)
@@ -53,12 +62,13 @@
 (def test_open_missing_file_raw () int
   (check_int "open_read" (open_read "/nonexistent/l0/file") -3))
 
-; Creating a file has no missing case: spec 6.3 gives a missing directory -5.
+; Creating a file has no missing case: spec 6.3 gives a missing directory
+; -9, its own case.
 (def test_create_in_missing_directory () int
   (match (open_out "no/such/directory/file.txt")
     ((IoFailed fault why)
-      (add (check_true "case" (eq fault (CreateFailed)))
-           (check_str "words" why "input or output failed")))
+      (add (check_true "case" (eq fault (CreateNoDirectory)))
+           (check_str "words" why "no such directory")))
     ((IoOpened f) (check_true "should not have opened" false))))
 
 ; A path holding a zero byte cannot name a file.
@@ -70,16 +80,16 @@
 (def test_read_a_directory () int
   (match (open_in ".")
     ((IoFailed fault why)
-      (add (check_true "case" (eq fault (OpenFailed)))
-           (check_str "words" why "input or output failed")))
+      (add (check_true "case" (eq fault (OpenIsDirectory)))
+           (check_str "words" why "is a directory")))
     ((IoOpened f)
       (let c (file_close f)
         (check_true "a directory should not open" false)))))
 
 (def test_directories_do_not_open () int
-  (add (check_int "open_read" (open_read ".") -5)
-    (add (check_int "open_write" (open_write ".") -5)
-         (check_int "open_append" (open_append ".") -5))))
+  (add (check_int "open_read" (open_read ".") -8)
+    (add (check_int "open_write" (open_write ".") -8)
+         (check_int "open_append" (open_append ".") -8))))
 
 ; --------------------------------------------------- writing and reading back
 
@@ -88,7 +98,7 @@
     ((IoFailed fault why) 1)
     ((IoOpened f)
       (let w (file_write_str f "one\n\nthree")
-        (file_close f)))))
+        (if (is_done (file_close f)) 0 1)))))
 
 (def test_write_then_read () int
   (add (check_int "close after writing" (write_lines_file "lines.txt") 0)
@@ -208,7 +218,7 @@
     ((IoFailed fault why) 1)
     ((IoOpened f)
       (let w (file_write_str f s)
-        (file_close f)))))
+        (if (is_done (file_close f)) 0 1)))))
 
 (def test_append_creates () int
   (add (check_int "close" (append_str "appended.txt" "a") 0)
@@ -223,8 +233,8 @@
 (def test_append_in_missing_directory () int
   (match (open_appending "no/such/directory/file.txt")
     ((IoFailed fault why)
-      (add (check_true "case" (eq fault (CreateFailed)))
-           (check_str "words" why "input or output failed")))
+      (add (check_true "case" (eq fault (CreateNoDirectory)))
+           (check_str "words" why "no such directory")))
     ((IoOpened f) (check_true "should not have opened" false))))
 
 ; Two handles appending to one file: each delivery goes at the end as the
@@ -246,31 +256,55 @@
     ((IoFailed fault why) 1)
     ((IoOpened f)
       (let w (file_write_str f s)
-        (file_close f)))))
+        (if (is_done (file_close f)) 0 1)))))
 
 (def test_rename_replaces () int
   (let a (write_file "new.txt" "new")
     (let b (write_file "old.txt" "old")
       (let r (rename_file "new.txt" "old.txt")
-        (add (check_int "rename" r 0)
+        (add (check_true "rename" (is_done r))
           (add (check_str "contents" (contents "old.txt") "new")
                (check_int "old name gone" (open_read "new.txt") -3)))))))
 
 (def test_rename_to_a_new_name () int
   (let a (write_file "before.txt" "x")
     (let r (rename_file "before.txt" "after.txt")
-      (add (check_int "rename" r 0)
+      (add (check_true "rename" (is_done r))
            (check_str "contents" (contents "after.txt") "x")))))
 
+; An IoDone is a value like any other, so a test compares the whole of it,
+; case and words, with eq.
 (def test_rename_missing_source () int
-  (check_int "rename" (rename_file "no_such_source.txt" "target.txt") -3))
+  (check_true "rename"
+    (eq (rename_file "no_such_source.txt" "target.txt")
+        (NotDone (RenameMissing) "no such file"))))
 
 ; A failed rename changes neither name.
 (def test_rename_into_missing_directory () int
   (let a (write_file "stays.txt" "here")
     (let r (rename_file "stays.txt" "no/such/directory/x.txt")
-      (add (check_int "rename" r -5)
+      (add (check_true "rename" (eq r (NotDone (RenameNoDirectory) "no such directory")))
            (check_str "source kept" (contents "stays.txt") "here")))))
+
+(def test_rename_onto_a_directory () int
+  (let a (write_file "onto.txt" "x")
+    (let r (rename_file "onto.txt" ".")
+      (add (check_true "rename" (eq r (NotDone (RenameIsDirectory) "is a directory")))
+           (check_str "source kept" (contents "onto.txt") "x")))))
+
+; Closing twice is not a lost byte: the second close says the file is not
+; open. Flushing a buffer, which holds nothing back, is always done.
+(def test_close_twice () int
+  (match (open_out_buffer)
+    ((IoFailed fault why) (check_str "open" why ""))
+    ((IoOpened f)
+      (let a (file_flush f)
+        (let b (file_close f)
+          (let c (file_close f)
+            (add (check_true "flush" (is_done a))
+              (add (check_true "first close" (is_done b))
+                   (check_true "second close"
+                     (eq c (NotDone (WriteNotOpen) "not open in that direction")))))))))))
 
 (def test_rename_zero_byte_in_path () int
   (let a (write_file "zero.txt" "z")
