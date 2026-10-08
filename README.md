@@ -67,8 +67,10 @@ compiler from source and the result works.
 
 - `spec/L0.md` — the language, and the only specification of it; changes are
   recorded in `spec/changelog.md` rather than as numbered versions
-- `runtime/l0rt.ll` — allocation and reference counting, host I/O, the clock,
-  and the entry point, as LLVM IR calling libc
+- `runtime/l0rt.ll` — allocation and reference counting, buffered I/O, and
+  stack checks, as LLVM IR the same on every host, calling the host only
+  through a small interface; `runtime/host-libc.ll` implements that
+  interface with libc, and defines the entry point
 - `compiler/*.l0` — lexer, parser, checker, and emitter, **written in L0**
 - `bootstrap/stage2.ll` — the compiler, compiled, as checked-in LLVM IR text
 - `stage0/l0i.c` — an interpreter in C, now **frozen**: no longer part of the
@@ -96,10 +98,11 @@ This needs `clang` and nothing from L0. **Installing L0 does not require an
 existing L0 compiler**, which is the whole point of checking in
 `bootstrap/stage2.ll`.
 
-**No C is compiled, at install or ever.** Installing assembles two files of
-LLVM IR text:
+**No C is compiled, at install or ever.** Installing assembles three files
+of LLVM IR text:
 
 - `runtime/l0rt.ll`, the runtime, becomes `lib/l0/l0rt.o`, as LLVM bitcode
+- `runtime/host-libc.ll`, its host file, becomes `lib/l0/l0host.o`
 - `bootstrap/stage2.ll`, the compiler, is linked into `lib/l0/l0c`
 
 `l0 build` links the prebuilt runtime into your program with link-time
@@ -116,8 +119,8 @@ L0.
 Every compiled L0 program links against the runtime, because L0 has no
 pointers and no raw memory: it cannot express `cons` allocating a cell, or a
 buffered read of stdin, or running on a large stack and reporting exhaustion
-as an error. The runtime is hand-written IR that calls libc, the same text on
-every host. Self-hosting means the compiler is written in L0; it does not mean
+as an error. The runtime is hand-written IR, the same text on every host,
+and only its host file, `runtime/host-libc.ll`, calls libc. Self-hosting means the compiler is written in L0; it does not mean
 the system is built from L0 alone, and by choice it will not: L0 gains
 facilities the runtime implements safely, rather than the primitives to write
 the runtime itself. `spec/changelog.md` has the reasoning, under "The route to
@@ -452,8 +455,9 @@ not have. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 
 ```
 spec/          L0.md (what the language is) and changelog.md (why)
-runtime/       l0rt.ll, the runtime: allocation, reference counting, host
-               I/O, the clock, entry point
+runtime/       l0rt.ll, the runtime: allocation, reference counting,
+               buffered I/O, stack checks; host-libc.ll, its host file:
+               libc, the clock, the entry point
 compiler/      the L0 compiler, written in L0
 lib/           the standard library (prelude.l0, io.l0, test.l0), examples,
                and the AGENTS.md and skill `l0 init` copies into a project

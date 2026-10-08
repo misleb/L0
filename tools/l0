@@ -34,8 +34,9 @@
 #
 # Paths are relative to wherever you are, so this works from anywhere.
 #
-# L0_COMPILER and L0_RUNTIME name a compiler and runtime object to use instead
-# of the installed ones; tools/test.sh --compiled points them at the ones it
+# L0_COMPILER, L0_RUNTIME, and L0_HOST name a compiler, a runtime object,
+# and the host object linked with it (spec section 10.3) to use instead of
+# the installed ones; tools/test.sh --compiled points them at the ones it
 # just built, so it tests the current compiler rather than the seed's.
 
 set -eu
@@ -75,12 +76,13 @@ find_cc() {
 # clang but no existing L0.
 ensure_toolchain() {
     root=$(cd "$LIB/.." && pwd)
-    if [ -x "$LIB/l0c" ] && [ -f "$LIB/l0rt.o" ]; then
+    if [ -x "$LIB/l0c" ] && [ -f "$LIB/l0rt.o" ] && [ -f "$LIB/l0host.o" ]; then
         if [ ! -f "$root/bootstrap/stage2.ll" ]; then
             return 0
         fi
         if [ ! "$root/bootstrap/stage2.ll" -nt "$LIB/l0c" ] &&
-            [ ! "$root/runtime/l0rt.ll" -nt "$LIB/l0rt.o" ]; then
+            [ ! "$root/runtime/l0rt.ll" -nt "$LIB/l0rt.o" ] &&
+            [ ! "$root/runtime/host-libc.ll" -nt "$LIB/l0host.o" ]; then
             return 0
         fi
     fi
@@ -197,6 +199,7 @@ setup() {
     fi
     COMPILER=${L0_COMPILER:-$LIB/l0c}
     RUNTIME=${L0_RUNTIME:-$LIB/l0rt.o}
+    HOST=${L0_HOST:-$LIB/l0host.o}
     SOURCES=$FILES
     PRELUDE_END=0
     if [ "$WANT_TEST" = 1 ]; then
@@ -466,7 +469,7 @@ case "$cmd" in
         [ -n "$OUT" ] || OUT=$(default_out)
         run_compiler "$TMP/out.ll"
         "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
-            -o "$OUT"
+            "$HOST" -o "$OUT"
         ;;
 
     run)
@@ -488,7 +491,7 @@ case "$cmd" in
         setup $own
         run_compiler "$TMP/out.ll"
         "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
-            -o "$TMP/prog"
+            "$HOST" -o "$TMP/prog"
         "$TMP/prog" "$@"
         ;;
 
@@ -533,7 +536,7 @@ case "$cmd" in
         SOURCES="$SOURCES $gen"
         run_compiler "$TMP/out.ll"
         "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
-            -o "$TMP/prog"
+            "$HOST" -o "$TMP/prog"
 
         selected=""
         for t in $tests; do

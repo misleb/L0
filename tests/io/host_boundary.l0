@@ -1,0 +1,4 @@
+; host_boundary.sh checks the runtime's text, not this program, which is
+; here because every tests/io script runs beside one.
+(def main ((input (list int))) (list int)
+  input)

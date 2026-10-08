@@ -78,7 +78,8 @@ that this file deliberately omits.
 
 ```
 spec/          L0.md (the language) and changelog.md (why it is that way)
-runtime/       l0rt.ll, the runtime every compiled program links, as LLVM IR
+runtime/       l0rt.ll, the runtime every compiled program links, as LLVM IR,
+               and host-libc.ll, its host file, the only one calling libc
 compiler/      the L0 compiler, written in L0
 lib/           the standard library (prelude.l0, which is compiler source too,
                io.l0, test.l0), the examples, and what l0 init copies

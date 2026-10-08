@@ -19,7 +19,8 @@ l0: unknown option --target
 
 - the checklist in the `l0-bootstrap` skill
 - `runtime/host-virt.ll` implements 0070's host interface for the board,
-  from `roadmap/0068/metal.ll`, as 0069's spec says a host without an
+  from `roadmap/0068/metal.ll` (which supplied libc to `l0rt.ll` as of
+  commit 146d854, and does not link with the `l0rt.ll` 0070 left), as 0069's spec says a host without an
   operating system behaves, with an allocator that splits and merges
   blocks rather than 0068's power-of-two classes
 - `tools/l0 build --target virt` produces an image, linking it in a

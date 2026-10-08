@@ -27,15 +27,18 @@
 # link_quick IR OUT links IR against the runtime at -O0, which is a tenth of
 # what tools/l0ll's -O2 -flto costs, for binaries that are rebuilt often and
 # run briefly. A tail call is musttail at any level (spec section 8). It links
-# build/l0rt-native.o, the runtime as machine code, not build/l0rt.o, which
-# is bitcode: with that, even an -O0 link runs LTO, and GNU ld, on Linux,
-# refuses it without -flto (tools/build.sh).
+# build/l0rt-native.o and build/l0host-native.o, the runtime as machine
+# code, not build/l0rt.o and build/l0host.o, which are bitcode: with those,
+# even an -O0 link runs LTO, and GNU ld, on Linux, refuses it without -flto
+# (tools/build.sh).
 link_quick() {
-    if [ ! -f "$BUILD/l0rt-native.o" ] ||
-        [ "$ROOT/runtime/l0rt.ll" -nt "$BUILD/l0rt-native.o" ]; then
+    if [ ! -f "$BUILD/l0rt-native.o" ] || [ ! -f "$BUILD/l0host-native.o" ] ||
+        [ "$ROOT/runtime/l0rt.ll" -nt "$BUILD/l0rt-native.o" ] ||
+        [ "$ROOT/runtime/host-libc.ll" -nt "$BUILD/l0host-native.o" ]; then
         "$ROOT/tools/build.sh" > /dev/null
     fi
-    "$CC" -O0 -Wno-override-module "$1" "$BUILD/l0rt-native.o" -o "$2"
+    "$CC" -O0 -Wno-override-module "$1" "$BUILD/l0rt-native.o" \
+        "$BUILD/l0host-native.o" -o "$2"
 }
 
 current_compiler() {
@@ -51,7 +54,8 @@ current_compiler() {
 
     if [ -x "$cc_bin" ] && [ -f "$cc_src" ] && cmp -s "$cc_tmp.l0" "$cc_src" &&
         [ ! "$ROOT/bootstrap/stage2.ll" -nt "$cc_bin" ] &&
-        [ ! "$ROOT/runtime/l0rt.ll" -nt "$cc_bin" ]; then
+        [ ! "$ROOT/runtime/l0rt.ll" -nt "$cc_bin" ] &&
+        [ ! "$ROOT/runtime/host-libc.ll" -nt "$cc_bin" ]; then
         rm -f "$cc_tmp.l0"
         echo "$cc_bin"
         return 0
@@ -59,7 +63,8 @@ current_compiler() {
 
     seed="$BUILD/l0c-seed"
     if [ ! -x "$seed" ] || [ "$ROOT/bootstrap/stage2.ll" -nt "$seed" ] ||
-        [ "$ROOT/runtime/l0rt.ll" -nt "$seed" ]; then
+        [ "$ROOT/runtime/l0rt.ll" -nt "$seed" ] ||
+        [ "$ROOT/runtime/host-libc.ll" -nt "$seed" ]; then
         if [ ! -f "$ROOT/bootstrap/stage2.ll" ]; then
             echo "error: no seed at bootstrap/stage2.ll to build the compiler with" >&2
             rm -f "$cc_tmp.l0"

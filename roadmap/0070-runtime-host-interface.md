@@ -1,7 +1,8 @@
 # 0070: the runtime calls a host interface, with libc behind it
 
 Kind: language
-Status: queued
+Status: done, changelog "The runtime reaches its host through an interface
+of its own"
 Needs: 0069
 
 ## Why
@@ -46,3 +47,18 @@ with libc.
 ## Log
 
 - 2026-10-08: opened by 0068's recommendation, item 2.
+- 2026-10-08: done. Spec 10.3 names 14 `l0_host_` functions, whose
+  failures are 6.3 codes, and `@l0_rt_run(size)`, which the host's entry
+  point calls on a stack of that size. `runtime/host-libc.ll` holds
+  everything that touched libc, moved unchanged but for returning codes:
+  errno by `dlsym`, the `access` and `opendir` probes, `fopen` for
+  appending, SIGPIPE, the standard descriptors, the 512 MB thread, and
+  `main`. `l0rt.ll` calls only the interface, `memcmp`, and LLVM
+  intrinsics. The tools link two objects, `l0rt.o` and `l0host.o`
+  (`L0_HOST` overrides the second), since merging them would need
+  `llvm-link`. `tests/io/host_boundary` checks the boundary, and flags 29
+  libc declarations in the old `l0rt.ll`. No compiler change, so no seed
+  refresh. Both suites green (65, and 132 compiled), fixpoint holds, Linux
+  arm64 green (65 and 132). The seed compiles the compiler in 0.20 s,
+  against 0.21 s before, with byte-identical output.
+  `roadmap/0068/metal.ll` no longer links with `l0rt.ll`; 0071 replaces it.

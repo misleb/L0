@@ -7,6 +7,88 @@ New entries go at the top.
 
 ---
 
+## The runtime reaches its host through an interface of its own
+
+**No program behaves differently.** Every output, error, and exit status
+is what it was. What changed is how the runtime is made: section 10.3 now
+names a host interface of 14 `l0_host_` functions, `runtime/l0rt.ll` calls
+the host only through it, and a host file implements it. On macOS and
+Linux that is the new `runtime/host-libc.ll`, the only file that calls
+libc, and it defines the entry point, which calls `l0rt.ll`'s
+`@l0_rt_run`. The functions compiled code calls are untouched, so the seed
+is too.
+
+**The evidence.** Roadmap item 0068 ran the compiler on QEMU's virt board
+by supplying, in `roadmap/0068/metal.ll`, the 30 libc functions `l0rt.ll`
+declared. That worked only by steering `l0rt.ll` into fallbacks written
+for other reasons:
+
+```llvm
+define i32 @pthread_create(ptr %t, ptr %a, ptr %f, ptr %arg) {
+entry:
+  ret i32 11      ; fails, so l0rt.ll's main runs the program on its own stack
+}
+
+define ptr @dlsym(ptr %h, ptr %name) {
+entry:
+  ret ptr null    ; finds nothing, so errno reads as -1
+}
+```
+
+and `dup` returning 3 so that the standard descriptors looked open. Any
+change to those paths, made for macOS or Linux, would have broken the
+board, and nothing run on macOS or Linux would have seen it.
+
+**Why the host gives codes, not errno.** Every interface result that can
+fail is a section 6.3 code. errno's numbers, how to reach it (`dlsym` of
+`__error` or `__errno_location`), and the probes that tell causes apart
+(`access`, `opendir`) are all facts about POSIX hosts, and moved with the
+code that uses them into `host-libc.ll`, unchanged. A host without an
+operating system then answers in the terms section 9.2 already uses: an
+open of a file it does not have is -3 because the host says so, not
+because `access` happened to fail.
+
+**What stays in `l0rt.ll`.** The handle table and its buffering, the
+conversion of a path list to a NUL-terminated string, the state of a
+handle after a failed write, and the stack check: everything section 6.3
+says about handles, which is the same on every host. It calls `memcmp`,
+which C requires of every environment, an operating system or none, and
+LLVM's memory intrinsics, which lower to `memcpy`, `memmove`, and `memset`
+that every host must supply anyway.
+
+**Why the large stack is the host's.** Making a thread is a host facility
+a board may not have. `l0rt.ll` is given the size of the stack below the
+frame it starts in and sets its limit from that, so `host-libc.ll` can run
+it on a 512 MB thread, or on the process's own stack when the thread
+cannot be made, and a board on its boot stack, without `l0rt.ll` knowing
+which.
+
+**Two objects rather than one.** `tools/build.sh` and `tools/install.sh`
+assemble the files into `l0rt.o` and `l0host.o`, and every link takes
+both. Merging them into one object would need `llvm-link`, which is not
+part of what installing needs today, `clang` alone. Keeping them apart is
+also what roadmap item 0071 needs: a board's build links another host
+object in place of `l0host.o`. `L0_HOST` names it, as `L0_RUNTIME` names
+the runtime.
+
+**The host interface is not pinned by the seed.** The seed declares the
+`l0_` functions compiled code calls, so those stay append-only. The
+`l0_host_` functions are called only by `l0rt.ll` and defined only by a
+host file, both linked fresh into every program, so they can change
+whenever both do.
+
+`tests/io/host_boundary` checks the boundary: `l0rt.ll` declares nothing
+but the host interface, LLVM intrinsics, `memcmp`, and `@l0_f_main`, and
+`host-libc.ll` defines every `l0_host_` function it declares. Run on
+`l0rt.ll` as it was, it lists 29 libc functions.
+
+**What this costs the prototype.** `roadmap/0068/metal.ll` supplied libc
+to the old `l0rt.ll`, and does not link with the new one. It still builds
+against `l0rt.ll` as of the commit that added it, and item 0071 rewrites
+it as a host file.
+
+---
+
 ## What a host without an operating system gives
 
 **No program behaves differently on macOS or Linux.** The new section 9.2

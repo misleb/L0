@@ -259,7 +259,8 @@ if [ "$COMPILED" = 1 ]; then
     L0_RC_CHECK=1
     L0_COMPILER="$BUILD/l0c-native"
     L0_RUNTIME="$BUILD/l0rt.o"
-    export L0_RC_CHECK L0_COMPILER L0_RUNTIME
+    L0_HOST="$BUILD/l0host.o"
+    export L0_RC_CHECK L0_COMPILER L0_RUNTIME L0_HOST
 
     nskip=0
 
@@ -399,7 +400,8 @@ if [ "$COMPILED" = 1 ]; then
         mkdir -p "$udir"
         # shellcheck disable=SC2046
         if (cd "$udir" && L0_COMPILER="$BUILD/l0c-native" \
-            L0_RUNTIME="$BUILD/l0rt.o" "$ROOT/tools/l0" test "$ROOT/$src" \
+            L0_RUNTIME="$BUILD/l0rt.o" L0_HOST="$BUILD/l0host.o" \
+            "$ROOT/tools/l0" test "$ROOT/$src" \
             $(extra_sources "$ROOT/tests/unit/$name" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
             > "$udir.tap" 2>&1; then
             npass=$((npass + 1))
@@ -430,7 +432,7 @@ for src in tests/backend/*.ll; do
     exe="$TMP/backend-$name"
 
     if ! "$CC" -O2 -flto -Wno-override-module "$src" "$BUILD/l0rt.o" \
-        -o "$exe" 2> "$TMP/link.err"; then
+        "$BUILD/l0host.o" -o "$exe" 2> "$TMP/link.err"; then
         nfail=$((nfail + 1))
         failures="$failures backend/$name"
         echo "FAIL backend/$name: link failed"

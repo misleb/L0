@@ -60,11 +60,9 @@ hypervisor handles if the suite is too slow (0073).
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0070](0070-runtime-host-interface.md) the runtime calls a host
-   interface, with libc behind it — queued, next
-2. [0071](0071-virt-board-runtime.md) a runtime for QEMU's virt board, and
-   l0 build for it — queued, needs 0070
-3. [0073](0073-exit-without-semihosting.md) an exit that works under the
+1. [0071](0071-virt-board-runtime.md) a runtime for QEMU's virt board, and
+   l0 build for it — queued, next
+2. [0073](0073-exit-without-semihosting.md) an exit that works under the
    hypervisor — proposed, needs 0072, and only if it finds the suite too
    slow
 
@@ -252,3 +250,6 @@ Changes to the language, strictly in order. At most one is active.
 - [0069](0069-host-without-an-os.md) the spec says what a host without an
   operating system gives — done, changelog "What a host without an
   operating system gives"
+- [0070](0070-runtime-host-interface.md) the runtime calls a host interface,
+  with libc behind it — done, changelog "The runtime reaches its host
+  through an interface of its own"; passed on Linux arm64

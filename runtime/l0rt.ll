@@ -3,51 +3,27 @@
 ; implements, for either form of main; section 6.2 is what read_byte and
 ; write_byte promise.
 ;
-; It carries no target triple, and must stay the same text on every host, so
-; it avoids everything whose shape differs between operating systems: it
-; calls libc through file descriptors rather than FILE*, but for the one
-; fopen that opens for appending; passes no variadic argument, since open,
-; declared variadic as libc's is, is only ever given its two fixed ones; and
-; uses no signal handling beyond ignoring SIGPIPE, which is 13 with SIG_IGN 1 on both
-; macOS and Linux, and no struct whose layout libc defines. errno is reached
-; through whichever of macOS's __error and Linux's __errno_location dlsym
-; finds, and only codes with the same number on both are read from it
-; (host_setup). pthread_attr_t is
-; an opaque buffer larger than any platform's, and a FILE or DIR pointer is
-; only handed back to libc, never read. The only structs it reads are struct
-; rlimit, two 64-bit words everywhere, with RLIMIT_STACK = 3 on both macOS
-; and Linux, and struct timespec, two 64-bit words everywhere, with
-; CLOCK_MONOTONIC_RAW = 4 on both.
+; It carries no target triple, and is the same text on every host. It
+; reaches the host only through the l0_host_ functions of spec section 10.3,
+; which a host file defines: runtime/host-libc.ll on macOS and Linux. Beyond
+; those it calls only memcmp, as every C environment provides, and LLVM's
+; memory intrinsics. A host file's results are already spec section 6.3's
+; codes, so nothing here knows how a host tells its failures apart.
 
-declare i64 @read(i32, ptr, i64)
-declare i64 @write(i32, ptr, i64)
-declare void @_exit(i32) noreturn
-declare ptr @malloc(i64)
-declare ptr @realloc(ptr, i64)
-declare void @free(ptr)
-declare ptr @getenv(ptr)
-declare i64 @strtol(ptr, ptr, i32)
-declare i32 @getrlimit(i32, ptr)
-declare i32 @clock_gettime(i32, ptr)
-declare i32 @pthread_attr_init(ptr)
-declare i32 @pthread_attr_setstacksize(ptr, i64)
-declare i32 @pthread_create(ptr, ptr, ptr, ptr)
-declare i32 @pthread_join(i64, ptr)
-declare i32 @open(ptr, i32, ...)
-declare i32 @creat(ptr, i32)
-declare i32 @close(i32)
-declare i32 @access(ptr, i32)
-declare i32 @rename(ptr, ptr)
-declare i32 @unlink(ptr)
-declare i32 @dup(i32)
-declare ptr @fopen(ptr, ptr)
-declare i32 @fileno(ptr)
-declare i32 @fclose(ptr)
-declare ptr @opendir(ptr)
-declare i32 @closedir(ptr)
-declare ptr @signal(i32, ptr)
-declare ptr @dlopen(ptr, i32)
-declare ptr @dlsym(ptr, ptr)
+declare ptr @l0_host_alloc(i64)
+declare ptr @l0_host_resize(ptr, i64)
+declare void @l0_host_free(ptr)
+declare i64 @l0_host_read(i64, ptr, i64)
+declare i64 @l0_host_write(i64, ptr, i64)
+declare i64 @l0_host_open(ptr, i64)
+declare i64 @l0_host_close(i64)
+declare i64 @l0_host_rename(ptr, ptr)
+declare i64 @l0_host_remove(ptr)
+declare i64 @l0_host_clock_ns()
+declare i64 @l0_host_arg_count()
+declare ptr @l0_host_arg(i64)
+declare ptr @l0_host_setting(ptr)
+declare void @l0_host_exit(i64) noreturn
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
@@ -61,11 +37,6 @@ declare i64 @l0_f_main(i64)
 @arena_cur = internal global i64 0
 @arena_end = internal global i64 0
 @stack_limit = internal global i64 0
-@stack_bytes = internal global i64 0
-@exit_status = internal global i64 0
-
-@argc = internal global i64 0
-@argv = internal global ptr null
 
 ; The handle table of spec section 6.3. A handle is an index into it. mode is
 ; 0 for closed, 1 for reading, and 2 for writing; state is 0 when all is well,
@@ -108,9 +79,7 @@ declare i64 @l0_f_main(i64)
 @m_write = private constant [12 x i8] c"write failed"
 @s_true = private constant [5 x i8] c"true\0A"
 @s_false = private constant [6 x i8] c"false\0A"
-@env_name = private constant [12 x i8] c"L0_STACK_MB\00"
 @check_name = private constant [12 x i8] c"L0_RC_CHECK\00"
-@mode_a = private constant [2 x i8] c"a\00"
 @m_uaf = private constant [20 x i8] c"use of a freed block"
 @m_live = private constant [23 x i8] c"l0: blocks still live: "
 @m_range = private constant [24 x i8] c"array index out of range"
@@ -120,19 +89,13 @@ declare i64 @l0_f_main(i64)
 @m_copies = private constant [18 x i8] c"l0: array copies: "
 @m_inplace = private constant [25 x i8] c"l0: array sets in place: "
 @m_words = private constant [24 x i8] c"l0: array words copied: "
-@dev_null = private constant [10 x i8] c"/dev/null\00"
-@s_error = private constant [8 x i8] c"__error\00"
-@s_errno_loc = private constant [17 x i8] c"__errno_location\00"
-
-; The host's function returning a pointer to the calling thread's errno, or
-; null if neither name was found, in which case causes are not told apart.
-@errno_fn = internal global ptr null
-
 ; ------------------------------------------------------------------ errors
 
-; Returns 0 if every byte was written, -1 if the descriptor refused some.
+; Returns 0 if every byte was written, or the spec section 6.3 code of the
+; write that failed: -5, -6, or -7.
 define internal i64 @write_all_rc(i32 %fd, ptr %p, i64 %n) {
 entry:
+  %s = sext i32 %fd to i64
   br label %loop
 loop:
   %cp = phi ptr [ %p, %entry ], [ %np, %more ]
@@ -140,8 +103,8 @@ loop:
   %done = icmp sle i64 %cn, 0
   br i1 %done, label %ok, label %body
 body:
-  %w = call i64 @write(i32 %fd, ptr %cp, i64 %cn)
-  %bad = icmp sle i64 %w, 0
+  %w = call i64 @l0_host_write(i64 %s, ptr %cp, i64 %cn)
+  %bad = icmp slt i64 %w, 0
   br i1 %bad, label %fail, label %more
 more:
   %np = getelementptr i8, ptr %cp, i64 %w
@@ -150,7 +113,7 @@ more:
 ok:
   ret i64 0
 fail:
-  ret i64 -1
+  ret i64 %w
 }
 
 define internal void @write_all(i32 %fd, ptr %p, i64 %n) {
@@ -178,14 +141,14 @@ done:
 
 ; Bytes the program wrote, to any handle, are delivered before the
 ; diagnostic, and a main that takes its input never has its result written,
-; as spec section 8 requires. _exit skips atexit handlers.
+; as spec section 8 requires.
 define internal void @rt_error(ptr %m, i64 %n) noreturn noinline {
 entry:
   call void @flush_every()
   call void @write_all(i32 2, ptr @pfx, i64 19)
   call void @write_all(i32 2, ptr %m, i64 %n)
   call void @write_all(i32 2, ptr @nl, i64 1)
-  call void @_exit(i32 70)
+  call void @l0_host_exit(i64 70)
   unreachable
 }
 
@@ -204,7 +167,7 @@ entry:
 grow:
   %big = icmp ugt i64 %b, 67108864
   %want = select i1 %big, i64 %b, i64 67108864
-  %chunk = call ptr @malloc(i64 %want)
+  %chunk = call ptr @l0_host_alloc(i64 %want)
   %null = icmp eq ptr %chunk, null
   br i1 %null, label %oom, label %ok
 oom:
@@ -393,7 +356,7 @@ grow:
   %c3 = select i1 %none, i64 1024, i64 %c2
   %bytes = mul i64 %c3, 8
   %old = load ptr, ptr @wl
-  %new = call ptr @realloc(ptr %old, i64 %bytes)
+  %new = call ptr @l0_host_resize(ptr %old, i64 %bytes)
   %bad = icmp eq ptr %new, null
   br i1 %bad, label %oom, label %grown
 oom:
@@ -638,7 +601,7 @@ entry:
 try:
   %w = add i64 %n, 2
   %bytes = mul i64 %w, 8
-  %m = call ptr @malloc(i64 %bytes)
+  %m = call ptr @l0_host_alloc(i64 %bytes)
   %null = icmp eq ptr %m, null
   br i1 %null, label %oom, label %ok
 oom:
@@ -921,13 +884,13 @@ poison:
   store i64 0, ptr %qq
   ret void
 give:
-  call void @free(ptr %hq)
+  call void @l0_host_free(ptr %hq)
   ret void
 }
 
 define internal void @arr_stats() {
 entry:
-  %e = call ptr @getenv(ptr @stats_name)
+  %e = call ptr @l0_host_setting(ptr @stats_name)
   %on = icmp ne ptr %e, null
   br i1 %on, label %report, label %done
 report:
@@ -1068,81 +1031,6 @@ entry:
   ret void
 }
 
-; Before the program's thread starts, spec section 6.3. A write to a pipe
-; whose reader has gone fails rather than stopping the process. A standard
-; descriptor the host left closed is opened on /dev/null in the other
-; direction, so every read or write of it fails and no file the program
-; opens takes its number. And errno's accessor is found.
-define internal void @host_setup() {
-entry:
-  %old = call ptr @signal(i32 13, ptr inttoptr (i64 1 to ptr))
-  call void @std_fd_fill(i32 0, i32 1)
-  call void @std_fd_fill(i32 1, i32 0)
-  call void @std_fd_fill(i32 2, i32 0)
-  %self = call ptr @dlopen(ptr null, i32 1)
-  %none = icmp eq ptr %self, null
-  br i1 %none, label %done, label %look
-look:
-  %e1 = call ptr @dlsym(ptr %self, ptr @s_error)
-  %got = icmp ne ptr %e1, null
-  br i1 %got, label %keep, label %linux
-keep:
-  store ptr %e1, ptr @errno_fn
-  br label %done
-linux:
-  %e2 = call ptr @dlsym(ptr %self, ptr @s_errno_loc)
-  store ptr %e2, ptr @errno_fn
-  br label %done
-done:
-  ret void
-}
-
-; fd, if the host left it closed, opened on /dev/null with flags: 1, write
-; only, for standard input, and 0, read only, for the other two. dup fails
-; only for a descriptor that is not open, and open takes the lowest free
-; number, which is fd once every lower one is open.
-define internal void @std_fd_fill(i32 %fd, i32 %flags) {
-entry:
-  %d = call i32 @dup(i32 %fd)
-  %closed = icmp slt i32 %d, 0
-  br i1 %closed, label %fill, label %open
-open:
-  %c = call i32 @close(i32 %d)
-  ret void
-fill:
-  %o = call i32 (ptr, i32, ...) @open(ptr @dev_null, i32 %flags)
-  ret void
-}
-
-; errno, as the libc call just made left it, or -1 if it cannot be read.
-; Called before anything else that may set it.
-define internal i32 @last_errno() {
-entry:
-  %f = load ptr, ptr @errno_fn
-  %none = icmp eq ptr %f, null
-  br i1 %none, label %unknown, label %read
-read:
-  %p = call ptr %f()
-  %e = load i32, ptr %p
-  ret i32 %e
-unknown:
-  ret i32 -1
-}
-
-; Whether a name access could not find is missing, by its errno: ENOENT (2)
-; or ENOTDIR (20), the same on macOS and Linux. A loop of links or a name
-; too long is not. When errno cannot be read, every such name is taken to
-; be missing, as it was before errno could be.
-define internal i1 @errno_missing(i32 %e) {
-entry:
-  %unknown = icmp eq i32 %e, -1
-  %noent = icmp eq i32 %e, 2
-  %notdir = icmp eq i32 %e, 20
-  %a = or i1 %unknown, %noent
-  %b = or i1 %a, %notdir
-  ret i1 %b
-}
-
 define internal void @std_handles() {
 entry:
   call void @h_set(i64 0, i64 0, i64 1, ptr @in_buf)
@@ -1179,12 +1067,11 @@ write:
   %bad = icmp ne i64 %rc, 0
   br i1 %bad, label %failed, label %done
 failed:
-  %why = call i64 @write_code()
   store i64 3, ptr %sp
   %ep = getelementptr [64 x i64], ptr @h_err, i64 0, i64 %h
   %was = load i64, ptr %ep
   %first = icmp eq i64 %was, 0
-  %keep = select i1 %first, i64 %why, i64 %was
+  %keep = select i1 %first, i64 %rc, i64 %was
   store i64 %keep, ptr %ep
   br label %done
 done:
@@ -1196,19 +1083,6 @@ done:
   %lost = select i1 %none, i64 -5, i64 %code
   %r = select i1 %err, i64 %lost, i64 0
   ret i64 %r
-}
-
-; The spec section 6.3 code for a write or close that just failed, by errno:
-; ENOSPC (28) is -6 and EPIPE (32) -7, the same numbers on macOS and Linux,
-; and anything else, or no errno, -5.
-define internal i64 @write_code() {
-entry:
-  %e = call i32 @last_errno()
-  %full = icmp eq i32 %e, 28
-  %pipe = icmp eq i32 %e, 32
-  %a = select i1 %pipe, i64 -7, i64 -5
-  %b = select i1 %full, i64 -6, i64 %a
-  ret i64 %b
 }
 
 define i64 @l0_flush(i64 %h) {
@@ -1337,8 +1211,7 @@ fill:
   call void @flush_std()
   %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
   %fd = load i64, ptr %fp
-  %fd32 = trunc i64 %fd to i32
-  %n = call i64 @read(i32 %fd32, ptr %buf, i64 65536)
+  %n = call i64 @l0_host_read(i64 %fd, ptr %buf, i64 65536)
   %got = icmp sgt i64 %n, 0
   br i1 %got, label %filled, label %nothing
 nothing:
@@ -1392,7 +1265,7 @@ keep:
 grow:
   %ncap = shl i64 %cap, 1
   %ob = load ptr, ptr %bp
-  %nb = call ptr @realloc(ptr %ob, i64 %ncap)
+  %nb = call ptr @l0_host_resize(ptr %ob, i64 %ncap)
   %oom = icmp eq ptr %nb, null
   br i1 %oom, label %exhausted, label %grown
 exhausted:
@@ -1435,7 +1308,7 @@ dbl:
   br i1 %enough, label %re, label %dbl
 re:
   %old = load ptr, ptr %bufp
-  %new = call ptr @realloc(ptr %old, i64 %c2)
+  %new = call ptr @l0_host_resize(ptr %old, i64 %c2)
   %null = icmp eq ptr %new, null
   br i1 %null, label %oom, label %grown
 oom:
@@ -1462,7 +1335,7 @@ entry:
   %np = alloca i64
   store i64 0, ptr %np
   %init = add i64 %pre, 65536
-  %b0 = call ptr @malloc(i64 %init)
+  %b0 = call ptr @l0_host_alloc(i64 %init)
   %null = icmp eq ptr %b0, null
   br i1 %null, label %oom, label %start
 oom:
@@ -1526,7 +1399,6 @@ dstart:
   call void @flush_std()
   %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
   %fd = load i64, ptr %fp
-  %fd32 = trunc i64 %fd to i32
   br label %rloop
 rloop:
   %rn = load i64, ptr %np
@@ -1542,7 +1414,7 @@ rgrow:
 rread:
   %rbuf = load ptr, ptr %bufp
   %rdst = getelementptr i8, ptr %rbuf, i64 %used
-  %r = call i64 @read(i32 %fd32, ptr %rdst, i64 %room)
+  %r = call i64 @l0_host_read(i64 %fd, ptr %rdst, i64 %room)
   %got = icmp sgt i64 %r, 0
   br i1 %got, label %radv, label %rstop
 radv:
@@ -1560,7 +1432,7 @@ finish:
   %fbuf = load ptr, ptr %bufp
   %fsize = add i64 %pre, %n
   %fsize1 = add i64 %fsize, 8
-  %trim = call ptr @realloc(ptr %fbuf, i64 %fsize1)
+  %trim = call ptr @l0_host_resize(ptr %fbuf, i64 %fsize1)
   %tnull = icmp eq ptr %trim, null
   %res = select i1 %tnull, ptr %fbuf, ptr %trim
   ret ptr %res
@@ -1596,7 +1468,7 @@ entry:
   br i1 %huge, label %oom, label %try
 try:
   %size = add i64 %n, 16
-  %m = call ptr @malloc(i64 %size)
+  %m = call ptr @l0_host_alloc(i64 %size)
   %null = icmp eq ptr %m, null
   br i1 %null, label %oom, label %ok
 oom:
@@ -1712,8 +1584,7 @@ refill:
   call void @flush_std()
   %fdp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
   %fd = load i64, ptr %fdp
-  %fd32 = trunc i64 %fd to i32
-  %r = call i64 @read(i32 %fd32, ptr %buf, i64 65536)
+  %r = call i64 @l0_host_read(i64 %fd, ptr %buf, i64 65536)
   %got = icmp sgt i64 %r, 0
   br i1 %got, label %filled, label %nothing
 nothing:
@@ -1951,7 +1822,7 @@ entry:
   %none = icmp slt i64 %h, 0
   br i1 %none, label %fail, label %alloc
 alloc:
-  %b = call ptr @malloc(i64 4096)
+  %b = call ptr @l0_host_alloc(i64 4096)
   %nob = icmp eq ptr %b, null
   br i1 %nob, label %fail, label %ok
 fail:
@@ -2053,22 +1924,19 @@ shut:
 shutfd:
   %fp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
   %fd = load i64, ptr %fp
-  %fd32 = trunc i64 %fd to i32
-  %cfd = call i32 @close(i32 %fd32)
-  %cwhy = call i64 @write_code()
+  %cfd = call i64 @l0_host_close(i64 %fd)
   br label %release
 memory:
   call void @h_drop_list(i64 %h)
   br label %release
 release:
-  %c = phi i32 [ %cfd, %shutfd ], [ 0, %memory ]
-  %cw = phi i64 [ %cwhy, %shutfd ], [ -5, %memory ]
+  %cw = phi i64 [ %cfd, %shutfd ], [ 0, %memory ]
   %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
   %buf = load ptr, ptr %bp
-  call void @free(ptr %buf)
+  call void @l0_host_free(ptr %buf)
   %mp = getelementptr [64 x i64], ptr @h_mode, i64 0, i64 %h
   store i64 0, ptr %mp
-  %cfail = icmp ne i32 %c, 0
+  %cfail = icmp ne i64 %cw, 0
   %earlier = icmp ne i64 %res, 0
   %closed = select i1 %earlier, i64 %res, i64 %cw
   %final = select i1 %cfail, i64 %closed, i64 %res
@@ -2095,7 +1963,7 @@ cstep:
   br label %count
 alloc:
   %sz = add i64 %n, 1
-  %s = call ptr @malloc(i64 %sz)
+  %s = call ptr @l0_host_alloc(i64 %sz)
   %null = icmp eq ptr %s, null
   br i1 %null, label %fail, label %copy
 copy:
@@ -2117,7 +1985,7 @@ store:
   %dn = load i64, ptr %dnp
   br label %copy
 zero:
-  call void @free(ptr %s)
+  call void @l0_host_free(ptr %s)
   br label %fail
 term:
   %tp = getelementptr i8, ptr %s, i64 %i
@@ -2148,43 +2016,10 @@ none:
   ret i64 -1
 }
 
-; A descriptor open for writing at the end of the file s, or -1. O_APPEND and
-; O_CREAT differ between macOS and Linux, so append mode comes from fopen,
-; whose descriptor is duplicated before the FILE is closed. A missing file
-; is created first with creat, so that it gets the permissions open_write
-; would give it.
-define internal i32 @open_end(ptr %s) {
-entry:
-  %ex = call i32 @access(ptr %s, i32 0)
-  %missing = icmp ne i32 %ex, 0
-  br i1 %missing, label %create, label %append
-create:
-  %c = call i32 @creat(ptr %s, i32 420)
-  %cfail = icmp slt i32 %c, 0
-  br i1 %cfail, label %fail, label %created
-created:
-  %cc = call i32 @close(i32 %c)
-  br label %append
-append:
-  %fp = call ptr @fopen(ptr %s, ptr @mode_a)
-  %nofp = icmp eq ptr %fp, null
-  br i1 %nofp, label %fail, label %dup
-dup:
-  %fd = call i32 @fileno(ptr %fp)
-  %d = call i32 @dup(i32 %fd)
-  %fc = call i32 @fclose(ptr %fp)
-  ret i32 %d
-fail:
-  ret i32 -1
-}
-
 ; mode 1 opens for reading, 2 creates or empties for writing, and 3 opens
-; for writing at the end. The results are spec section 6.3's. Reading only
-; opens with flags 0 and writing uses creat, because O_CREAT and O_TRUNC
-; differ between macOS and Linux. The open's errno tells why it failed
-; (open_code); without errno, access() tells a missing name from a denied
-; one, and everything else is -5. A directory opens with flags 0 but cannot
-; be read, so opendir tells it apart first.
+; for writing at the end, as l0_host_open does. The results are spec section
+; 6.3's: a handle, the host's code, or -5 if the path holds a zero byte or
+; no handle or buffer can be had.
 define internal i64 @open_handle(i64 %path, i64 %mode) {
 entry:
   %rd = icmp eq i64 %mode, 1
@@ -2196,101 +2031,26 @@ slot:
   %noh = icmp slt i64 %h, 0
   br i1 %noh, label %other_free, label %buf
 buf:
-  %b = call ptr @malloc(i64 65536)
+  %b = call ptr @l0_host_alloc(i64 65536)
   %nob = icmp eq ptr %b, null
-  br i1 %nob, label %other_free, label %which
-which:
-  br i1 %rd, label %isdir, label %writing
-isdir:
-  %dp = call ptr @opendir(ptr %s)
-  %dir = icmp ne ptr %dp, null
-  br i1 %dir, label %directory, label %openr
-directory:
-  %cd = call i32 @closedir(ptr %dp)
-  call void @free(ptr %b)
-  call void @free(ptr %s)
-  ret i64 -8
-writing:
-  %ap = icmp eq i64 %mode, 3
-  br i1 %ap, label %opena, label %openw
-openr:
-  %fr = call i32 (ptr, i32, ...) @open(ptr %s, i32 0)
-  br label %opened
-openw:
-  %fw = call i32 @creat(ptr %s, i32 420)
-  br label %opened
-opena:
-  %fa = call i32 @open_end(ptr %s)
-  br label %opened
-opened:
-  %fd = phi i32 [ %fr, %openr ], [ %fw, %openw ], [ %fa, %opena ]
-  %failed = icmp slt i32 %fd, 0
-  br i1 %failed, label %why, label %ok
+  br i1 %nob, label %other_free, label %open
+open:
+  %fd = call i64 @l0_host_open(ptr %s, i64 %mode)
+  call void @l0_host_free(ptr %s)
+  %failed = icmp slt i64 %fd, 0
+  br i1 %failed, label %refused, label %ok
 ok:
-  %fd64 = sext i32 %fd to i64
   %hmode = select i1 %rd, i64 1, i64 2
-  call void @h_set(i64 %h, i64 %fd64, i64 %hmode, ptr %b)
-  call void @free(ptr %s)
+  call void @h_set(i64 %h, i64 %fd, i64 %hmode, ptr %b)
   ret i64 %h
-why:
-  %oe = call i32 @last_errno()
-  call void @free(ptr %b)
-  %known = icmp ne i32 %oe, -1
-  br i1 %known, label %by_errno, label %guess
-by_errno:
-  call void @free(ptr %s)
-  %code = call i64 @open_code(i32 %oe, i1 %rd)
-  ret i64 %code
-guess:
-  %exists = call i32 @access(ptr %s, i32 0)
-  %unfound = icmp ne i32 %exists, 0
-  %want = select i1 %rd, i32 4, i32 2
-  %may = call i32 @access(ptr %s, i32 %want)
-  %denied = icmp ne i32 %may, 0
-  call void @free(ptr %s)
-  br i1 %unfound, label %gone, label %present
-gone:
-  %g = select i1 %rd, i64 -3, i64 -5
-  ret i64 %g
-present:
-  %p = select i1 %denied, i64 -4, i64 -5
-  ret i64 %p
+refused:
+  call void @l0_host_free(ptr %b)
+  ret i64 %fd
 other_free:
-  call void @free(ptr %s)
+  call void @l0_host_free(ptr %s)
   br label %other
 other:
   ret i64 -5
-}
-
-; Whether errno e says permission was refused: EACCES (13), EPERM (1), or
-; EROFS (30), a read-only file system, the same numbers on macOS and Linux.
-define internal i1 @errno_refused(i32 %e) {
-entry:
-  %acces = icmp eq i32 %e, 13
-  %perm = icmp eq i32 %e, 1
-  %rofs = icmp eq i32 %e, 30
-  %a = or i1 %acces, %perm
-  %b = or i1 %a, %rofs
-  ret i1 %b
-}
-
-; The spec section 6.3 code of an open that failed with errno e. Reading: a
-; missing name is -3, refused -4, a directory (EISDIR, 21) -8. Writing: a
-; directory -8; a missing name means the directory it would be in is
-; missing, -9; refused -4. Anything else is -5.
-define internal i64 @open_code(i32 %e, i1 %rd) {
-entry:
-  %missing = call i1 @errno_missing(i32 %e)
-  %refused = call i1 @errno_refused(i32 %e)
-  %isdir = icmp eq i32 %e, 21
-  %r1 = select i1 %isdir, i64 -8, i64 -5
-  %r2 = select i1 %refused, i64 -4, i64 %r1
-  %r3 = select i1 %missing, i64 -3, i64 %r2
-  %w1 = select i1 %refused, i64 -4, i64 -5
-  %w2 = select i1 %missing, i64 -9, i64 %w1
-  %w3 = select i1 %isdir, i64 -8, i64 %w2
-  %r = select i1 %rd, i64 %r3, i64 %w3
-  ret i64 %r
 }
 
 define i64 @l0_open_read(i64 %path) {
@@ -2311,13 +2071,8 @@ entry:
   ret i64 %h
 }
 
-; POSIX rename replaces to in one step, as spec section 6.3 requires. When
-; it fails, its errno says why: EXDEV (18) is -10, refused -4, a missing name
-; -3 if from is missing, -9 if to is too, since then to's directory is, and
-; otherwise -5, since a directory renamed onto a file gives ENOTDIR with
-; both names there; and to being a directory, by EISDIR (21) or by opendir,
-; since a full one gives ENOTEMPTY, numbered differently on macOS and Linux,
-; is -8. Without errno, only a missing from is told apart, by access.
+; The host replaces to in one step, as spec section 6.3 requires, and says
+; why when it cannot.
 define i64 @l0_rename(i64 %from, i64 %to) {
 entry:
   %a = call ptr @to_cstr(i64 %from)
@@ -2327,60 +2082,16 @@ entry:
   %either = or i1 %na, %nb
   br i1 %either, label %bad, label %go
 bad:
-  call void @free(ptr %a)
-  call void @free(ptr %b)
+  call void @l0_host_free(ptr %a)
+  call void @l0_host_free(ptr %b)
   ret i64 -5
 go:
-  %r = call i32 @rename(ptr %a, ptr %b)
-  %ok = icmp eq i32 %r, 0
-  br i1 %ok, label %done, label %why
-done:
-  call void @free(ptr %a)
-  call void @free(ptr %b)
-  ret i64 0
-why:
-  %re = call i32 @last_errno()
-  %ex = call i32 @access(ptr %a, i32 0)
-  %ae = call i32 @last_errno()
-  %tx = call i32 @access(ptr %b, i32 0)
-  %dp = call ptr @opendir(ptr %b)
-  %todir = icmp ne ptr %dp, null
-  br i1 %todir, label %shut, label %decide
-shut:
-  %cd = call i32 @closedir(ptr %dp)
-  br label %decide
-decide:
-  call void @free(ptr %a)
-  call void @free(ptr %b)
-  %unfound = icmp ne i32 %ex, 0
-  %srcgone = call i1 @errno_missing(i32 %ae)
-  %fromgone = and i1 %unfound, %srcgone
-  %known = icmp ne i32 %re, -1
-  br i1 %known, label %by_errno, label %guess
-guess:
-  %g = select i1 %fromgone, i64 -3, i64 -5
-  ret i64 %g
-by_errno:
-  %xdev = icmp eq i32 %re, 18
-  %refused = call i1 @errno_refused(i32 %re)
-  %missing = call i1 @errno_missing(i32 %re)
-  %eisdir = icmp eq i32 %re, 21
-  %isdir = or i1 %eisdir, %todir
-  %toseen = icmp eq i32 %tx, 0
-  %tocode = select i1 %toseen, i64 -5, i64 -9
-  %nodir = select i1 %fromgone, i64 -3, i64 %tocode
-  %c1 = select i1 %isdir, i64 -8, i64 -5
-  %c2 = select i1 %missing, i64 %nodir, i64 %c1
-  %c3 = select i1 %refused, i64 -4, i64 %c2
-  %c4 = select i1 %xdev, i64 -10, i64 %c3
-  ret i64 %c4
+  %r = call i64 @l0_host_rename(ptr %a, ptr %b)
+  call void @l0_host_free(ptr %a)
+  call void @l0_host_free(ptr %b)
+  ret i64 %r
 }
 
-; unlink deletes a name in one step, and a link rather than what it leads
-; to, as spec section 6.3 requires. When it fails, a directory (-8) is told
-; apart first, since macOS refuses one with EPERM, which otherwise means
-; denied; then errno says missing (-3) or denied (-4). Without errno, a name
-; access cannot find is missing, and every other failure -5.
 define i64 @l0_remove(i64 %path) {
 entry:
   %s = call ptr @to_cstr(i64 %path)
@@ -2389,50 +2100,19 @@ entry:
 bad:
   ret i64 -5
 go:
-  %r = call i32 @unlink(ptr %s)
-  %ok = icmp eq i32 %r, 0
-  br i1 %ok, label %done, label %why
-done:
-  call void @free(ptr %s)
-  ret i64 0
-why:
-  %e = call i32 @last_errno()
-  %dp = call ptr @opendir(ptr %s)
-  %dir = icmp ne ptr %dp, null
-  br i1 %dir, label %directory, label %file
-directory:
-  %cd = call i32 @closedir(ptr %dp)
-  call void @free(ptr %s)
-  ret i64 -8
-file:
-  %ex = call i32 @access(ptr %s, i32 0)
-  call void @free(ptr %s)
-  %unknown = icmp eq i32 %e, -1
-  br i1 %unknown, label %guess, label %known
-guess:
-  %unfound = icmp ne i32 %ex, 0
-  %g = select i1 %unfound, i64 -3, i64 -5
-  ret i64 %g
-known:
-  %nothing = call i1 @errno_missing(i32 %e)
-  %refused = call i1 @errno_refused(i32 %e)
-  %rr = select i1 %refused, i64 -4, i64 -5
-  %rk = select i1 %nothing, i64 -3, i64 %rr
-  ret i64 %rk
+  %r = call i64 @l0_host_remove(ptr %s)
+  call void @l0_host_free(ptr %s)
+  ret i64 %r
 }
 
 ; --------------------------------------------------------------- arguments
 
 define i64 @l0_arg_count() {
 entry:
-  %c = load i64, ptr @argc
-  %n = sub i64 %c, 1
-  %neg = icmp slt i64 %n, 0
-  %r = select i1 %neg, i64 0, i64 %n
-  ret i64 %r
+  %n = call i64 @l0_host_arg_count()
+  ret i64 %n
 }
 
-; argv[0] is the program's own name, so argument i is argv[i + 1].
 define i64 @l0_arg(i64 %i) {
 entry:
   %count = call i64 @l0_arg_count()
@@ -2443,10 +2123,7 @@ entry:
 none:
   ret i64 0
 get:
-  %av = load ptr, ptr @argv
-  %i1 = add i64 %i, 1
-  %ap = getelementptr ptr, ptr %av, i64 %i1
-  %s = load ptr, ptr %ap
+  %s = call ptr @l0_host_arg(i64 %i)
   br label %len
 len:
   %n = phi i64 [ 0, %get ], [ %n1, %lstep ]
@@ -2475,22 +2152,10 @@ done:
 
 ; ------------------------------------------------------------------- clock
 
-; Spec section 6.7. Clock 4 is CLOCK_MONOTONIC_RAW on both macOS and Linux;
-; CLOCK_MONOTONIC is not, and Linux's 6 is a coarse clock, not an error.
+; Spec section 6.7.
 define i64 @l0_clock_ns() {
 entry:
-  %ts = alloca [2 x i64], align 8
-  %rc = call i32 @clock_gettime(i32 4, ptr %ts)
-  %failed = icmp ne i32 %rc, 0
-  br i1 %failed, label %none, label %read
-none:
-  ret i64 -5
-read:
-  %s = load i64, ptr %ts
-  %np = getelementptr i64, ptr %ts, i64 1
-  %n = load i64, ptr %np
-  %sn = mul i64 %s, 1000000000
-  %t = add i64 %sn, %n
+  %t = call i64 @l0_host_clock_ns()
   ret i64 %t
 }
 
@@ -2514,7 +2179,7 @@ grow:
   %c3 = select i1 %none, i64 256, i64 %c2
   %bytes = mul i64 %c3, 16
   %old = load ptr, ptr @eq_wl
-  %new = call ptr @realloc(ptr %old, i64 %bytes)
+  %new = call ptr @l0_host_resize(ptr %old, i64 %bytes)
   %bad = icmp eq ptr %new, null
   br i1 %bad, label %oom, label %grown
 oom:
@@ -2677,7 +2342,7 @@ grow:
   %c3 = select i1 %none, i64 256, i64 %c2
   %bytes = mul i64 %c3, 24
   %old = load ptr, ptr @cmp_wl
-  %new = call ptr @realloc(ptr %old, i64 %bytes)
+  %new = call ptr @l0_host_resize(ptr %old, i64 %bytes)
   %bad = icmp eq ptr %new, null
   br i1 %bad, label %oom, label %grown
 oom:
@@ -2988,7 +2653,7 @@ entry:
   %bufp = alloca ptr
   %capp = alloca i64
   %lenp = alloca i64
-  %b0 = call ptr @malloc(i64 65536)
+  %b0 = call ptr @l0_host_alloc(i64 65536)
   %isnull0 = icmp eq ptr %b0, null
   br i1 %isnull0, label %oom, label %init
 init:
@@ -3004,7 +2669,7 @@ loop:
 grow:
   %cap2 = shl i64 %cap, 1
   %bold = load ptr, ptr %bufp
-  %bnew = call ptr @realloc(ptr %bold, i64 %cap2)
+  %bnew = call ptr @l0_host_resize(ptr %bold, i64 %cap2)
   %isnull1 = icmp eq ptr %bnew, null
   br i1 %isnull1, label %oom, label %grown
 grown:
@@ -3017,7 +2682,7 @@ rd:
   %b = load ptr, ptr %bufp
   %dst = getelementptr i8, ptr %b, i64 %len1
   %room = sub i64 %cap1, %len1
-  %n = call i64 @read(i32 0, ptr %dst, i64 %room)
+  %n = call i64 @l0_host_read(i64 0, ptr %dst, i64 %room)
   %eof = icmp sle i64 %n, 0
   br i1 %eof, label %build, label %adv
 adv:
@@ -3042,7 +2707,7 @@ blbody:
   %acc1 = call i64 @l0_new_cons(i64 %bv, i64 %acc, i64 2)
   br label %bl
 fin:
-  call void @free(ptr %bb)
+  call void @l0_host_free(ptr %bb)
   ret i64 %acc
 oom:
   call void @rt_error(ptr @m_heap, i64 14)
@@ -3171,22 +2836,28 @@ ok:
   ret void
 }
 
-; Stacks grow down on every platform L0 runs on, so the limit is the stack's
-; size below the frame where the program starts.
+; Called by the host file's entry point, with the size of the stack below the
+; calling frame, and returns the exit status. Spec section 10.3. Stacks grow
+; down on every platform L0 runs on, so the limit is that size below the
+; frame where the program starts. L0_RC_CHECK is read here, before anything
+; is allocated.
 ;
 ; Kind 3 is a main that streams: nothing is read for it, and its result is
 ; the exit status. The other kinds take the whole input, so standard input is
 ; marked as already ended. Spec section 9. Either way every handle is flushed
 ; at the end, as if closed, and then a write failure the program was never
 ; told of is a runtime error. Spec section 6.3.
-define internal ptr @run(ptr %unused) noinline {
+define i64 @l0_rt_run(i64 %sz) noinline {
 entry:
   %fp = call ptr @llvm.frameaddress.p0(i32 0)
   %f = ptrtoint ptr %fp to i64
-  %sz = load i64, ptr @stack_bytes
   %base = sub i64 %f, %sz
   %lim = add i64 %base, 262144
   store i64 %lim, ptr @stack_limit
+  %chkenv = call ptr @l0_host_setting(ptr @check_name)
+  %checking = icmp ne ptr %chkenv, null
+  %chkv = zext i1 %checking to i64
+  store i64 %chkv, ptr @rc_check
   call void @std_handles()
   %k = load i64, ptr @l0_main_ret_kind
   %streams = icmp eq i64 %k, 3
@@ -3195,11 +2866,10 @@ stream:
   %s = call i64 @l0_f_main(i64 0)
   call void @flush_every()
   %st = and i64 %s, 255
-  store i64 %st, ptr @exit_status
   call void @release_lists()
   call void @check_live()
   call void @report_lost()
-  ret ptr null
+  ret i64 %st
 whole:
   %in = call i64 @read_stdin()
   %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 0
@@ -3216,67 +2886,5 @@ checked:
   call void @release_lists()
   call void @check_live()
   call void @report_lost()
-  ret ptr null
-}
-
-; The size of the calling thread's stack, for when a thread of the requested
-; size could not be created. RLIM_INFINITY differs between platforms, so any
-; limit too large to be real is treated as the common 8 MB default.
-define internal i64 @own_stack_bytes() {
-entry:
-  %rl = alloca [2 x i64], align 8
-  %rc = call i32 @getrlimit(i32 3, ptr %rl)
-  %failed = icmp ne i32 %rc, 0
-  %cur = load i64, ptr %rl
-  %huge = icmp ugt i64 %cur, 4398046511104
-  %small = icmp ult i64 %cur, 1048576
-  %bad1 = or i1 %failed, %huge
-  %bad = or i1 %bad1, %small
-  %r = select i1 %bad, i64 8388608, i64 %cur
-  ret i64 %r
-}
-
-; The stack size comes from L0_STACK_MB, default 512.
-define i32 @main(i32 %argc, ptr %argv) {
-entry:
-  %argc64 = sext i32 %argc to i64
-  store i64 %argc64, ptr @argc
-  store ptr %argv, ptr @argv
-  call void @host_setup()
-  %attr = alloca [128 x i8], align 16
-  %tid = alloca i64
-  %chkenv = call ptr @getenv(ptr @check_name)
-  %checking = icmp ne ptr %chkenv, null
-  %chkv = zext i1 %checking to i64
-  store i64 %chkv, ptr @rc_check
-  %env = call ptr @getenv(ptr @env_name)
-  %hasenv = icmp ne ptr %env, null
-  br i1 %hasenv, label %parse, label %go
-parse:
-  %v = call i64 @strtol(ptr %env, ptr null, i32 10)
-  %pos = icmp sgt i64 %v, 0
-  %mb = select i1 %pos, i64 %v, i64 512
-  br label %go
-go:
-  %m = phi i64 [ %mb, %parse ], [ 512, %entry ]
-  %bytes = mul i64 %m, 1048576
-  store i64 %bytes, ptr @stack_bytes
-  %a = call i32 @pthread_attr_init(ptr %attr)
-  %s = call i32 @pthread_attr_setstacksize(ptr %attr, i64 %bytes)
-  %c = call i32 @pthread_create(ptr %tid, ptr %attr, ptr @run, ptr null)
-  %failed = icmp ne i32 %c, 0
-  br i1 %failed, label %direct, label %join
-join:
-  %t = load i64, ptr %tid
-  %j = call i32 @pthread_join(i64 %t, ptr null)
-  br label %exit
-direct:
-  %own = call i64 @own_stack_bytes()
-  store i64 %own, ptr @stack_bytes
-  %x = call ptr @run(ptr null)
-  br label %exit
-exit:
-  %st = load i64, ptr @exit_status
-  %st32 = trunc i64 %st to i32
-  ret i32 %st32
+  ret i64 0
 }

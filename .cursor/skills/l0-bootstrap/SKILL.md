@@ -46,9 +46,14 @@ silent and converts a caught bug into a permanent one.
 
 - `spec/L0.md` — the only source of truth
 - `runtime/l0rt.ll` — the runtime every compiled program links: allocation,
-  host I/O, the entry point, and stack checks, as LLVM IR calling libc. It
-  must stay the same text on every host; its header says what that rules out.
-  See the constraints on the runtime interface below before changing it.
+  buffered I/O, and stack checks, as LLVM IR the same on every host. It
+  reaches the host only through the `l0_host_` functions of spec 10.3, and
+  calls no libc. See the constraints on the runtime interface below before
+  changing it.
+- `runtime/host-libc.ll` — the host file for macOS and Linux: those
+  functions, through libc, and the entry point. It must stay the same text
+  on both; its header says what that rules out. A change in it needs
+  `tools/linux-test.sh`, as one in `l0rt.ll` does.
 - `stage0/l0core.c`, `stage0/l0core.h` — stage 0's value representation and
   host I/O, in C. Compiled programs never link them.
 - `compiler/*.l0` — the L0 compiler, written in L0
@@ -279,9 +284,10 @@ run`, `build`, `check`, and `test`, though `tools/test.sh --compiled` passes,
 since it points `L0_COMPILER` at the compiler it just built; and once
 `lib/io.l0` uses the builtin, every `tools/l0` command but `doc`, `spec`,
 `examples`, and `init` fails. Before the refresh, run it as
-`L0_COMPILER=build/l0c-current L0_RUNTIME=build/l0rt.o tools/l0 ...` after a
-`tools/l0check` has built `build/l0c-current`; `L0_RUNTIME` too, since
-setting `L0_COMPILER` skips rebuilding `lib/l0rt.o`.
+`L0_COMPILER=build/l0c-current L0_RUNTIME=build/l0rt.o
+L0_HOST=build/l0host.o tools/l0 ...` after a `tools/l0check` has built
+`build/l0c-current`; `L0_RUNTIME` and `L0_HOST` too, since setting
+`L0_COMPILER` skips rebuilding `lib/l0rt.o` and `lib/l0host.o`.
 
 **The runtime interface is effectively append-only.** The seed contains
 `declare i64 @l0_cons(i64, i64)` and its siblings by name, so renaming or
@@ -296,8 +302,14 @@ into checks the compiler emits, programs built by the old seed had no checks
 and crashed instead of reporting the error. `tools/test.sh --compiled` cannot
 see this, because it bootstraps from source first. Check such a change with
 `tools/l0 build`, and refresh the seed before committing. In a checkout,
-`tools/l0` rebuilds `lib/` by itself when the seed or `runtime/l0rt.ll` is
-newer than what it last built.
+`tools/l0` rebuilds `lib/` by itself when the seed, `runtime/l0rt.ll`, or
+`runtime/host-libc.ll` is newer than what it last built.
+
+**The host interface is not the seed's to pin.** The `l0_host_` functions
+of spec 10.3 are called only by `l0rt.ll` and defined only by a host file,
+both linked fresh into every program, so they may change in any change that
+updates both, with no new seed. Only the `l0_` functions compiled code
+calls are append-only.
 
 **The seed pins a range of LLVM versions.** Textual IR is not guaranteed stable
 across LLVM major versions. L0 emits close to the most stable possible subset

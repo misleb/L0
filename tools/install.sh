@@ -9,6 +9,7 @@
 #   <prefix>/bin/l0              the driver
 #   <prefix>/lib/l0/l0c          the compiler, built from bootstrap/stage2.ll
 #   <prefix>/lib/l0/l0rt.o       the runtime, as bitcode for link-time optimization
+#   <prefix>/lib/l0/l0host.o     its host file, runtime/host-libc.ll, the same way
 #   <prefix>/lib/l0/prelude.l0   the standard library, which l0 doc documents
 #   <prefix>/lib/l0/io.l0        line and string I/O, linked like the prelude
 #   <prefix>/lib/l0/test.l0      assertions, linked by l0 test
@@ -59,18 +60,22 @@ fi
 mkdir -p "$LIBDIR" "$BUILD"
 [ -n "$BINDIR" ] && mkdir -p "$BINDIR"
 
-# The runtime is installed as one bitcode object, not an archive: every link
-# passes -flto to optimize a program and the runtime together, and indexing
-# bitcode in an archive needs an ar that understands it, which not every host
-# has. An archive left by an earlier install is removed.
-echo "ll   runtime/l0rt.ll"
+# The runtime is installed as two bitcode objects, not an archive: every
+# link passes -flto to optimize a program and the runtime together, and
+# indexing bitcode in an archive needs an ar that understands it, which not
+# every host has. l0rt.o is runtime/l0rt.ll and l0host.o the host file,
+# runtime/host-libc.ll (spec section 10.3). An archive left by an earlier
+# install is removed.
+echo "ll   runtime/l0rt.ll runtime/host-libc.ll"
 "$CC" -O2 -flto -Wno-override-module -c "$ROOT/runtime/l0rt.ll" -o "$BUILD/l0rt.o"
+"$CC" -O2 -flto -Wno-override-module -c "$ROOT/runtime/host-libc.ll" -o "$BUILD/l0host.o"
 rm -f "$LIBDIR/libl0rt.a"
 cp "$BUILD/l0rt.o" "$LIBDIR/l0rt.o"
+cp "$BUILD/l0host.o" "$LIBDIR/l0host.o"
 
 echo "link compiler from bootstrap/stage2.ll"
 "$CC" -O2 -flto -Wno-override-module "$ROOT/bootstrap/stage2.ll" \
-    "$BUILD/l0rt.o" -o "$LIBDIR/l0c"
+    "$BUILD/l0rt.o" "$BUILD/l0host.o" -o "$LIBDIR/l0c"
 
 # In --into mode the destination is usually the repository's own lib/, where
 # these files already live; copying them onto themselves would fail.
