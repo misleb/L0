@@ -7,6 +7,41 @@ New entries go at the top.
 
 ---
 
+## The library sorts, and takes the min and max, of any type, and no language change for it
+
+**`lib/prelude.l0` has `sort`, `min`, and `max`** (roadmap item 0065), over
+the `compare` of the entry below. `sort` is a bottom-up merge sort of a
+list: each element a run of one, then pass after pass merging neighbouring
+runs, every loop a tail call, so it takes time proportional to n log n and
+no stack. A million ints sort in 0.25 s of user time on a 1 MB stack, with
+nothing left live under `L0_RC_CHECK`. `min` and `max` give the first
+argument on a tie.
+
+**Why.** 0059 found every sort in this repository written for one element
+type, wordfreq's and its heap twice, a line sort, Kruskal's merge sort, and
+0055's heap and set, and about fifteen int `min` and `max` one-liners in
+thirteen files. They are now written once. A sort that is not by the
+structural order sorts keys built for its order: `lib/examples.l0`'s
+`by_frequency` lists a map's words most frequent first by sorting `(Rank
+(neg count) word)`. `map_keys`'s doc now says to `sort` the keys when order
+matters, which before 0064 a generic caller could not do.
+
+**Not stable, and not said to be.** Merging takes the left run's element on
+a tie, which would keep equal elements in order, but `compare` is 0 only
+for values `eq` calls the same, so no program can tell; the doc promises
+only the order. A stability promise waits for a comparison that can call
+two different values equal, which only function values would bring.
+
+The library's own code takes no int `max` that reads better as the generic
+one: `examples.l0`'s `max2` is an example of `if`, and the compiler's two
+are folds over fields and edges. `tests/unit/sort_test.l0` covers the edges,
+ints at their limits, strings, a record key, `min` and `max`, and 200,000
+pseudo-random ints checked for order and for the same elements.
+
+No rule in `spec/L0.md` changed.
+
+---
+
 ## `compare` orders two values of any type
 
 **`(compare a b)` is -1, 0, or 1** (section 6.11, roadmap items 0059 and

@@ -294,6 +294,373 @@ Le3:
   ret i64 %t9
 }
 
+define internal i64 @l0_f_min.0(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = icmp sgt i64 %a0, %a1
+  %t2 = zext i1 %t1 to i64
+  %t3 = icmp slt i64 %a0, %a1
+  %t4 = zext i1 %t3 to i64
+  %t5 = sub i64 %t2, %t4
+  %t6 = icmp sgt i64 %t5, 0
+  %t7 = zext i1 %t6 to i64
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt0, label %Le0
+Lt0:
+  ret i64 %a1
+Le0:
+  ret i64 %a0
+}
+
+define internal i64 @l0_f_min.1(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_compare(i64 %a0, i64 %a1)
+  %t2 = icmp sgt i64 %t1, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  ret i64 %a1
+Le0:
+  call void @l0_dec(i64 %a1)
+  ret i64 %a0
+}
+
+define internal i64 @l0_f_max.0(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = icmp sgt i64 %a0, %a1
+  %t2 = zext i1 %t1 to i64
+  %t3 = icmp slt i64 %a0, %a1
+  %t4 = zext i1 %t3 to i64
+  %t5 = sub i64 %t2, %t4
+  %t6 = icmp slt i64 %t5, 0
+  %t7 = zext i1 %t6 to i64
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt0, label %Le0
+Lt0:
+  ret i64 %a1
+Le0:
+  ret i64 %a0
+}
+
+define internal i64 @l0_f_max.1(i64 %a0, i64 %a1) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_compare(i64 %a0, i64 %a1)
+  %t2 = icmp slt i64 %t1, 0
+  %t3 = zext i1 %t2 to i64
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  ret i64 %a1
+Le0:
+  call void @l0_dec(i64 %a1)
+  ret i64 %a0
+}
+
+define internal i64 @l0_f_sort.0(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_f_sort_runs.0(i64 %a0, i64 0, i64 0, i64 0, i64 0)
+  %t1 = musttail call i64 @l0_f_sort_passes.0(i64 %t0)
+  ret i64 %t1
+}
+
+define internal i64 @l0_f_sort.1(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call i64 @l0_f_sort_runs.1(i64 %a0, i64 0, i64 0, i64 0, i64 0)
+  %t1 = musttail call i64 @l0_f_sort_passes.1(i64 %t0)
+  ret i64 %t1
+}
+
+define internal i64 @l0_f_sort_runs.0(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  %t3 = musttail call i64 @l0_f_rev.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t3
+Le0:
+  %t4 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_head(i64 %a0)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_new_cons(i64 %t5, i64 0, i64 2)
+  %t7 = call i64 @l0_new_cons(i64 %t6, i64 %a1, i64 3)
+  %t8 = musttail call i64 @l0_f_sort_runs.0(i64 %t4, i64 %t7, i64 0, i64 0, i64 0)
+  ret i64 %t8
+}
+
+define internal i64 @l0_f_sort_runs.1(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  %t3 = musttail call i64 @l0_f_rev.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t3
+Le0:
+  %t4 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t5)
+  call void @l0_dec(i64 %a0)
+  %t6 = call i64 @l0_new_cons(i64 %t5, i64 0, i64 3)
+  %t7 = call i64 @l0_new_cons(i64 %t6, i64 %a1, i64 3)
+  %t8 = musttail call i64 @l0_f_sort_runs.1(i64 %t4, i64 %t7, i64 0, i64 0, i64 0)
+  ret i64 %t8
+}
+
+define internal i64 @l0_f_sort_passes.0(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  ret i64 0
+Le0:
+  %t4 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_is_empty(i64 %t4)
+  call void @l0_dec(i64 %t4)
+  %t6 = icmp ne i64 %t5, 0
+  br i1 %t6, label %Lt3, label %Le3
+Lt3:
+  %t7 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t7)
+  call void @l0_dec(i64 %a0)
+  ret i64 %t7
+Le3:
+  %t8 = call i64 @l0_f_sort_pairs.0(i64 %a0, i64 0, i64 0, i64 0, i64 0)
+  %t9 = musttail call i64 @l0_f_sort_passes.0(i64 %t8)
+  ret i64 %t9
+}
+
+define internal i64 @l0_f_sort_passes.1(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  ret i64 0
+Le0:
+  %t4 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t4)
+  %t5 = call i64 @l0_is_empty(i64 %t4)
+  call void @l0_dec(i64 %t4)
+  %t6 = icmp ne i64 %t5, 0
+  br i1 %t6, label %Lt3, label %Le3
+Lt3:
+  %t7 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t7)
+  call void @l0_dec(i64 %a0)
+  ret i64 %t7
+Le3:
+  %t8 = call i64 @l0_f_sort_pairs.1(i64 %a0, i64 0, i64 0, i64 0, i64 0)
+  %t9 = musttail call i64 @l0_f_sort_passes.1(i64 %t8)
+  ret i64 %t9
+}
+
+define internal i64 @l0_f_sort_pairs.0(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  %t3 = musttail call i64 @l0_f_rev.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t3
+Le0:
+  %t5 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t5)
+  %t6 = call i64 @l0_is_empty(i64 %t5)
+  call void @l0_dec(i64 %t5)
+  %t7 = icmp ne i64 %t6, 0
+  br i1 %t7, label %Lt4, label %Le4
+Lt4:
+  %t8 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t8)
+  call void @l0_dec(i64 %a0)
+  %t9 = call i64 @l0_new_cons(i64 %t8, i64 %a1, i64 3)
+  %t10 = musttail call i64 @l0_f_rev.1(i64 %t9, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t10
+Le4:
+  %t11 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t11)
+  %t12 = call i64 @l0_tail(i64 %t11)
+  call void @l0_inc(i64 %t12)
+  call void @l0_dec(i64 %t11)
+  %t13 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t13)
+  %t14 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t14)
+  call void @l0_dec(i64 %a0)
+  %t15 = call i64 @l0_head(i64 %t14)
+  call void @l0_inc(i64 %t15)
+  call void @l0_dec(i64 %t14)
+  %t16 = call i64 @l0_f_sort_merge.0(i64 %t13, i64 %t15, i64 0, i64 0, i64 0)
+  %t17 = call i64 @l0_new_cons(i64 %t16, i64 %a1, i64 3)
+  %t18 = musttail call i64 @l0_f_sort_pairs.0(i64 %t12, i64 %t17, i64 0, i64 0, i64 0)
+  ret i64 %t18
+}
+
+define internal i64 @l0_f_sort_pairs.1(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  %t3 = musttail call i64 @l0_f_rev.1(i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t3
+Le0:
+  %t5 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t5)
+  %t6 = call i64 @l0_is_empty(i64 %t5)
+  call void @l0_dec(i64 %t5)
+  %t7 = icmp ne i64 %t6, 0
+  br i1 %t7, label %Lt4, label %Le4
+Lt4:
+  %t8 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t8)
+  call void @l0_dec(i64 %a0)
+  %t9 = call i64 @l0_new_cons(i64 %t8, i64 %a1, i64 3)
+  %t10 = musttail call i64 @l0_f_rev.1(i64 %t9, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t10
+Le4:
+  %t11 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t11)
+  %t12 = call i64 @l0_tail(i64 %t11)
+  call void @l0_inc(i64 %t12)
+  call void @l0_dec(i64 %t11)
+  %t13 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t13)
+  %t14 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t14)
+  call void @l0_dec(i64 %a0)
+  %t15 = call i64 @l0_head(i64 %t14)
+  call void @l0_inc(i64 %t15)
+  call void @l0_dec(i64 %t14)
+  %t16 = call i64 @l0_f_sort_merge.1(i64 %t13, i64 %t15, i64 0, i64 0, i64 0)
+  %t17 = call i64 @l0_new_cons(i64 %t16, i64 %a1, i64 3)
+  %t18 = musttail call i64 @l0_f_sort_pairs.1(i64 %t12, i64 %t17, i64 0, i64 0, i64 0)
+  ret i64 %t18
+}
+
+define internal i64 @l0_f_sort_merge.0(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  %t3 = musttail call i64 @l0_f_rev_onto.0(i64 %a2, i64 %a1, i64 0, i64 0, i64 0)
+  ret i64 %t3
+Le0:
+  %t5 = call i64 @l0_is_empty(i64 %a1)
+  %t6 = icmp ne i64 %t5, 0
+  br i1 %t6, label %Lt4, label %Le4
+Lt4:
+  call void @l0_dec(i64 %a1)
+  %t7 = musttail call i64 @l0_f_rev_onto.0(i64 %a2, i64 %a0, i64 0, i64 0, i64 0)
+  ret i64 %t7
+Le4:
+  %t9 = call i64 @l0_head(i64 %a0)
+  %t10 = call i64 @l0_head(i64 %a1)
+  %t11 = icmp sgt i64 %t9, %t10
+  %t12 = zext i1 %t11 to i64
+  %t13 = icmp slt i64 %t9, %t10
+  %t14 = zext i1 %t13 to i64
+  %t15 = sub i64 %t12, %t14
+  %t16 = icmp sgt i64 %t15, 0
+  %t17 = zext i1 %t16 to i64
+  %t18 = icmp ne i64 %t17, 0
+  br i1 %t18, label %Lt8, label %Le8
+Lt8:
+  %t19 = call i64 @l0_tail(i64 %a1)
+  call void @l0_inc(i64 %t19)
+  %t20 = call i64 @l0_head(i64 %a1)
+  call void @l0_dec(i64 %a1)
+  %t21 = call i64 @l0_new_cons(i64 %t20, i64 %a2, i64 2)
+  %t22 = musttail call i64 @l0_f_sort_merge.0(i64 %a0, i64 %t19, i64 %t21, i64 0, i64 0)
+  ret i64 %t22
+Le8:
+  %t23 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t23)
+  %t24 = call i64 @l0_head(i64 %a0)
+  call void @l0_dec(i64 %a0)
+  %t25 = call i64 @l0_new_cons(i64 %t24, i64 %a2, i64 2)
+  %t26 = musttail call i64 @l0_f_sort_merge.0(i64 %t23, i64 %a1, i64 %t25, i64 0, i64 0)
+  ret i64 %t26
+}
+
+define internal i64 @l0_f_sort_merge.1(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_is_empty(i64 %a0)
+  %t2 = icmp ne i64 %t1, 0
+  br i1 %t2, label %Lt0, label %Le0
+Lt0:
+  call void @l0_dec(i64 %a0)
+  %t3 = musttail call i64 @l0_f_rev_onto.1(i64 %a2, i64 %a1, i64 0, i64 0, i64 0)
+  ret i64 %t3
+Le0:
+  %t5 = call i64 @l0_is_empty(i64 %a1)
+  %t6 = icmp ne i64 %t5, 0
+  br i1 %t6, label %Lt4, label %Le4
+Lt4:
+  call void @l0_dec(i64 %a1)
+  %t7 = musttail call i64 @l0_f_rev_onto.1(i64 %a2, i64 %a0, i64 0, i64 0, i64 0)
+  ret i64 %t7
+Le4:
+  %t9 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t9)
+  %t10 = call i64 @l0_head(i64 %a1)
+  call void @l0_inc(i64 %t10)
+  %t11 = call i64 @l0_compare(i64 %t9, i64 %t10)
+  call void @l0_dec(i64 %t9)
+  call void @l0_dec(i64 %t10)
+  %t12 = icmp sgt i64 %t11, 0
+  %t13 = zext i1 %t12 to i64
+  %t14 = icmp ne i64 %t13, 0
+  br i1 %t14, label %Lt8, label %Le8
+Lt8:
+  %t15 = call i64 @l0_tail(i64 %a1)
+  call void @l0_inc(i64 %t15)
+  %t16 = call i64 @l0_head(i64 %a1)
+  call void @l0_inc(i64 %t16)
+  call void @l0_dec(i64 %a1)
+  %t17 = call i64 @l0_new_cons(i64 %t16, i64 %a2, i64 3)
+  %t18 = musttail call i64 @l0_f_sort_merge.1(i64 %a0, i64 %t15, i64 %t17, i64 0, i64 0)
+  ret i64 %t18
+Le8:
+  %t19 = call i64 @l0_tail(i64 %a0)
+  call void @l0_inc(i64 %t19)
+  %t20 = call i64 @l0_head(i64 %a0)
+  call void @l0_inc(i64 %t20)
+  call void @l0_dec(i64 %a0)
+  %t21 = call i64 @l0_new_cons(i64 %t20, i64 %a2, i64 3)
+  %t22 = musttail call i64 @l0_f_sort_merge.1(i64 %t19, i64 %a1, i64 %t21, i64 0, i64 0)
+  ret i64 %t22
+}
+
 define internal i64 @l0_f_array_resize.0(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   call void @l0_stack_check()

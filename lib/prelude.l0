@@ -62,6 +62,57 @@
       -1
       (if (eq x (head xs)) i (index_of_from x (tail xs) (add i 1)))))
 
+;; The lesser of a and b by compare, for values of any type, and a when they
+;; are the same.
+(def (min T) ((a T) (b T)) T
+  (if (gt (compare a b) 0) b a))
+
+;; The greater of a and b by compare, for values of any type, and a when they
+;; are the same.
+(def (max T) ((a T) (b T)) T
+  (if (lt (compare a b) 0) b a))
+
+;; xs in the order compare gives, ascending, for a list of any type: (sort
+;; "cab") is "abc". It takes time proportional to n log n, and no stack
+;; however long xs is. To sort by an order of your own, sort keys built for
+;; it, such as (Rank (neg count) word) for count highest first and then word.
+(def (sort T) ((xs (list T))) (list T)
+  (sort_passes (sort_runs xs (nil (list T)))))
+
+; Each element of xs as a run of one, in order.
+(def (sort_runs T) ((xs (list T)) (acc (list (list T)))) (list (list T))
+  (if (is_empty xs)
+      (rev acc)
+      (sort_runs (tail xs) (cons (cons (head xs) (nil T)) acc))))
+
+; Merges neighbouring runs until one is left.
+(def (sort_passes T) ((runs (list (list T)))) (list T)
+  (if (is_empty runs)
+      (nil T)
+      (if (is_empty (tail runs))
+          (head runs)
+          (sort_passes (sort_pairs runs (nil (list T)))))))
+
+; One pass: each pair of neighbouring runs merged into one, in order.
+(def (sort_pairs T) ((runs (list (list T))) (acc (list (list T))))
+    (list (list T))
+  (if (is_empty runs)
+      (rev acc)
+      (if (is_empty (tail runs))
+          (rev (cons (head runs) acc))
+          (sort_pairs (tail (tail runs))
+            (cons (sort_merge (head runs) (head (tail runs)) (nil T)) acc)))))
+
+; a and b, each in order, merged; on a tie a's element goes first.
+(def (sort_merge T) ((a (list T)) (b (list T)) (acc (list T))) (list T)
+  (if (is_empty a)
+      (rev_onto acc b)
+      (if (is_empty b)
+          (rev_onto acc a)
+          (if (gt (compare (head a) (head b)) 0)
+              (sort_merge a (tail b) (cons (head b) acc))
+              (sort_merge (tail a) b (cons (head a) acc))))))
+
 ;; An array of n elements of any type: the first n of a, followed by copies
 ;; of fill if a has fewer. This is how an array grows, as in (array_resize a
 ;; (mul 2 (array_len a)) x); it costs n, and a negative n is a runtime error.
@@ -151,9 +202,8 @@
 
 ;; Every key m has, each once. The order is the table's, which hash decides,
 ;; so it is the same on every run but is not the order of insertion. If the
-;; order matters, sort the keys with a comparison written for their type;
-;; inside a function whose K is a type parameter that cannot be written, since
-;; nothing orders a value of a type parameter.
+;; order matters, (sort (map_keys m)) gives them in compare's order, for keys
+;; of any type.
 (def (map_keys K V) ((m (Map K V))) (list K)
   (match m
     ((MapEmpty) (nil K))

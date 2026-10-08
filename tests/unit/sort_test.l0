@@ -1,0 +1,72 @@
+; Unit tests for the prelude's sort, min, and max over compare (spec 6.11):
+; the edges, ints, strings, records ordered by a key, and a long random list
+; checked against the two properties a sort has, order and the same
+; elements.
+
+(data Rank
+  (Rank int (list int)))
+
+(def test_edges () int
+  (add (check_int "empty" (length (sort (nil int))) 0)
+    (add (check_true "one" (eq (sort (cons 5 (nil int))) (cons 5 (nil int))))
+      (add (check_str "sorted" (sort "abc") "abc")
+        (add (check_str "reversed" (sort "cba") "abc")
+             (check_str "repeats" (sort "banana") "aaabnn"))))))
+
+(def test_ints () int
+  (check_true "negatives first"
+    (eq (sort (cons 3 (cons -1 (cons 0 (cons -9223372036854775808 (cons 2 (nil int)))))))
+        (cons -9223372036854775808 (cons -1 (cons 0 (cons 2 (cons 3 (nil int)))))))))
+
+(def test_strings () int
+  (check_true "words"
+    (eq (sort (split_spaces "pear apple fig apples app"))
+        (split_spaces "app apple apples fig pear"))))
+
+; Count highest first, then word: the key of spec 6.11.
+(def rank_word ((r Rank)) (list int) (match r ((Rank c w) w)))
+
+(def words_of ((rs (list Rank)) (acc (list (list int)))) (list (list int))
+  (if (is_empty rs) (rev acc) (words_of (tail rs) (cons (rank_word (head rs)) acc))))
+
+(def test_by_key () int
+  (let rs (cons (Rank (neg 2) "pear")
+            (cons (Rank (neg 5) "zebra")
+              (cons (Rank (neg 2) "apple")
+                (cons (Rank (neg 9) "kiwi") (nil Rank)))))
+    (check_true "count then word"
+      (eq (words_of (sort rs) (nil (list int)))
+          (split_spaces "kiwi zebra apple pear")))))
+
+(def test_min_max () int
+  (add (check_int "min" (min 3 -4) -4)
+    (add (check_int "max" (max 3 -4) 3)
+      (add (check_str "min of strings" (min "pear" "peach") "peach")
+        (add (check_str "max of strings" (max "pear" "peach") "pear")
+             (check_true "first on a tie" (eq (min (Rank 1 "a") (Rank 1 "a")) (Rank 1 "a"))))))))
+
+; n pseudo-random ints from state s, below 1000 so there are many repeats.
+(def randoms ((s int) (n int) (acc (list int))) (list int)
+  (if (eq n 0)
+      acc
+      (let s1 (rand_next s)
+        (randoms s1 (sub n 1) (cons (rand_below s1 1000) acc)))))
+
+(def ascending ((xs (list int))) bool
+  (if (is_empty xs)
+      true
+      (if (is_empty (tail xs))
+          true
+          (if (gt (head xs) (head (tail xs))) false (ascending (tail xs))))))
+
+; How many times each value below 1000 appears.
+(def counts ((xs (list int)) (a (array int))) (array int)
+  (if (is_empty xs) a (counts (tail xs) (let k (head xs) (array_set a k (add (array_get a k) 1))))))
+
+(def test_long_random () int
+  (let xs (randoms 59 200000 (nil int))
+    (let ys (sort xs)
+      (add (check_true "in order" (ascending ys))
+        (add (check_int "as long" (length ys) 200000)
+             (check_true "the same elements"
+               (eq (counts ys (array_new 1000 0)) (counts xs (array_new 1000 0)))))))))

@@ -32,16 +32,17 @@ builds. The `l0-code` skill has hello world written out this way.
 **Run `l0 doc` before writing a helper.** It lists every function and type in
 the standard library, which is linked into every program, and `l0 doc NAME`
 shows one in full. What you would have written may already be there: lists,
-arrays, `Option`, `Result`, and a `Map` that works for keys and values of any
+arrays, `Option`, `Result`, a `Map` that works for keys and values of any
 type, so never write a table or a list of pairs of your own to look things
-up.
+up, and `sort`, `min`, and `max` for values of any type, so never write a
+sort.
 
 **Read the examples before writing anything substantial.** `l0 examples
 --path` names two files: working programs covering recursion, strings, data
 types, `match`, returning several values, reporting failure, type
 parameters, maps and hashing, reading and writing, files and telling their
-failures apart, arrays and grids, bytes, bits, and timing, and tests of
-them.
+failures apart, arrays and grids, bytes, bits, ordering and sorting, and
+timing, and tests of them.
 
 Everything these commands show comes from the installed toolchain, so it
 always describes the compiler that builds this project. Nothing of it is

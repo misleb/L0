@@ -251,6 +251,40 @@
 (def (slot_of K) ((key K) (n int)) int
   (mod (hash key) n))
 
+; ---------------------------------------------------------------- ordering
+
+; compare orders two values of any type by what they hold (spec section
+; 6.11), and sort orders a list by it. To order by something else, sort keys
+; built for that order: a data value orders by its fields in turn, and neg
+; turns a count around, so (Rank (neg n) w) puts the highest count first and
+; breaks ties by word. Here the words of text come out most frequent first,
+; as a word-frequency table lists them, though map_keys gave them in no
+; useful order.
+(data Rank
+  (Rank int (list int)))                ; minus the count, then the word
+
+(def by_frequency ((text (list int))) (list (list int))
+  (let m (word_counts (split_spaces text) ((MapEmpty (list int) int)))
+    (rank_words (sort (ranks m (map_keys m) (nil Rank))) (nil (list int)))))
+
+(def ranks ((m (Map (list int) int)) (ks (list (list int))) (acc (list Rank)))
+    (list Rank)
+  (if (is_empty ks)
+      acc
+      (ranks m (tail ks)
+        (cons (Rank (neg (match (map_get m (head ks)) ((None) 0) ((Some n) n)))
+                    (head ks))
+              acc))))
+
+(def rank_words ((rs (list Rank)) (acc (list (list int)))) (list (list int))
+  (if (is_empty rs)
+      (rev acc)
+      (rank_words (tail rs) (match (head rs) ((Rank n w) (cons w acc))))))
+
+; min and max take the lesser and the greater of two values of any type.
+(def (smallest T) ((first T) (rest (list T))) T
+  (if (is_empty rest) first (smallest (min first (head rest)) (tail rest))))
+
 ; ------------------------------------------------ reading and writing as you go
 
 ; read_line and write_str are in the standard library (l0 doc io), built on the

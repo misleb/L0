@@ -1,7 +1,8 @@
 # 0065: tooling: the library sorts and takes min and max of any type
 
 Kind: tooling
-Status: proposed
+Status: done, changelog "The library sorts, and takes the min and max, of
+any type, and no language change for it"
 Needs: 0064
 
 ## Why
@@ -29,3 +30,23 @@ of `compare` waits for a seed that knows it.
 ## Log
 
 - 2026-10-07: proposed by 0059.
+- 2026-10-08: done.
+  - prelude: `sort`, a bottom-up merge sort of runs of one, every loop a
+    tail call; `min` and `max`, the first argument on a tie. A million ints
+    sort in 0.25 s of user time on a 1 MB stack with nothing left live under
+    `L0_RC_CHECK`
+  - not documented as stable: `compare` is 0 only for equal values, so
+    stability cannot be observed; the changelog says when it could be
+  - tests: `tests/unit/sort_test.l0` (6 tests: edges, ints at their limits,
+    strings, a `Rank` key, `min` and `max`, and 200,000 pseudo-random ints
+    checked for order and for the same elements by counts)
+  - examples: an ordering section, `by_frequency` (a map's words most
+    frequent first, by sorting `Rank` keys) and `smallest` over `min`, each
+    tested. The shipped skill and `lib/AGENTS.md` say to use `sort`, `min`,
+    and `max` rather than write them; `map_keys`'s doc says to sort its keys
+  - the library's int max callers: none read better as the generic one
+    (`examples.l0`'s `max2` teaches `if`; the compiler's two are folds)
+  - `tests/io/libdoc/index.txt` re-pinned with the three new entries
+  - both suites green (65, 129); fixpoint at 1,270,613 bytes, seed
+    refreshed, since the prelude is compiler source, and reproduces itself.
+    No Linux run: neither the runtime nor the emitter changed

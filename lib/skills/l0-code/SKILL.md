@@ -179,6 +179,12 @@ digits least significant first does not compare numerically, so give it a
 key. An order no key expresses, such as ignoring case, is a function you
 write, at its element type.
 
+The library's `(sort xs)` sorts a list of any type by `compare`, ascending,
+in n log n and with no stack, and `min` and `max` take the lesser and the
+greater of two values: write neither a sort nor a max of your own. To list a
+map's keys in order, `(sort (map_keys m))`; `examples.l0`'s `by_frequency`
+sorts words by a `Rank` key.
+
 **`hash` gives any value a non-negative `int`** (spec 6.9), the same for two
 values `eq` calls the same, so `(mod (hash key) n)` is a key's slot in a
 table of `n`, for keys of any type. Two different keys can share a hash, so

@@ -11,6 +11,12 @@
       Whether x is one of xs, by eq, for a list of any type.
   (index_of T) ((x T) (xs (list T))) int
       The position of the first element of xs that is x, by eq, counting from 0, or -1 if there is none, for a list of any type.
+  (min T) ((a T) (b T)) T
+      The lesser of a and b by compare, for values of any type, and a when they are the same.
+  (max T) ((a T) (b T)) T
+      The greater of a and b by compare, for values of any type, and a when they are the same.
+  (sort T) ((xs (list T))) (list T)
+      xs in the order compare gives, ascending, for a list of any type: (sort "cab") is "abc".
   (array_resize T) ((a (array T)) (n int) (fill T)) (array T)
       An array of n elements of any type: the first n of a, followed by copies of fill if a has fewer.
   (data (Option T) (None) (Some T))

@@ -84,6 +84,14 @@
                                              (cons (Some 1) (nil (Option int))))))
                     2))))
 
+(def test_by_frequency () int
+  (check_true "most frequent first, then by word"
+    (eq (by_frequency "b a c b a b") (split_spaces "b a c"))))
+
+(def test_smallest () int
+  (add (check_str "strings" (smallest "pear" (split_spaces "fig apple kiwi")) "apple")
+       (check_int "ints" (smallest 3 (cons 9 (cons -2 (nil int)))) -2)))
+
 ; A key built two ways is one key, so it has one slot.
 (def test_slot_of () int
   (add (check_int "same key" (slot_of "word" 16) (slot_of (cons 119 "ord") 16))
