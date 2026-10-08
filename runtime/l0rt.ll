@@ -2313,10 +2313,11 @@ entry:
 
 ; POSIX rename replaces to in one step, as spec section 6.3 requires. When
 ; it fails, its errno says why: EXDEV (18) is -10, refused -4, a missing name
-; -3 if from is missing and otherwise -9, since then to's directory is; and
-; to being a directory, by EISDIR (21) or by opendir, since a full one gives
-; ENOTEMPTY, numbered differently on macOS and Linux, is -8. Without errno,
-; only a missing from is told apart, by access.
+; -3 if from is missing, -9 if to is too, since then to's directory is, and
+; otherwise -5, since a directory renamed onto a file gives ENOTDIR with
+; both names there; and to being a directory, by EISDIR (21) or by opendir,
+; since a full one gives ENOTEMPTY, numbered differently on macOS and Linux,
+; is -8. Without errno, only a missing from is told apart, by access.
 define i64 @l0_rename(i64 %from, i64 %to) {
 entry:
   %a = call ptr @to_cstr(i64 %from)
@@ -2341,6 +2342,7 @@ why:
   %re = call i32 @last_errno()
   %ex = call i32 @access(ptr %a, i32 0)
   %ae = call i32 @last_errno()
+  %tx = call i32 @access(ptr %b, i32 0)
   %dp = call ptr @opendir(ptr %b)
   %todir = icmp ne ptr %dp, null
   br i1 %todir, label %shut, label %decide
@@ -2364,7 +2366,9 @@ by_errno:
   %missing = call i1 @errno_missing(i32 %re)
   %eisdir = icmp eq i32 %re, 21
   %isdir = or i1 %eisdir, %todir
-  %nodir = select i1 %fromgone, i64 -3, i64 -9
+  %toseen = icmp eq i32 %tx, 0
+  %tocode = select i1 %toseen, i64 -5, i64 -9
+  %nodir = select i1 %fromgone, i64 -3, i64 %tocode
   %c1 = select i1 %isdir, i64 -8, i64 -5
   %c2 = select i1 %missing, i64 %nodir, i64 %c1
   %c3 = select i1 %refused, i64 -4, i64 %c2

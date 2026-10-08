@@ -7,6 +7,29 @@ New entries go at the top.
 
 ---
 
+## Renaming a directory onto a file is not a missing directory
+
+**`rename` of a directory onto a file returns -5, not -9** (section 6.3,
+roadmap item 0067). The host fails it with ENOTDIR, which the runtime reads
+as a missing name, since a file standing where a directory should be on the
+way to a name does make that name missing. `from` was there, so the runtime
+took the missing name to be `to`'s directory and returned -9, "no such
+directory", though that directory exists. It broke 6.3, which gives -9 only
+when the host says that is the reason. A program acting on
+`RenameNoDirectory`, by reporting or making the directory, would have been
+misled. The runtime now gives -9 only when `to` cannot be found either,
+and -5 when it can. The spec now says so outright.
+
+**Why -5, and not a new code.** 6.3's -8 is for a `to` that is a directory,
+and nothing in the repository renames directories or needs to tell this
+case apart. A code for it can be added when a program needs one.
+
+`tests/io/open_faults` renames a directory onto a file and checks that
+both names stay as they were. It also checks that a file where `to`'s
+directory should be still gives `RenameNoDirectory`.
+
+---
+
 ## Reading at most n bytes
 
 **`(read_some h n)` reads the next piece of a handle** (section 6.6,

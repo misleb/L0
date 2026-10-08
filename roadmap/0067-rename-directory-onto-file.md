@@ -1,7 +1,8 @@
 # 0067: renaming a directory onto a file is not -9
 
 Kind: language
-Status: queued
+Status: done, changelog "Renaming a directory onto a file is not a missing
+directory"; passed on Linux arm64
 Needs: nothing
 
 ## Why
@@ -57,3 +58,12 @@ question to settle first, though nothing in the repository yet asks for one.
 
 - 2026-10-08: found by the review that followed 0066, and reproduced on
   macOS: -9. Queued.
+- 2026-10-08: done.
+  - spec 6.3: -5 as written, now said outright; no new code, since nothing
+    here renames directories or needs this case told apart
+  - `l0_rename`: a missing name with `from` there is -9 only when `to`
+    cannot be found either, by `access`, and otherwise -5
+  - `tests/io/open_faults`: a directory onto a file is `RenameFailed` and
+    leaves both names; a file on `to`'s path is still `RenameNoDirectory`
+  - the reproducer prints -5; both suites, the fixpoint, and Linux arm64
+    pass; the seed needed no refresh, since the compiler did not change

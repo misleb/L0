@@ -46,15 +46,14 @@ reading in blocks is what tee and the unpacker need. With a bounded read
 (0066) and `write_bytes` copying blocks, 0055's tee copies 100 MB to four
 outputs in 0.08 s, faster than the system's; updatable bytes wait. Every
 item 0055 opened is now done. The review after 0066 found that renaming a
-directory onto a file gives -9, against section 6.3 (0067); after that,
-what comes next goes back to the goals.
+directory onto a file gave -9, against section 6.3, now fixed (0067), and
+the queue is empty: what comes next goes back to the goals.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0067](0067-rename-directory-onto-file.md) renaming a directory onto a
-   file is not -9 — queued
+Empty.
 
 ## Other open items
 
@@ -230,3 +229,6 @@ None.
   (0066); updatable bytes wait
 - [0066](0066-bounded-read.md) reading at most n bytes — done, changelog
   "Reading at most n bytes"; passed on Linux arm64
+- [0067](0067-rename-directory-onto-file.md) renaming a directory onto a
+  file is not -9 — done, changelog "Renaming a directory onto a file is not
+  a missing directory"; passed on Linux arm64

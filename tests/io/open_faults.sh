@@ -37,6 +37,13 @@ want_mv "$d/from" "$d/full" "RenameIsDirectory: is a directory"
 want_mv "$d/from" "$d/nodir/to" "RenameNoDirectory: no such directory"
 want_mv "$d/from" "$d/to" "Done"
 [ -f "$d/to" ] && [ ! -e "$d/from" ] || fail "the rename did not happen"
+# A directory onto a file is ENOTDIR with both names there, which is not a
+# missing directory (roadmap item 0067); a file where to's directory should
+# be still is.
+mkdir "$d/adir"
+want_mv "$d/adir" "$d/to" "RenameFailed: input or output failed"
+[ -d "$d/adir" ] && [ -f "$d/to" ] || fail "a failed rename changed a name"
+want_mv "$d/to" "$d/there/x" "RenameNoDirectory: no such directory"
 
 # Missing is only what the host looked for and did not find (spec 6.3): a
 # missing directory on the way, or a file where a directory should be. A
