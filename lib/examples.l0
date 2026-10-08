@@ -12,6 +12,8 @@
 
 ; --------------------------------------------------------------- the basics
 
+; if is an expression, and both branches have the same type. The library's
+; max does this for a value of any type; this one shows if.
 (def max2 ((a int) (b int)) int
   (if (gt a b) a b))
 
@@ -180,8 +182,8 @@
 ; are, and then works at every type. A call writes nothing extra: its
 ; arguments' types say what T stands for, so every type parameter must
 ; appear in some parameter's type. Inside, T is a type of its own, so the
-; body can keep, pass, and return a T, and compare two with eq, but not
-; order them, since lt takes only int.
+; body can keep, pass, and return a T, compare two with eq, and order them
+; with compare, though not with lt, which takes only int.
 (def (last_or T) ((xs (list T)) (fallback T)) T
   (if (is_empty xs)
       fallback
@@ -382,10 +384,11 @@
           (append to " is on another file system: copy it, then remove the first")
           why))))
 
-; file_read_some reads the next piece of a file, at most n bytes, and empty
-; bytes at the end, so a file of any size is copied, or checked, holding one
-; piece at a time. Each piece goes out with one file_write_bytes. The result
-; is how many bytes were copied, or the negative code a read failed with.
+; file_read_some reads the next piece of a file, here at most 65,536 bytes,
+; and empty bytes at the end, so a file of any size is copied, or checked,
+; holding one piece at a time. Each piece goes out with one file_write_bytes.
+; The result is how many bytes were copied, or the negative code a read
+; failed with; a lost write to dst shows when the caller flushes or closes it.
 (def copy_in_pieces ((src IoFile) (dst IoFile) (n int)) int
   (match (file_read_some src 65536)
     ((IoReadFailed code) code)

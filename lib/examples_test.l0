@@ -223,7 +223,9 @@
 
 ; The published check value of CRC-32, 0xCBF43926.
 (def test_crc32 () int
-  (check_int "check value" (crc32 "123456789" 4294967295) 3421780262))
+  (let c (crc32 "123456789" 4294967295)
+    (add (check_int "check value" c 3421780262)
+         (check_str "in hex, as published" (hex_digits c 8) "cbf43926"))))
 
 (def test_vowel_count_ns () int
   (check_true "never negative" (ge (vowel_count_ns "education") 0)))

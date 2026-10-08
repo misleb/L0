@@ -22,10 +22,12 @@ language that can express ordinary programs, so its limits can be pushed from
 inside it. I/O and memory management come first, as safe facilities the
 runtime provides rather than raw memory in L0 code, so that the checker can
 still catch what goes wrong. A program can already read and write as it goes,
-open files, and read its command-line arguments, and memory is reclaimed by
-reference counting, so a program that streams runs in constant memory. Opening
-a file returns a data type whose failure case `match` forces the program to
-handle. The runtime is LLVM IR, and no
+open, rename, and delete files, read them in pieces, and read its
+command-line arguments, and memory is reclaimed by reference counting, so a
+program that streams runs in constant memory. Opening a file returns a data
+type whose failure case `match` forces the program to handle, and renaming,
+removing, flushing, and closing say which failure it was as a case of a
+type for that operation. The runtime is LLVM IR, and no
 C source goes into a compiled program; libc stays, as the interface to the
 operating system, since on macOS it is the only supported one.
 
@@ -203,10 +205,13 @@ The first two files split by whether a definition does I/O.
 `lib/prelude.l0` is part of the compiler too: the compiler is built from it
 and `compiler/*.l0`, so it is exercised continuously rather than maintained
 separately, and it holds what the compiler can use: `rev`, `rev_onto`,
-`append`, `length`, `any_eq`, `index_of`, and `array_resize`, which take type
-parameters and so work on every element type, `Option` and `Result`, a
-`(Map K V)` for keys and values of any type, and the byte-string helpers. `lib/io.l0` holds the I/O wrappers, including reading a
-whole input into `bytes` with `read_input`, which the compiler does not need.
+`append`, `length`, `any_eq`, `index_of`, `sort`, `min`, `max`, and
+`array_resize`, which take type parameters and so work on every element
+type, `Option` and `Result`, a `(Map K V)` for keys and values of any type,
+`digits` and `hex_digits`, and the byte-string helpers. `lib/io.l0` holds
+the I/O wrappers, which the compiler does not need: files whose failures
+are typed per operation, and reading a whole input into `bytes` with
+`read_input`, or a piece at a time with `file_read_some`.
 
 It matters more than it might sound: L0 has no `append`, no `length`, and no
 way to render an integer as text among its builtins. Without a library, every
@@ -243,25 +248,28 @@ names rather than a module system.
 
 ## What L0 cannot do yet
 
-A program can read and write its standard streams and files, read its
-command-line arguments, and time itself on a monotonic clock, but there is no
-network, no environment, and no wall-clock date.
+A program can read and write its standard streams and files, rename and
+delete files, read its command-line arguments, and time itself on a
+monotonic clock, but there is no network, no environment, no wall-clock
+date, and no directories: none can be listed or created.
 
 Memory is freed by reference counting. A whole-input `main` still receives its
 input as a list built in full before it starts, a cons cell per byte, but a
 program need not take its input that way: a streaming `main` can read it with
 `read_input` from the library, or the `read_bytes` builtin, into `bytes`,
-which holds about one byte per byte. Arrays give constant-time indexing, and
+which holds about one byte per byte, or in pieces of at most n bytes with
+`file_read_some`, in constant memory. Arrays give constant-time indexing, and
 update in place when nothing else holds them.
 
 Data types and functions take type parameters, so one `Option`, `Result`, or
 `rev` serves every element type, and `eq` compares two values of any type
 by what they hold, so a membership test or a lookup by key is written once,
 and `hash` gives any value a specified integer, so the library's `(Map K
-V)` serves keys and values of every type. But only integers can be ordered,
-and there are no function values to pass a comparison in, so a sort is
-still written once per element type. Nor are there floats, modules, or
-mutable state.
+V)` serves keys and values of every type. `compare` orders any two values
+of one type by a fixed structural order, so the library's `sort`, `min`,
+and `max` serve every type too; an order that is not structural sorts a key
+built for it, since there are no function values to pass a comparison in.
+Nor are there floats, modules, or mutable state.
 
 None of these was ruled out. Each is absent because self-compilation never
 demanded it, and a general-purpose L0 will. Memory management and I/O came
@@ -302,7 +310,7 @@ Check and run it:
 
 ```bash
 tools/l0check hello.l0
-build/l0i run hello.l0        # prints: hi
+tools/l0 run hello.l0         # prints: hi
 ```
 
 ## What L0 looks like
@@ -423,9 +431,10 @@ the above and then verifies the fixpoint.
 **The seed is frozen, so it only knows the language as it was when it was cut.**
 That makes one ordering rule load-bearing: when the compiler gains the ability
 to compile a new feature, the seed must be refreshed *before* the compiler
-starts using that feature, not after. Refreshing late leaves your own tree
-building fine while a fresh clone becomes unbuildable, and no local command
-will tell you. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
+starts using that feature, not after. The tools build the compiler from the
+checked-in seed, so a use the seed cannot compile fails at once; what they
+cannot see is a refreshed seed left uncommitted, which a fresh clone would
+not have. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 `tools/bootstrap.sh` warns when the current one has gone stale.
 
 ## Repository layout
@@ -443,7 +452,8 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself), io (what
                stage 0 cannot run, with hand-written expectations), unit
                (tests written with l0 test)
-tools/         l0 (the driver), install.sh, build.sh, test.sh, bootstrap.sh
+tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
+               l0check, l0c, l0ll, install.sh, linux-test.sh
 seeds/         the original seed spec, superseded by spec/
 roadmap/       plans and status for work in progress; never knowledge about L0
 .cursor/skills/  agent instructions for developing L0 itself; .claude/skills

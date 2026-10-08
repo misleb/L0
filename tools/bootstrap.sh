@@ -28,11 +28,12 @@
 # steps of the two-step rule (see the l0-bootstrap skill):
 #
 #   1. teach the compiler to COMPILE a new feature, bootstrap, refresh the seed
-#   2. only then start USING that feature in compiler/*.l0, and bootstrap again
+#   2. only then start USING that feature in compiler/*.l0 or lib/prelude.l0,
+#      and bootstrap again
 #
-# Refreshing after both steps is too late. Your working tree will keep building
-# because it has a current compiler, while a fresh clone becomes unbuildable
-# because the seed never learned the feature. That failure is invisible locally.
+# Using it before the refresh fails at once, here and in tools/l0check, since
+# both build the compiler from the checked-in seed. What nothing here shows is
+# a refreshed seed left uncommitted: commit bootstrap/stage2.ll at step 1.
 
 set -eu
 
@@ -142,7 +143,7 @@ echo "FIXPOINT: stage2.ll == stage3.ll ($(wc -c < "$BUILD/stage2.ll" | tr -d ' '
 if cmp -s "$BUILD/stage1.ll" bootstrap/stage2.ll; then
     echo "SEED:     up to date (seed reproduces itself from current source)"
 else
-    echo "SEED:     STALE -- compiler/*.l0 has changed since the seed was cut."
+    echo "SEED:     STALE -- lib/prelude.l0 or compiler/*.l0 has changed since the seed was cut."
     echo "          The seed still compiles this source, so the build works,"
     echo "          but refresh it before using any newly added feature:"
     echo "            tools/bootstrap.sh --refresh-seed"

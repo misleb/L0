@@ -5,8 +5,10 @@
 ;
 ; It carries no target triple, and must stay the same text on every host, so
 ; it avoids everything whose shape differs between operating systems: it
-; calls libc through file descriptors rather than FILE*, uses no varargs, no
-; signal handling beyond ignoring SIGPIPE, which is 13 with SIG_IGN 1 on both
+; calls libc through file descriptors rather than FILE*, but for the one
+; fopen that opens for appending; passes no variadic argument, since open,
+; declared variadic as libc's is, is only ever given its two fixed ones; and
+; uses no signal handling beyond ignoring SIGPIPE, which is 13 with SIG_IGN 1 on both
 ; macOS and Linux, and no struct whose layout libc defines. errno is reached
 ; through whichever of macOS's __error and Linux's __errno_location dlsym
 ; finds, and only codes with the same number on both are read from it

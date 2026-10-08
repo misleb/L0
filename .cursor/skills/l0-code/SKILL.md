@@ -27,11 +27,16 @@ tools/l0check FILE.l0 [MORE.l0 ...]
 
 All files given are checked together as one program, because L0 has no module
 system. A file that is only part of a program will report unknown names unless
-its companions are listed too.
+its companions are listed too. `tools/l0check` checks only the files given,
+so a program that uses the library lists `lib/prelude.l0 lib/io.l0` first,
+which then become the prelude group; `tools/l0 check` adds them itself, but
+compiles with the seed (the `l0-bootstrap` skill says when that matters).
 
 Diagnostics are `file:line:column: error: message` and the checker reports one
-error per declaration, so a single run finds many problems at once. Fix them,
-re-run, and only proceed at zero errors.
+error per declaration, so a single run finds many problems at once. A
+declaration that does not parse is reported once, and its uses are not
+reported as unknown, so fixing it can reveal errors that were hidden. Fix
+them, re-run, and only proceed at zero errors.
 
 To run a program, with the standard library linked:
 
@@ -40,8 +45,9 @@ tools/l0 run FILE.l0 [MORE.l0 ...] [-- ARGS] < input-bytes
 ```
 
 Not `build/l0i run`: the frozen stage-0 interpreter knows nothing added
-since, so it rejects the I/O builtins, files, arrays, bytes, the clock, and
-the bit builtins.
+since, so it rejects type parameters, `eq` on anything but `int`, `hash`,
+`compare`, the I/O, file, and argument builtins (`remove` and `read_some`
+among them), arrays, bytes, the clock, and the bit builtins.
 
 Then `tools/test.sh` before considering any change done.
 
@@ -117,8 +123,8 @@ compiles it. `lt`, `le`, `gt`, and `ge` take only `int` everywhere. `hash`
 (spec 6.9) is the same: any type, unknown to stage 0, tested in
 `tests/unit/hash_test.l0` against values computed from the spec alone. So is
 `compare` (spec 6.11), which orders any type, tested in
-`tests/unit/compare_test.l0`; the compiler and `lib/prelude.l0` may use it
-once the seed knows it.
+`tests/unit/compare_test.l0`. The seed knows it, and the prelude's `sort`,
+`min`, and `max` use it.
 
 **A name in call position is never a local.** `(f 1)` always means a builtin or
 a `def`, so a parameter named `f` cannot be called and does not shadow a
@@ -238,9 +244,10 @@ long. A tail call uses no stack, whatever the arities and optimization level
 The runtime's stack is 512 MB by default, and `L0_STACK_MB` changes it, so deep
 non-tail recursion works too, but only tail calls are unbounded.
 
-Decimal formatting, which L0 has no builtin for, is in
-[tests/lib/assert.l0](../../../tests/lib/assert.l0) as `digits`. Copy it rather
-than rewriting it.
+Number formatting, which L0 has no builtin for, is the prelude's `digits` and
+`hex_digits`; use them. Only a `tests/lang` program, which stage 0 runs
+without the library, gets `digits` from
+[tests/lib/assert.l0](../../../tests/lib/assert.l0) through its `.extra`.
 
 ## Reading existing L0
 

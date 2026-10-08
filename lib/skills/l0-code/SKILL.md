@@ -74,7 +74,9 @@ l0 run   hello.l0 main.l0 < input     # build and run, reading stdin
 l0 run   hello.l0 main.l0 -- a b      # the same, with arguments a and b
 ```
 
-Diagnostics are `file:line:column: error: message`. The files given are
+Diagnostics are `file:line:column: error: message`. A declaration that does
+not parse is reported once and dropped, and its uses are not reported as
+unknown, so fix it and check again. The files given are
 compiled together, because L0 has no module system. The standard library is
 linked automatically; never pass its files on the command line. Defining a
 function with the same name as one of its functions is fine.
@@ -151,8 +153,9 @@ parameter must appear in some parameter's type, and `(def (empty T) ()
 (list T) ...)` is an error. Inside the body `T` is a type of its own, so a
 `T` can be kept, passed, consed, stored, compared with `eq`, hashed with
 `hash`, and ordered with `compare`, but not ordered with `lt` or taken apart
-with `match`. So a membership test, a lookup, a hash table, a heap, a sorted
-set, or a sort is written once, for every element type.
+with `match`. So a membership test, a lookup, a hash table, a heap, or a
+sorted set is written once, for every element type, and the library already
+has `sort`.
 
 **`and` and `or` are strict.** Both arguments are always evaluated, so they do
 not guard against errors. This still calls `head` on an empty list:
@@ -203,8 +206,10 @@ the builtin, so redefining something the prelude uses internally cannot
 break it, and a builtin added to L0 later cannot break your program. Your
 types and constructors win over the library's the same way, `IoFile` or any
 other: the library's are then out of reach, so a `match` on a library type
-one of whose constructors you redeclared cannot be written. Spec sections 7
-and 7.1.
+one of whose constructors you redeclared cannot be written. Short library
+names are the ones to watch: a program that declares its own `Done`,
+`NotDone`, `Some`, or `Ok` can no longer match what `file_close`, `map_get`,
+or a `Result` returns. Spec sections 7 and 7.1.
 
 ## The one performance rule
 
@@ -261,10 +266,10 @@ l0 doc decimal        # anything whose name or documentation mentions it
 ```
 
 The ones you will reach for constantly are `rev`, `push`, `append`,
-`list_eq`, and `digits`, which is the only way to print a number. `rev`,
-`rev_onto`, `append`, and `length` take a list of any type, and
-`array_resize` grows an array of any type, so never write one of them for
-your own element type. The
+`list_eq`, and `digits`, which prints a number in decimal; `hex_digits`
+prints one in hexadecimal. `rev`, `rev_onto`, `append`, `length`, and `sort`
+take a list of any type, and `array_resize` grows an array of any type, so
+never write one of them for your own element type. The
 builtins, such as `head` and `read_byte`, are in the specification, section
 6, not in `l0 doc`.
 
@@ -278,13 +283,13 @@ program and cannot disturb the prelude's own use of it.
 ## The shape of a program
 
 `main` takes one of two forms. The first receives stdin as a list of bytes and
-returns its output, here computed by `shout`, a function in the program's own
+returns its output, here computed by `upcase`, a function in the program's own
 file and tested there:
 
 ```
 ; main.l0
 (def main ((input (list int))) (list int)
-  (shout input))
+  (upcase input))
 ```
 
 The return type may be `(list int)` for raw bytes, or `int` or `bool`, which
@@ -317,12 +322,14 @@ Output written before a read that has to wait is always shown first, so a
 prompt appears before the program waits for its answer.
 
 **Files and arguments.** Use the wrappers `l0 doc io` lists, not the raw
-builtins, except in a loop that runs once per byte over several files:
-copying 100 MB to four outputs through `file_write_byte` took 2.8 times as
-long with the `IoFile`s in a list, and 2.1 times with them in an array, as
-with the raw handles in an `(array int)` and `write_to`. Take the handles
-out once, with `(match f ((IoFile h) h))`, call `read_from` and `write_to`
-on them in that loop, and keep the `IoFile`s for flushing and closing.
+builtins. To copy, read in pieces (below), which is faster than any loop
+over bytes. Where a loop must run once per byte over several files, the
+wrappers cost: copying 100 MB to four outputs through `file_write_byte`
+took 2.8 times as long with the `IoFile`s in a list, and 2.1 times with them
+in an array, as with the raw handles in an `(array int)` and `write_to`.
+Take the handles out once, with `(match f ((IoFile h) h))`, call
+`read_from` and `write_to` on them in that loop, and keep the `IoFile`s for
+flushing and closing.
 `(open_in path)`, `(open_out path)`, and `(open_appending path)` return
 `IoOpened`, and `match` makes you handle its `IoFailed` case,
 `((IoFailed fault why) ...)`: `why` says what went wrong in words, for a
@@ -377,8 +384,10 @@ under a tenth of a second, where a loop of `file_read_byte` and
 Writes are held back, so a write failure shows up only later: no write
 returns it, and a program that must say which write failed can only flush
 after it, as often as that matters. `file_close`, or `file_flush` on a file
-kept open, returns `NotDone` if any byte written to the file was lost, with `WriteNoSpace` for a full disk, `WriteBrokenPipe`
-for a pipe whose reader has gone, or `WriteFailed`; check it. For standard
+kept open, returns `NotDone` if any byte written to the file was lost, with
+`WriteNoSpace` for a full disk, `WriteBrokenPipe` for a pipe whose reader
+has gone, or `WriteFailed`, or `WriteNotOpen` if the file was not open for
+writing, as when it was closed already; check it. For standard
 output, which is never closed, call `(file_flush (IoFile 1))` once at the
 end, as a Unix filter does, and turn a failure into a message and a nonzero
 status. Here `run`, in the program's own file, does the work and returns
@@ -422,8 +431,9 @@ last use of the last name that held it, on each path through a function, not
 when that name's scope ends, and a loop in tail position frees each
 iteration's garbage before the next. So:
 
-- to process a large input, use the streaming `main` and read it a line or a
-  byte at a time; that runs in constant memory however long the input is
+- to process a large input, use the streaming `main` and read it a line, a
+  byte, or a piece at a time, the last with `(file_read_some (IoFile 0) n)`;
+  that runs in constant memory however long the input is
 - a `main` that takes its input gets it as a list built in full before `main`
   starts, one cons cell per byte, about 2.4 GB for 100 MB, however little of
   it `main` then keeps
@@ -505,7 +515,8 @@ standard error how many updates copied.
 unsigned shift; shifting by 64 or more gives 0, and by a negative amount is
 a runtime error. There is no bitwise not: write `(bit_xor x -1)`. There is
 no hexadecimal literal either: write the constant in decimal with its hex
-in a comment. To keep 32 bits, as a hash does, `(bit_and x 4294967295)` after
+in a comment. `(hex_digits n width)` prints an `int` in hexadecimal, its 64
+bits read as unsigned, and `hex_val` reads one hex digit. To keep 32 bits, as a hash does, `(bit_and x 4294967295)` after
 each `add` or `mul`. A set of up to 64 small ints fits in one `int`, and a
 bitset in an `(array int)` of 64 bits a word.
 
@@ -578,7 +589,7 @@ which reports the assertion as failed for the reason given:
 ```
 (def test_parses () int
   (match (parse_digits "42" 0 false)
-    ((Ok v rest) (check_int "value" v 42))
+    ((Num v rest) (check_int "value" v 42))
     ((Bad msg) (fail_because "value" msg))))
 ```
 
@@ -599,8 +610,9 @@ The test passes only if the program exits with status 70 and standard error
 is exactly `l0: runtime error: ` followed by the message `expect_NAME`
 returns. Spec section 8 lists every message: `division by zero`, `modulo by
 zero`, `head of empty list`, `tail of empty list`, `array index out of
-range`, `negative array length`, and `byte index out of range`, and from the
-host `stack exhausted`, `heap exhausted`, and `write failed`.
+range`, `negative array length`, `byte index out of range`, `negative
+shift`, and `byte count out of range`, and from the host `stack exhausted`,
+`heap exhausted`, and `write failed`.
 
 **Golden files** hold expected output too long to write inline:
 `(check_file "name" got "path/to/expected.txt")`, with the path relative to

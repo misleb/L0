@@ -1,11 +1,19 @@
 #!/bin/sh
 # Runs the golden test suites.
 #
-# Usage: tools/test.sh [--bless] [name-filter]
+# Usage: tools/test.sh [--compiled] [--bless | --compiled --bless-check] [name-filter]
 #
-#   --bless   overwrite expectation files with whatever the code produces now.
-#             Use after deliberately changing behavior or wording, then read
-#             the resulting git diff to confirm every change was intended.
+#   --compiled     bootstrap the current compiler and run the suites through it,
+#                  with tests/io and tests/unit, which stage 0 cannot run
+#   --bless        overwrite expectation files with whatever the code produces
+#                  now. Use after deliberately changing behavior or wording,
+#                  then read the resulting git diff to confirm every change was
+#                  intended. Refused with --compiled.
+#   --bless-check  with --compiled: rewrite tests/check's .cerr files, the
+#                  compiler's own diagnostics
+#   name-filter    a substring of a test's file name without its directory or
+#                  extension, such as bundle_prelude, matched in every suite.
+#                  A filter that matches nothing passes, with "0 tests".
 #
 # Suites:
 #   tests/backend/*.ll   hand-written IR linked against the runtime, pinning
@@ -29,6 +37,8 @@
 #                  line, so a test of repository files reads them as they
 #                  are rather than a copy that can go stale
 #   <stem>.extra   additional source files to pass, one per line
+#   <stem>.cerr    tests/check only: the compiler's diagnostics, compared by
+#                  --compiled and rewritten by --compiled --bless-check
 #   <stem>.sh      tests/io only: run as `sh <stem>.sh EXE IR` instead of
 #                  comparing output, for behavior that is about timing or
 #                  about how the program is built, where IR is the file EXE

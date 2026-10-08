@@ -12,6 +12,7 @@ tools/build.sh                  # runtime objects and build/l0i
 tools/test.sh                   # all suites; must be green before anything is done
 tools/test.sh NAME              # only tests whose name contains NAME
 tools/test.sh --bless [NAME]    # overwrite expectations with current output
+tools/test.sh --compiled --bless-check [NAME]   # rewrite tests/check's .cerr
 tools/l0check FILE.l0 ...       # type check, with the compiler of the current source
 tools/l0c FILE.l0 ... > OUT.ll  # compile to IR, with the same compiler
 tools/l0ll FILE.ll OUT          # link generated IR against the runtime
@@ -20,6 +21,10 @@ tools/bootstrap.sh              # self-compile and check the fixpoint
 tools/bootstrap.sh --refresh-seed   # also install the result as bootstrap/stage2.ll
 tools/linux-test.sh [arm64] [amd64] # both suites on Linux, in a local container
 ```
+
+NAME is a substring of a test's file name without its directory or
+extension, matched in every suite: `bundle_prelude`, not
+`compiler/bundle_prelude`, which matches nothing and passes as "0 tests".
 
 Run `tools/linux-test.sh` on any change to the runtime or the emitter, since
 LLVM and libc behave differently between hosts in ways macOS alone won't
@@ -158,17 +163,20 @@ those are what `l0 init` gives an agent outside this repository.
 ### The two-step rule
 
 **To use a new feature inside the compiler's own source, ship the ability to
-compile it before you ship any use of it.** Two separate, individually
-bootstrapped changes:
+compile it before you ship any use of it.** The compiler's source is
+`compiler/*.l0` and `lib/prelude.l0`, so this holds for the prelude too: 0064
+added `compare` and 0065 then used it in the prelude's `sort`. Two separate,
+individually bootstrapped changes:
 
 ```
-Step 1    compiler/*.l0 can COMPILE the feature, but uses none of it.
+Step 1    compiler/*.l0 can COMPILE the feature, but neither it nor
+          lib/prelude.l0 uses any of it.
           tools/bootstrap.sh          -- the fixpoint must hold
 
 Step 1b   Install that compiler as the bootstrap seed, and commit it.
           tools/bootstrap.sh --refresh-seed
 
-Step 2    compiler/*.l0 now USES the feature in its own source.
+Step 2    compiler/*.l0 or lib/prelude.l0 now USES the feature.
           tools/bootstrap.sh          -- the fixpoint must hold again
 ```
 
@@ -178,11 +186,12 @@ and the only ways out are hand-editing generated IR or reverting.
 
 **Step 1b is not optional, and its position between the two steps is the whole
 point.** The seed can only compile features that existed when it was cut.
-Refreshing after step 2 is too late: your working tree keeps building because
-it already has a current compiler, while a fresh clone becomes unbuildable.
-`tools/l0check` builds its compiler with the seed (`tools/compiler.sh`), so
-a use of a feature the seed lacks fails the next check, with the seed's
-diagnostics; nothing else you can run locally reveals it.
+Every tool builds the compiler from the checked-in seed (`tools/compiler.sh`
+for `tools/l0check`, `tools/l0c`, and the stage tests; `tools/bootstrap.sh`
+from `bootstrap/stage2.ll`), so a use of a feature the seed lacks fails at
+once, with the seed's diagnostics. What no local command shows is a
+refreshed seed left uncommitted: a fresh clone gets the old one. So commit
+`bootstrap/stage2.ll` and `bootstrap/LLVM-VERSION` at step 1b.
 
 The same rule applies to *removing* or changing the meaning of a feature, in
 reverse: stop using it, bootstrap, refresh the seed, then drop support, then
@@ -236,11 +245,43 @@ overruled later.
 - [ ] the bootstrap fixpoint holds, and the seed is refreshed if the compiler
       learned something
 
+## Adding a builtin
+
+Every builtin added so far touched the same places; missing one shows up late:
+
+- `spec/L0.md`: section 6's table and the builtin's own subsection; 10.3's
+  `declare` list and how it is emitted, for a runtime call; section 8's
+  table for a new runtime error; the borrowing and read-only lists in 10.3
+  if it reads a counted argument without consuming it
+- `compiler/check.l0`: its name in a builtin group, its arity, and its type
+- `compiler/emit.l0`: `io_names` or `rt_names`, `builtin_type` for a result
+  that is not `int`, `is_borrowing` if it reads without consuming, and the
+  module header's `declare` (`bit_decls`)
+- `runtime/l0rt.ll`: the `@l0_` function
+- tests: `tests/compiler/check_errors` for arity and type; `bundle_prelude`
+  and `emit_tail` re-blessed for the new `declare`, every time
+  (`tools/test.sh --bless bundle_prelude`); behaviour in `tests/io` or
+  `tests/unit`, since stage 0 is frozen
+- a library wrapper in `lib/`, with `tests/io/libdoc/index.txt` regenerated
+  by `tools/l0 doc > tests/io/libdoc/index.txt` and its diff read
+- the seed refreshed, and `tools/linux-test.sh` for a runtime change
+
 ## Constraints the seed imposes
 
 **The seed must be refreshed between the two steps of a feature addition,** not
 after both. See the two-step rule above; `tools/bootstrap.sh` reports when the
 seed has gone stale.
+
+**`tools/l0` compiles with the seed, not the source in the tree.** It uses
+`lib/l0c`, built from `bootstrap/stage2.ll`, and links the working tree's
+`lib/`. So until the seed is refreshed, a new builtin is unknown to `tools/l0
+run`, `build`, `check`, and `test`, though `tools/test.sh --compiled` passes,
+since it points `L0_COMPILER` at the compiler it just built; and once
+`lib/io.l0` uses the builtin, every `tools/l0` command but `doc`, `spec`,
+`examples`, and `init` fails. Before the refresh, run it as
+`L0_COMPILER=build/l0c-current L0_RUNTIME=build/l0rt.o tools/l0 ...` after a
+`tools/l0check` has built `build/l0c-current`; `L0_RUNTIME` too, since
+setting `L0_COMPILER` skips rebuilding `lib/l0rt.o`.
 
 **The runtime interface is effectively append-only.** The seed contains
 `declare i64 @l0_cons(i64, i64)` and its siblings by name, so renaming or
@@ -287,8 +328,11 @@ cmp a.ll b.ll
 If those differ, the bug is nondeterminism and nothing else matters until it is
 fixed. Something environment-derived is reaching the output: an address, a hash
 iteration order, a clock, an environment variable, or a target triple. Spec
-section 10.4 forbids all of these. L0 itself is pure and deterministic, so the
-cause is almost always a counter seeded from something it should not be.
+section 10.4 forbids all of these. L0 is no longer pure, but the compiler is a
+whole-input `main` that calls no effect, so its output can depend only on
+its input: a `clock_ns`, file, or argument builtin reaching it would itself
+be the bug, and otherwise the cause is almost always a counter seeded from
+something it should not be.
 
 **Cause 2: a real miscompile.** If the same binary is self-consistent but
 stage2 and stage3 disagree, then stage1 and stage2 compiled `compiler.l0`

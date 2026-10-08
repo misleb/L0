@@ -41,8 +41,8 @@ sort.
 --path` names two files: working programs covering recursion, strings, data
 types, `match`, returning several values, reporting failure, type
 parameters, maps and hashing, reading and writing, files and telling their
-failures apart, arrays and grids, bytes, bits, ordering and sorting, and
-timing, and tests of them.
+failures apart, replacing and deleting files, reading in pieces, arrays and
+grids, bytes, bits, ordering and sorting, and timing, and tests of them.
 
 Everything these commands show comes from the installed toolchain, so it
 always describes the compiler that builds this project. Nothing of it is
@@ -93,9 +93,12 @@ narrowed contract, passes and is still wrong.
 Anything a ten-line function solves is not a language limitation. A prompt, a
 confirmation, or progress during a run is not one either: write it with a
 `main` that takes no parameters and reads and writes as it goes, as the
-`l0-code` skill shows, and so are files and command-line arguments. Memory is
-reclaimed automatically, and `clock_ns` times part of a program. A network
-and the environment do not exist yet.
+`l0-code` skill shows, and so are files and command-line arguments. Files can
+be renamed, deleted, and read in pieces; failures of each say which they
+were; values of any type can be compared, ordered, hashed, and sorted; and
+`int`s have bitwise operations. Memory is reclaimed automatically, and
+`clock_ns` times part of a program. A network, the environment, listing or
+creating directories, and floating point do not exist yet.
 
 ## Two traps specific to L0
 

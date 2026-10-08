@@ -51,12 +51,8 @@
                   (push (hex_escape b) acc)
                   (push (append "{" (append (digits b) "}")) acc))))))
 
-(def hex_digit ((d int)) int
-  (if (lt d 10) (add 48 d) (add 87 d)))
-
 (def hex_escape ((b int)) (list int)
-  (cons 92 (cons 120
-    (cons (hex_digit (div b 16)) (cons (hex_digit (mod b 16)) (nil int))))))
+  (cons 92 (cons 120 (hex_digits b 2))))
 
 ;; A list of strings as [s1, s2, ...], each shown as show_str shows it.
 (def show_strs ((xs (list (list int)))) (list int)

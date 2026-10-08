@@ -32,7 +32,7 @@ specified integer (0052), and the prelude has a `(Map K V)` for every key
 and value type (0053), which the compiler's pad table and the suite's graph
 now use (0054). A persistent map and an ordered one wait for code that
 needs them. Everything through 0054 has passed on Linux, 0056 needed no
-run, and 0057, 0058, 0061, and 0062 have passed on arm64. 0055's third
+run, and 0057, 0058, 0061, 0062, 0064, and 0066 have passed on arm64. 0055's third
 round of programs found a copying bug in the map (0056) and three places
 the runtime broke section 6.3 (0057), both fixed, and earned bitwise
 operations (0058), which make its hash program 4.2 times faster, a delete

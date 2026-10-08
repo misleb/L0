@@ -135,13 +135,18 @@ two-step rule, stop and ask.
 
 ## Parallel work
 
-Research and program items can run in parallel through the Task tool:
+Research and program items can run in parallel as subagents (Cursor's Task
+tool, Claude Code's Agent tool):
 
-- `explore` or `generalPurpose` for read-only research that returns a finding
-- `best-of-n-runner` for anything that writes files. Each runs in its own git
-  worktree and branch, so parallel workers cannot collide.
+- a read-only agent (`explore` or `generalPurpose`; `Explore` or
+  `general-purpose`) for research that returns a finding
+- for anything that writes files, either an agent in the main tree that
+  writes only under its own `tmp/ITEM/AREA/`, as 0028 and 0055 ran, or one in
+  its own git worktree, so parallel workers cannot collide. Cursor's
+  `best-of-n-runner` puts its worktrees under `~/.cursor/worktrees`, outside
+  `$HOME/projects`, so it needs the user's approval first (`local-tmp`)
 
-Launch independent workers in a single message with `run_in_background: true`.
+Launch independent workers in a single message, in the background.
 
 A subagent sees none of your conversation, so its prompt must stand alone. It
 must include:
@@ -155,9 +160,9 @@ must include:
 - that it tests what it writes with `tools/l0 test`, as the shipped
   `l0-code` skill describes, so its claims about behavior come with a test
   that shows them
-- the rules in `.cursor/rules/`, which it does not see: scratch work goes
-  in `tmp/` (`local-tmp.mdc`), and files are read and edited with its file
-  tools, not shell commands (`file-tools.mdc`)
+- the rules in `.cursor/rules/` (`.claude/rules/` for Claude Code), which it
+  does not see: scratch work goes in `tmp/` (`local-tmp`), and files are
+  read and edited with its file tools, not shell commands (`file-tools`)
 - what to return, below
 
 **Tell program workers to report limits, not route around them.** A worker that

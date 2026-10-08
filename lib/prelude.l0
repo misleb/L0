@@ -15,8 +15,8 @@
 ; shows; a definition without one is internal. ;;; describes the file.
 
 ;;; Lists and arrays of any type, Option, Result, Map, and lists of bytes:
-;;; building output, comparing, decimal numbers, slicing lines and words, word
-;;; tables, and character classes. A string is a (list int) of byte values, so
+;;; building output, comparing and sorting, decimal and hexadecimal numbers,
+;;; slicing lines and words, word tables, and character classes. A string is a (list int) of byte values, so
 ;;; the byte helpers work on strings.
 
 ; ------------------------------------------------------------ lists, arrays

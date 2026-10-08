@@ -117,10 +117,13 @@
 ; A file is an IoFile rather than a bare handle, so the checker can tell one
 ; from any other int. Opening returns IoOpened, whose IoFailed case a match
 ; has to handle, so a program cannot forget that opening can fail. This
-; library's names begin with Io so a reader can tell them apart; a program
-; that declares one of its own shadows it (spec section 7.1).
+; library's types and constructors begin with Io, or with the operation they
+; describe, Open, Create, Rename, Remove, or Write, so a reader can tell them
+; apart; Done and NotDone are the exceptions. A program that declares one of
+; its own shadows it (spec section 7.1).
 
-;; An open file. Get one from open_in or open_out, use it with the file_
+;; An open file. Get one from open_in, open_out, or open_appending, or from
+;; open_in_bytes and open_out_buffer for one in memory; use it with the file_
 ;; functions, and close it with file_close.
 (data IoFile
   (IoFile int))
@@ -339,8 +342,8 @@
 (def file_read_all ((f IoFile)) IoBytes
   (match f ((IoFile h) (read_all_from h))))
 
-;; The next piece of f, at least one byte and at most n, as (IoBytes b), or
-;; (IoBytes b) with b empty at the end, or (IoReadFailed code). It waits only
+;; The next piece of f, at least one byte and at most n, as (IoBytes b), with
+;; b empty only at the end, or (IoReadFailed code). It waits only
 ;; until some byte has arrived, so call it until the bytes are empty to read
 ;; a whole file, holding one piece at a time: this is how a large file is
 ;; copied, or checked, in constant memory. (IoFile 0) reads standard input.

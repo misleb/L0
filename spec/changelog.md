@@ -44,9 +44,10 @@ in 2 MB, faster than the system's tee.
 - *No promise to fill the piece.* A terminal or a pipe gives what has
   arrived, and a program that waited for `n` could not answer a prompt; so
   a reader loops until the bytes are empty, and the library says so.
-- *At most the buffer's size.* A piece is at most 65,536 bytes whatever `n`
-  is, since the handle reads into its buffer; asking for more is not an
-  error, only an upper bound.
+- *At most the buffer's size.* A piece from a file or a pipe is at most
+  65,536 bytes whatever `n` is, since the handle reads into its buffer; a
+  handle over a list, which has no buffer, gives up to `n` elements. Asking
+  for more is not an error, only an upper bound.
 
 `tests/unit/read_some_test.l0` covers pieces of every size from a handle
 over a list, the end and after it, a handle not open for reading, and `n`
@@ -187,8 +188,9 @@ left, -7 the reader of a pipe has gone, -8 it is a directory, -9 no such
 directory, the one a file would be in, and -10 on another file system. Each
 is given only by the operations the table names, and only when the host
 says that was the reason; any other is still -5. With them, opening a
-directory to read is -8 where it was -5, a directory that may not be
-written denies creating and renaming in it (-4) where that was -5, and
+directory to read, to write, or to append, or removing one, is -8 where it
+was -5, a directory that may not be written denies creating and renaming in
+it (-4) where that was -5, and
 `flush` and `close` return the code of the first byte lost rather than
 always -5.
 
