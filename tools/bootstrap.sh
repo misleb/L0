@@ -1,10 +1,15 @@
 #!/bin/sh
 # Builds the L0 compiler from the L0 compiler and verifies self-compilation.
 #
-# Usage: tools/bootstrap.sh [--refresh-seed]
+# Usage: tools/bootstrap.sh [--refresh-seed] [--virt]
 #
 #   --refresh-seed   after a successful fixpoint, install the result as
 #                    bootstrap/stage2.ll. See "When to refresh the seed" below.
+#   --virt           also take the last step on QEMU's virt board, with no
+#                    operating system: stage2, built as a board image, must
+#                    compile compiler.l0 to stage3.ll's bytes there too
+#                    (spec section 9.2). Needs qemu-system-aarch64, and Docker
+#                    or L0_VIRT_LD.
 #
 # Self-hosting is verified by a byte-for-byte fixpoint, not by judgment:
 #
@@ -42,11 +47,13 @@ ROOT=$(cd "$(dirname "$0")/.." && pwd)
 cd "$ROOT"
 
 REFRESH=0
+VIRT=0
 for arg in "$@"; do
     case "$arg" in
         --refresh-seed) REFRESH=1 ;;
+        --virt) VIRT=1 ;;
         *)
-            echo "usage: tools/bootstrap.sh [--refresh-seed]" >&2
+            echo "usage: tools/bootstrap.sh [--refresh-seed] [--virt]" >&2
             exit 2
             ;;
     esac
@@ -137,6 +144,42 @@ fi
 
 echo
 echo "FIXPOINT: stage2.ll == stage3.ll ($(wc -c < "$BUILD/stage2.ll" | tr -d ' ') bytes)"
+
+# -------------------------------------------- the last step, on the board
+
+# stage2 again, but as an image for QEMU's virt board, linked with the
+# board's runtime as tools/build.sh left it in build/virt, and booted on the
+# same source. It must write stage3.ll exactly: the compiler compiles
+# itself to itself with no operating system beneath it.
+if [ "$VIRT" = 1 ]; then
+    if [ ! -f "$BUILD/virt/host.bc" ]; then
+        echo "error: $CC cannot build the virt board's runtime for aarch64" >&2
+        exit 1
+    fi
+    L0_VIRT_DIR="$BUILD/virt" tools/l0 link --target virt "$BUILD/stage2.ll" \
+        -o "$BUILD/stage2.elf"
+    start=$(date +%s)
+    if ! tools/l0 boot "$BUILD/stage2.elf" < "$SRC" > "$BUILD/stage3-virt.ll.tagged"; then
+        echo "FAIL: stage2 failed on the virt board" >&2
+        exit 1
+    fi
+    took=$(( $(date +%s) - start ))
+    case "$(head -n 1 "$BUILD/stage3-virt.ll.tagged")" in
+        O) tail -n +2 "$BUILD/stage3-virt.ll.tagged" > "$BUILD/stage3-virt.ll" ;;
+        *)
+            echo "FAIL: stage2 on the virt board did not write IR" >&2
+            head -5 "$BUILD/stage3-virt.ll.tagged" | sed 's/^/    /' >&2
+            exit 1
+            ;;
+    esac
+    if ! cmp -s "$BUILD/stage3.ll" "$BUILD/stage3-virt.ll"; then
+        echo "FAIL: on the virt board, stage2 compiles compiler.l0 to other bytes"
+        echo "      than on this host. First difference:"
+        diff "$BUILD/stage3.ll" "$BUILD/stage3-virt.ll" | head -20 | sed 's/^/    /'
+        exit 1
+    fi
+    echo "ON THE BOARD: stage2 on QEMU's virt board writes stage3.ll too, in $took s"
+fi
 
 # ------------------------------------------------------------ seed handling
 

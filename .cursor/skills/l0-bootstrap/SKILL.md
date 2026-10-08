@@ -20,7 +20,9 @@ tools/l0 run FILE.l0 ... < in   # run a program (build/l0i knows only stage 0's 
 tools/bootstrap.sh              # self-compile and check the fixpoint
 tools/bootstrap.sh --refresh-seed   # also install the result as bootstrap/stage2.ll
 tools/linux-test.sh [arm64] [amd64] # both suites on Linux, in a local container
-tools/test.sh --virt [NAME]     # tests/virt on QEMU's virt board, no OS
+tools/test.sh --virt [NAME]     # the fixpoint, the compiled suite, and
+                                # tests/virt on QEMU's virt board, no OS
+tools/bootstrap.sh --virt       # also check the fixpoint's last step there
 tools/l0 run --target virt FILE.l0 ... < in   # build and boot on the board
 ```
 
@@ -58,8 +60,11 @@ silent and converts a caught bug into a permanent one.
   `tools/linux-test.sh`, as one in `l0rt.ll` does.
 - `runtime/host-virt.ll` and `runtime/virt.ld` — the host file and image
   layout for QEMU's aarch64 virt board, with no operating system. A change
-  to either, or to `l0rt.ll`, needs `tools/test.sh --virt`, which runs
-  `tests/virt` there.
+  to either, to `l0rt.ll`, or to the emitter needs `tools/test.sh --virt`,
+  which checks the fixpoint on the board and runs the compiled suite's
+  programs and `tests/virt` there, about a minute and a half. A new test
+  that needs files or arguments and has no `.sh` script gets a `.host`
+  file saying why, or fails there.
 - `stage0/l0core.c`, `stage0/l0core.h` — stage 0's value representation and
   host I/O, in C. Compiled programs never link them.
 - `compiler/*.l0` — the L0 compiler, written in L0

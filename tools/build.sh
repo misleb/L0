@@ -30,6 +30,26 @@ echo "ll  runtime/l0rt.ll runtime/host-libc.ll"
 "$CC" -O2 -flto -Wno-override-module -c "$ROOT/runtime/host-libc.ll" -o "$BUILD/l0host.o"
 "$CC" -O2 -Wno-override-module -c "$ROOT/runtime/host-libc.ll" -o "$BUILD/l0host-native.o"
 
+# The virt board's runtime, as tools/install.sh installs it, in build/virt
+# for tools/test.sh --virt and tools/bootstrap.sh --virt: rebuilt when its
+# sources are newer, and left out when clang cannot target aarch64.
+V="$BUILD/virt"
+if [ ! -f "$V/host.bc" ] || [ "$ROOT/runtime/l0rt.ll" -nt "$V/l0rt.bc" ] ||
+    [ "$ROOT/runtime/host-virt.ll" -nt "$V/host.bc" ] ||
+    [ "$ROOT/runtime/virt.ld" -nt "$V/virt.ld" ] ||
+    [ "$ROOT/tools/virt/Dockerfile" -nt "$V/Dockerfile" ]; then
+    mkdir -p "$V"
+    if "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
+            "$ROOT/runtime/l0rt.ll" -o "$V/l0rt.bc" 2> /dev/null &&
+        "$CC" --target=aarch64-none-elf -O2 -c -emit-llvm \
+            "$ROOT/runtime/host-virt.ll" -o "$V/host.bc" 2> /dev/null; then
+        echo "ll  runtime/l0rt.ll runtime/host-virt.ll, for the virt board"
+        cp "$ROOT/runtime/virt.ld" "$ROOT/tools/virt/Dockerfile" "$V/"
+    else
+        rm -rf "$V"
+    fi
+fi
+
 if [ -f "$ROOT/stage0/l0i.c" ]; then
     echo "cc  stage0/l0core.c"
     "$CC" $CFLAGS -I"$ROOT/stage0" -c "$ROOT/stage0/l0core.c" \

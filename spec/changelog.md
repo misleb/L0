@@ -7,6 +7,49 @@ New entries go at the top.
 
 ---
 
+## The fixpoint and the compiled suite run on the virt board, and no language change for it
+
+**Nothing in L0 changed.** What is new is a test of the goal's measure.
+`tools/bootstrap.sh --virt` builds stage2 as an image for QEMU's virt
+board, boots it on the compiler's source, and requires it to write
+stage3.ll's bytes there, as it does on the host. `tools/test.sh --virt`
+runs that first, and then the compiled suite's programs, `tests/lang`,
+`tests/compiler`, and `tests/io`, on the board against the expectations
+`--compiled` holds them to, and then `tests/virt`. 0071 met the measure
+once, by hand; now a change that loses it fails a test.
+
+**What skips, and why it is stated rather than guessed.** A `tests/io`
+program with a `.sh` script skips, since the script examines it through the
+host: its files, arguments, signals, or how it was built. So does
+`tests/unit`, since `l0 test` names a test by an argument. A program that
+needs files or arguments and has no script gets a `<stem>.host` file saying
+why. A rule that found such programs by grepping their sources for the
+file and argument builtins was tried first and dropped: it took a
+parameter named `args` for a call, which skipped twelve compiler stage
+tests that run on the board, and every program it rightly found already
+has a script. Of the suite's 115 programs, 65 run on the board and 50
+skip, 34 for scripts and 16 for `l0 test`; with the fixpoint, 66 pass. The
+board has no environment, so `L0_RC_CHECK` is not checked there.
+
+**One container links every image.** The suite starts one container from
+`tools/virt/Dockerfile` with the repository mounted at its own path, and
+`L0_VIRT_LD` sends each link to it by `docker exec`, rather than a `docker
+run` per image, each of which costs 0.19 s to start. `l0 link`, new in the
+driver, links IR the compiler wrote, for the host or with `--target virt`
+for the board, which is how both scripts build what `tools/l0c` emitted.
+`tools/build.sh` now builds the board's runtime into `build/virt` when its
+sources change.
+
+**Why roadmap item 0073 is dropped.** It would have let the board run under
+Apple's hypervisor instead of emulation, about 24 times faster. The suite
+takes 97 s, and emulation is little of it: linking one compiler stage test
+for the board takes 2.6 s, nearly all of it clang optimizing the compiler
+with the runtime, and booting it 0.14 s. The fixpoint's 5 s on the board is
+beside a bootstrap and a link on the host. The hypervisor would save
+little, so it waits for a run that emulation makes slow.
+
+---
+
 ## A host without an operating system: QEMU's virt board
 
 **No program behaves differently on macOS or Linux.** What is new is a

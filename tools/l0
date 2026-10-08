@@ -10,6 +10,8 @@
 #   l0 boot  IMAGE                            boot an image built with
 #                                             --target virt, on standard input
 #   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
+#   l0 link  IR -o OUT                        link IR the compiler wrote, as
+#                                             l0 build does, --target virt too
 #   l0 test  FILE.l0 [MORE.l0 ...]            run every (def test_NAME () int ...)
 #   l0 doc   [FILE | NAME | TEXT]             the standard library: an index, one
 #                                             file (prelude, io, test) in full,
@@ -24,7 +26,7 @@
 #   --test          l0 check: check as l0 test builds, with test.l0 linked
 #   --match TEXT    l0 test: run only tests whose names contain TEXT
 #   --bless         l0 test: rewrite golden files instead of comparing
-#   --target virt   l0 build and l0 run: for QEMU's aarch64 virt board, with
+#   --target virt   l0 build, run, and link: for QEMU's aarch64 virt board, with
 #                   no operating system (spec section 9.2), rather than this
 #                   host
 #
@@ -573,6 +575,22 @@ case "$cmd" in
         trap 'rm -rf "$TMP"' EXIT
         cat > "$TMP/stdin"
         virt_boot "$1" "$TMP/stdin"
+        ;;
+
+    link)
+        setup "$@"
+        # shellcheck disable=SC2086
+        set -- $FILES
+        if [ $# -ne 1 ] || [ -z "$OUT" ]; then
+            echo "usage: l0 link IR -o OUT [--target virt]" >&2
+            exit 2
+        fi
+        if [ "$TARGET" = virt ]; then
+            virt_link "$1" "$OUT"
+        else
+            "$(find_cc)" -O2 -flto -Wno-override-module "$1" "$RUNTIME" \
+                "$HOST" -o "$OUT"
+        fi
         ;;
 
     build)

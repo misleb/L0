@@ -48,6 +48,8 @@
 #                  comparing output, for behavior that is about timing or
 #                  about how the program is built, where IR is the file EXE
 #                  was linked from; exit status 0 is a pass
+#   <stem>.host    why the program needs a host with files or arguments;
+#                  --virt skips it
 #
 # tests/io has no oracle, since stage 0 cannot run it, so its expectations
 # are written by hand and never blessed: --bless skips the suite, and it is
@@ -240,29 +242,121 @@ extra_sources() {
 
 # --------------------------------------------------------------------- virt
 #
-# tests/virt on QEMU's aarch64 virt board, a host without an operating
-# system (spec section 9.2), built by the current compiler with the board's
-# runtime as runtime/ holds it, through tools/l0 build --target virt, and
-# booted with tools/l0 boot. Each runs on its .in and is judged by its
-# .out, .err, and .exit, as tests/io's are.
+# The fixpoint's last step on QEMU's aarch64 virt board, and then the
+# compiled suite's programs there, a host without an operating system (spec
+# section 9.2), against the very expectations
+# --compiled holds them to: tests/lang, tests/compiler, and tests/io, each
+# compiled by the current compiler with tools/l0c, linked with tools/l0
+# link --target virt, and booted with tools/l0 boot. Then tests/virt, the
+# board's own, built with tools/l0 build --target virt.
+#
+# What skips, rather than failing, is what needs a host the board is not:
+#   - a tests/io program with a .sh script, which examines the program
+#     through the host: its files, arguments, signals, timing, or how it
+#     was built
+#   - tests/unit, since l0 test names the test to run by an argument
+#   - a program with a <stem>.host file, which says why it needs files or
+#     arguments the board does not have, and so expectations the board
+#     cannot meet. Every such program today has a .sh script anyway; a new
+#     one without a script gets a .host file, or fails here.
+# The board has no environment, so L0_RC_CHECK, which --compiled sets, is
+# not checked here.
+#
+# Every image is linked by one container, started once and given each link
+# by docker exec, rather than a docker run per image, unless L0_VIRT_LD
+# already names a linker.
 
 if [ "$VIRT" = 1 ]; then
+    vstart=$(date +%s)
     vdir="$BUILD/virt"
-    mkdir -p "$vdir"
-    "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
-        runtime/l0rt.ll -o "$vdir/l0rt.bc"
-    "$CC" --target=aarch64-none-elf -O2 -c -emit-llvm \
-        runtime/host-virt.ll -o "$vdir/host.bc"
-    cp runtime/virt.ld tools/virt/Dockerfile "$vdir/"
+    if [ ! -f "$vdir/host.bc" ]; then
+        echo "FAIL: $CC cannot build the virt board's runtime for aarch64"
+        exit 1
+    fi
     vcc=$(current_compiler)
+    if [ -z "${L0_VIRT_LD:-}" ]; then
+        if ! docker image inspect l0-virt-link > /dev/null 2>&1; then
+            docker build -q -t l0-virt-link tools/virt > /dev/null
+        fi
+        vname="l0-virt-test-$$"
+        docker run -d --rm --name "$vname" -v "$ROOT:$ROOT" l0-virt-link \
+            sleep 86400 > /dev/null
+        trap 'docker stop -t 0 "$vname" > /dev/null 2>&1 || true' EXIT
+        # The repository is mounted at its own path, so every path tools/l0
+        # passes means the same inside.
+        printf '#!/bin/sh\nexec docker exec -w "$PWD" %s ld.lld "$@"\n' \
+            "$vname" > "$TMP/virt-ld"
+        chmod +x "$TMP/virt-ld"
+        L0_VIRT_LD="$TMP/virt-ld"
+    fi
+    L0_VIRT_DIR="$vdir"
+    export L0_VIRT_LD L0_VIRT_DIR
+
+    # First the goal's measure: the compiler compiles itself on the board
+    # to the bytes it writes here (tools/bootstrap.sh --virt).
+    if ./tools/bootstrap.sh --virt > "$TMP/bootstrap.log" 2>&1; then
+        npass=$((npass + 1))
+    else
+        nfail=$((nfail + 1))
+        failures="$failures virt/fixpoint"
+        echo "FAIL virt/fixpoint: tools/bootstrap.sh --virt failed"
+        sed 's/^/    /' "$TMP/bootstrap.log"
+    fi
+
+    # virt_case SUITE NAME SRC STEM builds SRC for the board and judges it.
+    virt_case() {
+        vsuite=$1
+        vname_=$2
+        vsrc=$3
+        vstem=$4
+        # shellcheck disable=SC2046
+        if ! ./tools/l0c "$vsrc" $(extra_sources "$vstem") > "$TMP/$vname_.ll" \
+            2> "$TMP/$vname_.cerr"; then
+            nfail=$((nfail + 1))
+            failures="$failures $vsuite/$vname_"
+            echo "FAIL $vsuite/$vname_: compiler rejected a valid program"
+            sed 's/^/    /' "$TMP/$vname_.cerr"
+            return
+        fi
+        if ! ./tools/l0 link --target virt "$TMP/$vname_.ll" -o "$TMP/$vname_.elf" \
+            > "$TMP/$vname_.lerr" 2>&1; then
+            nfail=$((nfail + 1))
+            failures="$failures $vsuite/$vname_"
+            echo "FAIL $vsuite/$vname_: did not link for the board"
+            sed 's/^/    /' "$TMP/$vname_.lerr"
+            return
+        fi
+        run_case "$vsuite" "$vname_" "$vstem" ./tools/l0 boot "$TMP/$vname_.elf"
+    }
+
+    nskip=0
+    for src in tests/lang/*.l0 tests/compiler/*.l0 tests/io/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        dir=$(dirname "$src")
+        case "$dir/$name" in tests/compiler/fmt) continue ;; esac
+        selected "$name" || continue
+        stem="$dir/$name"
+        if [ -f "$stem.sh" ] || [ -f "$stem.host" ]; then
+            nskip=$((nskip + 1))
+            continue
+        fi
+        virt_case "virt-$(basename "$dir")" "$name" "$src" "$stem"
+    done
+    for src in tests/unit/*_test.l0; do
+        [ -f "$src" ] || continue
+        selected "$(basename "$src" .l0)" || continue
+        nskip=$((nskip + 1))
+    done
+
     for src in tests/virt/*.l0; do
         [ -f "$src" ] || continue
         name=$(basename "$src" .l0)
         selected "$name" || continue
         stem="tests/virt/$name"
         # shellcheck disable=SC2046
-        if ! L0_COMPILER="$vcc" L0_VIRT_DIR="$vdir" ./tools/l0 build \
-            --target virt "$src" $(extra_sources "$stem") -o "$TMP/$name.elf" \
+        if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$src" \
+            $(extra_sources "$stem") -o "$TMP/$name.elf" \
             > "$TMP/$name.berr" 2>&1; then
             nfail=$((nfail + 1))
             failures="$failures virt/$name"
@@ -272,8 +366,9 @@ if [ "$VIRT" = 1 ]; then
         fi
         run_case virt "$name" "$stem" ./tools/l0 boot "$TMP/$name.elf"
     done
+
     echo
-    echo "virt suite: $npass passed, $nfail failed"
+    echo "virt suite: $npass passed, $nfail failed, $nskip skipped, in $(( $(date +%s) - vstart )) s"
     if [ "$nfail" -ne 0 ]; then
         for f in $failures; do echo "  $f"; done
         exit 1

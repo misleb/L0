@@ -1,7 +1,9 @@
 # 0073: an exit that works under the hypervisor
 
 Kind: language
-Status: proposed
+Status: dropped; emulation is little of the suite's time, changelog "The
+fixpoint and the compiled suite run on the virt board, and no language
+change for it"
 Needs: 0072
 
 ## Why
@@ -26,3 +28,8 @@ does not, this item is dropped with that measurement as the reason.
 ## Log
 
 - 2026-10-08: opened by 0068's recommendation, item 5, conditional on 0072.
+- 2026-10-08: dropped on 0072's measurement. `tools/test.sh --virt` takes
+  97 s, and emulation is little of it: linking one compiler stage test for
+  the board takes 2.6 s, nearly all clang on the host, and booting it 0.14
+  s; the fixpoint's 5 s on the board is beside a host bootstrap and link.
+  Reopen if a run that emulation makes slow appears.

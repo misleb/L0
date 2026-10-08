@@ -42,8 +42,9 @@ produces under one. Whether L0 code may then drive devices itself is a
 separate question, which this goal opens and a program has to earn. A
 program already runs on one such machine, QEMU's aarch64 `virt` board:
 `l0 build --target virt` makes an image and `l0 boot` runs it, and the
-compiler built that way compiles itself to the same bytes, though no test
-yet checks that on every change.
+compiler built that way compiles itself to the same bytes, which
+`tools/test.sh --virt` checks, with the compiled suite's programs run there
+against the expectations they meet here.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is
@@ -313,6 +314,14 @@ This is why `stage0/` still exists after self-hosting. It is frozen — never
 extended for new language features, because the moment it is edited to agree
 with the compiler it stops being independent. Programs using constructs it
 cannot handle simply skip.
+
+`tools/test.sh --virt` holds the same programs to the same expectations on
+QEMU's aarch64 `virt` board, with no operating system beneath them, after
+checking that the compiler built for the board compiles itself there to
+the bytes it writes on the host (`tools/bootstrap.sh --virt`). What needs a
+host the board is not skips, by a rule the script states: a program whose
+test examines it through the host's files, arguments, or signals, and the
+tests written with `l0 test`, which names a test by an argument.
 
 Stage 0 runs programs, never the compiler's own source. `tools/l0check`,
 `tools/l0c`, and the compiler's stage tests in `tests/compiler`, which link
