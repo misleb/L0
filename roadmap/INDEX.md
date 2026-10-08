@@ -49,20 +49,31 @@ item 0055 opened is now done. The review after 0066 found that renaming a
 directory onto a file gave -9, against section 6.3, now fixed (0067), and
 the queue is empty. A new goal, running on bare metal (changelog "A new
 goal: running on bare metal"), is what comes next, and 0068 breaks it down.
-Its prototype already reaches the compiler's fixpoint on QEMU's virt board
-with the runtime and emitted IR unchanged; its recommended items await the
-user's go-ahead before they are queued.
+Its prototype reached the compiler's fixpoint on QEMU's virt board with the
+runtime and emitted IR unchanged, and what makes that real is queued: the
+spec says what a host without an operating system gives (0069), the
+runtime calls a host interface (0070), a runtime and `l0 build` for the
+board (0071), the suite and the fixpoint on it (0072), and an exit the
+hypervisor handles if the suite is too slow (0073).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0069](0069-host-without-an-os.md) the spec says what a host without an
+   operating system gives — queued
+2. [0070](0070-runtime-host-interface.md) the runtime calls a host
+   interface, with libc behind it — queued, needs 0069
+3. [0071](0071-virt-board-runtime.md) a runtime for QEMU's virt board, and
+   l0 build for it — queued, needs 0070
+4. [0073](0073-exit-without-semihosting.md) an exit that works under the
+   hypervisor — proposed, needs 0072, and only if it finds the suite too
+   slow
 
 ## Other open items
 
-- [0068](0068-route-to-bare-metal.md) research: the route to running on bare
-  metal — active
+- [0072](0072-virt-test-suite.md) tooling: the compiled suite and the
+  fixpoint run on the virt board — queued, needs 0071
 
 ## Done and dropped
 
@@ -237,3 +248,6 @@ Empty.
 - [0067](0067-rename-directory-onto-file.md) renaming a directory onto a
   file is not -9 — done, changelog "Renaming a directory onto a file is not
   a missing directory"; passed on Linux arm64
+- [0068](0068-route-to-bare-metal.md) research: the route to running on bare
+  metal — done; the fixpoint holds on QEMU's virt board, and 0069 to 0073
+  make it real
