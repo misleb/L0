@@ -1,3 +1,5 @@
+; A main that streams: input is read as it goes, and the result, here the
+; count of bytes copied, is the exit status the host sees.
 (def echo ((n int)) int
   (let b (read_byte)
     (if (lt b 0)

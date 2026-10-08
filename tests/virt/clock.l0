@@ -1,0 +1,9 @@
+; The board has a clock: readings are not negative, and do not go back.
+(def spin ((n int)) int
+  (if (eq n 0) 0 (spin (sub n 1))))
+
+(def main ((input (list int))) bool
+  (let t0 (clock_ns)
+    (let s (spin 1000000)
+      (let t1 (clock_ns)
+        (and (ge t0 0) (ge t1 t0))))))

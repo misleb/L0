@@ -1,2 +1,0 @@
-(def main ((input (list int))) (list int)
-  (rev input))

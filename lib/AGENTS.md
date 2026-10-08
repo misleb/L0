@@ -63,6 +63,13 @@ Several files are compiled together, since L0 has no module system. The
 standard library is linked automatically, and `l0 test` adds its assertions,
 so never pass library files on the command line.
 
+`l0 build --target virt` builds an image for QEMU's aarch64 `virt` board,
+with no operating system, and `l0 boot IMAGE < input` runs one (`l0 run
+--target virt` does both). There the program has standard input, output,
+and error, and the clock, but no files, no arguments, and no environment:
+the spec's section 9.2 says what each builtin gives then. Tests still run
+on this host, with `l0 test`.
+
 `l0 check` accepts files with no `main`, so `hello.l0` checks on its own;
 `l0 build` and `l0 run` need one, and say so. `l0 run` builds into a
 temporary directory, `$TMPDIR` or else `/tmp`, and deletes it when the

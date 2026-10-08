@@ -11,6 +11,9 @@
 #                  intended. Refused with --compiled.
 #   --bless-check  with --compiled: rewrite tests/check's .cerr files, the
 #                  compiler's own diagnostics
+#   --virt         run tests/virt on QEMU's virt board, with no operating
+#                  system, through tools/l0 build --target virt; needs
+#                  qemu-system-aarch64, and Docker or L0_VIRT_LD
 #   name-filter    a substring of a test's file name without its directory or
 #                  extension, such as bundle_prelude, matched in every suite.
 #                  A filter that matches nothing passes, with "0 tests".
@@ -27,6 +30,8 @@
 #                        as the I/O builtins; run by --compiled only
 #   tests/unit/*_test.l0 tests written with l0 test; run by --compiled only,
 #                        each file counting as one test
+#   tests/virt/*.l0      programs run on the virt board, against hand-written
+#                        expectations; run by --virt only
 #
 # Per-test files, where <stem> is the test path without its extension:
 #   <stem>.out     expected stdout, required, may be empty
@@ -58,12 +63,14 @@ cd "$ROOT" # so diagnostics contain stable relative paths
 BLESS=0
 BLESS_CHECK=0
 COMPILED=0
+VIRT=0
 FILTER=""
 for arg in "$@"; do
     case "$arg" in
         --bless) BLESS=1 ;;
         --bless-check) BLESS_CHECK=1 ;;
         --compiled) COMPILED=1 ;;
+        --virt) VIRT=1 ;;
         -*)
             echo "unknown option: $arg" >&2
             exit 2
@@ -78,6 +85,12 @@ if [ "$COMPILED" = 1 ] && [ "$BLESS" = 1 ]; then
     echo "  from compiler output would destroy the differential property." >&2
     echo "  To update the compiler's own diagnostics for tests/check, use" >&2
     echo "  --compiled --bless-check." >&2
+    exit 2
+fi
+
+if [ "$VIRT" = 1 ] && { [ "$BLESS" = 1 ] || [ "$COMPILED" = 1 ]; }; then
+    echo "--virt runs alone, and tests/virt's expectations are written by hand," >&2
+    echo "  as tests/io's are, so they are never blessed" >&2
     exit 2
 fi
 
@@ -224,6 +237,49 @@ extra_sources() {
         tr '\n' ' ' < "$1.extra"
     fi
 }
+
+# --------------------------------------------------------------------- virt
+#
+# tests/virt on QEMU's aarch64 virt board, a host without an operating
+# system (spec section 9.2), built by the current compiler with the board's
+# runtime as runtime/ holds it, through tools/l0 build --target virt, and
+# booted with tools/l0 boot. Each runs on its .in and is judged by its
+# .out, .err, and .exit, as tests/io's are.
+
+if [ "$VIRT" = 1 ]; then
+    vdir="$BUILD/virt"
+    mkdir -p "$vdir"
+    "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
+        runtime/l0rt.ll -o "$vdir/l0rt.bc"
+    "$CC" --target=aarch64-none-elf -O2 -c -emit-llvm \
+        runtime/host-virt.ll -o "$vdir/host.bc"
+    cp runtime/virt.ld tools/virt/Dockerfile "$vdir/"
+    vcc=$(current_compiler)
+    for src in tests/virt/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        stem="tests/virt/$name"
+        # shellcheck disable=SC2046
+        if ! L0_COMPILER="$vcc" L0_VIRT_DIR="$vdir" ./tools/l0 build \
+            --target virt "$src" $(extra_sources "$stem") -o "$TMP/$name.elf" \
+            > "$TMP/$name.berr" 2>&1; then
+            nfail=$((nfail + 1))
+            failures="$failures virt/$name"
+            echo "FAIL virt/$name: did not build"
+            sed 's/^/    /' "$TMP/$name.berr"
+            continue
+        fi
+        run_case virt "$name" "$stem" ./tools/l0 boot "$TMP/$name.elf"
+    done
+    echo
+    echo "virt suite: $npass passed, $nfail failed"
+    if [ "$nfail" -ne 0 ]; then
+        for f in $failures; do echo "  $f"; done
+        exit 1
+    fi
+    exit 0
+fi
 
 # ----------------------------------------------------------------- compiled
 #

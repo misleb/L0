@@ -60,16 +60,14 @@ hypervisor handles if the suite is too slow (0073).
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0071](0071-virt-board-runtime.md) a runtime for QEMU's virt board, and
-   l0 build for it — queued, next
-2. [0073](0073-exit-without-semihosting.md) an exit that works under the
+1. [0073](0073-exit-without-semihosting.md) an exit that works under the
    hypervisor — proposed, needs 0072, and only if it finds the suite too
    slow
 
 ## Other open items
 
 - [0072](0072-virt-test-suite.md) tooling: the compiled suite and the
-  fixpoint run on the virt board — queued, needs 0071
+  fixpoint run on the virt board — queued, next
 
 ## Done and dropped
 
@@ -253,3 +251,6 @@ Changes to the language, strictly in order. At most one is active.
 - [0070](0070-runtime-host-interface.md) the runtime calls a host interface,
   with libc behind it — done, changelog "The runtime reaches its host
   through an interface of its own"; passed on Linux arm64
+- [0071](0071-virt-board-runtime.md) a runtime for QEMU's virt board, and
+  l0 build for it — done, changelog "A host without an operating system:
+  QEMU's virt board"; passed on Linux arm64

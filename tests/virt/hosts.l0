@@ -1,0 +1,21 @@
+; Spec section 9.2 on a host without an operating system. No files: reading,
+; renaming, and removing give -3, creating and appending -9. No arguments.
+; No environment, so L0_ARRAY_STATS is unset, and the copy array_set makes
+; of a shared array is not reported on standard error.
+(def line ((n int)) (list int)
+  (append (digits n) (cons 10 (nil int))))
+
+(def copied ((a (array int))) int
+  (let b (array_set a 0 1)
+    (add (array_get a 0) (array_get b 0))))
+
+(def main ((input (list int))) (list int)
+  (let x (cons 120 (nil int))
+    (let y (cons 121 (nil int))
+      (append (line (open_read x))
+        (append (line (open_write x))
+          (append (line (open_append x))
+            (append (line (rename x y))
+              (append (line (remove x))
+                (append (line (arg_count))
+                  (line (copied (array_new 3 0))))))))))))

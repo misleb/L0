@@ -27,3 +27,7 @@ lose it unseen.
 ## Log
 
 - 2026-10-08: opened by 0068's recommendation, item 4.
+- 2026-10-08: 0071 added `tools/test.sh --virt`, which runs only
+  `tests/virt`, each image linked by its own `docker run`. This item extends
+  it to the compiled suite's programs and the fixpoint, and links them in
+  one container.

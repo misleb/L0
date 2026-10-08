@@ -175,3 +175,6 @@ compiler's fixpoint on a machine with no operating system? Settle at least:
        need semihosting, so the hypervisor can run it
 - 2026-10-08: the user agreed; queued as 0069 to 0073. Done. The
   prototype in `roadmap/0068/` stays until 0071 replaces it.
+- 2026-10-08: 0071 replaced it with `runtime/host-virt.ll`, `runtime/virt.ld`,
+  `tools/virt/Dockerfile`, `l0 build --target virt`, and `tests/virt`, and
+  deleted `roadmap/0068/`; it is in git history at commit 146d854.

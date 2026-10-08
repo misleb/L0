@@ -73,6 +73,24 @@ rm -f "$LIBDIR/libl0rt.a"
 cp "$BUILD/l0rt.o" "$LIBDIR/l0rt.o"
 cp "$BUILD/l0host.o" "$LIBDIR/l0host.o"
 
+# The virt board's runtime, for l0 build --target virt: l0rt.ll and its host
+# file, runtime/host-virt.ll, as bitcode for aarch64, which the driver links
+# into the program, beside the image's layout and the Dockerfile of the
+# container that links it. Skipped, with the directory removed, when clang
+# cannot target aarch64; the host toolchain does not need it.
+echo "ll   runtime/l0rt.ll runtime/host-virt.ll, for the virt board"
+mkdir -p "$LIBDIR/virt"
+if "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
+        "$ROOT/runtime/l0rt.ll" -o "$LIBDIR/virt/l0rt.bc" 2> /dev/null &&
+    "$CC" --target=aarch64-none-elf -O2 -c -emit-llvm \
+        "$ROOT/runtime/host-virt.ll" -o "$LIBDIR/virt/host.bc" 2> /dev/null; then
+    cp "$ROOT/runtime/virt.ld" "$LIBDIR/virt/virt.ld"
+    cp "$ROOT/tools/virt/Dockerfile" "$LIBDIR/virt/Dockerfile"
+else
+    rm -rf "$LIBDIR/virt"
+    echo "     skipped: $CC cannot target aarch64-none-elf"
+fi
+
 echo "link compiler from bootstrap/stage2.ll"
 "$CC" -O2 -flto -Wno-override-module "$ROOT/bootstrap/stage2.ll" \
     "$BUILD/l0rt.o" "$BUILD/l0host.o" -o "$LIBDIR/l0c"

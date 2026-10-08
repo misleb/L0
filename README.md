@@ -39,7 +39,11 @@ timer, behind the same runtime interface, so that neither a program nor the
 IR compiled from it changes with where it runs. The measure is the compiler
 compiling itself on a machine with no operating system, to the same bytes it
 produces under one. Whether L0 code may then drive devices itself is a
-separate question, which this goal opens and a program has to earn.
+separate question, which this goal opens and a program has to earn. A
+program already runs on one such machine, QEMU's aarch64 `virt` board:
+`l0 build --target virt` makes an image and `l0 boot` runs it, and the
+compiler built that way compiles itself to the same bytes, though no test
+yet checks that on every change.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is
@@ -109,6 +113,12 @@ of LLVM IR text:
 optimization, so the runtime's small functions are inlined into it. You can delete
 `runtime/`, `compiler/`, and `lib/` from a checkout and an installed `l0`
 keeps working.
+
+When `clang` can target aarch64, installing also puts the runtime for QEMU's
+`virt` board in `lib/l0/virt/`: `l0rt.ll` and `runtime/host-virt.ll` as
+bitcode, the image layout, and the Dockerfile of the container that links
+images. `l0 build --target virt` and `l0 boot` need `qemu-system-aarch64`,
+and Docker, or an `ld.lld` named by `L0_VIRT_LD`.
 
 `clang` is still invoked on every build, but only as an assembler and linker
 for LLVM IR. GCC has no LLVM IR frontend, so it cannot do that job. Removing
@@ -264,8 +274,10 @@ names rather than a module system.
 A program can read and write its standard streams and files, rename and
 delete files, read its command-line arguments, and time itself on a
 monotonic clock, but there is no network, no environment, no wall-clock
-date, and no directories: none can be listed or created. And it runs only
-where there is an operating system with a libc.
+date, and no directories: none can be listed or created. Without an
+operating system it runs on one machine, QEMU's aarch64 `virt` board,
+where there are no files, arguments, or environment, and no device a
+program can drive.
 
 Memory is freed by reference counting. A whole-input `main` still receives its
 input as a list built in full before it starts, a cons cell per byte, but a
@@ -457,7 +469,9 @@ not have. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 spec/          L0.md (what the language is) and changelog.md (why)
 runtime/       l0rt.ll, the runtime: allocation, reference counting,
                buffered I/O, stack checks; host-libc.ll, its host file:
-               libc, the clock, the entry point
+               libc, the clock, the entry point; host-virt.ll and
+               virt.ld, the host file and image layout for QEMU's virt
+               board, with no operating system
 compiler/      the L0 compiler, written in L0
 lib/           the standard library (prelude.l0, io.l0, test.l0), examples,
                and the AGENTS.md and skill `l0 init` copies into a project
@@ -466,9 +480,10 @@ stage0/        frozen C interpreter, kept only as a differential oracle
 tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself), io (what
                stage 0 cannot run, with hand-written expectations), unit
-               (tests written with l0 test)
+               (tests written with l0 test), virt (run on the virt board)
 tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
-               l0check, l0c, l0ll, install.sh, linux-test.sh
+               l0check, l0c, l0ll, install.sh, linux-test.sh; virt/, the
+               container that links virt board images
 seeds/         the original seed spec, superseded by spec/
 roadmap/       plans and status for work in progress; never knowledge about L0
 .cursor/skills/  agent instructions for developing L0 itself; .claude/skills

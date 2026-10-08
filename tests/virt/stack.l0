@@ -1,4 +1,5 @@
-; Recursion LLVM cannot turn into a loop, deep enough to exhaust the stack.
+; Recursion LLVM cannot turn into a loop, deep enough to exhaust the board's
+; boot stack, which is reported as on any host.
 (def build ((n int)) (list int)
   (if (eq n 0) (nil int) (cons n (build (sub n 1)))))
 

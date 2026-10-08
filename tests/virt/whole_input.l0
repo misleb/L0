@@ -1,0 +1,3 @@
+; A main of the whole input: standard input is the bytes QEMU loaded.
+(def main ((input (list int))) (list int)
+  (rev input))

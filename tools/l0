@@ -7,6 +7,8 @@
 #   l0 run   FILE.l0 [MORE.l0 ...] [-- ARG ...]
 #                                             build to a temporary file, and run
 #                                             it with the arguments after --
+#   l0 boot  IMAGE                            boot an image built with
+#                                             --target virt, on standard input
 #   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
 #   l0 test  FILE.l0 [MORE.l0 ...]            run every (def test_NAME () int ...)
 #   l0 doc   [FILE | NAME | TEXT]             the standard library: an index, one
@@ -22,6 +24,19 @@
 #   --test          l0 check: check as l0 test builds, with test.l0 linked
 #   --match TEXT    l0 test: run only tests whose names contain TEXT
 #   --bless         l0 test: rewrite golden files instead of comparing
+#   --target virt   l0 build and l0 run: for QEMU's aarch64 virt board, with
+#                   no operating system (spec section 9.2), rather than this
+#                   host
+#
+# With --target virt, l0 build writes an ELF image, and l0 run boots it with
+# qemu-system-aarch64, with all of standard input loaded as the program's,
+# its standard output on the board's serial line, and its standard error
+# and exit status passed back as the program's own. The board gives no
+# arguments, so l0 run takes none after --. The image is linked by
+# L0_VIRT_LD, an ld.lld, if set, and otherwise by ld.lld in a container
+# built from tools/virt/Dockerfile the first time; L0_QEMU names the
+# emulator, and L0_VIRT_DIR the board's runtime, which defaults to the
+# installed one.
 #
 # l0 test runs every test with L0_RC_CHECK set, and a test that leaves
 # memory it never freed fails, since that is a compiler or runtime bug.
@@ -107,6 +122,7 @@ OUT=""
 FILES=""
 MATCH=""
 BLESS=""
+TARGET=host
 
 parse_args() {
     while [ $# -gt 0 ]; do
@@ -114,6 +130,17 @@ parse_args() {
             --no-prelude) WANT_PRELUDE=0 ;;
             --test) WANT_TEST=1 ;;
             --bless) BLESS="--bless" ;;
+            --target)
+                shift
+                [ $# -gt 0 ] || { echo "l0: --target needs a name" >&2; exit 2; }
+                case "$1" in
+                    host | virt) TARGET=$1 ;;
+                    *)
+                        echo "l0: unknown target $1; the targets are host and virt" >&2
+                        exit 2
+                        ;;
+                esac
+                ;;
             --match)
                 shift
                 [ $# -gt 0 ] || { echo "l0: --match needs text" >&2; exit 2; }
@@ -225,6 +252,79 @@ scratch_base() {
     else
         echo "${TMPDIR:-/tmp}"
     fi
+}
+
+# ---------------------------------------------------------- the virt board
+
+# virt_link IR OUT: an image of IR for QEMU's virt board. clang compiles the
+# program with the board's runtime and host file, as bitcode, linked into
+# it, so all three are optimized as one module, and only a linker that
+# places sections is needed after. That is ld.lld: L0_VIRT_LD if it names
+# one, or else the one in a container, which never sees bitcode, so its
+# LLVM may be older than clang's.
+virt_link() {
+    vdir=${L0_VIRT_DIR:-$LIB/virt}
+    root=$(cd "$LIB/.." && pwd)
+    # In a source checkout, the board's runtime is rebuilt from runtime/
+    # when it is missing or older than its sources, as ensure_toolchain
+    # rebuilds the host's.
+    if [ -z "${L0_VIRT_DIR:-}" ] && [ -f "$root/runtime/host-virt.ll" ]; then
+        if [ ! -f "$vdir/host.bc" ] ||
+            [ "$root/runtime/l0rt.ll" -nt "$vdir/l0rt.bc" ] ||
+            [ "$root/runtime/host-virt.ll" -nt "$vdir/host.bc" ] ||
+            [ "$root/runtime/virt.ld" -nt "$vdir/virt.ld" ]; then
+            "$root/tools/install.sh" --into "$LIB" > /dev/null
+        fi
+    fi
+    for f in l0rt.bc host.bc virt.ld; do
+        if [ ! -f "$vdir/$f" ]; then
+            echo "l0: no runtime for the virt board in $vdir; clang could not build one for aarch64 at install" >&2
+            exit 2
+        fi
+    done
+    "$(find_cc)" --target=aarch64-none-elf -O2 -Wno-override-module -c "$1" \
+        -Xclang -mlink-bitcode-file -Xclang "$vdir/l0rt.bc" \
+        -Xclang -mlink-bitcode-file -Xclang "$vdir/host.bc" -o "$TMP/virt.o"
+    if [ -n "${L0_VIRT_LD:-}" ]; then
+        "$L0_VIRT_LD" -T "$vdir/virt.ld" "$TMP/virt.o" -o "$2"
+        return
+    fi
+    if ! command -v docker > /dev/null 2>&1; then
+        echo "l0: --target virt links with ld.lld; set L0_VIRT_LD to one, or install Docker" >&2
+        exit 2
+    fi
+    if ! docker image inspect l0-virt-link > /dev/null 2>&1; then
+        echo "l0: building the l0-virt-link image, once" >&2
+        docker build -q -t l0-virt-link "$vdir" > /dev/null
+    fi
+    cp "$vdir/virt.ld" "$TMP/virt.ld"
+    docker run --rm -v "$TMP:/w" -w /w l0-virt-link \
+        ld.lld -T virt.ld virt.o -o virt.elf
+    cp "$TMP/virt.elf" "$2"
+}
+
+# virt_boot IMAGE INPUT: boots IMAGE with the bytes of INPUT as its standard
+# input, loaded at 0x50000000 with their count in the word below, as
+# runtime/host-virt.ll reads them, and exits with the program's status.
+# QEMU's own standard input is not the program's, so it gets none.
+virt_boot() {
+    qemu=${L0_QEMU:-qemu-system-aarch64}
+    if ! command -v "$qemu" > /dev/null 2>&1; then
+        echo "l0: --target virt runs on $qemu, which is not installed" >&2
+        exit 2
+    fi
+    len=$(wc -c < "$2" | tr -d ' ')
+    if [ "$len" -gt 134217720 ]; then
+        echo "l0: the virt board takes at most 128 MB of standard input" >&2
+        exit 2
+    fi
+    load="-device loader,addr=0x4FFFFFF8,data=$len,data-len=8"
+    if [ "$len" -gt 0 ]; then
+        load="$load -device loader,file=$2,addr=0x50000000,force-raw=on"
+    fi
+    # shellcheck disable=SC2086
+    "$qemu" -M virt -cpu cortex-a72 -m 2G -display none -monitor none \
+        -serial stdio -semihosting $load -kernel "$1" < /dev/null
 }
 
 # ---------------------------------------------------------------- reference
@@ -464,12 +564,27 @@ case "$cmd" in
         echo "ok"
         ;;
 
+    boot)
+        if [ $# -ne 1 ] || [ ! -f "$1" ]; then
+            echo "usage: l0 boot IMAGE < input, for an image l0 build --target virt wrote" >&2
+            exit 2
+        fi
+        TMP=$(mktemp -d "$(scratch_base)/l0.XXXXXX")
+        trap 'rm -rf "$TMP"' EXIT
+        cat > "$TMP/stdin"
+        virt_boot "$1" "$TMP/stdin"
+        ;;
+
     build)
         setup "$@"
         [ -n "$OUT" ] || OUT=$(default_out)
         run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
-            "$HOST" -o "$OUT"
+        if [ "$TARGET" = virt ]; then
+            virt_link "$TMP/out.ll" "$OUT"
+        else
+            "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
+                "$HOST" -o "$OUT"
+        fi
         ;;
 
     run)
@@ -489,15 +604,30 @@ case "$cmd" in
         [ $# -gt 0 ] && shift
         # shellcheck disable=SC2086
         setup $own
-        run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
-            "$HOST" -o "$TMP/prog"
-        "$TMP/prog" "$@"
+        if [ "$TARGET" = virt ]; then
+            if [ $# -gt 0 ]; then
+                echo "l0: the virt board gives a program no arguments" >&2
+                exit 2
+            fi
+            cat > "$TMP/stdin"
+            run_compiler "$TMP/out.ll"
+            virt_link "$TMP/out.ll" "$TMP/prog.elf"
+            virt_boot "$TMP/prog.elf" "$TMP/stdin"
+        else
+            run_compiler "$TMP/out.ll"
+            "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
+                "$HOST" -o "$TMP/prog"
+            "$TMP/prog" "$@"
+        fi
         ;;
 
     test)
         WANT_TEST=1
         setup "$@"
+        if [ "$TARGET" = virt ]; then
+            echo "l0 test: runs on this host only; a test is named by an argument, and the virt board gives none" >&2
+            exit 2
+        fi
 
         # L0 has no function values, so a program cannot list its own
         # functions; the tests are found here instead. A test is

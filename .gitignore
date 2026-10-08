@@ -45,5 +45,7 @@ tmp/*
 # Toolchain artifacts produced by tools/install.sh --into lib
 lib/l0c
 lib/l0rt.o
+lib/l0host.o
 lib/libl0rt.a
 lib/L0.md
+lib/virt/

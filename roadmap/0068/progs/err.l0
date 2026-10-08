@@ -1,2 +1,0 @@
-(def main ((input (list int))) (list int)
-  (cons 111 (cons 107 (cons 10 (tail (nil int))))))

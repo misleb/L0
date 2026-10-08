@@ -1,0 +1,4 @@
+; A runtime error: its line on standard error, which stays apart from
+; standard output, status 70, and the whole input's result never written.
+(def main ((input (list int))) (list int)
+  (cons 111 (cons 107 (cons 10 (tail (nil int))))))

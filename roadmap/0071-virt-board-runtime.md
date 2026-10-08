@@ -1,7 +1,8 @@
 # 0071: a runtime for QEMU's virt board, and l0 build for it
 
 Kind: language
-Status: queued
+Status: done, changelog "A host without an operating system: QEMU's virt
+board"
 Needs: 0070
 
 ## Why
@@ -38,3 +39,23 @@ l0: unknown option --target
 ## Log
 
 - 2026-10-08: opened by 0068's recommendation, item 3.
+- 2026-10-08: done. `runtime/host-virt.ll` is the board's host file:
+  0068's boot code, serial output, loaded input, and semihosting, behind
+  0070's interface, with section 9.2's answers for files, arguments, and
+  the environment, and an allocator with boundary tags and 64 bins that
+  splits on allocation, merges on free, and grows in place. `runtime/virt.ld`
+  lays out the image. `tools/l0` gained `--target virt` for `build` and
+  `run`, and `boot`: clang merges the program, `l0rt.ll`, and the host file
+  as bitcode with `-mlink-bitcode-file`, so `llvm-link` is not needed, and
+  ld.lld links, from `L0_VIRT_LD` or a container from
+  `tools/virt/Dockerfile`. `tools/install.sh` installs the board's runtime
+  in `lib/l0/virt/` when clang can target aarch64. `tests/virt`, six
+  programs, runs with `tools/test.sh --virt`. 0068's five programs give
+  their results through the driver. The compiler, built from source with
+  `--target virt`, compiles itself on the board to the seed's bytes in
+  4.96 s; its heap peaks at 0x4040060 bytes, 64.3 MB, the runtime's first
+  64 MB arena chunk and 256 KB of buffers, measured with a copy of the host
+  file that records the highest block end. `roadmap/0068/` is deleted. No
+  compiler change. Both suites green (65, 132), `--virt` 6 of 6, fixpoint
+  holds, Linux arm64 green (65, 132), and an install into a fresh prefix
+  boots `tests/virt/hosts.l0`.

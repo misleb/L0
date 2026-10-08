@@ -7,6 +7,77 @@ New entries go at the top.
 
 ---
 
+## A host without an operating system: QEMU's virt board
+
+**No program behaves differently on macOS or Linux.** What is new is a
+second host. `runtime/host-virt.ll` is a host file, in section 10.3's
+sense, for QEMU's aarch64 `virt` board with no operating system, and
+`runtime/virt.ld` lays out its image. `l0 build --target virt` builds an
+image, `l0 run --target virt` boots one under QEMU, and `l0 boot` boots
+one already built. 10.3 now says that a board's host file names its
+machine's triple, since it holds the boot code, and defines `memcpy` and
+its siblings where nothing else does.
+
+**The evidence.** Roadmap item 0068 reached the compiler's fixpoint on the
+board through prototype scripts, and the driver could not ask for it:
+
+```
+$ tools/l0 build --target virt tmp/0068/hello.l0 -o tmp/0068/hello-virt.elf
+l0: unknown option --target
+```
+
+Now the compiler, built from `lib/prelude.l0` and `compiler/*.l0` by `l0
+build --target virt --no-prelude`, and booted with `l0 boot` on its own
+source, writes the same 1,275,883 bytes the seed writes on macOS, in 4.96
+s under QEMU's emulation. Its heap peaks at 64.3 MB, the runtime's first
+64 MB arena chunk and 256 KB of buffers, against 36 MB the same run
+touches on macOS.
+
+**What the board gives**, as section 9.2 allows: standard input is the
+bytes QEMU's loader puts in memory, since a serial line has no end of
+input; standard output is the serial port; standard error and the exit
+status reach the host by semihosting, so the three stay apart on a board
+with one serial line. There are no files, no arguments, and no
+environment, and the generic timer is the clock. An exception the runtime
+does not expect, which would be a bug in it, is reported with the
+registers that locate it and stops with status 99.
+
+**The allocator splits and merges.** 0068's prototype served every request
+from power-of-two classes and never merged, so a block of 64 MB plus one
+word took 128 MB, and the space freed blocks held could only be reused at
+their own size. `host-virt.ll` keeps each block's size at both ends, so
+freeing merges a block with a free neighbour on either side, and keeps
+free blocks in 64 bins by the top bit of their size: allocation takes the
+first block that fits from the request's bin up, and splits off what is
+left when that makes a block of its own. `l0_host_resize` grows into a
+free neighbour above before it copies. A block's contents are 16-byte
+aligned, as `malloc`'s are.
+
+**One module, built with `clang` alone.** The driver compiles the program
+with the board's runtime and host file linked into it as bitcode, by
+clang's `-mlink-bitcode-file`, so all three are optimized together, as
+link-time optimization does on macOS and Linux, without `llvm-link` or
+`opt`. What is left for the linker is placing sections, so ld.lld does it:
+`L0_VIRT_LD` if it names one that runs, and otherwise the ld.lld of a
+container built from `tools/virt/Dockerfile`, whose older LLVM never reads
+the host's bitcode. On the machine this was written on, a security policy
+stops the host's own ld.lld from running at all, which is why the
+container exists.
+
+**What `--target virt` refuses.** `l0 run --target virt` takes no
+arguments after `--`, since the board gives none, and reads all of its
+standard input before booting, since the board's input is loaded whole.
+`l0 test --target virt` is refused: `l0 test` names the test to run by an
+argument.
+
+`tests/virt` holds six programs run on the board by `tools/test.sh
+--virt`: section 9.2's cases, a whole-input and a streaming `main`, a
+runtime error, stack exhaustion, and the clock. `tools/install.sh`
+installs the board's runtime when `clang` can target aarch64, and skips it
+otherwise.
+
+---
+
 ## The runtime reaches its host through an interface of its own
 
 **No program behaves differently.** Every output, error, and exit status
