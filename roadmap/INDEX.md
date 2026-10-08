@@ -40,19 +40,20 @@ operations (0058), which make its hash program 4.2 times faster, a delete
 19 of 21 orderings here are structural, directly or by a key, so `compare`
 is in (0064), and the library sorts by it (0065); function values
 wait for an order no key expresses, and would need closures or a context
-argument to serve it. Bounded reads with updatable bytes wait on research
-(0060).
+argument to serve it. 0060 found the sieve no longer needs bytes that
+update, since 0058's bitset sieve runs to 10^8 in 0.57 s and 14 MB, and that
+reading in blocks is what tee and the unpacker need: a bounded read (0066)
+is next, and updatable bytes wait.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0066](0066-bounded-read.md) reading at most n bytes — proposed, by 0060
 
 ## Other open items
 
-- [0060](0060-bounded-reads-and-updatable-bytes.md) research: reading at
-  most n bytes, and bytes that update in place — proposed
+None.
 
 ## Done and dropped
 
@@ -219,3 +220,6 @@ Empty.
 - [0065](0065-library-on-compare.md) tooling: the library sorts and takes
   min and max of any type — done, changelog "The library sorts, and takes
   the min and max, of any type, and no language change for it"
+- [0060](0060-bounded-reads-and-updatable-bytes.md) research: reading at
+  most n bytes, and bytes that update in place — done; a bounded read
+  (0066); updatable bytes wait
