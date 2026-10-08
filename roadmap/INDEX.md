@@ -36,20 +36,24 @@ run, and 0057, 0058, 0061, and 0062 have passed on arm64. 0055's third
 round of programs found a copying bug in the map (0056) and three places
 the runtime broke section 6.3 (0057), both fixed, and earned bitwise
 operations (0058), which make its hash program 4.2 times faster, a delete
-(0061), and typed failures beyond opening (0062), all done. Waiting on
-research: ordering any type (0059), and bounded reads with updatable bytes
+(0061), and typed failures beyond opening (0062), all done. 0059 found that
+19 of 21 orderings here are structural, directly or by a key, so `compare`
+comes next (0064), then the library's sort over it (0065); function values
+wait for an order no key expresses, and would need closures or a context
+argument to serve it. Bounded reads with updatable bytes wait on research
 (0060).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0064](0064-compare.md) `compare` orders two values of any type —
+   proposed, by 0059
 
 ## Other open items
 
-- [0059](0059-compare-or-function-values.md) research: ordering a value of
-  any type, by `compare` or by function values — proposed
+- [0065](0065-library-on-compare.md) tooling: the library sorts and takes
+  min and max of any type — proposed, needs 0064
 - [0060](0060-bounded-reads-and-updatable-bytes.md) research: reading at
   most n bytes, and bytes that update in place — proposed
 
@@ -210,3 +214,6 @@ Empty.
 - [0063](0063-docs-and-tools-from-0055.md) tooling: the doc and tool
   findings of 0055 — done, changelog "A declaration that does not parse is
   reported once, and no language change for it"
+- [0059](0059-compare-or-function-values.md) research: ordering a value of
+  any type — done; `compare` (0064), then the library on it (0065);
+  function values wait
