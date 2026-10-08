@@ -1,7 +1,7 @@
 # 0069: the spec says what a host without an operating system gives
 
 Kind: language
-Status: queued
+Status: done, changelog "What a host without an operating system gives"
 Needs: nothing
 
 ## Why
@@ -54,3 +54,12 @@ and `L0_ARRAY_STATS` come from an environment the board does not have.
 ## Log
 
 - 2026-10-08: opened by 0068's recommendation, item 1.
+- 2026-10-08: done. New section 9.2, Hosts: a host without files is an
+  empty file system (-3 to read, rename, or remove, -9 to create), a
+  missing stream channel is open on nothing, no arguments is 0, no clock
+  -5, no environment leaves the settings unset; 6.3 and 6.4 point to it.
+  10.3 says the runtime does libc's work itself on a machine without one,
+  and runs `main` on the host's stack when the large thread cannot be made,
+  but names no interface: 0070 does, when one exists. The changelog has
+  why no new failure code. Spec only; both suites green, fixpoint holds,
+  seed up to date.

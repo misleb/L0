@@ -26,8 +26,9 @@ entry:
 reports the boot stack. A change to any of those paths in `l0rt.ll`, made
 for macOS or Linux, would break the board, and no host test would notice.
 This makes the board harder to get wrong: `l0rt.ll` calls a small interface
-of its own, the one 0069 names in section 10.3, and `runtime/host-libc.ll`
-implements it with libc.
+of its own, which this item names in section 10.3 (0069 left it unnamed,
+since nothing implemented it), and `runtime/host-libc.ll` implements it
+with libc.
 
 ## Done when
 
@@ -37,9 +38,10 @@ implements it with libc.
   both
 - every program's output, errors, and exit status are unchanged: both
   suites green, the fixpoint holds, Linux arm64 green
-- the interface takes nothing a board cannot give: no threads, no
-  `dlsym`, no descriptor numbers beyond the standard three, unless 0069's
-  spec says the board has them
+- section 10.3 names the interface, and every function in it has an
+  answer a host without an operating system can give, as section 9.2
+  says: a file operation that fails as an empty file system does, a large
+  stack that may be refused, no `dlsym` and no descriptor numbers in it
 
 ## Log
 

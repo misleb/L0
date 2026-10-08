@@ -26,6 +26,9 @@ l0: unknown option --target
   container from a Dockerfile under `tools/` while the host's `ld.lld` is
   blocked, and `tools/l0 run --target virt` boots it under QEMU with
   standard input and the exit status as `roadmap/0068/run.sh` passes them
+- every case of section 9.2 holds on the board and has a test: opening
+  for reading, renaming, and removing give -3, opening for writing and
+  appending -9, `arg_count` 0, and the environment's settings unset
 - 0068's programs in `roadmap/0068/progs/` give the same results through
   the driver; the board's peak memory for the compiler compiling itself is
   measured and recorded

@@ -60,13 +60,11 @@ hypervisor handles if the suite is too slow (0073).
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0069](0069-host-without-an-os.md) the spec says what a host without an
-   operating system gives — queued
-2. [0070](0070-runtime-host-interface.md) the runtime calls a host
-   interface, with libc behind it — queued, needs 0069
-3. [0071](0071-virt-board-runtime.md) a runtime for QEMU's virt board, and
+1. [0070](0070-runtime-host-interface.md) the runtime calls a host
+   interface, with libc behind it — queued, next
+2. [0071](0071-virt-board-runtime.md) a runtime for QEMU's virt board, and
    l0 build for it — queued, needs 0070
-4. [0073](0073-exit-without-semihosting.md) an exit that works under the
+3. [0073](0073-exit-without-semihosting.md) an exit that works under the
    hypervisor — proposed, needs 0072, and only if it finds the suite too
    slow
 
@@ -251,3 +249,6 @@ Changes to the language, strictly in order. At most one is active.
 - [0068](0068-route-to-bare-metal.md) research: the route to running on bare
   metal — done; the fixpoint holds on QEMU's virt board, and 0069 to 0073
   make it real
+- [0069](0069-host-without-an-os.md) the spec says what a host without an
+  operating system gives — done, changelog "What a host without an
+  operating system gives"

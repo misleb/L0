@@ -7,6 +7,79 @@ New entries go at the top.
 
 ---
 
+## What a host without an operating system gives
+
+**No program behaves differently on macOS or Linux.** The new section 9.2
+says what a host is, what every host gives a program, and what a host may
+lack and what a program sees then. 6.3, 6.4, and 10.3 point to it, and 10.3
+no longer says the runtime only ever reaches the host through libc.
+
+**The evidence.** Roadmap item 0068 ran the compiler, and this program, on
+QEMU's virt board with no operating system:
+
+```
+(def main ((input (list int))) (list int)
+  (let t0 (clock_ns)
+    (let s (spin 10000000)
+      (let t1 (clock_ns)
+        (append (line (digits (sub t1 t0)))
+          (append (line (digits (arg_count)))
+            (line (digits (open_read (cons 120 (nil int)))))))))))
+```
+
+It printed 82380992, 0, and -3, each plausible and none specified. -3 came
+from the prototype's `access` failing, and `open_write` would have given
+whatever the runtime makes of a failed `creat` with no errno. 10.3 said the
+runtime "reaches the operating system only by calling libc", and
+`L0_STACK_MB` and the other settings came from an environment the board
+does not have. The spec was silent exactly where a host lacks something.
+
+**A host without files is an empty file system, not a new failure.** Opening
+for reading, renaming, and removing give -3, and opening for writing or
+appending gives -9. Three things decided it:
+
+- it is true: nothing is there, and there is no directory to create a file
+  in
+- a new code would add a case to `OpenFault`, `CreateFault`,
+  `RenameFault`, and `RemoveFault`, and since `match` has no wildcard,
+  every program that handles those types would stop compiling, on every
+  host, for a case that only a board can give
+- the program that already handles -3 does the right thing on a board. A
+  program that falls back to its defaults when a settings file is missing
+  falls back there too, and one that reports a missing directory says
+  something true. -5, "any other failure", would have made the common case
+  fatal
+
+What no program can do is tell a board apart from an empty directory.
+Nothing in this repository needs to, and a code for it can be added when a
+program does.
+
+**A missing channel is a stream open on nothing.** A board with one serial
+line may have no separate channel for standard error. 6.3 already says what
+a stream the host left closed is: open on nothing, reads -5, writes lost and
+reported as a write failure. A missing channel is given the same, so no new
+state exists, and a program writing to standard error on such a host exits
+70, as one started with standard error closed does. The streams themselves,
+and an exit status, are required of every host: section 9's two forms of
+`main` and section 8's runtime errors cannot be had without them, and how a
+host provides them is its own affair, as 0068's prototype provides standard
+error and the status by semihosting.
+
+**No arguments, no clock, no environment.** No arguments is `(arg_count)`
+0, which 6.4 already allowed. No clock is -5, as 6.7 already said. No
+environment makes `L0_STACK_MB`, `L0_ARRAY_STATS`, and `L0_RC_CHECK` as if
+unset, and a host that cannot make the large stack's thread runs `main` on
+its own stack, which the runtime has always done when `pthread_create`
+fails.
+
+**What is left for 0070.** 10.3 says what the runtime does on a machine
+without libc, but does not yet name the interface the runtime will call in
+place of libc, because nothing implements it yet, and the spec says what
+L0 is, not what it will be. Roadmap item 0070 names it when `l0rt.ll` calls
+it.
+
+---
+
 ## A new goal: running on bare metal
 
 **No semantic change. L0 is exactly the language it was before this entry.**
