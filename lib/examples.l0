@@ -382,6 +382,19 @@
           (append to " is on another file system: copy it, then remove the first")
           why))))
 
+; file_read_some reads the next piece of a file, at most n bytes, and empty
+; bytes at the end, so a file of any size is copied, or checked, holding one
+; piece at a time. Each piece goes out with one file_write_bytes. The result
+; is how many bytes were copied, or the negative code a read failed with.
+(def copy_in_pieces ((src IoFile) (dst IoFile) (n int)) int
+  (match (file_read_some src 65536)
+    ((IoReadFailed code) code)
+    ((IoBytes b)
+      (if (eq (bytes_len b) 0)
+          n
+          (let w (file_write_bytes dst b 0 (bytes_len b))
+            (copy_in_pieces src dst (add n (bytes_len b))))))))
+
 ; open_appending writes at the end of a file, creating it if need be, so a
 ; log keeps every line written to it.
 (def log_line ((path (list int)) (line (list int))) (list int)

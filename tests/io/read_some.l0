@@ -1,0 +1,22 @@
+; read_some N: copies standard input to standard output N bytes at most at a
+; time with file_read_some, and writes the number of pieces to standard
+; error. Exits 2 if a read failed, saying so. read_some.sh feeds it a file, a
+; pipe, and a directory.
+
+(def copy ((n int) (pieces int)) int
+  (match (file_read_some (IoFile 0) n)
+    ((IoReadFailed code)
+      (let w (write_err (append "failed: " (append (io_error code) "\n")))
+        -1))
+    ((IoBytes b)
+      (if (eq (bytes_len b) 0)
+          pieces
+          (let w (file_write_bytes (IoFile 1) b 0 (bytes_len b))
+            (copy n (add pieces 1)))))))
+
+(def main () int
+  (let k (copy (int_prefix (arg 0) 0) 0)
+    (if (lt k 0)
+        2
+        (let w (write_err (append (digits k) "\n"))
+          (if (is_done (file_flush (IoFile 1))) 0 1)))))

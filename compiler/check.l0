@@ -272,7 +272,7 @@
 (def bi_array ((i int)) (list (list int))
   (split_spaces "array_new array_len array_get array_set"))
 (def bi_bytes ((i int)) (list (list int))
-  (split_spaces "read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes"))
+  (split_spaces "read_bytes read_some bytes_len bytes_get bytes_from_list bytes_to_list write_bytes"))
 
 ; Every builtin's name. Built once per context (ctx_builtins), not per call.
 (def builtin_names ((i int)) (list (list int))
@@ -371,17 +371,22 @@
 (def check_bytes_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
   (if (eq n "read_bytes")
       (need_each n ats o (cons (TyInt) (nil Ty)) (TyBytes))
-      (if (eq n "bytes_len")
-          (need_each n ats o (cons (TyBytes) (nil Ty)) (TyInt))
-          (if (eq n "bytes_get")
-              (need_each n ats o (cons (TyBytes) (cons (TyInt) (nil Ty))) (TyInt))
-              (if (eq n "bytes_from_list")
-                  (need_each n ats o (cons (TyList (TyInt)) (nil Ty)) (TyBytes))
-                  (if (eq n "bytes_to_list")
-                      (need_each n ats o (cons (TyBytes) (nil Ty)) (TyList (TyInt)))
-                      (need_each n ats o
-                        (cons (TyInt) (cons (TyBytes) (cons (TyInt) (cons (TyInt) (nil Ty)))))
-                        (TyInt))))))))
+      (if (eq n "read_some")
+          (need_each n ats o (cons (TyInt) (cons (TyInt) (nil Ty))) (TyBytes))
+          (check_bytes_rest n ats o))))
+
+(def check_bytes_rest ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
+  (if (eq n "bytes_len")
+      (need_each n ats o (cons (TyBytes) (nil Ty)) (TyInt))
+      (if (eq n "bytes_get")
+          (need_each n ats o (cons (TyBytes) (cons (TyInt) (nil Ty))) (TyInt))
+          (if (eq n "bytes_from_list")
+              (need_each n ats o (cons (TyList (TyInt)) (nil Ty)) (TyBytes))
+              (if (eq n "bytes_to_list")
+                  (need_each n ats o (cons (TyBytes) (nil Ty)) (TyList (TyInt)))
+                  (need_each n ats o
+                    (cons (TyInt) (cons (TyBytes) (cons (TyInt) (cons (TyInt) (nil Ty)))))
+                    (TyInt)))))))
 
 ; Each argument against the type in the same position of wants, which is as
 ; long, since the arity was checked first.

@@ -1,7 +1,7 @@
 # 0066: reading at most n bytes
 
 Kind: language
-Status: proposed
+Status: done, changelog "Reading at most n bytes"; passed on Linux arm64
 Needs: 0060
 
 ## Why
@@ -56,3 +56,40 @@ whole input is 103 MB, and the unpacker holds a whole archive, 28 times
 ## Log
 
 - 2026-10-08: proposed by 0060.
+- 2026-10-08: done.
+  - spec 6.6: `(read_some h n)`, at least one byte and at most `n`, no
+    promise to fill; empty at the end, on a failure, or if not open for
+    reading, then `read_from` says which; `n` below 1 is the new runtime
+    error `byte count out of range` (section 8's table). The table in 6 and
+    10.3 name it, and 10.3 says a piece is at most the buffer's 65,536
+    bytes
+  - runtime: `@l0_read_some`, from what the handle holds back after one
+    `read` into an empty buffer, or the next cells of a handle over a list
+  - **`@l0_write_bytes` copies blocks** into a descriptor's buffer, where
+    it called `@l0_write_to` once per byte. Found by measuring: tee moved
+    onto `file_read_some` was only 0.55 s, against 0.27 s for a bare copy
+    of the same writes, since whether LTO inlined the per-byte call
+    differed between programs. The bytes and their order are unchanged
+  - compiler: `read_some` among the bytes builtins, a runtime call, result
+    `bytes`; one step, and the seed refreshed
+  - library: `file_read_some`; `lib/examples.l0`'s `copy_in_pieces`, with
+    a test of 200,000 bytes; the shipped skill's "Reading in pieces"
+  - tests: `tests/unit/read_some_test.l0` (8 tests), `tests/io/read_some`
+    (a file in pieces of 1,000 and of a hundred million, a pipe, a
+    directory as standard input, under `L0_RC_CHECK`), two cases in
+    `check_errors`; `bundle_prelude`, `emit_tail`, and `libdoc` re-pinned
+    for the declaration and the entry
+  - **tee**, from `roadmap/0062/tee/`, moved onto it and kept in
+    `roadmap/0066/tee/`: the per-byte loop and its named workaround go, a
+    piece goes to each output with one `file_write_bytes`, and outputs are
+    still flushed once per 65,536 bytes, which its own tests require (7
+    pass). 100 MB to standard output and three files: 0.08 s of real time,
+    no measurable user time, 2 MB, every output identical, against 1.02 s
+    of user time for 0062's and 0.15 s real for the system's tee
+  - **not done: the unpacker in two passes.** Streaming its archive means
+    rewriting its parser over pieces, which tests the program rather than
+    `read_some`; tee already shows a stream copied in constant memory. The
+    unpacker stays as 0062 left it, holding its archive
+  - both suites green (65, 131); fixpoint at 1,275,881 bytes, seed
+    refreshed and reproduces itself; `tools/linux-test.sh arm64` green
+    (65, 131)

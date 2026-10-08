@@ -1,0 +1,71 @@
+; Unit tests for read_some and the library's file_read_some, spec 6.6:
+; pieces of every size from a handle over a list, the end, reading after the
+; end, a handle not open for reading, and n below 1.
+
+; The pieces of s read n at a time, as strings, up to the empty one.
+(def pieces ((s (list int)) (n int)) (list (list int))
+  (match (open_in_bytes s)
+    ((IoFailed fault why) (cons why (nil (list int))))
+    ((IoOpened f)
+      (let ps (pieces_of f n (nil (list int)))
+        (let c (file_close f)
+          ps)))))
+
+(def pieces_of ((f IoFile) (n int) (acc (list (list int)))) (list (list int))
+  (match (file_read_some f n)
+    ((IoReadFailed code) (rev (cons (io_error code) acc)))
+    ((IoBytes b)
+      (if (eq (bytes_len b) 0)
+          (rev acc)
+          (pieces_of f n (cons (bytes_to_list b) acc))))))
+
+(def test_pieces_of_three () int
+  (check_strs "abc def gh" (pieces "abcdefgh" 3) (split_spaces "abc def gh")))
+
+(def test_one_at_a_time () int
+  (check_strs "one" (pieces "xyz" 1) (split_spaces "x y z")))
+
+(def test_more_than_there_is () int
+  (check_strs "whole" (pieces "hello" 1000) (split_spaces "hello")))
+
+(def test_nothing () int
+  (check_int "no pieces" (length (pieces "" 4)) 0))
+
+; After the end, every read is the end again, and read_from agrees.
+(def test_after_the_end () int
+  (match (open_in_bytes "ab")
+    ((IoFailed fault why) (fail_because "open" why))
+    ((IoOpened f)
+      (let a (file_read_some f 10)
+        (let b (file_read_some f 10)
+          (let c (file_read_some f 10)
+            (let e (file_read_byte f)
+              (let x (file_close f)
+                (add (check_true "second empty" (eq b (IoBytes (bytes_from_list ""))))
+                  (add (check_true "third empty" (eq c (IoBytes (bytes_from_list ""))))
+                       (check_int "read_from says the end" e -1)))))))))))
+
+; A buffer is open only for writing.
+(def test_not_open_for_reading () int
+  (match (open_out_buffer)
+    ((IoFailed fault why) (fail_because "open" why))
+    ((IoOpened f)
+      (let r (file_read_some f 10)
+        (let x (file_close f)
+          (check_true "failed" (eq r (IoReadFailed -2))))))))
+
+(def test_raw () int
+  (let h (open_bytes "abcdef")
+    (let a (read_some h 4)
+      (let b (read_some h 4)
+        (let c (read_some h 4)
+          (let x (close h)
+            (add (check_str "first" (bytes_to_list a) "abcd")
+              (add (check_str "rest" (bytes_to_list b) "ef")
+                   (check_int "end" (bytes_len c) 0)))))))))
+
+(def test_count_below_one () int
+  (bytes_len (read_some 0 0)))
+
+(def expect_count_below_one () (list int)
+  "byte count out of range")

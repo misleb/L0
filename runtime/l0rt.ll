@@ -1622,6 +1622,123 @@ go:
   ret i64 %b
 }
 
+@m_bcount = private constant [23 x i8] c"byte count out of range"
+
+; Spec section 6.6: the next bytes on h, at least one and at most n, or none
+; at the end, on a failure, or if h is not open for reading, leaving h's
+; state for read_from to report, as read_from itself does. A descriptor
+; gives what it holds back, after one read into its buffer if that is empty;
+; a handle over a list gives its next cells.
+define i64 @l0_read_some(i64 %h, i64 %n) {
+entry:
+  %few = icmp slt i64 %n, 1
+  br i1 %few, label %err, label %open
+err:
+  call void @rt_error(ptr @m_bcount, i64 23)
+  unreachable
+open:
+  %ok = call i1 @h_is(i64 %h, i64 1)
+  br i1 %ok, label %state, label %none
+none:
+  %e = call i64 @bytes_alloc(i64 0)
+  ret i64 %e
+state:
+  %sp = getelementptr [64 x i64], ptr @h_state, i64 0, i64 %h
+  %st = load i64, ptr %sp
+  %stuck = icmp eq i64 %st, 0
+  br i1 %stuck, label %kind, label %none
+kind:
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %k = load i64, ptr %kp
+  %list = icmp eq i64 %k, 1
+  %pp = getelementptr [64 x i64], ptr @h_pos, i64 0, i64 %h
+  br i1 %list, label %cells, label %chk
+cells:
+  %c0 = load i64, ptr %pp
+  br label %count
+count:
+  %c = phi i64 [ %c0, %cells ], [ %cn, %cstep ]
+  %m = phi i64 [ 0, %cells ], [ %m1, %cstep ]
+  %cend = icmp eq i64 %c, 0
+  %full = icmp eq i64 %m, %n
+  %stop = or i1 %cend, %full
+  br i1 %stop, label %counted, label %cstep
+cstep:
+  %cq = inttoptr i64 %c to ptr
+  %cnp = getelementptr i64, ptr %cq, i64 1
+  %cn = load i64, ptr %cnp
+  %m1 = add i64 %m, 1
+  br label %count
+counted:
+  %mz = icmp eq i64 %m, 0
+  br i1 %mz, label %list_end, label %list_alloc
+list_end:
+  store i64 1, ptr %sp
+  br label %none
+list_alloc:
+  %lb = call i64 @bytes_alloc(i64 %m)
+  %lbq = inttoptr i64 %lb to ptr
+  br label %fill
+fill:
+  %f = phi i64 [ %c0, %list_alloc ], [ %fn, %fstep ]
+  %i = phi i64 [ 0, %list_alloc ], [ %i1, %fstep ]
+  %fdone = icmp eq i64 %i, %m
+  br i1 %fdone, label %list_done, label %fstep
+fstep:
+  %fq = inttoptr i64 %f to ptr
+  %v = load i64, ptr %fq
+  %v8 = trunc i64 %v to i8
+  %o = add i64 %i, 8
+  %dp = getelementptr i8, ptr %lbq, i64 %o
+  store i8 %v8, ptr %dp
+  %fnp = getelementptr i64, ptr %fq, i64 1
+  %fn = load i64, ptr %fnp
+  %i1 = add i64 %i, 1
+  br label %fill
+list_done:
+  store i64 %f, ptr %pp
+  ret i64 %lb
+chk:
+  %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  %buf = load ptr, ptr %bp
+  %pos = load i64, ptr %pp
+  %len = load i64, ptr %lp
+  %have = icmp slt i64 %pos, %len
+  br i1 %have, label %take, label %refill
+refill:
+  call void @flush_std()
+  %fdp = getelementptr [64 x i64], ptr @h_fd, i64 0, i64 %h
+  %fd = load i64, ptr %fdp
+  %fd32 = trunc i64 %fd to i32
+  %r = call i64 @read(i32 %fd32, ptr %buf, i64 65536)
+  %got = icmp sgt i64 %r, 0
+  br i1 %got, label %filled, label %nothing
+nothing:
+  %zero = icmp eq i64 %r, 0
+  %ns = select i1 %zero, i64 1, i64 2
+  store i64 %ns, ptr %sp
+  br label %none
+filled:
+  store i64 %r, ptr %lp
+  store i64 0, ptr %pp
+  br label %take
+take:
+  %p = phi i64 [ %pos, %chk ], [ 0, %filled ]
+  %l = phi i64 [ %len, %chk ], [ %r, %filled ]
+  %avail = sub i64 %l, %p
+  %less = icmp slt i64 %n, %avail
+  %t = select i1 %less, i64 %n, i64 %avail
+  %tb = call i64 @bytes_alloc(i64 %t)
+  %tbq = inttoptr i64 %tb to ptr
+  %dst = getelementptr i8, ptr %tbq, i64 8
+  %src = getelementptr i8, ptr %buf, i64 %p
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 %t, i1 false)
+  %p2 = add i64 %p, %t
+  store i64 %p2, ptr %pp
+  ret i64 %tb
+}
+
 define i64 @l0_bytes_len(i64 %b) {
 entry:
   %q = inttoptr i64 %b to ptr
@@ -1730,11 +1847,50 @@ err:
   unreachable
 chk:
   %ok = call i1 @h_is(i64 %h, i64 2)
-  br i1 %ok, label %loop, label %bad
+  br i1 %ok, label %which, label %bad
 bad:
   ret i64 -2
+which:
+  %kp = getelementptr [64 x i64], ptr @h_kind, i64 0, i64 %h
+  %kind = load i64, ptr %kp
+  %isfd = icmp eq i64 %kind, 0
+  br i1 %isfd, label %blocks, label %loop
+; A descriptor's bytes go into its buffer a block at a time, delivered when
+; it fills, exactly as write_to would put them there one by one.
+blocks:
+  %lp = getelementptr [64 x i64], ptr @h_len, i64 0, i64 %h
+  %bp = getelementptr [64 x ptr], ptr @h_buf, i64 0, i64 %h
+  br label %block
+block:
+  %s = phi i64 [ %i, %blocks ], [ %s1, %copied ]
+  %more = icmp ult i64 %s, %j
+  br i1 %more, label %room, label %done
+room:
+  %held = load i64, ptr %lp
+  %full = icmp eq i64 %held, 65536
+  br i1 %full, label %deliver, label %copy
+deliver:
+  %fr = call i64 @h_flush(i64 %h)
+  br label %copy
+copy:
+  %at = phi i64 [ %held, %room ], [ 0, %deliver ]
+  %space = sub i64 65536, %at
+  %left = sub i64 %j, %s
+  %fits = icmp ult i64 %left, %space
+  %cnt = select i1 %fits, i64 %left, i64 %space
+  %buf = load ptr, ptr %bp
+  %dst = getelementptr i8, ptr %buf, i64 %at
+  %so = add i64 %s, 8
+  %src = getelementptr i8, ptr %q, i64 %so
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 %cnt, i1 false)
+  %at1 = add i64 %at, %cnt
+  store i64 %at1, ptr %lp
+  %s1 = add i64 %s, %cnt
+  br label %copied
+copied:
+  br label %block
 loop:
-  %k = phi i64 [ %i, %chk ], [ %k1, %put ]
+  %k = phi i64 [ %i, %which ], [ %k1, %put ]
   %end = icmp eq i64 %k, %j
   br i1 %end, label %done, label %put
 put:

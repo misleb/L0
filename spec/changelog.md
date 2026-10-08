@@ -7,6 +7,57 @@ New entries go at the top.
 
 ---
 
+## Reading at most n bytes
+
+**`(read_some h n)` reads the next piece of a handle** (section 6.6,
+roadmap items 0060 and 0066): at least one byte and at most `n`, waiting
+only while none has arrived, as fresh `bytes`; empty at the end, on a
+failure, or if `h` is not open for reading, after which `read_from` says
+which, as after `read_bytes`. An `n` below 1 is the new runtime error `byte
+count out of range`, since empty bytes would read as the end.
+`lib/io.l0`'s `file_read_some` gives `IoBytes`, empty at the end, or
+`IoReadFailed`.
+
+**Why.** 0055's failure worker could read a byte at a time or all at once.
+Its tee took 1.02 s of user time on 100 MB to four outputs, against the
+system's 0.16 s, and its unpacker held a whole archive, 28 times `tar`'s
+memory. 0060 measured the whole-input copy at 0.07 s in 103 MB and the
+byte-at-a-time copy at 0.14 s in 1.6 MB; a bounded read gives the speed of
+one in the memory of the other.
+
+**`write_bytes` copies blocks.** Moving tee onto `file_read_some` only
+halved it, to 0.55 s: `@l0_write_bytes` called `@l0_write_to` once per byte,
+and whether LTO inlined that call differed from program to program. It now
+copies a range into a descriptor's buffer a block at a time, delivering the
+buffer each time it fills, which leaves the same bytes in the same order as
+before, so section 6.6's "exactly as that many calls of `write_to` would"
+still holds. Tee, from `roadmap/0066/tee/`, now copies 100 MB to standard
+output and three files in 0.08 s of real time and no measurable user time,
+in 2 MB, faster than the system's tee.
+
+**The choices.**
+
+- *Fresh bytes, not a read into a buffer.* That would save one allocation
+  per piece, about 1,600 per 100 MB, and needs bytes that update in place,
+  which 0060 found nothing here needs: 0058's bitset sieve already runs to
+  10^8 in 0.57 s and 14 MB. Bytes stay immutable.
+- *No promise to fill the piece.* A terminal or a pipe gives what has
+  arrived, and a program that waited for `n` could not answer a prompt; so
+  a reader loops until the bytes are empty, and the library says so.
+- *At most the buffer's size.* A piece is at most 65,536 bytes whatever `n`
+  is, since the handle reads into its buffer; asking for more is not an
+  error, only an upper bound.
+
+`tests/unit/read_some_test.l0` covers pieces of every size from a handle
+over a list, the end and after it, a handle not open for reading, and `n`
+below 1; `tests/io/read_some` a 1.3 MB file copied in pieces of 1,000 and of
+a hundred million, the same through a pipe, and a directory as standard
+input, under `L0_RC_CHECK`; `check_errors` the arity and type. The
+unpacker is not moved onto it here: streaming its archive in two passes is
+a rewrite of its parser, and tee already shows a stream in constant memory.
+
+---
+
 ## The library sorts, and takes the min and max, of any type, and no language change for it
 
 **`lib/prelude.l0` has `sort`, `min`, and `max`** (roadmap item 0065), over

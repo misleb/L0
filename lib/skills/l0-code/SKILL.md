@@ -364,6 +364,16 @@ line or a field goes out by position without becoming a list. Pass
 `(bytes_from_list s)` convert, which is how bytes meet string literals, in
 tests especially. Nothing changes a bytes value.
 
+**Reading in pieces.** To stream a file of any size, copying it or checking
+it without holding it, `(file_read_some f n)` gives the next piece, at least
+one byte and at most `n`, as `(IoBytes b)`, empty only at the end, or
+`(IoReadFailed code)`. Call it until the bytes are empty: a pipe or a
+terminal gives fewer than `n` while more is still to come. Write each piece
+with one `file_write_bytes`; `examples.l0`'s `copy_in_pieces` is the loop.
+This is also the fast way to copy: 100 MB to four outputs this way takes
+under a tenth of a second, where a loop of `file_read_byte` and
+`file_write_byte` takes one to two seconds.
+
 Writes are held back, so a write failure shows up only later: no write
 returns it, and a program that must say which write failed can only flush
 after it, as often as that matters. `file_close`, or `file_flush` on a file

@@ -95,7 +95,9 @@
   (let bu (push (check_source (m "(compare \"a\" 1)")) bt)
   (let bv (push (check_source (m "(compare 1)")) bu)
   (let bw (push (check_source (m "(head (compare 1 2))")) bv)
-    (rev bw)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let bx (push (check_source (m "(bytes_len (read_some 0))")) bw)
+  (let by (push (check_source (m "(bytes_len (read_some 0 true))")) bx)
+    (rev by)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

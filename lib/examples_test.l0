@@ -178,6 +178,20 @@
     ((IoFailed fault why) (eq fault (OpenMissing)))
     ((IoOpened f) (let c (file_close f) false))))
 
+(def test_copy_in_pieces () int
+  (match (open_in_bytes (rand_bytes 3 200000))
+    ((IoFailed fault why) (fail_because "open" why))
+    ((IoOpened src)
+      (match (open_out_buffer)
+        ((IoFailed fault why) (fail_because "buffer" why))
+        ((IoOpened dst)
+          (let n (copy_in_pieces src dst 0)
+            (let got (buffer_contents dst)
+              (let a (file_close src)
+                (let b (file_close dst)
+                  (add (check_int "count" n 200000)
+                       (check_str "contents" got (rand_bytes 3 200000))))))))))))
+
 (def test_log_line_reports () int
   (check_str "missing directory" (log_line "no/such/dir/log" "x")
              "no such directory"))

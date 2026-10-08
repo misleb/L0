@@ -42,14 +42,17 @@ is in (0064), and the library sorts by it (0065); function values
 wait for an order no key expresses, and would need closures or a context
 argument to serve it. 0060 found the sieve no longer needs bytes that
 update, since 0058's bitset sieve runs to 10^8 in 0.57 s and 14 MB, and that
-reading in blocks is what tee and the unpacker need: a bounded read (0066)
-is next, and updatable bytes wait.
+reading in blocks is what tee and the unpacker need. With a bounded read
+(0066) and `write_bytes` copying blocks, 0055's tee copies 100 MB to four
+outputs in 0.08 s, faster than the system's; updatable bytes wait. Every
+item 0055 opened is now done, and the queue is empty: what comes next goes
+back to the goals.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0066](0066-bounded-read.md) reading at most n bytes — proposed, by 0060
+Empty.
 
 ## Other open items
 
@@ -223,3 +226,5 @@ None.
 - [0060](0060-bounded-reads-and-updatable-bytes.md) research: reading at
   most n bytes, and bytes that update in place — done; a bounded read
   (0066); updatable bytes wait
+- [0066](0066-bounded-read.md) reading at most n bytes — done, changelog
+  "Reading at most n bytes"; passed on Linux arm64
