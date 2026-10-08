@@ -1,0 +1,6 @@
+; Recursion LLVM cannot turn into a loop, deep enough to exhaust the stack.
+(def build ((n int)) (list int)
+  (if (eq n 0) (nil int) (cons n (build (sub n 1)))))
+
+(def main ((input (list int))) int
+  (length (build 100000000)))

@@ -1,0 +1,2 @@
+(def main ((input (list int))) (list int)
+  (cons 104 (cons 105 (cons 10 (nil int)))))

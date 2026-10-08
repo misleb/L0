@@ -47,7 +47,11 @@ reading in blocks is what tee and the unpacker need. With a bounded read
 outputs in 0.08 s, faster than the system's; updatable bytes wait. Every
 item 0055 opened is now done. The review after 0066 found that renaming a
 directory onto a file gave -9, against section 6.3, now fixed (0067), and
-the queue is empty: what comes next goes back to the goals.
+the queue is empty. A new goal, running on bare metal (changelog "A new
+goal: running on bare metal"), is what comes next, and 0068 breaks it down.
+Its prototype already reaches the compiler's fixpoint on QEMU's virt board
+with the runtime and emitted IR unchanged; its recommended items await the
+user's go-ahead before they are queued.
 
 ## Language queue
 
@@ -57,7 +61,8 @@ Empty.
 
 ## Other open items
 
-None.
+- [0068](0068-route-to-bare-metal.md) research: the route to running on bare
+  metal — active
 
 ## Done and dropped
 

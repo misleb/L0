@@ -7,6 +7,59 @@ New entries go at the top.
 
 ---
 
+## A new goal: running on bare metal
+
+**No semantic change. L0 is exactly the language it was before this entry.**
+Nothing in the grammar, the type rules, the runtime, or the emitted IR moved,
+and no test changed. What changed is what L0 aims to be: a goal is added to
+the README's "What L0 aims to be", and roadmap item 0068 breaks it down.
+
+**The goal.** An L0 program runs with no operating system beneath it, booted
+on a machine with its runtime the only code below it. Where there is an
+operating system, libc stays the interface to it, for the reason "A new
+goal, and the agent that uses L0 is the one that changes it" below gives.
+On bare metal the runtime takes libc's place: memory from a region it owns,
+standard input and output over a serial line, the clock from a hardware
+timer. It does so behind the same runtime interface, so that a program, and
+the IR the compiler emits for it, does not change with where it runs. The
+measure is the one this repository trusts most: the compiler compiling
+itself on a machine with no operating system, to the same bytes it produces
+under one.
+
+**Why it fits.** The pieces it needs are already narrow. Section 10.2 keeps a
+target triple out of the emitted IR, so a compiled program does not know its
+host. Section 10.3 confines the host to one file of IR and 50 functions,
+and a program reaches nothing else. What crosses that boundary
+today is 30 libc functions, `malloc`, `read`, `open`, `pthread_create`,
+`clock_gettime`, `dlsym`, and the rest, and replacing them is the work.
+
+**Why it is worth having.** It tests a claim the spec makes without having
+checked it: that L0's facilities are defined by the spec, not by POSIX.
+Section 6.3's failure codes, the 512 MB stack thread, `L0_STACK_MB`, standard
+error, and files all assume a host that has them. Where the spec turns out to
+lean on one silently, that silence is a bug in the spec, and a host with
+nothing beneath it is the way to find every one.
+
+**What it opens, and does not settle.**
+
+- What a program sees where there is no file system, no arguments, and no
+  environment. Section 6.3 says what a failed open returns, but not what a
+  host without files is.
+- Whether there is one runtime or two. Section 10.3 says the runtime
+  "reaches the operating system only by calling libc", which a bare-metal
+  runtime cannot do, so 10.3 will change.
+- Whether a program can do more there than under an operating system, such
+  as driving a device or handling an interrupt. That needs the systems
+  primitives "The route to memory management and I/O" deferred: loads and
+  stores at an address, and static storage. This goal reopens them, but does
+  not earn them; a program that needs one does.
+
+**What it needs that is not here.** A linker for ELF images (`ld.lld`) and an
+emulator to boot them (QEMU), neither of which is installed on the machine
+this entry was written on. Installing them is the user's call.
+
+---
+
 ## Renaming a directory onto a file is not a missing directory
 
 **`rename` of a directory onto a file returns -5, not -9** (section 6.3,

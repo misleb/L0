@@ -1,0 +1,8 @@
+(def echo ((n int)) int
+  (let b (read_byte)
+    (if (lt b 0)
+        (mod n 256)
+        (let w (write_byte b) (echo (add n 1))))))
+
+(def main () int
+  (echo 0))

@@ -31,6 +31,16 @@ type for that operation. The runtime is LLVM IR, and no
 C source goes into a compiled program; libc stays, as the interface to the
 operating system, since on macOS it is the only supported one.
 
+**On bare metal.** An L0 program should also run with no operating system
+beneath it, booted on a machine with its runtime the only code below it.
+There the runtime takes libc's place, giving memory from a region it owns,
+standard input and output over a serial line, and the clock from a hardware
+timer, behind the same runtime interface, so that neither a program nor the
+IR compiled from it changes with where it runs. The measure is the compiler
+compiling itself on a machine with no operating system, to the same bytes it
+produces under one. Whether L0 code may then drive devices itself is a
+separate question, which this goal opens and a program has to earn.
+
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is
 whether code comes out correct and whether the checker catches it when it does
@@ -251,7 +261,8 @@ names rather than a module system.
 A program can read and write its standard streams and files, rename and
 delete files, read its command-line arguments, and time itself on a
 monotonic clock, but there is no network, no environment, no wall-clock
-date, and no directories: none can be listed or created.
+date, and no directories: none can be listed or created. And it runs only
+where there is an operating system with a libc.
 
 Memory is freed by reference counting. A whole-input `main` still receives its
 input as a list built in full before it starts, a cons cell per byte, but a
