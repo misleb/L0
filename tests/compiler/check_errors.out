@@ -67,3 +67,7 @@ ok
 35: head must be a list, but this is int
 35: an argument of remove must be (list int), but this is int
 35: remove takes 1 argument, but got 2
+35: the second argument of compare must be int, but this is bool
+35: the second argument of compare must be (list int), but this is int
+35: compare takes 2 arguments, but got 1
+35: head must be a list, but this is int

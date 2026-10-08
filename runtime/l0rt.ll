@@ -2494,6 +2494,200 @@ word_next:
   br label %scan
 }
 
+; ---------------------------------------------------------------- ordering
+
+; Pairs @l0_compare has still to order, three words each: the two words, and
+; 1 if they point at values to compare or 0 if they are compared as signed
+; integers. The last pushed is taken first.
+@cmp_wl = internal global ptr null
+@cmp_len = internal global i64 0
+@cmp_cap = internal global i64 0
+
+define internal void @cmp_push(i64 %a, i64 %b, i64 %p) {
+entry:
+  %n = load i64, ptr @cmp_len
+  %cap = load i64, ptr @cmp_cap
+  %full = icmp eq i64 %n, %cap
+  br i1 %full, label %grow, label %put
+grow:
+  %none = icmp eq i64 %cap, 0
+  %c2 = mul i64 %cap, 2
+  %c3 = select i1 %none, i64 256, i64 %c2
+  %bytes = mul i64 %c3, 24
+  %old = load ptr, ptr @cmp_wl
+  %new = call ptr @realloc(ptr %old, i64 %bytes)
+  %bad = icmp eq ptr %new, null
+  br i1 %bad, label %oom, label %grown
+oom:
+  call void @rt_error(ptr @m_heap, i64 14)
+  unreachable
+grown:
+  store ptr %new, ptr @cmp_wl
+  store i64 %c3, ptr @cmp_cap
+  br label %put
+put:
+  %arr = load ptr, ptr @cmp_wl
+  %i = mul i64 %n, 3
+  %ap = getelementptr i64, ptr %arr, i64 %i
+  store i64 %a, ptr %ap
+  %bp = getelementptr i64, ptr %ap, i64 1
+  store i64 %b, ptr %bp
+  %pp = getelementptr i64, ptr %ap, i64 2
+  store i64 %p, ptr %pp
+  %n1 = add i64 %n, 1
+  store i64 %n1, ptr @cmp_len
+  ret void
+}
+
+; -1, 0, or 1 as a is less than, equal to, or greater than b, signed.
+define internal i64 @cmp_ints(i64 %a, i64 %b) {
+entry:
+  %gt = icmp sgt i64 %a, %b
+  %lt = icmp slt i64 %a, %b
+  %g = zext i1 %gt to i64
+  %l = zext i1 %lt to i64
+  %r = sub i64 %g, %l
+  ret i64 %r
+}
+
+; Spec sections 6.11 and 10.3: the order of the counted values a and b, of
+; one type, from their blocks alone. Both are walked together, in order: the
+; pair of words on top of the worklist is taken, and either compared as
+; integers, or, as values, expanded into the pairs of their blocks' words,
+; queued last first so that word 0, a data block's tag or a cell's element,
+; is taken next. The first pair that differs decides. An array queues its
+; lengths below its elements, so they are compared only when every element
+; the shorter has is the same.
+define i64 @l0_compare(i64 %a, i64 %b) {
+entry:
+  store i64 0, ptr @cmp_len
+  call void @cmp_push(i64 %a, i64 %b, i64 1)
+  br label %take
+take:
+  %n = load i64, ptr @cmp_len
+  %empty = icmp eq i64 %n, 0
+  br i1 %empty, label %same, label %pop
+same:
+  ret i64 0
+pop:
+  %n1 = sub i64 %n, 1
+  store i64 %n1, ptr @cmp_len
+  %wl = load ptr, ptr @cmp_wl
+  %pi = mul i64 %n1, 3
+  %xp = getelementptr i64, ptr %wl, i64 %pi
+  %x = load i64, ptr %xp
+  %yp = getelementptr i64, ptr %xp, i64 1
+  %y = load i64, ptr %yp
+  %fp = getelementptr i64, ptr %xp, i64 2
+  %f = load i64, ptr %fp
+  %eqw = icmp eq i64 %x, %y
+  br i1 %eqw, label %take, label %differ
+differ:
+  %isval = icmp ne i64 %f, 0
+  br i1 %isval, label %values, label %words
+words:
+  %w = call i64 @cmp_ints(i64 %x, i64 %y)
+  ret i64 %w
+values:
+  %xz = icmp eq i64 %x, 0
+  br i1 %xz, label %less, label %ynil
+ynil:
+  %yz = icmp eq i64 %y, 0
+  br i1 %yz, label %more, label %blocks
+less:
+  ret i64 -1
+more:
+  ret i64 1
+blocks:
+  %xhp = sub i64 %x, 8
+  %xhq = inttoptr i64 %xhp to ptr
+  %hx = load i64, ptr %xhq
+  %mx = and i64 %hx, 4294967295
+  %sx0 = lshr i64 %hx, 32
+  %sx = and i64 %sx0, 255
+  %xq = inttoptr i64 %x to ptr
+  %yq = inttoptr i64 %y to ptr
+  %isarr = icmp eq i64 %sx, 0
+  br i1 %isarr, label %arr, label %cells
+cells:
+  br label %cell_loop
+cell_loop:
+  %j = phi i64 [ %sx, %cells ], [ %j1, %cell_push ]
+  %jdone = icmp eq i64 %j, 0
+  br i1 %jdone, label %take, label %cell_push
+cell_push:
+  %j1 = sub i64 %j, 1
+  %xwp = getelementptr i64, ptr %xq, i64 %j1
+  %xw = load i64, ptr %xwp
+  %ywp = getelementptr i64, ptr %yq, i64 %j1
+  %yw = load i64, ptr %ywp
+  %bits = lshr i64 %mx, %j1
+  %bit = and i64 %bits, 1
+  call void @cmp_push(i64 %xw, i64 %yw, i64 %bit)
+  br label %cell_loop
+arr:
+  %nx = load i64, ptr %xq
+  %ny = load i64, ptr %yq
+  %short = icmp slt i64 %nx, %ny
+  %m = select i1 %short, i64 %nx, i64 %ny
+  %isb = and i64 %mx, 2
+  %isbytes = icmp ne i64 %isb, 0
+  br i1 %isbytes, label %bytes, label %arr_kind
+bytes:
+  %xb = getelementptr i64, ptr %xq, i64 1
+  %yb = getelementptr i64, ptr %yq, i64 1
+  %c = call i32 @memcmp(ptr %xb, ptr %yb, i64 %m)
+  %cneg = icmp slt i32 %c, 0
+  br i1 %cneg, label %less, label %bytes_pos
+bytes_pos:
+  %cpos = icmp sgt i32 %c, 0
+  br i1 %cpos, label %more, label %by_length
+by_length:
+  %l = call i64 @cmp_ints(i64 %nx, i64 %ny)
+  %lz = icmp eq i64 %l, 0
+  br i1 %lz, label %take, label %length_differs
+length_differs:
+  ret i64 %l
+arr_kind:
+  %ptrs = and i64 %mx, 1
+  %hasp = icmp ne i64 %ptrs, 0
+  br i1 %hasp, label %arr_values, label %flat
+flat:
+  br label %flat_loop
+flat_loop:
+  %k = phi i64 [ 1, %flat ], [ %k1, %flat_same ]
+  %kdone = icmp sgt i64 %k, %m
+  br i1 %kdone, label %by_length, label %flat_elem
+flat_elem:
+  %xkp = getelementptr i64, ptr %xq, i64 %k
+  %xk = load i64, ptr %xkp
+  %ykp = getelementptr i64, ptr %yq, i64 %k
+  %yk = load i64, ptr %ykp
+  %ce = call i64 @cmp_ints(i64 %xk, i64 %yk)
+  %cez = icmp eq i64 %ce, 0
+  br i1 %cez, label %flat_same, label %flat_differs
+flat_same:
+  %k1 = add i64 %k, 1
+  br label %flat_loop
+flat_differs:
+  ret i64 %ce
+arr_values:
+  call void @cmp_push(i64 %nx, i64 %ny, i64 0)
+  br label %val_loop
+val_loop:
+  %v = phi i64 [ %m, %arr_values ], [ %v1, %val_push ]
+  %vdone = icmp eq i64 %v, 0
+  br i1 %vdone, label %take, label %val_push
+val_push:
+  %xvp = getelementptr i64, ptr %xq, i64 %v
+  %xv = load i64, ptr %xvp
+  %yvp = getelementptr i64, ptr %yq, i64 %v
+  %yv = load i64, ptr %yvp
+  call void @cmp_push(i64 %xv, i64 %yv, i64 1)
+  %v1 = sub i64 %v, 1
+  br label %val_loop
+}
+
 ; ----------------------------------------------------------------- hashing
 
 ; One item into the hash at hp: spec 6.9's (h xor i) * 1099511628211.

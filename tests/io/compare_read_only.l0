@@ -1,0 +1,15 @@
+; A loop over two list parameters it only orders: compare borrows and
+; returns an int, so both parameters are read-only (spec 10.3) and the loop
+; counts no references, though each compare of the lists is a runtime call,
+; while compare of its two ints is instructions.
+
+(def count_before ((x (list int)) (y (list int)) (i int) (n int)) int
+  (if (eq i 0)
+      n
+      (count_before x y (sub i 1)
+        (add n (add (compare x y) (compare i 0))))))
+
+(def main () int
+  (let x "abc"
+    (let y "abd"
+      (if (eq (count_before x y 1000 0) 0) 3 1))))

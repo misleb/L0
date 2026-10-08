@@ -38,7 +38,7 @@ the runtime broke section 6.3 (0057), both fixed, and earned bitwise
 operations (0058), which make its hash program 4.2 times faster, a delete
 (0061), and typed failures beyond opening (0062), all done. 0059 found that
 19 of 21 orderings here are structural, directly or by a key, so `compare`
-comes next (0064), then the library's sort over it (0065); function values
+is in (0064), and the library's sort over it is next (0065); function values
 wait for an order no key expresses, and would need closures or a context
 argument to serve it. Bounded reads with updatable bytes wait on research
 (0060).
@@ -47,13 +47,12 @@ argument to serve it. Bounded reads with updatable bytes wait on research
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0064](0064-compare.md) `compare` orders two values of any type —
-   proposed, by 0059
+Empty.
 
 ## Other open items
 
 - [0065](0065-library-on-compare.md) tooling: the library sorts and takes
-  min and max of any type — proposed, needs 0064
+  min and max of any type — proposed, next
 - [0060](0060-bounded-reads-and-updatable-bytes.md) research: reading at
   most n bytes, and bytes that update in place — proposed
 
@@ -217,3 +216,5 @@ Changes to the language, strictly in order. At most one is active.
 - [0059](0059-compare-or-function-values.md) research: ordering a value of
   any type — done; `compare` (0064), then the library on it (0065);
   function values wait
+- [0064](0064-compare.md) `compare` orders two values of any type — done,
+  changelog "`compare` orders two values of any type"; passed on Linux arm64

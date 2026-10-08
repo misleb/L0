@@ -7,6 +7,61 @@ New entries go at the top.
 
 ---
 
+## `compare` orders two values of any type
+
+**`(compare a b)` is -1, 0, or 1** (section 6.11, roadmap items 0059 and
+0064), for `a` of any type and `b` of the same, by an order fixed in the
+spec: ints by value, `false` before `true`, lists, arrays, and bytes element
+by element with a shorter prefix first, and data values by the constructor's
+position in its declaration, then field by field. It is 0 exactly when `eq`
+is true. On `int` and `bool` it is two `icmp`s; on anything else a call of
+`@l0_compare`, a walk of both values together in order, with a worklist of
+its own and no stack.
+
+**Why.** 0055's structures worker could not write a heap or a balanced tree
+once for every element type: `(lt a b)` at a type parameter is "an argument
+of lt must be int, but this is T". Its named workaround boxed every element
+into a closed sum `Key = KInt int | KStr bytes`, 5.2 times slower on the
+heap and closed to records, and its `key_cmp` turned out to be exactly the
+structural order on `Key`. 0059 inventoried every ordering in this
+repository's code: 11 of 21 are structural, and 8 more are once the program
+builds a key, such as count highest first and then word, `(Rank (neg count)
+word)`.
+
+**Why not function values instead.** They were the other answer, and 0059
+weighed them: a function type, names in value position, calls through a
+local, a wrapper per function used as a value, owned arguments at the
+wrapper, and an exception to section 8, since an indirect call cannot share
+every caller's padded prototype; a generic function passed as a value has
+no argument to take its types from. And the two orderings here that no key
+expresses, 0028's sort of lines by index into one shared buffer, read data
+outside their arguments, so function values without closures would not
+serve them either. They wait for a program that needs them, and `compare`
+changes none of the properties the bootstrap skill lists: it is checked by
+`eq`'s rule, with no inference or unification.
+
+**The choices.**
+
+- *An `int`, not a data type of three cases.* `(lt (compare a b) 0)` reads
+  as the test it is, and an `int` result costs a `match` nowhere.
+- *Arrays as lists are.* An earlier sketch ordered arrays by length first;
+  one rule for every sequence is the one to remember, and nothing here
+  orders arrays.
+- *Not numeric.* The order is of contents: 0055's bignums, kept least
+  significant limb first, would compare wrongly, so 6.11 says to give such a
+  type a key.
+
+`tests/unit/compare_test.l0` covers every kind and its edges, constructors
+of different widths, a key, agreement with `eq`, and both copies of a
+generic function; `tests/io/compare_deep` a million-element list and
+100,000-deep nesting on a 1 MB stack under `L0_RC_CHECK`;
+`tests/io/compare_read_only` that list parameters used only by `compare` are
+read-only and that `compare` on ints is instructions; and
+`tests/compiler/check_errors` the mismatch and the arity. The compiler and
+the prelude use none of it yet; the library's sort over it is 0065.
+
+---
+
 ## A declaration that does not parse is reported once, and no language change for it
 
 **The checker no longer reports a dropped declaration's uses** (roadmap

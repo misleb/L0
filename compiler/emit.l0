@@ -491,7 +491,7 @@
   (fn_sym n (env_prelude env)))
 
 (def is_borrowing ((n (list int))) bool
-  (any_eq n (split_spaces "head tail is_empty eq hash open_read open_write open_append rename remove open_bytes array_len array_get bytes_len bytes_get write_bytes")))
+  (any_eq n (split_spaces "head tail is_empty eq hash compare open_read open_write open_append rename remove open_bytes array_len array_get bytes_len bytes_get write_bytes")))
 
 ; A call to a function in tail position is a tail call, spec 8, and nothing
 ; may come between it and the ret. Nothing does: live is empty there, so the
@@ -947,10 +947,10 @@
   (if (le i 0) (head xs) (nth_str (tail xs) (sub i 1))))
 
 ; A builtin. ts are the arguments' types; emit_call sets the result's type
-; afterwards. eq on counted values compares them in the runtime, and on int
-; or bool is icmp like the other comparisons; hash is always the runtime's,
+; afterwards. eq and compare on counted values are the runtime's, and on int
+; or bool are icmp like the other comparisons; hash is always the runtime's,
 ; told whether its argument is counted, since the word cannot say. Spec 6.8,
-; 6.9, and 10.3.
+; 6.9, 6.11, and 10.3.
 (def emit_op ((n (list int)) (ops (list (list int))) (ts (list Ty))
               (st Emit)) EmitVal
   (if (if (eq n "eq") (ty_is_ptr (head ts)) false)
@@ -958,7 +958,18 @@
       (if (eq n "hash")
           (emit_rt_call "l0_hash"
             (append ops (one_op (if (ty_is_ptr (head ts)) "1" "0"))) st)
-          (emit_op_plain n ops ts st))))
+          (if (eq n "compare")
+              (if (ty_is_ptr (head ts))
+                  (emit_rt_call "l0_compare" ops st)
+                  (emit_compare_ints (head ops) (head (tail ops)) st))
+              (emit_op_plain n ops ts st)))))
+
+; compare on two ints or bools: (a > b) - (a < b), which is -1, 0, or 1.
+(def emit_compare_ints ((a (list int)) (b (list int)) (st Emit)) EmitVal
+  (match (emit_cmp "sgt" a b st)
+    ((Val g gt st1)
+      (match (emit_cmp "slt" a b st1)
+        ((Val l lt st2) (emit_binop "sub" g l st2))))))
 
 (def emit_op_plain ((n (list int)) (ops (list (list int))) (ts (list Ty))
                     (st Emit)) EmitVal
@@ -1682,7 +1693,8 @@
   (append "declare i64 @l0_bit_shl(i64, i64)\n"
     (append "declare i64 @l0_bit_shr(i64, i64)\n"
       (append "declare i64 @l0_bit_count(i64)\n"
-        "declare i64 @l0_remove(i64)\n\n"))))
+        (append "declare i64 @l0_remove(i64)\n"
+          "declare i64 @l0_compare(i64, i64)\n\n")))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

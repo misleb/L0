@@ -149,11 +149,10 @@ arrays, or `Option` once rather than once per element type:
 A call writes no types: its arguments say what `T` is, so every type
 parameter must appear in some parameter's type, and `(def (empty T) ()
 (list T) ...)` is an error. Inside the body `T` is a type of its own, so a
-`T` can be kept, passed, consed, stored, compared with `eq`, and hashed
-with `hash`, but not ordered with `lt` or taken apart with `match`. So a
-membership test, a lookup, or a hash table is written once, but with no
-function values, a sort, which orders its elements, is still written per
-element type.
+`T` can be kept, passed, consed, stored, compared with `eq`, hashed with
+`hash`, and ordered with `compare`, but not ordered with `lt` or taken apart
+with `match`. So a membership test, a lookup, a hash table, a heap, a sorted
+set, or a sort is written once, for every element type.
 
 **`and` and `or` are strict.** Both arguments are always evaluated, so they do
 not guard against errors. This still calls `head` on an empty list:
@@ -166,10 +165,19 @@ not guard against errors. This still calls `head` on an empty list:
 **`eq` compares two values of any one type by what they hold:** `(eq "ab"
 (cons 97 "b"))` and `(eq (Some "x") (Some "x"))` are true, and so is `eq` on
 two lists of strings, two arrays, or two `bytes` with the same contents. Both
-arguments must have the same type. There is no ordering but on integers:
-`lt`, `le`, `gt`, and `ge` take only `int`, so a sort over strings needs a
-comparison you write. A comparison that is not by contents, such as by one
-field or ignoring case, is a function you write too.
+arguments must have the same type.
+
+**`compare` orders two values of any one type by what they hold** (spec
+6.11): -1, 0, or 1, so `(lt (compare a b) 0)` is "a before b". Strings,
+lists, arrays, and `bytes` go element by element with a shorter prefix
+first, and data values by constructor, in declaration order, then field by
+field. `lt`, `le`, `gt`, and `ge` still take only `int`. To sort by an
+order of your own, build a key whose structure is that order: count highest
+first, then word, is `(Rank (neg count) word)` for `(data Rank (Rank int
+(list int)))`. The order is of contents, not meaning: a number kept as
+digits least significant first does not compare numerically, so give it a
+key. An order no key expresses, such as ignoring case, is a function you
+write, at its element type.
 
 **`hash` gives any value a non-negative `int`** (spec 6.9), the same for two
 values `eq` calls the same, so `(mod (hash key) n)` is a key's slot in a

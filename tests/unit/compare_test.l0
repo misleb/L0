@@ -1,0 +1,84 @@
+; Unit tests for compare, spec 6.11: every kind of value, its edges, data
+; values of different constructors and widths, the order agreeing with eq,
+; and both copies of a generic function, at a counted type and at int.
+
+(data Shape
+  (Dot)
+  (Line int)
+  (Box int int))
+
+(data Rank
+  (Rank int (list int)))
+
+(def b3 ((s (list int))) bytes (bytes_from_list s))
+
+(def test_ints () int
+  (add (check_int "less" (compare 3 5) -1)
+    (add (check_int "same" (compare 5 5) 0)
+      (add (check_int "more" (compare 5 3) 1)
+        (add (check_int "negative first" (compare -1 0) -1)
+             (check_int "the edges" (compare -9223372036854775808 9223372036854775807) -1))))))
+
+(def test_bools () int
+  (add (check_int "false first" (compare false true) -1)
+    (add (check_int "true last" (compare true false) 1)
+         (check_int "same" (compare true true) 0))))
+
+(def test_strings () int
+  (add (check_int "by letter" (compare "abc" "abd") -1)
+    (add (check_int "prefix first" (compare "ab" "abc") -1)
+      (add (check_int "first difference decides" (compare "b" "abc") 1)
+        (add (check_int "empty first" (compare "" "a") -1)
+             (check_int "same" (compare "abc" (cons 97 "bc")) 0))))))
+
+(def test_nested_lists () int
+  (let a (split_spaces "a b c")
+    (add (check_int "same" (compare a (split_spaces "a b c")) 0)
+      (add (check_int "inner decides" (compare a (split_spaces "a c")) -1)
+           (check_int "shorter outer" (compare (split_spaces "a b") a) -1)))))
+
+(def test_data () int
+  (add (check_int "constructor first" (compare (Dot) (Line 0)) -1)
+    (add (check_int "later constructor" (compare (Box 0 0) (Line 9)) 1)
+      (add (check_int "first field" (compare (Box 1 9) (Box 2 0)) -1)
+        (add (check_int "second field" (compare (Box 1 2) (Box 1 3)) -1)
+          (add (check_int "same" (compare (Line 4) (Line 4)) 0)
+               (check_int "none first" (compare ((None int)) (Some -100)) -1)))))))
+
+; A key for count highest first, then word: spec 6.11's example.
+(def test_key () int
+  (add (check_int "higher count first" (compare (Rank (neg 5) "zebra") (Rank (neg 2) "apple")) -1)
+       (check_int "then by word" (compare (Rank (neg 2) "apple") (Rank (neg 2) "pear")) -1)))
+
+(def test_arrays () int
+  (let a (array_set (array_new 3 0) 2 7)
+    (add (check_int "element decides" (compare a (array_new 3 0)) 1)
+      (add (check_int "shorter first" (compare (array_new 2 0) (array_new 3 0)) -1)
+        (add (check_int "elements before length" (compare (array_new 3 1) (array_new 2 2)) -1)
+          (add (check_int "negative elements" (compare (array_new 1 -1) (array_new 1 0)) -1)
+               (check_int "arrays of strings" (compare (array_new 2 "b") (array_new 2 "a")) 1)))))))
+
+(def test_bytes () int
+  (add (check_int "by byte" (compare (b3 "abc") (b3 "abd")) -1)
+    (add (check_int "unsigned" (compare (b3 (cons 255 (nil int))) (b3 "a")) 1)
+      (add (check_int "prefix first" (compare (b3 "ab") (b3 "abc")) -1)
+           (check_int "same" (compare (b3 "abc") (b3 "abc")) 0)))))
+
+; 0 exactly when eq is true, and the reverse order reversed.
+(def agrees ((a (list (list int))) (b (list (list int)))) int
+  (add (check_true "zero iff eq" (eq (eq (compare a b) 0) (eq a b)))
+       (check_int "antisymmetric" (compare a b) (neg (compare b a)))))
+
+(def test_agrees_with_eq () int
+  (add (agrees (split_spaces "x y") (split_spaces "x y"))
+    (add (agrees (split_spaces "x y") (split_spaces "x z"))
+         (agrees (nil (list int)) (split_spaces "x")))))
+
+; Both copies of a generic function: T counted, and T an int.
+(def (smaller T) ((a T) (b T)) T
+  (if (lt (compare a b) 0) a b))
+
+(def test_generic () int
+  (add (check_str "strings" (smaller "pear" "apple") "apple")
+    (add (check_int "ints" (smaller 7 3) 3)
+         (check_true "bools" (eq (smaller true false) false)))))

@@ -284,7 +284,7 @@
             (names_then (bi_path 0)
               (names_then (bi_to_list 0)
                 (names_then (bi_array 0)
-                  (names_then (bi_bytes 0) (split_spaces "neg bit_count not eq hash")))))))))))
+                  (names_then (bi_bytes 0) (split_spaces "neg bit_count not eq hash compare")))))))))))
 
 (def names_then ((xs (list (list int))) (ys (list (list int))))
     (list (list int))
@@ -331,7 +331,9 @@
       (check_eq ats o)
       (if (eq n "hash")
           (COk (TyInt))
-          (check_other_builtin_paths n ats o))))
+          (if (eq n "compare")
+              (check_compare ats o)
+              (check_other_builtin_paths n ats o)))))
 
 (def check_other_builtin_paths ((n (list int)) (ats (list Ty)) (o int))
     (Checked Ty)
@@ -355,6 +357,14 @@
   (if (eq (head (tail ats)) (head ats))
       (COk (TyBool))
       ((CErr Ty) o (type_msg "the second argument of eq" (ty_str (head ats))
+                          (head (tail ats))))))
+
+; compare takes two values of any one type, as eq does, and gives an int.
+; Spec 6.11.
+(def check_compare ((ats (list Ty)) (o int)) (Checked Ty)
+  (if (eq (head (tail ats)) (head ats))
+      (COk (TyInt))
+      ((CErr Ty) o (type_msg "the second argument of compare" (ty_str (head ats))
                           (head (tail ats))))))
 
 ; The bytes builtins are not polymorphic: each argument has one type.
