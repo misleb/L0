@@ -144,7 +144,12 @@ functions, types, and constructors shadow the prelude's (spec section 7.1).
 Opening a file gives an `(IoOpened OpenFault)` or `(IoOpened CreateFault)`,
 whose `((IoFailed fault why) ...)` arm has the failure as a case and as
 words: test the case with `eq`, as `kvlog`'s `kv_load` does with `(eq fault
-(OpenMissing))`, never the words. `tests/io/open_faults` shows each case.
+(OpenMissing))`, never the words. Renaming, removing, flushing, and closing
+give an `(IoDone E)`, with a `RenameFault`, `RemoveFault`, or `WriteFault`
+in its `((NotDone fault why) ...)` arm, tested the same way.
+`tests/io/open_faults` shows each case of opening and renaming,
+`tests/io/remove` each of removing, and `tests/unit/io_test.l0` compares
+whole `IoDone` values with `eq`.
 
 **Type parameters have the same limit in tests.** `(data (Option T) ...)`,
 `(Option int)`, `((None int))`, and `(def (rev T) ...)` are L0 (spec 4, 4.1,
@@ -292,7 +297,13 @@ both group it as `l0 test` does. Such tests live in
 and `tools/test.sh --compiled` runs each through `l0 test` in a scratch
 directory, against the compiler it just built. `tests/io/` is only for what a
 test function cannot check: the two forms of `main`, exit status, standard
-input, arguments, and timing. `tests/io/framework.sh` tests `l0 test` itself. What follows is the convention for `tests/lang/`, which stays
+input, arguments, and timing; files and directories a `.sh` sets up, such as
+a directory or a file that may not be read (`remove`, `open_faults`); broken
+pipes and closed standard handles (`broken_pipe`, `closed_std`); runtime
+failures, with the expected standard error and exit status in `.err` and
+`.exit` (`array_range`); and the generated IR or a build at `-O0`
+(`eq_read_only`, `tail_calls`, `prelude_depth`). `tests/io/framework.sh`
+tests `l0 test` itself. What follows is the convention for `tests/lang/`, which stays
 as it is because stage 0, the oracle, cannot run `l0 test`'s I/O.
 
 Tests in `tests/lang/` return one character per assertion, `y` for pass
