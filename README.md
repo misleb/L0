@@ -46,6 +46,21 @@ compiler built that way compiles itself to the same bytes, which
 `tools/test.sh --virt` checks, with the compiled suite's programs run there
 against the expectations they meet here.
 
+**A microkernel.** L0 should be able to express an operating system's
+kernel: a microkernel, written in L0, that runs drivers and programs as
+processes, each in an address space of its own, so that one that fails is
+stopped without stopping the rest. The kernel decides which process runs,
+what each may reach, and how they talk to each other. What the machine
+must be given in its own formats, such as trap vectors, saved registers,
+and page tables, comes to L0 as I/O and memory did, as facilities the
+checker can type rather than raw memory, so that a mistake in the kernel
+is a wrong decision rather than a stray write into its own heap. The
+measure is the compiler compiling itself to the same bytes as a process on
+that kernel, its input and output carried by a serial driver that is an L0
+process too, and a driver that fails leaving the kernel running. The
+kernel is a program, in a project of its own; each facility it needs is
+earned here first by a smaller program that cannot be written without it.
+
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is
 whether code comes out correct and whether the checker catches it when it does

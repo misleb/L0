@@ -58,7 +58,9 @@ compiled suite there (0072). An exit the hypervisor handles was dropped,
 since emulation is little of that suite's time (0073). Driving devices from
 L0 code, interrupts, and real hardware are left open by the goal, and wait
 for a program that needs them; the queue is empty, and what comes next
-goes back to the goals.
+goes back to the goals. The next goal is a microkernel written in L0
+(changelog "A new goal: a microkernel written in L0"), which is the program
+that earns driving devices, and 0074 breaks it down.
 
 ## Language queue
 
@@ -68,7 +70,8 @@ Empty.
 
 ## Other open items
 
-None.
+- [0074](0074-route-to-a-microkernel.md) research: the route to a
+  microkernel written in L0 — active
 
 ## Done and dropped
 

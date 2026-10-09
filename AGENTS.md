@@ -6,7 +6,8 @@ so: that is the one property no change may cost. That goal has been reached
 and no longer sets the direction. L0 is now being made general purpose:
 compiled to native code through LLVM, with no C in a compiled program, and
 gaining I/O and memory management as safe facilities the runtime provides,
-and it is to run on bare metal, with no operating system beneath its runtime.
+and it is to run on bare metal, with no operating system beneath its runtime,
+and to express a microkernel that runs drivers and programs as processes.
 It is written for agents to read and write, not humans.
 
 L0 is small, and is no longer pure: its I/O builtins are effects, sequenced by

@@ -7,6 +7,77 @@ New entries go at the top.
 
 ---
 
+## A new goal: a microkernel written in L0
+
+**No semantic change. L0 is exactly the language it was before this entry.**
+Nothing in the grammar, the type rules, the runtime, or the emitted IR moved,
+and no test changed. What changed is what L0 aims to be: the README's "What
+L0 aims to be" gains "A microkernel", and roadmap item 0074 breaks it down.
+
+**The goal.** A microkernel written in L0 runs on QEMU's virt board, beneath
+drivers and programs that are L0 processes, each in an address space of its
+own. The kernel holds the policy: which process runs, what each may reach,
+how they talk. What the machine must be given in its own formats, trap
+vectors, saved registers, page tables, the TLB, stays beneath the program
+in the host file, behind builtins the checker can type.
+
+**The measure.** The compiler compiles itself to the same bytes as a process
+on that kernel, with its standard input and output carried over IPC by a
+serial driver that is an L0 process too, and a driver that fails is stopped
+without stopping the kernel. The first half is the measure this repository
+trusts most, moved one layer up; the second is what a microkernel is for.
+
+**Why it fits.** Much of what a kernel needs, L0 already has:
+
+- no mutable state is needed if the kernel is one loop that runs with
+  interrupts masked, as seL4's does: its state is a value passed from one
+  tail call to the next, and section 8 makes that loop use no stack
+- tables of threads and capabilities are arrays, which section 6.5 updates
+  in place when only the loop holds them
+- a trap is a data type, and an exhaustive `match` rejects a kernel that
+  forgets one
+- section 6.10's bits cover descriptors and registers, and bytes cover ELF
+  images and the device tree
+- section 10.3's host interface is already the seam a process needs: a host
+  file whose `l0_host_*` functions are system calls would run every
+  existing program, the compiler included, unchanged as a process
+
+**Why it is worth having.** "The route to memory management and I/O" chose
+safe facilities over raw memory, on the evidence of ordinary programs, and
+deferred the systems primitives rather than rejecting them. A kernel is the
+program that tests whether that choice holds where raw memory is the usual
+answer. The first thing a driver needs already fails to check: writing a
+byte to the board's PL011 serial port, by waiting on its flag register and
+storing to its data register, is `unknown function load32`.
+
+**What it opens, and does not settle.**
+
+- Where the line falls between the kernel's L0 and the host file. Raw
+  loads and stores would put more of the kernel in L0, and would let a
+  kernel bug map its own heap into a process; handles over regions and
+  address spaces keep that out, and put more in the host file.
+- What section 8's guarantee becomes once a program reads device memory.
+  The candidate is that a region read returns an integer, never a pointer,
+  and no region covers the runtime's own memory.
+- Whether a driver's DMA is contained, which needs the board's IOMMU, since
+  a device writes past the MMU.
+- How processes are preemptive while the kernel is not: a timer deadline
+  before each return to a process, and a kernel pass that runs to its end.
+  How long a pass can take matters here, since a release in section 10.3
+  frees all a value kept alive before it returns.
+- More than one core. Not part of this goal. A kernel per core, sharing no
+  L0 value, would need only regions and an atomic operation on one, so the
+  facilities this goal adds should not assume one core, and threads within
+  a process wait for a program that earns them.
+- Where the kernel lives, and how the measure becomes a test here: the
+  kernel is written in a project of its own, and each facility is earned in
+  this repository by a smaller program in `tests/virt`.
+
+**What it needs that is not here.** Nothing new to install: the board, the
+linker container, and QEMU are what the bare-metal goal already uses.
+
+---
+
 ## The fixpoint and the compiled suite run on the virt board, and no language change for it
 
 **Nothing in L0 changed.** What is new is a test of the goal's measure.
