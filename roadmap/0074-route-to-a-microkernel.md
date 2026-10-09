@@ -360,3 +360,22 @@ needs the two-step rule:
   - With all three, a kernel project knows a board only through its
     drivers and the list of those it starts, and its kernel is one image
     on every board
+- 2026-10-09: **when the kernel project starts, decided by the user.**
+  Item 7 opens right after item 5, not after item 6: before `user_run` an
+  L0 kernel could return to no process, and could only ship `kloop.l0`'s
+  simulated one, the workaround item 7 must not write; and item 6's Why, a
+  driver serving another process, is what a standing kernel produces. The
+  project starts from item 5's kernel loop in `tests/virt`. Until then each
+  facility is earned here, and a project made by `l0 init` would follow an
+  installed toolchain that is still gaining builtins. Two gaps stand in its
+  way, neither queued, each to be settled before item 7 opens or recorded
+  as its first limits:
+  - `l0 test` refuses `--target virt` ("runs on this host only; a test is
+    named by an argument, and the virt board gives none"), so a kernel
+    project could not run its own tests on the board. Under a kernel the
+    arguments are 0077's system calls, so a test could run as a process,
+    but nothing in the driver does that
+  - nothing bundles several images for the board. The prototype placed
+    each at its ELF's physical address with QEMU's loader; a kernel is to
+    read its processes from its standard input, which the board loads, and
+    no `tools/l0` command writes that input
