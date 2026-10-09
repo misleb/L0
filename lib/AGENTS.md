@@ -74,6 +74,12 @@ board's devices, which a program drives through their registers with
 an operating system there are none, and opening one fails. Tests still
 run on this host, with `l0 test`.
 
+`l0 build --target proc` builds a program as a process for a kernel on
+aarch64, in an address space of its own, reaching the kernel through the
+system calls the spec's section 10.3 fixes. The kernel decides what the
+program gets: files, arguments, and devices, or none. No kernel comes with
+the toolchain, so nothing here runs the image.
+
 `l0 check` accepts files with no `main`, so `hello.l0` checks on its own;
 `l0 build` and `l0 run` need one, and say so. `l0 run` builds into a
 temporary directory, `$TMPDIR` or else `/tmp`, and deletes it when the

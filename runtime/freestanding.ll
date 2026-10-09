@@ -1,151 +1,33 @@
-; proc.ll -- 0074's prototype host file for an L0 program run as a process
-; at EL0 by kernel.ll, in an address space of its own. runtime/l0rt.ll calls
-; the l0_host_ functions below, spec section 10.3, as it does on every host;
-; the program and l0rt.ll are unchanged. proc.ld lays out the process.
+; freestanding.ll -- what a host without libc needs beneath runtime/l0rt.ll,
+; spec section 10.3: the allocator, l0_host_alloc, l0_host_resize, and
+; l0_host_free, and memcpy, memmove, memset, memcmp, bcmp, and strlen. It is linked
+; beside a host file that has no libc, runtime/host-virt.ll on QEMU's virt
+; board and runtime/host-proc.ll in a process of a kernel, and the layout
+; that host's linker script gives names the heap, __heap_start to
+; __heap_end.
 ;
-; What the kernel gives, by a system call (svc #0, the number in x8):
-;   1  read(stream, buf, n)   as l0_host_read
-;   2  write(stream, buf, n)  as l0_host_write
-;   3  exit(status)           does not return
-; Each l0_host_ function that crosses to the kernel is one call, so this is
-; the candidate for "one system call per l0_host_* function, fixed by the
-; spec". The clock is read here, from cntvct_el0, which the kernel lets EL0
-; read; no files, arguments, or environment, as on the board (section 9.2).
-;
-; The process's memory, at the addresses proc.ld gives:
-;   0xC0000000  the image: code, data, bss
-;   0xC0400000  the heap, to 0xD8000000
-;   0xD8000000  the stack, 256 MB, growing down from 0xE8000000
-; The kernel maps the image when it makes the process, and a 2 MB block of
-; the heap or the stack the first time the process touches it.
+; It names no machine, and so carries no target triple, as l0rt.ll does not.
 
-target triple = "aarch64-unknown-none-elf"
-
-module asm ".section .text.boot,\22ax\22"
-module asm ".global _start"
-module asm "_start:"
-module asm "  bl l0_proc_main"
-module asm "1: b 1b"
-
-@__stack_top = external global i8
-@__stack_bottom = external global i8
 @__heap_start = external global i8
 @__heap_end = external global i8
 
-declare i64 @l0_rt_run(i64)
 declare i64 @llvm.ctlz.i64(i64, i1)
-
-define void @l0_proc_main() noreturn {
-entry:
-  %top = ptrtoint ptr @__stack_top to i64
-  %bottom = ptrtoint ptr @__stack_bottom to i64
-  %all = sub i64 %top, %bottom
-  %size = sub i64 %all, 65536
-  %st = call i64 @l0_rt_run(i64 %size)
-  call void @l0_host_exit(i64 %st)
-  unreachable
-}
-
-; ------------------------------------------------------------ system calls
-
-define internal i64 @sys3(i64 %nr, i64 %a, i64 %b, i64 %c) {
-entry:
-  %r = call i64 asm sideeffect "svc #0", "={x0},{x0},{x1},{x2},{x8},~{memory}"(i64 %a, i64 %b, i64 %c, i64 %nr)
-  ret i64 %r
-}
-
-define i64 @l0_host_read(i64 %s, ptr %buf, i64 %n) {
-entry:
-  %b = ptrtoint ptr %buf to i64
-  %r = call i64 @sys3(i64 1, i64 %s, i64 %b, i64 %n)
-  ret i64 %r
-}
-
-define i64 @l0_host_write(i64 %s, ptr %buf, i64 %n) {
-entry:
-  %b = ptrtoint ptr %buf to i64
-  %r = call i64 @sys3(i64 2, i64 %s, i64 %b, i64 %n)
-  ret i64 %r
-}
-
-define void @l0_host_exit(i64 %status) noreturn {
-entry:
-  %r = call i64 @sys3(i64 3, i64 %status, i64 0, i64 0)
-  br label %hang
-hang:
-  br label %hang
-}
-
-define i64 @l0_host_close(i64 %s) {
-entry:
-  ret i64 -5
-}
-
-define i64 @l0_host_open(ptr %path, i64 %mode) {
-entry:
-  %rd = icmp eq i64 %mode, 1
-  %r = select i1 %rd, i64 -3, i64 -9
-  ret i64 %r
-}
-
-define i64 @l0_host_rename(ptr %from, ptr %to) {
-entry:
-  ret i64 -3
-}
-
-define i64 @l0_host_remove(ptr %path) {
-entry:
-  ret i64 -3
-}
-
-define i64 @l0_host_clock_ns() {
-entry:
-  %cnt = call i64 asm sideeffect "isb\0Amrs $0, cntvct_el0", "=r"()
-  %frq = call i64 asm "mrs $0, cntfrq_el0", "=r"()
-  %none = icmp eq i64 %frq, 0
-  br i1 %none, label %no, label %yes
-no:
-  ret i64 -5
-yes:
-  %sec = udiv i64 %cnt, %frq
-  %rem = urem i64 %cnt, %frq
-  %remns = mul i64 %rem, 1000000000
-  %ns = udiv i64 %remns, %frq
-  %sns = mul i64 %sec, 1000000000
-  %t = add i64 %sns, %ns
-  ret i64 %t
-}
-
-define i64 @l0_host_arg_count() {
-entry:
-  ret i64 0
-}
-
-define ptr @l0_host_arg(i64 %i) {
-entry:
-  ret ptr null
-}
-
-define ptr @l0_host_setting(ptr %name) {
-entry:
-  ret ptr null
-}
-
-; No device is mapped into a process yet, so no region (spec section 6.12).
-define i64 @l0_host_region(i64 %base, i64 %len) {
-entry:
-  ret i64 -3
-}
-
-define void @l0_host_barrier() {
-entry:
-  call void asm sideeffect "dsb sy", "~{memory}"()
-  ret void
-}
 
 ; ------------------------------------------------------------------ memory
 ;
-; runtime/host-virt.ll's allocator, unchanged, over this process's heap.
+; One heap, from __heap_start to __heap_end. A block is a whole number of
+; 16-byte units: a header word holding its size with bit 0 set while it is
+; in use, a word of padding so that what it holds is 16-byte aligned, as
+; malloc's is, then that, and last a footer word repeating the header. A
+; free block keeps the next and previous free blocks of its bin in its
+; first two words. A used block of 32 bytes at the start and a header of
+; size 0 in use at the end bound the heap, so merging never looks past it.
+;
+; Bin k holds the free blocks whose size has its top bit at k. Allocation
+; takes the first block that fits, from the request's bin up, and splits
+; off what is left if that makes a block of its own; freeing merges a block
+; with a free neighbour on either side, found by the neighbour's header
+; above it and footer below it.
 
 @heap_ready = internal global i1 false
 @bins = internal global [64 x i64] zeroinitializer
@@ -244,6 +126,8 @@ entry:
   ret void
 }
 
+; The block size that holds n bytes: header, padding, and footer, in whole
+; units, and at least 48, room for a free block's two links.
 define internal i64 @block_size(i64 %n) {
 entry:
   %a = add i64 %n, 39
@@ -253,6 +137,8 @@ entry:
   ret i64 %r
 }
 
+; Marks free block b, of size have, used at size need, freeing what is left
+; when it is a block of its own. b is already off its bin.
 define internal void @take(i64 %b, i64 %have, i64 %need) {
 entry:
   %left = sub i64 %have, %need
@@ -359,6 +245,8 @@ done:
   ret void
 }
 
+; In place when the block already holds n bytes, or can take in the free
+; block above it; otherwise moved.
 define ptr @l0_host_resize(ptr %p, i64 %n) {
 entry:
   %null = icmp eq ptr %p, null
@@ -408,6 +296,13 @@ fail:
 }
 
 ; --------------------------------------------- what a C environment provides
+;
+; memcpy, memmove, memset, and memcmp, which l0rt.ll and LLVM's memory
+; intrinsics call (spec section 10.3), and bcmp and strlen, which LLVM may
+; make of a memcmp whose result is only compared with 0 and of a loop that
+; finds a NUL. Whole words when every
+; address and the count allow it, bytes otherwise. "no-builtins" keeps LLVM
+; from recognizing their loops as calls to themselves.
 
 define ptr @memcpy(ptr %d, ptr %s, i64 %n) #0 {
 entry:
@@ -517,6 +412,24 @@ define i32 @bcmp(ptr %a, ptr %b, i64 %n) #0 {
 entry:
   %r = call i32 @memcmp(ptr %a, ptr %b, i64 %n)
   ret i32 %r
+}
+
+; What LLVM makes of a loop that looks for a NUL, as l0rt.ll's do for a
+; path or an argument, which a host with files or arguments reaches.
+define i64 @strlen(ptr %s) #0 {
+entry:
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i1, %step ]
+  %p = getelementptr i8, ptr %s, i64 %i
+  %c = load i8, ptr %p
+  %end = icmp eq i8 %c, 0
+  br i1 %end, label %done, label %step
+step:
+  %i1 = add i64 %i, 1
+  br label %loop
+done:
+  ret i64 %i
 }
 
 attributes #0 = { "no-builtins" }

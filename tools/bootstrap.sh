@@ -7,9 +7,10 @@
 #                    bootstrap/stage2.ll. See "When to refresh the seed" below.
 #   --virt           also take the last step on QEMU's virt board, with no
 #                    operating system: stage2, built as a board image, must
-#                    compile compiler.l0 to stage3.ll's bytes there too
-#                    (spec section 9.2). Needs qemu-system-aarch64, and Docker
-#                    or L0_VIRT_LD.
+#                    compile compiler.l0 to stage3.ll's bytes there too, and
+#                    again built as a process, under the kernel in
+#                    tests/virt/proc/harness (spec section 9.2). Needs
+#                    qemu-system-aarch64, and Docker or L0_VIRT_LD.
 #
 # Self-hosting is verified by a byte-for-byte fixpoint, not by judgment:
 #
@@ -179,6 +180,38 @@ if [ "$VIRT" = 1 ]; then
         exit 1
     fi
     echo "ON THE BOARD: stage2 on QEMU's virt board writes stage3.ll too, in $took s"
+
+    # And as a process of a kernel: stage2 built with runtime/host-proc.ll,
+    # run at EL0 in an address space of its own by the harness kernel, its
+    # input and output by system calls.
+    if [ ! -f "$BUILD/proc/host.bc" ]; then
+        echo "error: $CC cannot build the process runtime for aarch64" >&2
+        exit 1
+    fi
+    L0_PROC_DIR="$BUILD/proc" tools/l0 link --target proc "$BUILD/stage2.ll" \
+        -o "$BUILD/stage2-proc.elf"
+    start=$(date +%s)
+    if ! tests/virt/proc/harness/boot.sh "$BUILD/proc-boot" - "$BUILD/stage2-proc.elf" \
+        < "$SRC" > "$BUILD/stage3-proc.ll.tagged"; then
+        echo "FAIL: stage2 failed as a process" >&2
+        exit 1
+    fi
+    took=$(( $(date +%s) - start ))
+    case "$(head -n 1 "$BUILD/stage3-proc.ll.tagged")" in
+        O) tail -n +2 "$BUILD/stage3-proc.ll.tagged" > "$BUILD/stage3-proc.ll" ;;
+        *)
+            echo "FAIL: stage2 as a process did not write IR" >&2
+            head -5 "$BUILD/stage3-proc.ll.tagged" | sed 's/^/    /' >&2
+            exit 1
+            ;;
+    esac
+    if ! cmp -s "$BUILD/stage3.ll" "$BUILD/stage3-proc.ll"; then
+        echo "FAIL: as a process, stage2 compiles compiler.l0 to other bytes"
+        echo "      than on this host. First difference:"
+        diff "$BUILD/stage3.ll" "$BUILD/stage3-proc.ll" | head -20 | sed 's/^/    /'
+        exit 1
+    fi
+    echo "AS A PROCESS: stage2 under the harness kernel writes stage3.ll too, in $took s"
 fi
 
 # ------------------------------------------------------------ seed handling

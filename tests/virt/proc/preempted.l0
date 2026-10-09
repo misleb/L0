@@ -1,0 +1,8 @@
+; Run with spin.l0 beside it, which the kernel starts first and which never
+; yields: this ends, and so the test does, only if the kernel's timer takes
+; the processor back. The sum makes it run for many slices.
+(def sum ((i int) (acc int)) int
+  (if (eq i 0) acc (sum (sub i 1) (add acc i))))
+
+(def main () int
+  (write_line (digits (sum 3000000 0))))

@@ -12,7 +12,8 @@
 #   --bless-check  with --compiled: rewrite tests/check's .cerr files, the
 #                  compiler's own diagnostics
 #   --virt         run tests/virt on QEMU's virt board, with no operating
-#                  system, through tools/l0 build --target virt; needs
+#                  system, through tools/l0 build --target virt, and again
+#                  as processes of a kernel, through --target proc; needs
 #                  qemu-system-aarch64, and Docker or L0_VIRT_LD
 #   name-filter    a substring of a test's file name without its directory or
 #                  extension, such as bundle_prelude, matched in every suite.
@@ -31,7 +32,10 @@
 #   tests/unit/*_test.l0 tests written with l0 test; run by --compiled only,
 #                        each file counting as one test
 #   tests/virt/*.l0      programs run on the virt board, against hand-written
-#                        expectations; run by --virt only
+#                        expectations, and as processes of a kernel against
+#                        the same; run by --virt only
+#   tests/virt/proc/*.l0 programs run only as processes, under the kernel
+#                        in tests/virt/proc/harness; run by --virt only
 #
 # Per-test files, where <stem> is the test path without its extension:
 #   <stem>.out     expected stdout, required, may be empty
@@ -50,6 +54,9 @@
 #                  was linked from; exit status 0 is a pass
 #   <stem>.host    why the program needs a host with files or arguments, or
 #                  one without devices; --virt skips it
+#   <stem>.args    tests/virt/proc only: the process's arguments, one per line
+#   <stem>.with    tests/virt/proc only: what the kernel runs beside it, one
+#                  per line, spin or fault from tests/virt/proc/harness
 #
 # tests/io has no oracle, since stage 0 cannot run it, so its expectations
 # are written by hand and never blessed: --bless skips the suite, and it is
@@ -269,8 +276,9 @@ extra_sources() {
 if [ "$VIRT" = 1 ]; then
     vstart=$(date +%s)
     vdir="$BUILD/virt"
-    if [ ! -f "$vdir/host.bc" ]; then
-        echo "FAIL: $CC cannot build the virt board's runtime for aarch64"
+    pdir="$BUILD/proc"
+    if [ ! -f "$vdir/host.bc" ] || [ ! -f "$pdir/host.bc" ]; then
+        echo "FAIL: $CC cannot build the aarch64 runtimes for --target virt and proc"
         exit 1
     fi
     vcc=$(current_compiler)
@@ -290,10 +298,12 @@ if [ "$VIRT" = 1 ]; then
         L0_VIRT_LD="$TMP/virt-ld"
     fi
     L0_VIRT_DIR="$vdir"
-    export L0_VIRT_LD L0_VIRT_DIR
+    L0_PROC_DIR="$pdir"
+    export L0_VIRT_LD L0_VIRT_DIR L0_PROC_DIR
 
-    # First the goal's measure: the compiler compiles itself on the board
-    # to the bytes it writes here (tools/bootstrap.sh --virt).
+    # First the goal's measure: the compiler compiles itself on the board,
+    # and as a process, to the bytes it writes here (tools/bootstrap.sh
+    # --virt).
     if ./tools/bootstrap.sh --virt > "$TMP/bootstrap.log" 2>&1; then
         npass=$((npass + 1))
     else
@@ -365,6 +375,71 @@ if [ "$VIRT" = 1 ]; then
             continue
         fi
         run_case virt "$name" "$stem" ./tools/l0 boot "$TMP/$name.elf"
+    done
+
+    # The same programs as processes of a kernel (spec section 9.2), each
+    # built with tools/l0 build --target proc and run alone, as the first
+    # process of tests/virt/proc/harness/kernel.ll, against the board's
+    # expectations: that kernel gives no files, arguments, or environment,
+    # which is what the board gives, and maps the board's devices. Then
+    # tests/virt/proc, the process host's own, with the arguments and the
+    # processes beside it that its .args and .with files give.
+    pwork="$TMP/proc"
+    harness=tests/virt/proc/harness
+
+    # proc_build SUITE NAME SRC STEM builds SRC as a process image, or
+    # fails the test.
+    proc_build() {
+        # shellcheck disable=SC2046
+        if L0_COMPILER="$vcc" ./tools/l0 build --target proc "$3" \
+            $(extra_sources "$4") -o "$TMP/$2.proc.elf" \
+            > "$TMP/$2.proc.berr" 2>&1; then
+            return 0
+        fi
+        nfail=$((nfail + 1))
+        failures="$failures $1/$2"
+        echo "FAIL $1/$2: did not build as a process"
+        sed 's/^/    /' "$TMP/$2.proc.berr"
+        return 1
+    }
+
+    for src in tests/virt/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        stem="tests/virt/$name"
+        proc_build virt-proc "$name" "$src" "$stem" || continue
+        run_case virt-proc "$name" "$stem" "$harness/boot.sh" "$pwork" - \
+            "$TMP/$name.proc.elf"
+    done
+
+    spin=""
+    for src in tests/virt/proc/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        stem="tests/virt/proc/$name"
+        proc_build proc "$name" "$src" "$stem" || continue
+        args=-
+        [ -f "$stem.args" ] && args="$stem.args"
+        beside=""
+        if [ -f "$stem.with" ]; then
+            for w in $(cat "$stem.with"); do
+                case $w in
+                    spin)
+                        if [ -z "$spin" ]; then
+                            proc_build proc spin "$harness/spin.l0" "$harness/spin" || continue 2
+                            spin="$TMP/spin.proc.elf"
+                        fi
+                        beside="$beside $spin"
+                        ;;
+                    *) beside="$beside $w" ;;
+                esac
+            done
+        fi
+        # shellcheck disable=SC2086
+        run_case proc "$name" "$stem" "$harness/boot.sh" "$pwork" "$args" \
+            "$TMP/$name.proc.elf" $beside
     done
 
     echo

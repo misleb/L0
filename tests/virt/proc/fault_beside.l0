@@ -1,0 +1,5 @@
+; Run with fault.ll beside it, which the kernel starts first and kills for
+; reading the kernel's image: this still runs, and ends with its own status.
+(def main () int
+  (let w (write_line "still here")
+    3))

@@ -21,8 +21,11 @@ tools/bootstrap.sh              # self-compile and check the fixpoint
 tools/bootstrap.sh --refresh-seed   # also install the result as bootstrap/stage2.ll
 tools/linux-test.sh [arm64] [amd64] # both suites on Linux, in a local container
 tools/test.sh --virt [NAME]     # the fixpoint, the compiled suite, and
-                                # tests/virt on QEMU's virt board, no OS
-tools/bootstrap.sh --virt       # also check the fixpoint's last step there
+                                # tests/virt on QEMU's virt board, no OS,
+                                # then tests/virt and tests/virt/proc as
+                                # processes under the harness kernel
+tools/bootstrap.sh --virt       # also check the fixpoint's last step there,
+                                # and as a process
 tools/l0 run --target virt FILE.l0 ... < in   # build and boot on the board
 ```
 
@@ -65,6 +68,15 @@ silent and converts a caught bug into a permanent one.
   programs and `tests/virt` there, about a minute and a half. A new test
   that needs files or arguments and has no `.sh` script gets a `.host`
   file saying why, or fails there.
+- `runtime/host-proc.ll` and `runtime/proc.ld` — the host file and layout
+  for a program run as a process by a kernel, which makes the system calls
+  of spec 10.3; `runtime/freestanding.ll` — the allocator and `mem`
+  functions both it and `host-virt.ll` link. A change to any of them, or
+  to the calls, needs `tools/test.sh --virt`, which runs `tests/virt` again
+  as processes, and `tests/virt/proc`, under the kernel hand-written in IR
+  in `tests/virt/proc/harness`. That kernel is a test harness, as
+  `tests/backend` is: it answers spec 10.3's calls, and a change to them
+  changes it too.
 - `stage0/l0core.c`, `stage0/l0core.h` — stage 0's value representation and
   host I/O, in C. Compiled programs never link them.
 - `compiler/*.l0` — the L0 compiler, written in L0

@@ -1,7 +1,0 @@
-; Never yields, never makes a system call, never ends: only a timer can
-; take the processor back from it.
-(def spin ((n int)) int
-  (spin (add n 1)))
-
-(def main () int
-  (spin 0))

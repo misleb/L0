@@ -1,0 +1,12 @@
+; Spec sections 6.4 and 10.3 for a process: the kernel gives its
+; arguments, by system calls 8 and 9, and host-proc.ll keeps them. One is
+; empty and one has a space; past the last, arg gives an empty list.
+(def show_args ((i int) (n int)) int
+  (if (ge i n)
+      (write_line (arg n))
+      (let w (write_line (arg i)) (show_args (add i 1) n))))
+
+(def main () int
+  (let n (arg_count)
+    (let w (write_line (digits n))
+      (show_args 0 n))))

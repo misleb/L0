@@ -1,0 +1,2 @@
+fault: reading the kernel's image
+kernel: process 1 killed: fault esr = 0x000000009200000d elr = 0x00000000c0000018 far = 0x0000000040080000

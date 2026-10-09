@@ -81,7 +81,9 @@ that this file deliberately omits.
 spec/          L0.md (the language) and changelog.md (why it is that way)
 runtime/       l0rt.ll, the runtime every compiled program links, as LLVM IR,
                and host-libc.ll, its host file, the only one calling libc;
-               host-virt.ll and virt.ld, for QEMU's virt board
+               host-virt.ll and virt.ld, for QEMU's virt board;
+               host-proc.ll and proc.ld, for a process of a kernel; and
+               freestanding.ll, the allocator both of those link
 compiler/      the L0 compiler, written in L0
 lib/           the standard library (prelude.l0, which is compiler source too,
                io.l0, test.l0), the examples, and what l0 init copies
@@ -91,7 +93,8 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself), io (what
                stage 0 cannot run, with hand-written expectations), unit
                (tests written with l0 test), virt (run on the virt board
-               by tools/test.sh --virt)
+               by tools/test.sh --virt, and as processes under the kernel
+               in virt/proc/harness)
 tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
                l0c, l0check, l0ll, install.sh, linux-test.sh; virt/, the
                container that links virt board images

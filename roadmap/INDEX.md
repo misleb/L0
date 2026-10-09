@@ -67,16 +67,19 @@ on every trap when written plainly. From it, regions are done (0075): a
 program on the board drives a device through its registers, and the PL011
 driver 0074 could not write is a test; and an element of an array updates
 in place through any function (0076), so the kernel's loop written plainly
-no longer copies a context per trap. Queued: a host for processes (0077);
-the timer and interrupts, user mode, and system calls for drivers wait for
-the programs those make possible.
+no longer copies a context per trap. A program now runs as a process of a
+kernel (0077): `l0 build --target proc` makes the image, the spec fixes the
+system calls any kernel answers, and the compiler reaches its fixpoint as a
+process under a test kernel in IR. The queue is empty: the timer and
+interrupts, user mode, and system calls for drivers wait for the programs
+those make possible, and 0074's Log says what comes before the kernel's
+own project.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0077](0077-host-for-processes.md) a host for programs run as processes
-   by a kernel — queued, next
+None.
 
 ## Other open items
 
@@ -281,3 +284,6 @@ None.
 - [0076](0076-row-updates-through-any-function.md) an element of an array
   updates in place through any function — done, changelog "An element of
   an array updates in place through any function"; passed on Linux arm64
+- [0077](0077-host-for-processes.md) a host for programs run as processes by
+  a kernel — done, changelog "A host for programs run as processes by a
+  kernel"

@@ -61,6 +61,11 @@ that kernel, its input and output carried by a serial driver that is an L0
 process too, and a driver that fails leaving the kernel running. The
 kernel is a program, in a project of its own; each facility it needs is
 earned here first by a smaller program that cannot be written without it.
+The programs it will run already exist: `l0 build --target proc` makes a
+process image that any kernel answering the system calls the spec fixes
+can run, and under a kernel hand-written in IR for testing, the compiler
+built that way compiles itself to the same bytes, which `tools/test.sh
+--virt` checks.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is
@@ -132,10 +137,14 @@ optimization, so the runtime's small functions are inlined into it. You can dele
 keeps working.
 
 When `clang` can target aarch64, installing also puts the runtime for QEMU's
-`virt` board in `lib/l0/virt/`: `l0rt.ll` and `runtime/host-virt.ll` as
-bitcode, the image layout, and the Dockerfile of the container that links
-images. `l0 build --target virt` and `l0 boot` need `qemu-system-aarch64`,
-and Docker, or an `ld.lld` named by `L0_VIRT_LD`.
+`virt` board in `lib/l0/virt/`: `l0rt.ll`, `runtime/freestanding.ll`, and
+`runtime/host-virt.ll` as bitcode, the image layout, and the Dockerfile of
+the container that links images. `l0 build --target virt` and `l0 boot`
+need `qemu-system-aarch64`, and Docker, or an `ld.lld` named by
+`L0_VIRT_LD`. Beside it, `lib/l0/proc/` holds the same with
+`runtime/host-proc.ll`, for `l0 build --target proc`, which makes an image
+for a program run as a process by a kernel; no kernel comes with the
+toolchain.
 
 `clang` is still invoked on every build, but only as an assembler and linker
 for LLVM IR. GCC has no LLVM IR frontend, so it cannot do that job. Removing
@@ -498,7 +507,9 @@ runtime/       l0rt.ll, the runtime: allocation, reference counting,
                buffered I/O, stack checks; host-libc.ll, its host file:
                libc, the clock, the entry point; host-virt.ll and
                virt.ld, the host file and image layout for QEMU's virt
-               board, with no operating system
+               board, with no operating system; host-proc.ll and proc.ld,
+               for a process of a kernel; freestanding.ll, the allocator
+               and mem functions both of those link
 compiler/      the L0 compiler, written in L0
 lib/           the standard library (prelude.l0, io.l0, test.l0), examples,
                and the AGENTS.md and skill `l0 init` copies into a project
@@ -507,7 +518,8 @@ stage0/        frozen C interpreter, kept only as a differential oracle
 tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself), io (what
                stage 0 cannot run, with hand-written expectations), unit
-               (tests written with l0 test), virt (run on the virt board)
+               (tests written with l0 test), virt (run on the virt board,
+               and as processes under the kernel in virt/proc/harness)
 tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
                l0check, l0c, l0ll, install.sh, linux-test.sh; virt/, the
                container that links virt board images

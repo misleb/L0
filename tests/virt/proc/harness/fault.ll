@@ -1,7 +1,7 @@
 ; fault.ll -- a process that is not an L0 program, since no L0 program can
-; fault: it says so on standard error, then reads the kernel's own image,
-; which its address space maps for EL1 only. The kernel must report it and
-; go on running the others.
+; fault: it says so on standard error, by system call 2, then reads the
+; kernel's own image, which its address space maps for EL1 only. The kernel
+; must kill it and go on running the others. Linked by runtime/proc.ld.
 
 target triple = "aarch64-unknown-none-elf"
 

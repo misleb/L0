@@ -30,25 +30,35 @@ echo "ll  runtime/l0rt.ll runtime/host-libc.ll"
 "$CC" -O2 -flto -Wno-override-module -c "$ROOT/runtime/host-libc.ll" -o "$BUILD/l0host.o"
 "$CC" -O2 -Wno-override-module -c "$ROOT/runtime/host-libc.ll" -o "$BUILD/l0host-native.o"
 
-# The virt board's runtime, as tools/install.sh installs it, in build/virt
-# for tools/test.sh --virt and tools/bootstrap.sh --virt: rebuilt when its
-# sources are newer, and left out when clang cannot target aarch64.
-V="$BUILD/virt"
-if [ ! -f "$V/host.bc" ] || [ "$ROOT/runtime/l0rt.ll" -nt "$V/l0rt.bc" ] ||
-    [ "$ROOT/runtime/host-virt.ll" -nt "$V/host.bc" ] ||
-    [ "$ROOT/runtime/virt.ld" -nt "$V/virt.ld" ] ||
-    [ "$ROOT/tools/virt/Dockerfile" -nt "$V/Dockerfile" ]; then
-    mkdir -p "$V"
-    if "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
-            "$ROOT/runtime/l0rt.ll" -o "$V/l0rt.bc" 2> /dev/null &&
-        "$CC" --target=aarch64-none-elf -O2 -c -emit-llvm \
-            "$ROOT/runtime/host-virt.ll" -o "$V/host.bc" 2> /dev/null; then
-        echo "ll  runtime/l0rt.ll runtime/host-virt.ll, for the virt board"
-        cp "$ROOT/runtime/virt.ld" "$ROOT/tools/virt/Dockerfile" "$V/"
-    else
-        rm -rf "$V"
+# The runtimes of the hosts without libc, as tools/install.sh installs
+# them, in build/virt for QEMU's virt board and build/proc for a process of
+# a kernel, for tools/test.sh --virt and tools/bootstrap.sh --virt: each
+# rebuilt when its sources are newer, and left out when clang cannot target
+# aarch64.
+bare_runtime() {
+    V="$BUILD/$1"
+    if [ ! -f "$V/host.bc" ] || [ ! -f "$V/freestanding.bc" ] ||
+        [ "$ROOT/runtime/l0rt.ll" -nt "$V/l0rt.bc" ] ||
+        [ "$ROOT/runtime/freestanding.ll" -nt "$V/freestanding.bc" ] ||
+        [ "$ROOT/runtime/host-$1.ll" -nt "$V/host.bc" ] ||
+        [ "$ROOT/runtime/$1.ld" -nt "$V/$1.ld" ] ||
+        [ "$ROOT/tools/virt/Dockerfile" -nt "$V/Dockerfile" ]; then
+        mkdir -p "$V"
+        if "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
+                "$ROOT/runtime/l0rt.ll" -o "$V/l0rt.bc" 2> /dev/null &&
+            "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
+                "$ROOT/runtime/freestanding.ll" -o "$V/freestanding.bc" 2> /dev/null &&
+            "$CC" --target=aarch64-none-elf -O2 -c -emit-llvm \
+                "$ROOT/runtime/host-$1.ll" -o "$V/host.bc" 2> /dev/null; then
+            echo "ll  runtime/l0rt.ll runtime/freestanding.ll runtime/host-$1.ll, for --target $1"
+            cp "$ROOT/runtime/$1.ld" "$ROOT/tools/virt/Dockerfile" "$V/"
+        else
+            rm -rf "$V"
+        fi
     fi
-fi
+}
+bare_runtime virt
+bare_runtime proc
 
 if [ -f "$ROOT/stage0/l0i.c" ]; then
     echo "cc  stage0/l0core.c"

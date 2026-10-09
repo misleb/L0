@@ -7,6 +7,104 @@ New entries go at the top.
 
 ---
 
+## A host for programs run as processes by a kernel
+
+**No semantic change to a program.** What an L0 program means is what it
+was; what is new is a third kind of host. Section 9.2 says a host may be a
+kernel that runs the program as a process, unprivileged and in an address
+space of its own, and that such a host names no machine. Section 10.3
+fixes what a kernel must give one: the process's layout, how a system call
+is made, and ten calls, numbered 1 to 10, with numbers below 256 kept for
+the host and a kernel's own from 256. `runtime/host-proc.ll` is that host
+file, `runtime/proc.ld` its layout, and `l0 build --target proc` builds a
+process image. The allocator and the `mem` functions both hosts without
+libc need move from `host-virt.ll` into `runtime/freestanding.ll`, which
+carries no triple and is linked beside either. Roadmap 0077, the third item
+of the goal "A new goal: a microkernel written in L0".
+
+**Why.** Roadmap 0074's prototype ran the compiler as a process at EL0
+under a kernel stub, preempted beside a process that never yields and one
+the kernel killed, to the seed's bytes, with `runtime/l0rt.ll` and the
+program unchanged. It did so through scripts and a host file only
+`roadmap/0074/` had:
+
+```
+$ tools/l0 build --target proc roadmap/0074/progs/echo.l0 -o tmp/echo-proc.elf
+l0: unknown target proc; the targets are host and virt
+```
+
+and the spec named two hosts, an operating system and a machine with
+none, not a process.
+
+**Why the system calls are fixed by the spec.** The kernel is to be
+written in a project of its own, against the installed toolchain, and its
+programs are built by that toolchain's `host-proc.ll`. The calls are the
+interface between two repositories, so they belong where the rest of the
+runtime's interface is, and they are numbered once: a call added later
+must take a number no kernel already gave its own, which is why the host
+keeps everything below 256.
+
+**Why these ten.** 0074 found that only what leaves a process needs the
+kernel: the streams, opening, closing, renaming, removing, and exit. The
+allocator works over the process's own heap, and the clock is the virtual
+counter, which a kernel lets EL0 read. Two more are here because a driver
+needs them and a board should not be written into one: the arguments, so
+that a kernel can start a driver with its device's base and interrupt
+rather than the driver naming them, and the region call, so that the
+kernel maps the device into the driver's space and decides whether it may.
+With both, a driver for the PL011 serves every board that has one, and the
+kernel image is the same on all of them; 0074's Log has the reasoning
+about a second board. `tests/virt/device.l0` and `region_ranges.l0`, run as
+processes, are the code that earns the region call; `tests/virt/proc/args.l0`
+earns the arguments.
+
+**Why a path goes as bytes and a count.** A kernel reading a NUL-terminated
+string from a process must find its end before it knows whether it may
+read it, and every byte might be on a page the process does not have.
+With a count, the kernel checks one range, as it does for a buffer.
+
+**Why a fixed layout.** `host-proc.ll` must know where its heap and stack
+are before it can call anything, and with no loader beneath it the linker
+script is where that is said, as `virt.ld` says it for the board. A
+kernel that maps those ranges runs every image; one that put them
+elsewhere would need a host file of its own, which is what 9.2 rules out.
+4 MB for the image holds the compiler, about 800 KB, five times over.
+
+**Why `freestanding.ll`.** `host-proc.ll` needs the allocator and the
+`mem` functions `host-virt.ll` already had, unchanged, and two copies of
+hand-written IR would drift. Neither names a machine, so the file carries
+no triple, like `l0rt.ll`. It also defines `strlen`, which section 10.3
+now lists beside `bcmp`: the first process image would not link,
+
+```
+ld.lld: error: undefined symbol: strlen
+>>> referenced by out.ll
+>>>               bare.o:(l0_arg)
+```
+
+since LLVM makes `l0rt.ll`'s loop that measures an argument a call to
+`strlen`. On the board that loop is dead code, with no arguments to
+measure, so nothing had shown it.
+
+**How it is tested.** 0074's kernel stub moves to `tests/virt/proc/` as a
+harness, as `tests/backend` holds hand-written IR: a kernel in IR that
+answers the ten calls, gives the first process arguments, maps a device
+into a process's space by 4 KB pages, and kills a process that faults.
+`tools/test.sh --virt` runs every `tests/virt` program as a process under
+it, against the board's own expectations, and the process tests in
+`tests/virt/proc/`: arguments, a process preempted beside one that never
+yields, and one beside a process the kernel kills.
+`tools/bootstrap.sh --virt` checks the fixpoint as a process too, which
+takes 6 s, as on the bare board. The suite passes 86, from 73, in 120 s,
+from 97. The harness stays the virt board's, since it drives the GIC; it is
+a harness, not the kernel.
+
+**What it does not do.** A kernel in L0 cannot be written yet: user mode,
+address spaces, and traps are 0074's item 5. Nothing reads process images
+from standard input yet; the harness has QEMU's loader place them.
+
+---
+
 ## An element of an array updates in place through any function
 
 **What changed.** Section 6.5's one in-place form for an element of an

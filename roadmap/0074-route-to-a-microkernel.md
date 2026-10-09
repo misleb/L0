@@ -312,6 +312,9 @@ needs the two-step rule:
   4 to 6, the timer and interrupts, user mode, and `supervisor_call`, are
   opened when an earlier item's program gives them a Why. Done. The
   prototype in `roadmap/0074/` stays until 0077 moves it.
+- 2026-10-09: 0077 moved it, the kernel stub to `tests/virt/proc/harness/`
+  and `proc.ll` to `runtime/host-proc.ll`, and deleted `roadmap/0074/`;
+  it is in git history at commit dfdd1fe.
 - 2026-10-09: **finding: what a second board costs, and where its details
   live.** Asked by the user, with the Raspberry Pi 3B (`-M raspi3b` in
   this QEMU) as the board; nothing built, and the Pi's details are from its
