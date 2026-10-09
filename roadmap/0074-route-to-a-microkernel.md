@@ -312,3 +312,51 @@ needs the two-step rule:
   4 to 6, the timer and interrupts, user mode, and `supervisor_call`, are
   opened when an earlier item's program gives them a Why. Done. The
   prototype in `roadmap/0074/` stays until 0077 moves it.
+- 2026-10-09: **finding: what a second board costs, and where its details
+  live.** Asked by the user, with the Raspberry Pi 3B (`-M raspi3b` in
+  this QEMU) as the board; nothing built, and the Pi's details are from its
+  documentation, not tried here.
+  - **In this repository, not the kernel's.** A board's details are its
+    host file, its linker script, and its target in `tools/l0`, never the
+    compiler or the emitted IR (section 9.2). The host file stays here,
+    since it is what keeps section 8's guarantee, and a kernel project
+    that brought its own could break it unseen. So each board is a change
+    to the toolchain, not to the kernel
+  - **The Pi 3B's share.** About 150 lines of `host-virt.ll` are the
+    board's; the allocator, the `mem` functions, the clock, and the trap
+    report are not. Its host would leave EL2 (or EL3 under QEMU) for EL1,
+    park cores 1 to 3 by `MPIDR`, and build a level 2 map, since its RAM
+    and its peripherals at 0x3F000000 share the first gigabyte. Its PL011
+    is at 0x3F201000, and it has its own device table and a layout at
+    0x80000 in about 1 GB. Under QEMU, standard input by the loader and
+    standard error and exit by semihosting carry over; on the board itself
+    semihosting is gone, and both need a channel the hardware has, 0073's
+    question again
+  - **Decided by the user:**
+    1. 0077 widens: a process's host names no board, and the arguments and
+       `l0_host_region` are system calls, so that a kernel starts a driver
+       with its device's base and interrupt as arguments and maps the
+       device for it, and one driver serves every board with that device.
+       The Pi 3B has a PL011 too
+    2. item 4 puts the interrupt controller in the host file, behind
+       builtins for enabling an interrupt by number, waiting for one and
+       getting its number, and acknowledging it, and takes the GIC's
+       distributor and CPU interface out of `host-virt.ll`'s regions, so
+       L0 cannot reprogram it behind the host; whether the GICv2m frame
+       goes with them is item 4's to settle. This reverses this item's
+       finding that the stub drives the GIC through accesses an L0 kernel
+       can make through regions, and the 0075 changelog's line that the
+       kernel's interrupt controller starts as a driver does. Why: the
+       controller is on every trap's path and its format is the
+       hardware's, the test that put the vectors in the host file; and a
+       kernel holding a GIC driver would not run on the Pi 3B, which has
+       none (its interrupts go through the BCM2836 local controller). Item
+       4's program is unchanged, the serial driver receiving by interrupt
+    3. the device tree waits. With one board the fixed table is right, as
+       the 0075 changelog argues. Taking regions from it is two parts: the
+       host checks a range against the tree's device nodes, and a builtin
+       gives the kernel the tree's bytes. It is opened by a second board,
+       or by a kernel that cannot hard-code a driver's interrupt number
+  - With all three, a kernel project knows a board only through its
+    drivers and the list of those it starts, and its kernel is one image
+    on every board
