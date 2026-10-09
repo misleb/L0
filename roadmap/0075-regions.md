@@ -1,7 +1,8 @@
 # 0075: regions: device and physical memory, read and written by width
 
 Kind: language
-Status: queued
+Status: done, changelog "Regions: a program reads and writes a device's
+memory"; passed on Linux arm64
 Needs: 0074
 
 ## Why
@@ -56,3 +57,33 @@ runtime's own heap, so the facility is a handle over a range instead.
 
 - 2026-10-09: opened by 0074's recommendation, item 1, and queued at the
   user's request.
+- 2026-10-09: done. Section 6.12 has `region_open`, `region_read8` to
+  `region_read64`, `region_write8` to `region_write64`, and `barrier`;
+  section 8 their three errors (`not a region`, `region offset out of
+  range`, `misaligned region access`, checked in that order) and the
+  guarantee restated; 9.2 a host without devices; 10.3 the runtime calls,
+  `l0_host_region` and `l0_host_barrier`, and the board's eight device
+  ranges. Accesses are volatile and reach one device in order; only the
+  barrier orders them against memory, and atomics wait for a kernel per
+  core. `l0rt.ll` keeps a table of 64 regions and checks every access;
+  `host-libc.ll` gives -3 and a fence; `host-virt.ll` checks a fixed table
+  of the board's devices, where its boot map is Device-nGnRnE, and its
+  barrier is `dsb sy`. The compiler knows them as int-only effects, no
+  more. `lib/io.l0` wraps them as `IoDevice`, `open_device` giving a
+  `DeviceOpened` whose `DeviceFailed` has `DeviceMissing` or
+  `DeviceNoRoom`, and `device_read8` to `device_write64`, named for the
+  noun so as not to shadow the builtins; an example drives the PL011.
+  QEMU's devices answered every width, a 64-bit access split in two: the
+  PL011's and a virtio-mmio transport's identification registers read as
+  their devices fix them, and the GIC distributor's priorities read back
+  what each width wrote. Tests: `tests/virt/device`, the driver this item's
+  Why could not write, writing "hi" through the PL011's registers, and
+  reads and writes of every width; `tests/virt/region_ranges`, what opens
+  and what is -3 or -5; `region_range` and `region_align`, the errors;
+  `tests/io/regions`, -3 for everything under an operating system, with a
+  `.host` file since the board differs; `tests/io/region_not_open`;
+  `tests/unit/device_test`; `check_errors`, `bundle_prelude`, and
+  `emit_tail`; the library index. `roadmap/0074/proc.ll` gained the two
+  host functions, so the prototype still builds. Fixpoint holds and the
+  seed is refreshed. Both suites green (65, 135), `--virt` 71 passed and 52
+  skipped, Linux arm64 green (65, 135).

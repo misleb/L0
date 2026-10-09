@@ -73,3 +73,8 @@ ok
 35: head must be a list, but this is int
 46: read_some takes 2 arguments, but got 1
 46: an argument of read_some must be int, but this is bool
+35: region_open takes 2 arguments, but got 1
+35: an argument of region_read32 must be int, but this is bool
+35: region_write8 takes 3 arguments, but got 2
+35: barrier takes 0 arguments, but got 1
+35: head must be a list, but this is int

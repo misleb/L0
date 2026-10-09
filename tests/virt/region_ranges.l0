@@ -1,0 +1,29 @@
+; Spec sections 6.12 and 10.3 on the board: a region opens over any range
+; wholly within one of its devices, and over nothing else; regions are
+; numbered from 0, and after 64 no more can be open.
+(def show ((r int)) int
+  (write_line (digits r)))
+
+(def fill ((k int)) int
+  (if (le k 0)
+      0
+      (let r (region_open 150994944 4)
+        (fill (sub k 1)))))
+
+(def opens ((i int)) int
+  (let a (show (region_open 150994944 4096))       ; the whole PL011: 0
+    (let b (show (region_open 150995968 8))        ; part of it: 1
+      (let c (show (region_open 151126016 24))     ; firmware configuration: 2
+        (show (region_open 150994944 4097))))))    ; past the PL011's end
+
+(def refusals ((i int)) int
+  (let a (show (region_open 151257088 4))          ; 0x09040000, no device
+    (let b (show (region_open 1073741824 8))       ; RAM
+      (show (region_open 150994944 0)))))          ; no bytes
+
+(def main () int
+  (let a (opens 0)
+    (let b (refusals 0)
+      (let c (show (region_open 134283264 65536))  ; GIC CPU interface: 3
+        (let d (fill 60)
+          (show (region_open 167772160 512)))))))  ; a 65th

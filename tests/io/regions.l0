@@ -1,0 +1,13 @@
+; Spec sections 6.12 and 9.2 under an operating system, which gives no
+; regions: every range is -3, whatever it is, and the barrier returns 0. The
+; same holds on the virt board for the ranges here that are not its devices,
+; so only the PL011's line differs there, and regions.host says so.
+(def line ((n int)) (list int)
+  (append (digits n) (cons 10 (nil int))))
+
+(def main ((input (list int))) (list int)
+  (append (line (region_open 150994944 4096))        ; the board's PL011
+    (append (line (region_open 1073741824 8))        ; RAM, 0x40000000
+      (append (line (region_open 150994944 0))       ; no bytes
+        (append (line (region_open -8 8))            ; a negative base
+          (line (barrier)))))))

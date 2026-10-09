@@ -42,7 +42,8 @@ sort.
 types, `match`, returning several values, reporting failure, type
 parameters, maps and hashing, reading and writing, files and telling their
 failures apart, replacing and deleting files, reading in pieces, arrays and
-grids, bytes, bits, ordering and sorting, and timing, and tests of them.
+grids, bytes, bits, ordering and sorting, timing, and driving a device,
+and tests of them.
 
 Everything these commands show comes from the installed toolchain, so it
 always describes the compiler that builds this project. Nothing of it is
@@ -67,8 +68,11 @@ so never pass library files on the command line.
 with no operating system, and `l0 boot IMAGE < input` runs one (`l0 run
 --target virt` does both). There the program has standard input, output,
 and error, and the clock, but no files, no arguments, and no environment:
-the spec's section 9.2 says what each builtin gives then. Tests still run
-on this host, with `l0 test`.
+the spec's section 9.2 says what each builtin gives then. It also has the
+board's devices, which a program drives through their registers with
+`open_device` and `device_read32` and the rest (`l0 doc IoDevice`); under
+an operating system there are none, and opening one fails. Tests still
+run on this host, with `l0 test`.
 
 `l0 check` accepts files with no `main`, so `hello.l0` checks on its own;
 `l0 build` and `l0 run` need one, and say so. `l0 run` builds into a

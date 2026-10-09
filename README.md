@@ -38,9 +38,10 @@ standard input and output over a serial line, and the clock from a hardware
 timer, behind the same runtime interface, so that neither a program nor the
 IR compiled from it changes with where it runs. The measure is the compiler
 compiling itself on a machine with no operating system, to the same bytes it
-produces under one. Whether L0 code may then drive devices itself is a
-separate question, which this goal opens and a program has to earn. A
-program already runs on one such machine, QEMU's aarch64 `virt` board:
+produces under one. L0 code drives the machine's devices itself, through
+regions of their memory that the host checks and opens, read and written
+one register at a time. A program already runs on one such machine, QEMU's
+aarch64 `virt` board:
 `l0 build --target virt` makes an image and `l0 boot` runs it, and the
 compiler built that way compiles itself to the same bytes, which
 `tools/test.sh --virt` checks, with the compiled suite's programs run there
@@ -292,8 +293,10 @@ delete files, read its command-line arguments, and time itself on a
 monotonic clock, but there is no network, no environment, no wall-clock
 date, and no directories: none can be listed or created. Without an
 operating system it runs on one machine, QEMU's aarch64 `virt` board,
-where there are no files, arguments, or environment, and no device a
-program can drive.
+where there are no files, arguments, or environment. It can drive the
+board's devices through their registers, but cannot yet take an interrupt
+or wait for one, run code in user mode, or give a device memory to DMA
+into.
 
 Memory is freed by reference counting. A whole-input `main` still receives its
 input as a list built in full before it starts, a cons cell per byte, but a

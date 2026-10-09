@@ -48,8 +48,8 @@
 #                  comparing output, for behavior that is about timing or
 #                  about how the program is built, where IR is the file EXE
 #                  was linked from; exit status 0 is a pass
-#   <stem>.host    why the program needs a host with files or arguments;
-#                  --virt skips it
+#   <stem>.host    why the program needs a host with files or arguments, or
+#                  one without devices; --virt skips it
 #
 # tests/io has no oracle, since stage 0 cannot run it, so its expectations
 # are written by hand and never blessed: --bless skips the suite, and it is
@@ -256,9 +256,9 @@ extra_sources() {
 #     was built
 #   - tests/unit, since l0 test names the test to run by an argument
 #   - a program with a <stem>.host file, which says why it needs files or
-#     arguments the board does not have, and so expectations the board
-#     cannot meet. Every such program today has a .sh script anyway; a new
-#     one without a script gets a .host file, or fails here.
+#     arguments the board does not have, or no devices where the board has
+#     them, and so expectations the board cannot meet. A new one without a
+#     script gets a .host file, or fails here.
 # The board has no environment, so L0_RC_CHECK, which --compiled sets, is
 # not checked here.
 #

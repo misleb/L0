@@ -1,0 +1,9 @@
+; Spec section 6.12: an access that would end past its region is a runtime
+; error, before anything is read: the last 4 bytes of the PL011's 4096 are
+; at 4092, so a 4-byte read at 4093 is out of range, not misaligned, since
+; range is checked first.
+
+(def main () int
+  (let u (region_open 150994944 4096)
+    (let a (region_read32 u 4092)
+      (region_read32 u 4093))))

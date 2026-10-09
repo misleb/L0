@@ -20,6 +20,8 @@
 ; and the exit status reach the host by semihosting, so the three stay
 ; apart on a board with one serial line. As section 9.2 says, there are no
 ; files, no arguments, and no environment. The clock is the generic timer.
+; The board's devices are what a program may open as regions (spec section
+; 6.12), the serial port among them.
 ;
 ; An exception the runtime does not expect is a bug in it, and is reported
 ; on standard error, with the registers that say where, and stops with
@@ -331,6 +333,61 @@ entry:
 define ptr @l0_host_setting(ptr %name) {
 entry:
   ret ptr null
+}
+
+; ----------------------------------------------------------------- regions
+
+; The board's devices, spec section 10.3's table, as QEMU's virt board
+; places them: a base and a length each. All are in block 0 of the boot
+; map, which is device memory, Device-nGnRnE, so an access goes to the
+; device at its width and in order. Anything else, RAM and the runtime's
+; heap among it, is no region, and so is any range of the flash, the PCIe
+; windows, or the gaps between devices, where QEMU would answer an access
+; with an external abort.
+@devices = private constant [16 x i64] [
+  i64 134217728, i64 65536,       ; 0x08000000, the GIC's distributor
+  i64 134283264, i64 65536,       ; 0x08010000, its CPU interface
+  i64 134348800, i64 4096,        ; 0x08020000, its GICv2m frame
+  i64 150994944, i64 4096,        ; 0x09000000, the PL011
+  i64 151060480, i64 4096,        ; 0x09010000, the PL031
+  i64 151126016, i64 24,          ; 0x09020000, firmware configuration
+  i64 151191552, i64 4096,        ; 0x09030000, the PL061
+  i64 167772160, i64 16384 ]      ; 0x0A000000, 32 virtio-mmio transports
+
+; base and len are checked by l0rt.ll: len at least 1, base not negative.
+define i64 @l0_host_region(i64 %base, i64 %len) {
+entry:
+  %end = add i64 %base, %len
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i1, %next ]
+  %more = icmp ult i64 %i, 8
+  br i1 %more, label %look, label %none
+look:
+  %k = mul i64 %i, 2
+  %bp = getelementptr [16 x i64], ptr @devices, i64 0, i64 %k
+  %db = load i64, ptr %bp
+  %k1 = add i64 %k, 1
+  %lp = getelementptr [16 x i64], ptr @devices, i64 0, i64 %k1
+  %dl = load i64, ptr %lp
+  %de = add i64 %db, %dl
+  %from = icmp uge i64 %base, %db
+  %to = icmp ule i64 %end, %de
+  %within = and i1 %from, %to
+  br i1 %within, label %found, label %next
+next:
+  %i1 = add i64 %i, 1
+  br label %loop
+found:
+  ret i64 %base
+none:
+  ret i64 -3
+}
+
+define void @l0_host_barrier() {
+entry:
+  call void asm sideeffect "dsb sy", "~{memory}"()
+  ret void
 }
 
 ; ------------------------------------------------------------------ memory

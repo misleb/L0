@@ -1,0 +1,2 @@
+Needs a host with no devices: on the virt board the PL011's range opens as a
+region rather than giving -3. tests/virt/region_ranges covers the board.

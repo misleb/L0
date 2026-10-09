@@ -74,7 +74,7 @@
   hex_val ((c int)) int
       The value of c as a hexadecimal digit, 0 to 15, in either case, or -1 if it is not one.
 
-== io: Reading and writing lines, strings, and bytes, command-line arguments, and files.
+== io: Reading and writing lines, strings, and bytes, command-line arguments, files, and devices' registers.
   read_line () (list int)
       The next line of standard input, including its newline if it has one.
   (data IoLine (IoLine (list int)) (IoEnd) (IoError int))
@@ -149,6 +149,30 @@
       Delivers the bytes written to f so far, leaving it open, or says why some byte written to it could not be written.
   file_close ((f IoFile)) (IoDone WriteFault)
       Closes f, or says why some byte written to it could not be written.
+  (data IoDevice (IoDevice int))
+      A range of a device's memory, its registers, opened with open_device.
+  (data DeviceOpened (DeviceOpened IoDevice) (DeviceFailed DeviceFault (list int)))
+      The result of opening a device: (DeviceOpened d), or (DeviceFailed fault why), where fault says which failure it was and why says it in words.
+  (data DeviceFault (DeviceMissing) (DeviceNoRoom))
+      Why opening a device failed: the host has no device there, which under an operating system is every range; or no more can be open (spec section 6.12's -3 and -5).
+  open_device ((base int) (len int)) DeviceOpened
+      Opens the len bytes of device memory at address base, which must lie wholly within one of the machine's devices: on QEMU's virt board, those spec section 10.3 lists, such as the PL011 serial port's 4096 bytes at 0x09000000.
+  device_read8 ((d IoDevice) (off int)) int
+      The byte at off in d, 0 to 255.
+  device_read16 ((d IoDevice) (off int)) int
+      The 2 bytes at off in d, 0 to 65535, the lower address least significant.
+  device_read32 ((d IoDevice) (off int)) int
+      The 4 bytes at off in d, never negative, the lower address least significant: a 32-bit register.
+  device_read64 ((d IoDevice) (off int)) int
+      The 8 bytes at off in d as all 64 bits of an int, so negative when the top bit is set.
+  device_write8 ((d IoDevice) (off int) (v int)) int
+      Writes the low 8 bits of v at off in d, and returns 0.
+  device_write16 ((d IoDevice) (off int) (v int)) int
+      Writes the low 16 bits of v at off in d, and returns 0.
+  device_write32 ((d IoDevice) (off int) (v int)) int
+      Writes the low 32 bits of v at off in d, and returns 0.
+  device_write64 ((d IoDevice) (off int) (v int)) int
+      Writes all 64 bits of v at off in d, and returns 0.
 
 == test: Assertions, golden files, and pseudo-random inputs for l0 test, which links this file.
   show_str ((s (list int))) (list int)

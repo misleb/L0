@@ -97,7 +97,12 @@
   (let bw (push (check_source (m "(head (compare 1 2))")) bv)
   (let bx (push (check_source (m "(bytes_len (read_some 0))")) bw)
   (let by (push (check_source (m "(bytes_len (read_some 0 true))")) bx)
-    (rev by)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let bz (push (check_source (m "(region_open 1)")) by)
+  (let ca (push (check_source (m "(region_read32 1 true)")) bz)
+  (let cb (push (check_source (m "(region_write8 1 2)")) ca)
+  (let cc (push (check_source (m "(barrier 1)")) cb)
+  (let cd (push (check_source (m "(head (region_read64 1 2))")) cc)
+    (rev cd))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

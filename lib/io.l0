@@ -1,5 +1,5 @@
-; io.l0 -- lines, strings, bytes, arguments, and files, over the I/O
-; builtins of spec sections 6.2 to 6.4 and 6.6.
+; io.l0 -- lines, strings, bytes, arguments, files, and devices, over the
+; I/O builtins of spec sections 6.2 to 6.4 and 6.6, and the regions of 6.12.
 ;
 ; tools/l0 links this into every program, in the prelude group alongside
 ; lib/prelude.l0, so a program may define its own read_line and keep using it
@@ -9,9 +9,10 @@
 ; lib/prelude.l0, and so checks only beside it.
 ; ;; comments are what l0 doc shows, as in lib/prelude.l0.
 
-;;; Reading and writing lines, strings, and bytes, command-line arguments, and
-;;; files. The I/O is built on the builtins of spec sections 6.2 to 6.4 and
-;;; 6.6, and like them happens in evaluation order: sequence it with let.
+;;; Reading and writing lines, strings, and bytes, command-line arguments,
+;;; files, and devices' registers. The I/O is built on the builtins of spec
+;;; sections 6.2 to 6.4, 6.6, and 6.12, and like them happens in evaluation
+;;; order: sequence it with let.
 
 ;; The next line of standard input, including its newline if it has one. The
 ;; empty list means end of input: a blank line is "\n", and a last line with
@@ -388,3 +389,79 @@
 (def file_close ((f IoFile)) (IoDone WriteFault)
   (match f
     ((IoFile h) (let c (close h) (done_or c (write_fault c))))))
+
+; -------------------------------------------------------------------- devices
+;
+; A device's registers, over the region builtins of spec section 6.12. A
+; region is an IoDevice rather than a bare int, as a file is an IoFile, so
+; the checker can tell it from a handle, and the functions take the noun
+; device rather than region, since a function of the library named as a
+; builtin is would take that builtin from every program (spec section 7).
+
+;; A range of a device's memory, its registers, opened with open_device.
+;; Read it with device_read8 to device_read64 and write it with
+;; device_write8 to device_write64, at offsets from the range's start.
+(data IoDevice
+  (IoDevice int))
+
+;; The result of opening a device: (DeviceOpened d), or (DeviceFailed fault
+;; why), where fault says which failure it was and why says it in words.
+(data DeviceOpened
+  (DeviceOpened IoDevice)
+  (DeviceFailed DeviceFault (list int)))
+
+;; Why opening a device failed: the host has no device there, which under an
+;; operating system is every range; or no more can be open (spec section
+;; 6.12's -3 and -5).
+(data DeviceFault
+  (DeviceMissing)
+  (DeviceNoRoom))
+
+;; Opens the len bytes of device memory at address base, which must lie
+;; wholly within one of the machine's devices: on QEMU's virt board, those
+;; spec section 10.3 lists, such as the PL011 serial port's 4096 bytes at
+;; 0x09000000.
+(def open_device ((base int) (len int)) DeviceOpened
+  (let r (region_open base len)
+    (if (ge r 0)
+        (DeviceOpened (IoDevice r))
+        (if (eq r -3)
+            (DeviceFailed (DeviceMissing) "no device there")
+            (DeviceFailed (DeviceNoRoom) "too many devices open")))))
+
+;; The byte at off in d, 0 to 255. Every device_ read and write is one
+;; access of its width, where evaluation order puts it, even when its result
+;; is unused; an off past either end of d, or an address not a multiple of
+;; the width, is a runtime error.
+(def device_read8 ((d IoDevice) (off int)) int
+  (match d ((IoDevice r) (region_read8 r off))))
+
+;; The 2 bytes at off in d, 0 to 65535, the lower address least significant.
+(def device_read16 ((d IoDevice) (off int)) int
+  (match d ((IoDevice r) (region_read16 r off))))
+
+;; The 4 bytes at off in d, never negative, the lower address least
+;; significant: a 32-bit register.
+(def device_read32 ((d IoDevice) (off int)) int
+  (match d ((IoDevice r) (region_read32 r off))))
+
+;; The 8 bytes at off in d as all 64 bits of an int, so negative when the
+;; top bit is set.
+(def device_read64 ((d IoDevice) (off int)) int
+  (match d ((IoDevice r) (region_read64 r off))))
+
+;; Writes the low 8 bits of v at off in d, and returns 0.
+(def device_write8 ((d IoDevice) (off int) (v int)) int
+  (match d ((IoDevice r) (region_write8 r off v))))
+
+;; Writes the low 16 bits of v at off in d, and returns 0.
+(def device_write16 ((d IoDevice) (off int) (v int)) int
+  (match d ((IoDevice r) (region_write16 r off v))))
+
+;; Writes the low 32 bits of v at off in d, and returns 0.
+(def device_write32 ((d IoDevice) (off int) (v int)) int
+  (match d ((IoDevice r) (region_write32 r off v))))
+
+;; Writes all 64 bits of v at off in d, and returns 0.
+(def device_write64 ((d IoDevice) (off int) (v int)) int
+  (match d ((IoDevice r) (region_write64 r off v))))

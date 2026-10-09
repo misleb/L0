@@ -435,6 +435,19 @@ entry:
   unreachable
 }
 
+; Spec section 9.2: an operating system gives a program no device memory,
+; so no region, and the barrier has only memory to order.
+define i64 @l0_host_region(i64 %base, i64 %len) {
+entry:
+  ret i64 -3
+}
+
+define void @l0_host_barrier() {
+entry:
+  fence seq_cst
+  ret void
+}
+
 ; ------------------------------------------------------------- entry point
 
 ; Before the program's thread starts, spec section 6.3. A write to a pipe

@@ -537,6 +537,28 @@
       (let t1 (clock_ns)
         (sub t1 t0)))))
 
+; --------------------------------------------------------------- devices
+
+; On a machine with no operating system, a program drives a device through
+; its registers: open_device opens the range of memory they occupy, and
+; device_read32, device_write8, and the rest read and write one register in
+; one access of that width. This writes s to the PL011 serial port of QEMU's
+; virt board, waiting while its transmit FIFO is full. Under an operating
+; system there are no devices, so opening one fails, and the caller is made
+; to handle that: here it returns the length that was not written.
+(def uart_send ((u IoDevice) (s (list int))) int
+  (if (is_empty s)
+      0
+      (if (eq (bit_and (device_read32 u 24) 32) 32)     ; flag register: full
+          (uart_send u s)
+          (let w (device_write8 u 0 (head s))           ; data register
+            (uart_send u (tail s))))))
+
+(def uart_write ((s (list int))) int
+  (match (open_device 150994944 4096)
+    ((DeviceFailed fault why) (length s))
+    ((DeviceOpened u) (uart_send u s))))
+
 ; --------------------------------------------------------- the entry point
 
 ; A program defines main in one of two forms. The first takes stdin as a list

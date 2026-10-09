@@ -230,6 +230,11 @@
 (def test_vowel_count_ns () int
   (check_true "never negative" (ge (vowel_count_ns "education") 0)))
 
+; Under an operating system there is no serial port to open, so nothing is
+; written; tests/virt/device writes through it on the board.
+(def test_uart_write () int
+  (check_int "none written here" (uart_write "hi\n") 3))
+
 ; A property test: the two ways of summing agree on many pseudo-random
 ; lists. rand_next and rand_below come from l0 doc test, and give the same
 ; sequence on every run, so a failure can be reproduced.

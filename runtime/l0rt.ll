@@ -24,6 +24,8 @@ declare i64 @l0_host_arg_count()
 declare ptr @l0_host_arg(i64)
 declare ptr @l0_host_setting(ptr)
 declare void @l0_host_exit(i64) noreturn
+declare i64 @l0_host_region(i64, i64)
+declare void @l0_host_barrier()
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
@@ -2157,6 +2159,154 @@ define i64 @l0_clock_ns() {
 entry:
   %t = call i64 @l0_host_clock_ns()
   ret i64 %t
+}
+
+; ----------------------------------------------------------------- regions
+
+; The regions of spec section 6.12 a program has open: for each, the
+; address the host gave for its first byte, and its length. A region is an
+; index into them, and none is ever closed.
+@rg_addr = internal global [64 x i64] zeroinitializer
+@rg_len = internal global [64 x i64] zeroinitializer
+@rg_count = internal global i64 0
+
+@m_region = private constant [12 x i8] c"not a region"
+@m_rrange = private constant [26 x i8] c"region offset out of range"
+@m_ralign = private constant [24 x i8] c"misaligned region access"
+
+define i64 @l0_region_open(i64 %base, i64 %len) {
+entry:
+  %short = icmp slt i64 %len, 1
+  %neg = icmp slt i64 %base, 0
+  %bad = or i1 %short, %neg
+  br i1 %bad, label %none, label %ask
+ask:
+  %a = call i64 @l0_host_region(i64 %base, i64 %len)
+  %failed = icmp slt i64 %a, 0
+  br i1 %failed, label %refused, label %room
+refused:
+  ret i64 %a
+room:
+  %n = load i64, ptr @rg_count
+  %full = icmp uge i64 %n, 64
+  br i1 %full, label %nomore, label %keep
+nomore:
+  ret i64 -5
+keep:
+  %ap = getelementptr [64 x i64], ptr @rg_addr, i64 0, i64 %n
+  store i64 %a, ptr %ap
+  %lp = getelementptr [64 x i64], ptr @rg_len, i64 0, i64 %n
+  store i64 %len, ptr %lp
+  %n1 = add i64 %n, 1
+  store i64 %n1, ptr @rg_count
+  ret i64 %n
+none:
+  ret i64 -3
+}
+
+; The address of an access of w bytes at off in region r, after the three
+; checks of spec section 6.12, in its order.
+define internal ptr @region_at(i64 %r, i64 %off, i64 %w) {
+entry:
+  %n = load i64, ptr @rg_count
+  %open = icmp ult i64 %r, %n
+  br i1 %open, label %range, label %notopen
+notopen:
+  call void @rt_error(ptr @m_region, i64 12)
+  unreachable
+range:
+  %lp = getelementptr [64 x i64], ptr @rg_len, i64 0, i64 %r
+  %len = load i64, ptr %lp
+  %neg = icmp slt i64 %off, 0
+  %room = sub i64 %len, %w
+  %past = icmp sgt i64 %off, %room
+  %out = or i1 %neg, %past
+  br i1 %out, label %outside, label %align
+outside:
+  call void @rt_error(ptr @m_rrange, i64 26)
+  unreachable
+align:
+  %ap = getelementptr [64 x i64], ptr @rg_addr, i64 0, i64 %r
+  %base = load i64, ptr %ap
+  %at = add i64 %base, %off
+  %w1 = sub i64 %w, 1
+  %odd = and i64 %at, %w1
+  %mis = icmp ne i64 %odd, 0
+  br i1 %mis, label %misaligned, label %ok
+misaligned:
+  call void @rt_error(ptr @m_ralign, i64 24)
+  unreachable
+ok:
+  %p = inttoptr i64 %at to ptr
+  ret ptr %p
+}
+
+define i64 @l0_region_read8(i64 %r, i64 %off) {
+entry:
+  %p = call ptr @region_at(i64 %r, i64 %off, i64 1)
+  %v = load volatile i8, ptr %p, align 1
+  %x = zext i8 %v to i64
+  ret i64 %x
+}
+
+define i64 @l0_region_read16(i64 %r, i64 %off) {
+entry:
+  %p = call ptr @region_at(i64 %r, i64 %off, i64 2)
+  %v = load volatile i16, ptr %p, align 2
+  %x = zext i16 %v to i64
+  ret i64 %x
+}
+
+define i64 @l0_region_read32(i64 %r, i64 %off) {
+entry:
+  %p = call ptr @region_at(i64 %r, i64 %off, i64 4)
+  %v = load volatile i32, ptr %p, align 4
+  %x = zext i32 %v to i64
+  ret i64 %x
+}
+
+define i64 @l0_region_read64(i64 %r, i64 %off) {
+entry:
+  %p = call ptr @region_at(i64 %r, i64 %off, i64 8)
+  %v = load volatile i64, ptr %p, align 8
+  ret i64 %v
+}
+
+define i64 @l0_region_write8(i64 %r, i64 %off, i64 %v) {
+entry:
+  %p = call ptr @region_at(i64 %r, i64 %off, i64 1)
+  %t = trunc i64 %v to i8
+  store volatile i8 %t, ptr %p, align 1
+  ret i64 0
+}
+
+define i64 @l0_region_write16(i64 %r, i64 %off, i64 %v) {
+entry:
+  %p = call ptr @region_at(i64 %r, i64 %off, i64 2)
+  %t = trunc i64 %v to i16
+  store volatile i16 %t, ptr %p, align 2
+  ret i64 0
+}
+
+define i64 @l0_region_write32(i64 %r, i64 %off, i64 %v) {
+entry:
+  %p = call ptr @region_at(i64 %r, i64 %off, i64 4)
+  %t = trunc i64 %v to i32
+  store volatile i32 %t, ptr %p, align 4
+  ret i64 0
+}
+
+define i64 @l0_region_write64(i64 %r, i64 %off, i64 %v) {
+entry:
+  %p = call ptr @region_at(i64 %r, i64 %off, i64 8)
+  store volatile i64 %v, ptr %p, align 8
+  ret i64 0
+}
+
+define i64 @l0_barrier() {
+entry:
+  call void @l0_host_barrier()
+  ret i64 0
 }
 
 ; ---------------------------------------------------------------- equality

@@ -50,6 +50,16 @@ declare i64 @l0_bit_count(i64)
 declare i64 @l0_remove(i64)
 declare i64 @l0_compare(i64, i64)
 declare i64 @l0_read_some(i64, i64)
+declare i64 @l0_region_open(i64, i64)
+declare i64 @l0_region_read8(i64, i64)
+declare i64 @l0_region_read16(i64, i64)
+declare i64 @l0_region_read32(i64, i64)
+declare i64 @l0_region_read64(i64, i64)
+declare i64 @l0_region_write8(i64, i64, i64)
+declare i64 @l0_region_write16(i64, i64, i64)
+declare i64 @l0_region_write32(i64, i64, i64)
+declare i64 @l0_region_write64(i64, i64, i64)
+declare i64 @l0_barrier()
 
 @l0_main_ret_kind = global i64 0
 

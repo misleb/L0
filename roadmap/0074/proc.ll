@@ -131,6 +131,18 @@ entry:
   ret ptr null
 }
 
+; No device is mapped into a process yet, so no region (spec section 6.12).
+define i64 @l0_host_region(i64 %base, i64 %len) {
+entry:
+  ret i64 -3
+}
+
+define void @l0_host_barrier() {
+entry:
+  call void asm sideeffect "dsb sy", "~{memory}"()
+  ret void
+}
+
 ; ------------------------------------------------------------------ memory
 ;
 ; runtime/host-virt.ll's allocator, unchanged, over this process's heap.

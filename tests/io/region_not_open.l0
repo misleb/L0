@@ -1,0 +1,6 @@
+; Spec section 6.12: reading a region the program has not opened is a
+; runtime error, reported after the bytes already written, on every host.
+
+(def main () int
+  (let w (write_byte 111)
+    (region_read32 0 0)))

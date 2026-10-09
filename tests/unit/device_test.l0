@@ -1,0 +1,26 @@
+; Unit tests for lib/io.l0's devices, over the region builtins of spec
+; section 6.12, on a host with an operating system, which gives none
+; (section 9.2). tests/virt/device covers a board that has them.
+
+(def fault_of ((r DeviceOpened)) (list int)
+  (match r
+    ((DeviceOpened d) "opened")
+    ((DeviceFailed fault why) why)))
+
+(def test_no_device_under_an_os () int
+  (add (check_str "the board's PL011" (fault_of (open_device 150994944 4096))
+         "no device there")
+    (add (check_true "missing" (eq (open_device 150994944 4096)
+                                   (DeviceFailed (DeviceMissing) "no device there")))
+         (check_str "no bytes" (fault_of (open_device 150994944 0))
+           "no device there"))))
+
+(def test_barrier () int
+  (check_int "barrier" (barrier) 0))
+
+; No region is open, so reading one is a runtime error.
+(def test_not_a_region () int
+  (device_read32 (IoDevice 0) 0))
+
+(def expect_not_a_region () (list int)
+  "not a region")

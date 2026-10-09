@@ -7,6 +7,90 @@ New entries go at the top.
 
 ---
 
+## Regions: a program reads and writes a device's memory
+
+**What changed.** Section 6.12 is new: `region_open` opens a range of a
+machine's device memory as a region, `region_read8` to `region_read64` and
+`region_write8` to `region_write64` read and write it in one access of
+that width, and `barrier` completes every access before it before any
+after it. Section 8 gains their three runtime errors and says the
+guarantee holds of a program that drives devices; section 9.2 says a host
+may have no devices, and an operating system is one; section 10.3 has the
+runtime calls, two host functions, and the virt board's devices. Roadmap
+0075, the first item of the goal "A new goal: a microkernel written in
+L0".
+
+**Why.** No L0 program could touch a device. This is the PL011 driver
+0074 could not write, and every driver a microkernel runs, and the
+kernel's own interrupt controller, starts the same way:
+
+```
+(def put ((b int)) int
+  (if (eq (bit_and (load32 (add (uart_base) 24)) 32) 32)
+      (put b)
+      (store32 (uart_base) b)))
+```
+
+```
+roadmap/0074/progs/uart.l0:8:20: error: unknown function load32
+```
+
+**Why a handle over a range, not loads and stores at an address.** "The
+route to memory management and I/O" chose safe facilities over raw memory
+because raw memory gives the checker nothing, and 0074 found the same in a
+kernel: one wrong bit in an address or a descriptor reaches the runtime's
+heap. A region is opened over a range the host has checked is a device, and
+every access is checked against it, so a mistake in an offset is a runtime
+error naming it, not a store into a value the program holds. What a read
+returns is an integer, so nothing from a device becomes a pointer. That is
+what lets section 8 keep its guarantee rather than give it up for programs
+that drive devices.
+
+**Why the width is in the name.** A device register has one width, and an
+access of another may fault or do something else: the checker should
+catch a wrong one, and it can only when the width is part of the name.
+`region_read 3` would be a runtime error at best. Eight names cost an agent
+nothing to read; a width argument would cost it a run to find the mistake.
+
+**Why misaligned is an error of its own.** On the machines L0 runs on, an
+unaligned access to device memory faults, and the fault would stop the
+program with the host's machine exception rather than a message. Checking
+it before the access, after the range, makes it the program's error, said
+in words. The three errors are checked in the order a reader would look
+for the mistake: which region, then where, then how.
+
+**Why no close.** A driver opens its device once and keeps it, and the
+virt board's devices are few: nothing here needs one, and a table of 64 is
+more than the board has devices. -5 says when it is full. A kernel that
+gives regions to processes will need to take them back, and that is when
+closing earns its place.
+
+**Why the barrier is a builtin, and ordering among accesses is promised.**
+Volatile accesses to device memory reach one device in order, and that is
+what the virt host's map makes them, Device-nGnRnE, so a driver of
+registers needs nothing more. A driver of DMA writes a descriptor to
+ordinary memory and then rings a doorbell register, and only a barrier
+orders those two; without it the device can read a stale descriptor. It is
+`dsb sy` on the board and a fence where there are no devices, and is a
+builtin because which instruction it is belongs to the host. A kernel per
+core will need more, an atomic operation on a region with an ordering, and
+that waits for it.
+
+**Why the board gives regions only over a fixed table of its devices.**
+QEMU raises an external abort for an access where nothing is mapped, which
+would stop the program with a machine exception. The virt board's memory
+map is fixed by QEMU, so a table in `host-virt.ll`, which section 10.3
+lists, says which ranges are devices without parsing the device tree, and
+keeps RAM, and with it the runtime's heap, out of every region. Frames of
+RAM for DMA come with address spaces, later.
+
+**What an operating system gives.** No regions: `region_open` is -3, as
+opening a file is on a host with none. A program under an operating system
+reaches devices through its files, and the runtime does not ask libc for
+more, which keeps `host-libc.ll` the same text on macOS and Linux.
+
+---
+
 ## A new goal: a microkernel written in L0
 
 **No semantic change. L0 is exactly the language it was before this entry.**
