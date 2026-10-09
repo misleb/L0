@@ -1,0 +1,73 @@
+; Spec section 6.5's form that hands an element of an array through a
+; function and back, (array_set g y (f ... (array_get g y) ...)), as an L0
+; kernel's loop updates a thread's context per trap (roadmap 0074's
+; kloop.l0). array_through.sh runs each mode with L0_ARRAY_STATS and checks
+; the result and how many updates copied. tools/l0 run ... -- MODE N:
+;   through   three 8-word contexts, each updated by a function per step:
+;             no copy
+;   list      three lists, each consed onto per step through cons: no copy,
+;             and every cell freed at the end
+;   shared    as through, but another binding still holds the table, so
+;             the first step copies the table, and each context copies on
+;             its first update, as the plain reading says: four copies, and
+;             the other binding's table and contexts are unchanged
+;   mentions  as through, but another argument of the function reads the
+;             table, so the form does not apply and every step copies
+
+(def step ((c (array int)) (k int)) (array int)
+  (array_set (array_set c 0 (add (array_get c 0) 1)) 1 k))
+
+(def step_len ((c (array int)) (n int)) (array int)
+  (array_set c 0 (add (array_get c 0) n)))
+
+(def contexts ((g (array (array int))) (i int)) (array (array int))
+  (if (ge i (array_len g))
+      g
+      (contexts (array_set g i (array_new 8 0)) (add i 1))))
+
+(def through ((g (array (array int))) (k int) (n int)) (array (array int))
+  (if (ge k n)
+      g
+      (let t (mod k 3)
+        (through (array_set g t (step (array_get g t) k)) (add k 1) n))))
+
+(def mentions ((g (array (array int))) (k int) (n int)) (array (array int))
+  (if (ge k n)
+      g
+      (let t (mod k 3)
+        (mentions (array_set g t (step_len (array_get g t) (array_len g))) (add k 1) n))))
+
+(def lists ((g (array (list int))) (k int) (n int)) (array (list int))
+  (if (ge k n)
+      g
+      (let t (mod k 3)
+        (lists (array_set g t (cons k (array_get g t))) (add k 1) n))))
+
+(def counts ((g (array (array int))) (i int) (acc int)) int
+  (if (ge i (array_len g))
+      acc
+      (counts g (add i 1) (add acc (array_get (array_get g i) 0)))))
+
+(def lengths ((g (array (list int))) (i int) (acc int)) int
+  (if (ge i (array_len g))
+      acc
+      (lengths g (add i 1) (add acc (length (array_get g i))))))
+
+(def shared ((n int)) int
+  (let g (contexts (array_new 3 (array_new 0 0)) 0)
+    (let h (through g 0 n)
+      (add (mul (counts g 0 0) 1000000) (counts h 0 0)))))
+
+(def run ((mode (list int)) (n int)) int
+  (if (eq mode "through")
+      (counts (through (contexts (array_new 3 (array_new 0 0)) 0) 0 n) 0 0)
+      (if (eq mode "list")
+          (lengths (lists (array_new 3 (nil int)) 0 n) 0 0)
+          (if (eq mode "shared")
+              (shared n)
+              (counts (mentions (contexts (array_new 3 (array_new 0 0)) 0) 0 n) 0 0)))))
+
+(def main () int
+  (let r (run (arg 0) (int_prefix (arg 1) 0))
+    (let w (write_line (digits r))
+      0)))

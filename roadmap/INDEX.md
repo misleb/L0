@@ -65,19 +65,18 @@ compiler to its fixpoint as a process at EL0 under a kernel stub, with no
 language change, and found an L0 kernel's loop copies a thread's context
 on every trap when written plainly. From it, regions are done (0075): a
 program on the board drives a device through its registers, and the PL011
-driver 0074 could not write is a test. Queued: a row updated in place
-through any function (0076), and a host for processes (0077); the timer
-and interrupts, user mode, and system calls for drivers wait for the
-programs those make possible.
+driver 0074 could not write is a test; and an element of an array updates
+in place through any function (0076), so the kernel's loop written plainly
+no longer copies a context per trap. Queued: a host for processes (0077);
+the timer and interrupts, user mode, and system calls for drivers wait for
+the programs those make possible.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0076](0076-row-updates-through-any-function.md) a row of an array
-   updates in place through any function — queued, next
-2. [0077](0077-host-for-processes.md) a host for programs run as processes
-   by a kernel — queued
+1. [0077](0077-host-for-processes.md) a host for programs run as processes
+   by a kernel — queued, next
 
 ## Other open items
 
@@ -279,3 +278,6 @@ None.
 - [0075](0075-regions.md) regions: device memory, read and written by width
   — done, changelog "Regions: a program reads and writes a device's
   memory"; passed on Linux arm64
+- [0076](0076-row-updates-through-any-function.md) an element of an array
+  updates in place through any function — done, changelog "An element of
+  an array updates in place through any function"; passed on Linux arm64

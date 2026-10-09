@@ -843,6 +843,38 @@ ok:
   ret i64 %g1
 }
 
+; The element (array_get g y) gives in the form of spec section 6.5 that
+; hands it through a function and back, with a reference the caller owns.
+; When g has no other holder it is taken out, a 0 left in its place for the
+; outer array_set to release; otherwise it gets a reference of its own, as
+; l0_array_get's result does. Nothing is allocated either way. The compiler
+; emits this only for an array whose elements are counted.
+define i64 @l0_array_take(i64 %g, i64 %y) {
+entry:
+  %q = inttoptr i64 %g to ptr
+  %n = load i64, ptr %q
+  %in = icmp ult i64 %y, %n
+  br i1 %in, label %ok, label %err
+err:
+  call void @rt_error(ptr @m_range, i64 24)
+  unreachable
+ok:
+  %y1 = add i64 %y, 1
+  %ep = getelementptr i64, ptr %q, i64 %y1
+  %e = load i64, ptr %ep
+  %hp = getelementptr i64, ptr %q, i64 -1
+  %h = load i64, ptr %hp
+  %rc = lshr i64 %h, 40
+  %alone = icmp eq i64 %rc, 1
+  br i1 %alone, label %take, label %share
+take:
+  store i64 0, ptr %ep
+  ret i64 %e
+share:
+  call void @l0_inc(i64 %e)
+  ret i64 %e
+}
+
 ; Drops a reference to each pointer element of the array q, queueing any
 ; whose count reaches zero, then gives q back to malloc. Under L0_RC_CHECK
 ; it is kept, with a count of 0 and a length of 0, so a later use is caught.

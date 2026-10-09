@@ -494,13 +494,19 @@ fine. What copies, silently, with correct results:
 
 - **an array still used after the `array_set`**, or kept in a list of
   earlier versions
-- **an array inside another array, unless updated in exactly this form:**
-  `(array_set g y (array_set (array_get g y) x v))`, with `g` a variable
-  and `y` the same variable or literal both times, which updates the row
-  in place. Binding the row with `let` first, or computing `y` twice,
-  copies the row. A flat `(array int)` indexed by `(add (mul y w) x)` is
-  still the fastest grid. `(array_new h (array_new w 0))` makes every row
-  the same array, so each copies once, on its first update
+- **an array inside another array, unless it goes through a function and
+  back in exactly this form:** `(array_set g y (f ... (array_get g y)
+  ...))`, with `g` a variable that no other argument of `f` mentions and
+  `y` the same variable or literal both times. The element is taken out of
+  `g` for `f` and `f`'s result put back, so `f` updates it in place: a
+  table of records, each handed to a function that updates it, costs
+  nothing to keep. With `f` being `array_set` itself, `(array_set g y
+  (array_set (array_get g y) x v))` updates one cell of a grid. Binding
+  the element with `let` first, passing `g` to `f` too, or computing `y`
+  twice copies it. The same holds for an element that is a list, data, or
+  bytes. A flat `(array int)` indexed by `(add (mul y w) x)` is still the
+  fastest grid. `(array_new h (array_new w 0))` makes every row the same
+  array, so each copies once, on its first update
 - **not** an array in a data value, if you take the value apart with `match`
   and don't use it again: then the field is the only holder, and the update
   is in place. Keeping several arrays together in a data type and rebuilding

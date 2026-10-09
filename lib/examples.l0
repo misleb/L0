@@ -469,6 +469,18 @@
 (def grid_get ((g (array (array int))) (y int) (x int)) int
   (array_get (array_get g y) x))
 
+; The same form takes any function in place of the inner array_set: the
+; element is taken out of the table for the function, and its result put
+; back, so the function updates it in place. This is a table of counters,
+; each a record of two words, updated by a function that takes one and
+; returns it. Passing the table to the function as well, or binding the
+; element with let first, would copy it every time.
+(def tally ((c (array int)) (k int)) (array int)
+  (array_set (array_set c 0 (add (array_get c 0) 1)) 1 (add (array_get c 1) k)))
+
+(def tally_at ((t (array (array int))) (i int) (k int)) (array (array int))
+  (array_set t i (tally (array_get t i) k)))
+
 ; -------------------------------------------------------------------- bytes
 
 ; bytes hold one byte in a byte of memory, where a list spends 24, and are

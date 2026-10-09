@@ -7,6 +7,71 @@ New entries go at the top.
 
 ---
 
+## An element of an array updates in place through any function
+
+**What changed.** Section 6.5's one in-place form for an element of an
+array, `(array_set g y (array_set (array_get g y) x v))`, is now an
+instance of a general one: `(array_set g y (f ... (array_get g y) ...))`
+for any function or builtin `f`, with `g` one variable that no other
+argument of `f` mentions. When `g` has no other holder the element is
+taken out for `f`, which is then its only holder, and `f`'s result goes
+back in its place. Section 10.3 says the compiler emits the argument as a
+new runtime call, `l0_array_take`, which allocates nothing. Roadmap 0076.
+
+**Why.** Roadmap 0074's `progs/kloop.l0` is an L0 kernel's loop with
+`user_run` simulated: a table of three 102-word thread contexts, and per
+trap one context handed to a function that consumes it and returns it
+updated. Written the natural way, it copied the context on every trap:
+
+```
+(natural (array_set g t (sim_run (array_get g t) k)) (add k 1) n)
+```
+
+```
+l0: array copies: 1000000
+l0: array words copied: 102000000
+```
+
+48 ns a trap, against 12 ns for the same loop written with the context
+taken out by hand and an empty array left in its place, which updates in
+place. That workaround is right, and an agent writing a kernel would not
+find it; the plain form is what anyone writes, and it was the one that
+copied. A kernel's thread table, a scheduler's queues, any table of
+records each updated by a function, has this shape.
+
+**Why the element can be taken out, and nothing sees it go.** The form
+names `g` once more, in the outer `array_set`, and nowhere else among
+`f`'s arguments, and `f` cannot see `g`, since L0 has no state outside a
+function's parameters. So between taking the element and putting `f`'s
+result back, nothing reads `g`. The hole is a 0, the empty list, which
+`@l0_dec` already treats as nothing to release. A program that fails in
+`f` ends, and never sees it either.
+
+**Why nothing changes when `g` is shared.** Taking an element out of an
+array another holder also has would change that holder's array. So then
+`l0_array_take` only adds a reference, as `array_get` does, and `f` copies
+the element as the plain reading says it must. That is also why the take
+allocates nothing in either case: copying `g` early to make it its own
+would move a `heap exhausted` ahead of `f`'s own failures, which the plain
+reading puts first. `g` is made its own, as before, by the outer
+`array_set`, after `f` returns.
+
+**Why the nested form keeps its own runtime call.** `l0_array_set_row`
+already does in one call what the general form does in three, for the
+case 0025 measured, and the general form gives the same counts and the
+same order of errors for it. Keeping it leaves every program that uses it
+emitting exactly what it did.
+
+**Why only for counted elements.** An `int` or a `bool` has no holder, so
+`array_get` of one shares nothing, and there is nothing to take.
+
+**What it does not cover.** An element bound by a `let` first, or read by
+another argument of `f`, is still shared, as 6.5 says. A `let` would make
+the binding a holder the language promises to keep, and an argument that
+reads `g` is evaluated while the element would be missing.
+
+---
+
 ## Regions: a program reads and writes a device's memory
 
 **What changed.** Section 6.12 is new: `region_open` opens a range of a

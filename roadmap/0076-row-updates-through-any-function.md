@@ -1,7 +1,8 @@
 # 0076: a row of an array updates in place through any function
 
 Kind: language
-Status: queued
+Status: done, changelog "An element of an array updates in place through
+any function"; passed on Linux arm64
 Needs: 0074
 
 ## Why
@@ -63,3 +64,25 @@ That is a workaround, and an agent writing a kernel will not find it.
 
 - 2026-10-09: opened by 0074's recommendation, item 2, and queued at the
   user's request.
+- 2026-10-09: done. Section 6.5's form is now `(array_set g y (f ...
+  (array_get g y) ...))` for any function or builtin `f`, `g` one variable
+  no other argument of `f` mentions, `y` the same variable or literal, and
+  an element of any counted type; the nested form is its instance with `f`
+  the builtin `array_set`, and keeps `l0_array_set_row`, so what it emits
+  is unchanged. For any other `f` the compiler rewrites the argument to an
+  internal call no program can write, emitted as the new
+  `l0_array_take(g, y)`: it checks `y` where the argument stands, and moves
+  the element out, leaving 0, when `g`'s count is 1, or adds a reference
+  otherwise, allocating nothing either way, so errors and allocation come
+  as the plain reading has them. `kloop.l0`'s natural mode: 2 copies in a
+  million, both from `array_new`, 7 ns a trap, against 48 before and 10
+  for the workaround. Tests: `tests/io/array_through` (`.sh`, four modes
+  under `L0_ARRAY_STATS` and `L0_RC_CHECK`: through and list copy nothing,
+  shared copies 4 and leaves the other table unchanged, mentions copies
+  every step as the form does not apply), `array_through_order` and
+  `array_through_late` (the index checked where the argument stands);
+  `bundle_prelude` and `emit_tail` for the `declare`. The compiler's own
+  source does not use the form. The shipped skill and the examples teach
+  it, with `tally_at`. Fixpoint holds and the seed is refreshed. Both
+  suites green (65, 138), `--virt` 73 passed and 53 skipped, Linux arm64
+  green (65, 138).

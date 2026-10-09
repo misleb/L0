@@ -1,0 +1,11 @@
+; The form of spec 6.5 that hands an element through a function checks the
+; index where (array_get g y) stands among the function's arguments: first
+; here, so with both wrong the index error is reported, not the division by
+; zero. array_through_late has them the other way round.
+
+(def pick ((r (array int)) (k int)) (array int)
+  (array_set r 0 k))
+
+(def main () int
+  (let g (array_new 3 (array_new 3 0))
+    (array_len (array_set g 5 (pick (array_get g 5) (div 1 0))))))

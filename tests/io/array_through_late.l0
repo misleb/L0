@@ -1,0 +1,10 @@
+; As array_through_order, with (array_get g y) the function's second
+; argument: the division by zero comes first, as written, so it is the error
+; reported, and the index is never checked.
+
+(def pick ((k int) (r (array int))) (array int)
+  (array_set r 0 k))
+
+(def main () int
+  (let g (array_new 3 (array_new 3 0))
+    (array_len (array_set g 5 (pick (div 1 0) (array_get g 5))))))

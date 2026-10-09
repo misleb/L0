@@ -502,9 +502,11 @@
 ; tail call, for what it passed in read-only positions.
 (def emit_call ((n (list int)) (args (list Expr)) (env Env)
                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
-  (match (row_update n args (env_ctx env))
-    ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
-    ((NotRowUpdate) (emit_call_plain n args env live tl st))))
+  (if (eq n "array.take")
+      (emit_take (var_name (head args)) (head (tail args)) env st)
+      (match (row_update n args (env_ctx env))
+        ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
+        ((NotRowUpdate) (emit_call_plain n (through_args n args env) env live tl st)))))
 
 ; (array_set g y (array_set (array_get g y) x v)), with g one variable and y
 ; the same variable or integer literal both times: spec 6.5.
@@ -589,19 +591,7 @@
 ; array_set's array is.
 (def emit_row_update ((g (list int)) (y Expr) (x Expr) (v Expr) (env Env)
                       (live (list (list int))) (tl bool) (st Emit)) EmitVal
-  (let yop (if (is_empty (var_name y))
-               (match y
-                 ((EInt o k) (digits k))
-                 ((EBool o b) "0")
-                 ((EStr o s) "0")
-                 ((ENil o t) "0")
-                 ((EVar o n) "0")
-                 ((EIf o c a b) "0")
-                 ((ELet o n e b) "0")
-                 ((ECtor o n ts a) "0")
-                 ((EMatch o s a) "0")
-                 ((ECall o n a) "0"))
-               (lookup_operand (var_name y) (env_binds env)))
+  (let yop (index_op y env)
     (match (emit_rt_call "l0_array_get"
              (two_ops (lookup_operand g (env_binds env)) yop) st)
       ((Val chk ct st1)
@@ -611,6 +601,119 @@
             (emit_ret tl
               (retype (emit_rt_call "l0_array_set_row" ops st2)
                       (lookup_type g (env_binds env))))))))))
+
+; The operand for y in a row form: an integer literal, or a variable's
+; value, read without a reference since it is an int.
+(def index_op ((y Expr) (env Env)) (list int)
+  (if (is_empty (var_name y))
+      (match y
+        ((EInt o k) (digits k))
+        ((EBool o b) "0")
+        ((EStr o s) "0")
+        ((ENil o t) "0")
+        ((EVar o n) "0")
+        ((EIf o c a b) "0")
+        ((ELet o n e b) "0")
+        ((ECtor o n ts a) "0")
+        ((EMatch o s a) "0")
+        ((ECall o n a) "0"))
+      (lookup_operand (var_name y) (env_binds env))))
+
+; The form of spec 6.5 that hands an element through a function and back,
+; (array_set g y (f ... (array_get g y) ...)), with g one variable that no
+; other argument of f mentions and whose elements are counted: the argument
+; (array_get g y) becomes (array.take g y), which emit_call emits as
+; l0_array_take, and which no program can write, since no L0 name has a
+; dot. Everything else is emitted as written. Spec 10.3.
+(def through_args ((n (list int)) (args (list Expr)) (env Env)) (list Expr)
+  (if (if (eq n "array_set") (eq (length args) 3) false)
+      (if (if (is_builtin_in "array_set" (env_ctx env)) (is_builtin_in "array_get" (env_ctx env)) false)
+          (let g (var_name (head args))
+            (if (is_empty g)
+                args
+                (if (counted_elems (lookup_type g (env_binds env)))
+                    (cons (head args)
+                      (cons (head (tail args))
+                        (cons (through_arg g (head (tail args)) (head (tail (tail args))))
+                              (nil Expr))))
+                    args)))
+          args)
+      args))
+
+(def counted_elems ((t Ty)) bool
+  (match t
+    ((TyArray e) (ty_is_ptr e))
+    ((TyInt) false)
+    ((TyBool) false)
+    ((TyList e) false)
+    ((TyData n ts) false)
+    ((TyBytes) false)))
+
+; inner with its one argument (array_get g y) made (array.take g y), when it
+; is a call that has exactly one such argument and no other mentioning g.
+(def through_arg ((g (list int)) (y Expr) (inner Expr)) Expr
+  (match inner
+    ((ECall o f fargs)
+      (if (if (eq (count_rows g y fargs 0) 1) (eq (count_mentions g fargs 0) 1) false)
+          (ECall o f (take_row g y fargs))
+          inner))
+    ((EInt o v) inner)
+    ((EBool o v) inner)
+    ((EStr o s) inner)
+    ((ENil o t) inner)
+    ((EVar o n) inner)
+    ((EIf o c a b) inner)
+    ((ELet o n v b) inner)
+    ((ECtor o n ts a) inner)
+    ((EMatch o s a) inner)))
+
+(def count_rows ((g (list int)) (y Expr) (es (list Expr)) (k int)) int
+  (if (is_empty es)
+      k
+      (count_rows g y (tail es) (if (is_row g y (head es)) (add k 1) k))))
+
+(def count_mentions ((g (list int)) (es (list Expr)) (k int)) int
+  (if (is_empty es)
+      k
+      (count_mentions g (tail es) (if (any_eq g (fv (head es))) (add k 1) k))))
+
+(def take_row ((g (list int)) (y Expr) (es (list Expr))) (list Expr)
+  (if (is_empty es)
+      es
+      (if (is_row g y (head es))
+          (cons (ECall 0 "array.take" (cons (EVar 0 g) (cons y (nil Expr)))) (tail es))
+          (cons (head es) (take_row g y (tail es))))))
+
+; Whether e is (array_get g y), with y the same variable or literal.
+(def is_row ((g (list int)) (y Expr) (e Expr)) bool
+  (match e
+    ((ECall o n a)
+      (if (if (eq n "array_get") (eq (length a) 2) false)
+          (if (eq (var_name (head a)) g) (same_index y (head (tail a))) false)
+          false))
+    ((EInt o v) false)
+    ((EBool o v) false)
+    ((EStr o s) false)
+    ((ENil o t) false)
+    ((EVar o n) false)
+    ((EIf o c a b) false)
+    ((ELet o n v b) false)
+    ((ECtor o n ts a) false)
+    ((EMatch o s a) false)))
+
+; (array.take g y): l0_array_take, y checked where the argument stands, the
+; element g's type says, with a reference the caller owns.
+(def emit_take ((g (list int)) (y Expr) (env Env) (st Emit)) EmitVal
+  (match (lookup_type g (env_binds env))
+    ((TyArray e)
+      (retype (emit_rt_call "l0_array_take"
+                (two_ops (lookup_operand g (env_binds env)) (index_op y env)) st)
+              e))
+    ((TyInt) (emit_rt_call "l0_array_take" (nil (list int)) st))
+    ((TyBool) (emit_rt_call "l0_array_take" (nil (list int)) st))
+    ((TyList t) (emit_rt_call "l0_array_take" (nil (list int)) st))
+    ((TyData n ts) (emit_rt_call "l0_array_take" (nil (list int)) st))
+    ((TyBytes) (emit_rt_call "l0_array_take" (nil (list int)) st))))
 
 (def emit_call_plain ((n (list int)) (args (list Expr)) (env Env)
                       (live (list (list int))) (tl bool) (st Emit)) EmitVal
@@ -1707,7 +1810,8 @@
               (append "declare i64 @l0_region_write16(i64, i64, i64)\n"
                 (append "declare i64 @l0_region_write32(i64, i64, i64)\n"
                   (append "declare i64 @l0_region_write64(i64, i64, i64)\n"
-                    "declare i64 @l0_barrier()\n\n"))))))))))
+                    (append "declare i64 @l0_barrier()\n"
+                      "declare i64 @l0_array_take(i64, i64)\n\n")))))))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

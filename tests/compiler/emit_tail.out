@@ -60,6 +60,7 @@ declare i64 @l0_region_write16(i64, i64, i64)
 declare i64 @l0_region_write32(i64, i64, i64)
 declare i64 @l0_region_write64(i64, i64, i64)
 declare i64 @l0_barrier()
+declare i64 @l0_array_take(i64, i64)
 
 @l0_main_ret_kind = global i64 0
 
