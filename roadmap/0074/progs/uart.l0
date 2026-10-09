@@ -1,0 +1,18 @@
+; The PL011 on QEMU's virt board, driven from L0: wait while the transmit
+; FIFO is full (flag register, offset 0x18, bit 5), then write the byte to
+; the data register, offset 0. Nothing in L0 reads or writes a device.
+
+(def uart_base () int 150994944)      ; 0x09000000
+
+(def put ((b int)) int
+  (if (eq (bit_and (load32 (add (uart_base) 24)) 32) 32)
+      (put b)
+      (store32 (uart_base) b)))
+
+(def put_all ((s (list int))) int
+  (if (is_empty s)
+      0
+      (let w (put (head s)) (put_all (tail s)))))
+
+(def main () int
+  (put_all "hi\n"))

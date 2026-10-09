@@ -60,18 +60,28 @@ L0 code, interrupts, and real hardware are left open by the goal, and wait
 for a program that needs them; the queue is empty, and what comes next
 goes back to the goals. The next goal is a microkernel written in L0
 (changelog "A new goal: a microkernel written in L0"), which is the program
-that earns driving devices, and 0074 breaks it down.
+that earns driving devices, and 0074 broke it down. Its prototype ran the
+compiler to its fixpoint as a process at EL0 under a kernel stub, with no
+language change, and found an L0 kernel's loop copies a thread's context
+on every trap when written plainly. Queued from it: regions (0075), a row
+updated in place through any function (0076), and a host for processes
+(0077); the timer and interrupts, user mode, and system calls for drivers
+wait for the programs those make possible.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-Empty.
+1. [0075](0075-regions.md) regions: device and physical memory, read and
+   written by width — queued, next
+2. [0076](0076-row-updates-through-any-function.md) a row of an array
+   updates in place through any function — queued
+3. [0077](0077-host-for-processes.md) a host for programs run as processes
+   by a kernel — queued
 
 ## Other open items
 
-- [0074](0074-route-to-a-microkernel.md) research: the route to a
-  microkernel written in L0 — active
+None.
 
 ## Done and dropped
 
@@ -263,3 +273,6 @@ Empty.
   compiled suite run on the virt board, and no language change for it"
 - [0073](0073-exit-without-semihosting.md) an exit that works under the
   hypervisor — dropped; emulation is little of the suite's time
+- [0074](0074-route-to-a-microkernel.md) research: the route to a
+  microkernel written in L0 — done; the compiler reaches its fixpoint as a
+  process, and 0075 to 0077 come first

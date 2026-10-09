@@ -1,7 +1,9 @@
 # 0074: research: the route to a microkernel written in L0
 
 Kind: research
-Status: active
+Status: done; regions (0075), a row updated in place through any function
+(0076), and a host for processes (0077) are queued, and items 4 to 6 of
+the recommendation wait for their programs
 Needs: nothing
 
 ## Why
@@ -28,8 +30,8 @@ byte to its data register:
 ```
 
 ```
-$ tools/l0check tmp/0074/uart.l0
-tmp/0074/uart.l0:8:20: error: unknown function load32
+$ tools/l0check roadmap/0074/progs/uart.l0
+roadmap/0074/progs/uart.l0:8:20: error: unknown function load32
 ```
 
 A kernel needs more than that: to run code in user mode and get control
@@ -146,3 +148,167 @@ needs the two-step rule:
   bare-metal goal's items (0069 to 0072) were done. The serial driver above
   is the first limit, checked here. Next: the line between L0 and the host
   file, and the prototype.
+- 2026-10-09: **finding: an unchanged compiled L0 program runs as a process
+  at EL0, in an address space of its own, under a kernel stub, and the
+  compiler reaches its fixpoint that way, preempted, beside a process the
+  kernel killed for a fault.** Prototype in `roadmap/0074/`: `kernel.ll`
+  (1,003 lines, 191 of them assembly) and `kernel.ld`, the stub; `proc.ll`
+  and `proc.ld`, a host file for a process; `fault.ll`, a process that is
+  not L0; `build.sh` and `run.sh`; `progs/` the programs below. Images link
+  in the `l0-virt-link` container, as `--target virt`'s do.
+  - **The measure, half of it.** `build/stage2.ll`, built as a process in
+    slot 0 with `runtime/l0rt.ll` unchanged and `proc.ll` as its host,
+    compiled `build/compiler-source.l0` (209,340 bytes, read by system
+    calls) to a result byte-identical to `build/stage3.ll` and
+    `bootstrap/stage2.ll`, while the kernel time-sliced it against
+    `progs/spin.l0`, which never yields (288 and 289 preemptions), after
+    killing `fault.ll` for reading the kernel's image (`esr
+    0x9200000d`, a level 1 permission fault, `far 0x40080000`). 8.79 s so;
+    5.65 s alone, against 5.01 s for the same compiler on the bare board
+    (`tools/l0 boot build/stage2.elf`), so a process costs about 13% under
+    emulation, timer interrupts every 10 ms included. 25 system calls; 20
+    blocks of 2 MB touched, 40 MB, the first measure of the compiler's
+    memory on the board. `tests/virt/runtime_error.l0` and `stack.l0` give
+    their messages and status 70 as processes, as on the board. The other
+    half, I/O carried by an L0 driver process, needs regions, interrupts,
+    and system calls for drivers, below
+  - **The line between L0 and the host file holds, per facility.**
+    Everything in `kernel.ll` that a hardware format decides is mechanism
+    the host file keeps: the vector table; `k_user_run`, which saves the
+    caller's x19 to x30 and d8 to d15, loads TTBR0 and 102 words of
+    registers, q0 to q31, fpcr, and fpsr included, and erets, and whose
+    traps save them back and return; descriptor bits; ASIDs; the GIC;
+    the timer's system registers; semihosting. Everything else is policy an
+    L0 kernel would hold, and none of it needs raw memory: `k_main`'s loop,
+    `pick`, the system call dispatch, whether a fault is a block to map or a
+    process to kill, and the report. The descriptor constants had to be
+    computed by hand, the PXN and UXN bits, AP, nG, and the attribute
+    index, and getting one wrong maps the kernel into a process or makes
+    its code writable: the bug class handles keep out of L0. The candidate
+    for section 8 stands: no builtin gives L0 a pointer, a region never
+    covers the runtime's memory, and only frames from the pool can be
+    mapped. One addition: the stub reads and writes a process's buffers by
+    address, after `user_range` checks and maps them. In L0 that is
+    `space_read` and `space_write` on a space handle, copying to and from
+    bytes, so an L0 kernel never holds a process's address as a pointer,
+    and the host can turn on PAN and copy with unprivileged loads
+  - **The kernel's shape works, and found a limit.** One loop, interrupts
+    masked, with `k_user_run(ctx)` returning at the next trap with the
+    reason, is the whole kernel. `progs/kloop.l0` is that loop in L0 today,
+    with `user_run` simulated by a function that consumes a context and
+    returns it updated, over a table of three 102-word contexts, a million
+    traps, built natively. Written plainly, `(array_set g t (sim_run
+    (array_get g t) k))` copies the context every trap: 48 ns a trap,
+    1,000,000 copies, 102,000,000 words (`L0_ARRAY_STATS`). That is what
+    section 6.5 says, since its one in-place form is a nested `array_set`
+    and `array_get` gives the row a holder of its own. Taking the context
+    out first, leaving an empty array in its place, updates in place: 12
+    ns, 2 copies, both from `array_new` sharing one row. Decoding each trap
+    into a `Trap` data value, as a library over `user_run` would, makes it
+    16 ns. So per trap an L0 kernel's loop costs nanoseconds once the table
+    updates in place, but the natural way to write it copies, and the way
+    that does not is a workaround. That is a language item: a row taken
+    from an array updates in place through any function, written the
+    natural way, generalizing 0025's nested form, with `kloop.l0`'s
+    natural mode as its Why
+  - **Regions.** The stub's devices took 8 and 32-bit volatile accesses,
+    the PL011's data and flag registers and the GIC's; page tables and
+    DMA rings take 64. On one core, volatile accesses to memory the host
+    maps as device memory are enough; DMA needs a barrier between writing
+    a descriptor and ringing the doorbell, so a barrier builtin belongs
+    with regions, and an ordering, not only volatility, is what a kernel
+    per core will need of a region's atomic later. Regions come from the
+    device tree QEMU puts at 0x40000000, which says which ranges are
+    devices: the host opens a region only over one of those or over a
+    frame from the pool, and gives -3 otherwise, which is also all a host
+    with an operating system gives
+  - **Address spaces and frames.** 2 MB blocks at level 2, not global,
+    tagged with ASIDs, switch with one write of TTBR0 and no flush; the
+    kernel's identity map is the same in every space, EL1 only and never
+    executable at EL0. Mapping a heap or stack block the first time it is
+    touched kept the compiler to 20 blocks of a 640 MB layout. Three things
+    the stub left undone are the host file's, not L0's: freeing frames,
+    with `tlbi aside1is` before an ASID is reused; W^X, since a 2 MB block
+    holds both a process's code and its data, which needs level 3 tables
+    of 4 KB pages; and making the kernel's own image read-only and
+    execute-only, which `host-virt.ll`'s 1 GB blocks cannot express either.
+    `virt.ld` keeps its layout, with a pool of frames beside the heap
+  - **The timer and interrupts.** The board's interrupt controller is a
+    GICv2 (`arm,cortex-a15-gic`), its distributor at 0x08000000 and CPU
+    interface at 0x08010000; GICv3 is `gic-version=3`. The virtual timer
+    is PPI 27, the PL011 SPI 1 (INTID 33). The stub drives the GIC with
+    six 32-bit accesses, which an L0 kernel can make through regions; the
+    timer's deadline is a system register, `cntv_tval_el0`, so it is a
+    builtin. A slice starts only when the kernel moves to a process: one
+    re-armed after each system call never ends while the process keeps
+    calling. Preempting only at the end of a slice sufficed; nothing here
+    needed to ask whether an interrupt is pending, nor to wait for one,
+    since a process was always runnable. Waiting (`wfi`) is needed once a
+    process can block on IPC
+  - **A host for processes.** `proc.ll` is `host-virt.ll` without its boot
+    code, serial port, and semihosting, and with three system calls: read,
+    write, and exit. Nothing else crossed to the kernel. The allocator runs
+    in the process over its own heap; the clock is read in the process,
+    since the kernel sets `cntkctl_el1` so EL0 may read the counter; files,
+    arguments, and settings are section 9.2's absences. So the spec fixes a
+    system call only for what leaves a process: the streams, opening,
+    closing, renaming, removing, and exit, and arguments and settings if a
+    kernel is to give them. A process's layout is fixed (`proc.ld`): image
+    at 0xC0000000, heap, stack. It builds with today's toolchain: clang
+    links `l0rt.bc` and the host's bitcode as `--target virt` does, and
+    `ld.lld` places it at its virtual addresses, loaded at a physical one
+    (`--defsym=__load`). QEMU's loader puts each image at its ELF's
+    physical address, which is how three reached the board; a real kernel
+    reads images from its standard input, which the board already loads
+  - **System calls for drivers.** Not prototyped: the stub's own calls are
+    the host's. The numbers a host file uses are fixed by the spec, and a
+    kernel's own start after them, which is all `supervisor_call` needs to
+    keep the two apart
+  - **DMA.** The board's SMMUv3 (`-machine virt,iommu=smmuv3`, at
+    0x09050000) translates only the PCIe bridge: its node has an
+    `iommu-map`, the `virtio_mmio` nodes have no `iommus`. So the first
+    drivers, the PL011 and virtio-mmio, cannot be contained, and a
+    contained one is a virtio-pci device behind the SMMU, which needs PCIe
+    enumeration through ECAM, at 0x4010000000 unless `highmem=off`, beyond
+    the 32-bit physical addresses `host-virt.ll`'s TCR gives. That waits
+    for a driver that needs it
+  - **Where the code lives, and the measure as a test.** As planned: the
+    kernel in a project of its own, each facility earned here by a program
+    in `tests/virt`. `kernel.ll`'s stub can serve as the kernel the process
+    host is tested against until an L0 kernel replaces it, as
+    `tests/backend` holds hand-written IR
+  - **What stays out.** `k_cur_ctx` and `k_saved_sp` are single globals,
+    the one place the stub assumes one core: in a host file they belong per
+    core, behind `tpidr_el1`. Since a context carries its own TTBR0, moving
+    a process between cores needs no more in it. Accounting for the
+    kernel's heap, threads within a process, and migration stay out
+  - **Recommendation**, in order; queueing them is the user's call:
+    1. language: regions, with sized volatile reads and writes, a barrier,
+       and -3 where the host has none. `progs/uart.l0` is its Why; the
+       PL011 driver in `tests/virt` is what it earns
+    2. language: a row taken from an array updates in place through any
+       function, written the natural way. `progs/kloop.l0`'s natural mode
+       is its Why. Independent of the rest, and the kernel's table needs it
+    3. language: a host for processes: section 9.2 and 10.3 say what a
+       process of a kernel is and fix its system calls, `proc.ll` becomes
+       `runtime/host-proc.ll`, `l0 build` gets a target for it, and
+       `tests/virt` runs programs as processes under `kernel.ll`'s stub as
+       a hand-written harness. The prototype is its Why
+    4. language: a timer deadline and waiting for an interrupt, earned by
+       the serial driver receiving by interrupt through the GIC's regions
+    5. language: user mode: `user_run`, space and frame handles,
+       `space_map`, `space_unmap`, `space_read`, `space_write`, and a
+       library type for traps; earned by `kernel.ll`'s loop written in L0,
+       which then replaces the stub as the harness
+    6. language: `supervisor_call` for drivers and servers, numbered after
+       the host's, and a library type over it; earned by a driver serving
+       another process
+    7. program: the kernel, in its own project, standing, reporting limits
+    8. tooling: the measure as a test in `tools/test.sh --virt`, the
+       compiler as a process with its I/O through an L0 driver
+    Items 4 to 6 have no code in their Why yet; each earlier item's program
+    is meant to produce it. Next: the user decides what to queue.
+- 2026-10-09: the user queued items 1 to 3 as 0075, 0076, and 0077. Items
+  4 to 6, the timer and interrupts, user mode, and `supervisor_call`, are
+  opened when an earlier item's program gives them a Why. Done. The
+  prototype in `roadmap/0074/` stays until 0077 moves it.

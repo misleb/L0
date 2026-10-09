@@ -1,0 +1,10 @@
+; tests/virt/stream.l0: copies its input, a system call per buffer each
+; way, and exits with the count of bytes, modulo 256.
+(def echo ((n int)) int
+  (let b (read_byte)
+    (if (lt b 0)
+        (mod n 256)
+        (let w (write_byte b) (echo (add n 1))))))
+
+(def main () int
+  (echo 0))
