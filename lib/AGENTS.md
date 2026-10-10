@@ -72,7 +72,10 @@ the spec's section 9.2 says what each builtin gives then. It also has the
 board's devices, which a program drives through their registers with
 `open_device` and `device_read32` and the rest (`l0 doc IoDevice`); under
 an operating system there are none, and opening one fails. Tests still
-run on this host, with `l0 test`.
+run on this host, with `l0 test`. A program there can also be a kernel: it
+makes address spaces, maps pages into them, and runs threads in them until
+they trap, with the user-mode builtins of the spec's section 6.13 and the
+library's `Trap` (`l0 doc Trap`).
 
 `l0 build --target proc` builds a program as a process for a kernel on
 aarch64, in an address space of its own, reaching the kernel through the

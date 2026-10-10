@@ -76,7 +76,11 @@ silent and converts a caught bug into a permanent one.
   as processes, and `tests/virt/proc`, under the kernel hand-written in IR
   in `tests/virt/proc/harness`. That kernel is a test harness, as
   `tests/backend` is: it answers spec 10.3's calls, and a change to them
-  changes it too.
+  changes it too. So does `tests/virt/user/kernel.l0`, the kernel in L0
+  that runs `tests/virt` again through the user-mode builtins of spec
+  6.13, which `host-virt.ll` gives. A `tests/virt` program with a `.board`
+  file runs on the board only, never as a process: one that uses user
+  mode, which a process has not.
 - `stage0/l0core.c`, `stage0/l0core.h` — stage 0's value representation and
   host I/O, in C. Compiled programs never link them.
 - `compiler/*.l0` — the L0 compiler, written in L0

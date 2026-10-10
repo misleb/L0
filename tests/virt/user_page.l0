@@ -1,0 +1,8 @@
+; Spec sections 6.13 and 10.3: a user page is aligned and in the 4th
+; gigabyte. 0xBFFFF000 is aligned but below it, so mapping there is a
+; runtime error.
+(def main () int
+  (let s (space_new)
+    (let f (frame_new)
+      (let a (write_line (digits (space_map s 3221225472 f 0)))
+        (space_map s 3221221376 f 0)))))

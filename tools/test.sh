@@ -54,6 +54,8 @@
 #                  was linked from; exit status 0 is a pass
 #   <stem>.host    why the program needs a host with files or arguments, or
 #                  one without devices; --virt skips it
+#   <stem>.board   tests/virt only: why the program needs the board itself, such
+#                  as its user mode; it is not run again as a process
 #   <stem>.args    tests/virt/proc only: the process's arguments, one per line
 #   <stem>.with    tests/virt/proc only: what the kernel runs beside it, one
 #                  per line, spin or fault from tests/virt/proc/harness
@@ -377,7 +379,8 @@ if [ "$VIRT" = 1 ]; then
         run_case virt "$name" "$stem" ./tools/l0 boot "$TMP/$name.elf"
     done
 
-    # The same programs as processes of a kernel (spec section 9.2), each
+    # The same programs, but for those a .board file keeps on the board, as
+    # processes of a kernel (spec section 9.2), each
     # built with tools/l0 build --target proc and run alone, as the first
     # process of tests/virt/proc/harness/kernel.ll, against the board's
     # expectations: that kernel gives no files, arguments, or environment,
@@ -408,6 +411,7 @@ if [ "$VIRT" = 1 ]; then
         name=$(basename "$src" .l0)
         selected "$name" || continue
         stem="tests/virt/$name"
+        [ -f "$stem.board" ] && continue
         proc_build virt-proc "$name" "$src" "$stem" || continue
         run_case virt-proc "$name" "$stem" "$harness/boot.sh" "$pwork" - \
             "$TMP/$name.proc.elf"
@@ -441,6 +445,48 @@ if [ "$VIRT" = 1 ]; then
         run_case proc "$name" "$stem" "$harness/boot.sh" "$pwork" "$args" \
             "$TMP/$name.proc.elf" $beside
     done
+
+    # And under a kernel written in L0 (spec section 6.13): each tests/virt
+    # program, as built above, the one process of tests/virt/user/kernel.l0,
+    # against the board's expectations once more; then tests/virt/user's own
+    # expectations, each for a process that is not L0, the harness's IR of
+    # the same name: fault, which the kernel must kill.
+    user=tests/virt/user
+    uwork="$TMP/user"
+    mkdir -p "$uwork"
+    if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$user/kernel.l0" \
+        -o "$uwork/kernel.elf" > "$uwork/kernel.berr" 2>&1; then
+        nfail=$((nfail + 1))
+        failures="$failures virt-user/kernel"
+        echo "FAIL virt-user/kernel: did not build"
+        sed 's/^/    /' "$uwork/kernel.berr"
+    else
+        for src in tests/virt/*.l0; do
+            [ -f "$src" ] || continue
+            name=$(basename "$src" .l0)
+            selected "$name" || continue
+            [ -f "$TMP/$name.proc.elf" ] || continue
+            run_case virt-user "$name" "tests/virt/$name" "$user/run.sh" \
+                "$uwork/kernel.elf" "$TMP/$name.proc.elf" "$uwork"
+        done
+        for exp in "$user"/*.out; do
+            [ -f "$exp" ] || continue
+            name=$(basename "$exp" .out)
+            src="$harness/$name.ll"
+            selected "$name" || continue
+            if ! { "$CC" --target=aarch64-none-elf -O2 -c "$src" -o "$uwork/$name.o" &&
+                "$L0_VIRT_LD" -T runtime/proc.ld "$uwork/$name.o" -o "$uwork/$name.elf"; } \
+                > "$uwork/$name.berr" 2>&1; then
+                nfail=$((nfail + 1))
+                failures="$failures user/$name"
+                echo "FAIL user/$name: did not build"
+                sed 's/^/    /' "$uwork/$name.berr"
+                continue
+            fi
+            run_case user "$name" "$user/$name" "$user/run.sh" \
+                "$uwork/kernel.elf" "$uwork/$name.elf" "$uwork"
+        done
+    fi
 
     echo
     echo "virt suite: $npass passed, $nfail failed, $nskip skipped, in $(( $(date +%s) - vstart )) s"

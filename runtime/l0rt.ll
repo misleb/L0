@@ -5,7 +5,8 @@
 ;
 ; It carries no target triple, and is the same text on every host. It
 ; reaches the host only through the l0_host_ functions of spec section 10.3,
-; which a host file defines: runtime/host-libc.ll on macOS and Linux. Beyond
+; which a host file defines: runtime/host-libc.ll on macOS and Linux, and
+; runtime/host-virt.ll and runtime/host-proc.ll without libc. Beyond
 ; those it calls only memcmp, as every C environment provides, and LLVM's
 ; memory intrinsics. A host file's results are already spec section 6.3's
 ; codes, so nothing here knows how a host tells its failures apart.
@@ -26,6 +27,12 @@ declare ptr @l0_host_setting(ptr)
 declare void @l0_host_exit(i64) noreturn
 declare i64 @l0_host_region(i64, i64)
 declare void @l0_host_barrier()
+declare i64 @l0_host_space_new()
+declare i64 @l0_host_frame_new()
+declare i64 @l0_host_space_map(i64, i64, i64, i64)
+declare i64 @l0_host_space_map_device(i64, i64, i64, i64)
+declare i64 @l0_host_space_copy(i64, i64, ptr, i64, i64)
+declare i64 @l0_host_user_run(i64, ptr, i64)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
@@ -2339,6 +2346,144 @@ define i64 @l0_barrier() {
 entry:
   call void @l0_host_barrier()
   ret i64 0
+}
+
+; --------------------------------------------------------------- user mode
+;
+; Spec section 6.13. The host keeps the spaces and frames and checks them,
+; in the section's order, and answers with 0 or a code (section 10.3); a
+; positive code is the runtime error raised here.
+
+@m_space = private constant [11 x i8] c"not a space"
+@m_frame = private constant [11 x i8] c"not a frame"
+@m_perm = private constant [29 x i8] c"page permissions out of range"
+@m_upage = private constant [15 x i8] c"not a user page"
+@m_umapped = private constant [24 x i8] c"user page already mapped"
+@m_unmapped = private constant [22 x i8] c"user memory not mapped"
+@m_context = private constant [13 x i8] c"not a context"
+
+define internal void @user_check(i64 %k) {
+entry:
+  switch i64 %k, label %ok [ i64 1, label %space
+                             i64 2, label %frame
+                             i64 3, label %perm
+                             i64 4, label %upage
+                             i64 5, label %mapped
+                             i64 6, label %unmapped
+                             i64 7, label %context ]
+space:
+  call void @rt_error(ptr @m_space, i64 11)
+  unreachable
+frame:
+  call void @rt_error(ptr @m_frame, i64 11)
+  unreachable
+perm:
+  call void @rt_error(ptr @m_perm, i64 29)
+  unreachable
+upage:
+  call void @rt_error(ptr @m_upage, i64 15)
+  unreachable
+mapped:
+  call void @rt_error(ptr @m_umapped, i64 24)
+  unreachable
+unmapped:
+  call void @rt_error(ptr @m_unmapped, i64 22)
+  unreachable
+context:
+  call void @rt_error(ptr @m_context, i64 13)
+  unreachable
+ok:
+  ret void
+}
+
+define i64 @l0_space_new() {
+entry:
+  %r = call i64 @l0_host_space_new()
+  ret i64 %r
+}
+
+define i64 @l0_frame_new() {
+entry:
+  %r = call i64 @l0_host_frame_new()
+  ret i64 %r
+}
+
+; 0, or -5 when the host has no room left for the tables.
+define i64 @l0_space_map(i64 %s, i64 %va, i64 %f, i64 %perm) {
+entry:
+  %k = call i64 @l0_host_space_map(i64 %s, i64 %va, i64 %f, i64 %perm)
+  call void @user_check(i64 %k)
+  %none = icmp slt i64 %k, 0
+  %r = select i1 %none, i64 %k, i64 0
+  ret i64 %r
+}
+
+; 0, or -3 when the host gives no region over the range, or -5 as for
+; l0_space_map.
+define i64 @l0_space_map_device(i64 %s, i64 %va, i64 %base, i64 %len) {
+entry:
+  %k = call i64 @l0_host_space_map_device(i64 %s, i64 %va, i64 %base, i64 %len)
+  call void @user_check(i64 %k)
+  %none = icmp slt i64 %k, 0
+  %r = select i1 %none, i64 %k, i64 0
+  ret i64 %r
+}
+
+; An empty copy, which says only whether s is a space, comes first, so
+; that a bad count or range is reported after a bad space, as section 6.13
+; orders them.
+define i64 @l0_space_read(i64 %s, i64 %va, i64 %n) {
+entry:
+  %k0 = call i64 @l0_host_space_copy(i64 %s, i64 %va, ptr null, i64 0, i64 0)
+  call void @user_check(i64 %k0)
+  %neg = icmp slt i64 %n, 0
+  br i1 %neg, label %err, label %copy
+err:
+  call void @rt_error(ptr @m_bcount, i64 23)
+  unreachable
+copy:
+  %b = call i64 @bytes_alloc(i64 %n)
+  %bi = add i64 %b, 8
+  %bp = inttoptr i64 %bi to ptr
+  %k = call i64 @l0_host_space_copy(i64 %s, i64 %va, ptr %bp, i64 %n, i64 0)
+  call void @user_check(i64 %k)
+  ret i64 %b
+}
+
+; b is read, not consumed, as write_bytes reads its bytes.
+define i64 @l0_space_write(i64 %s, i64 %va, i64 %b, i64 %i, i64 %j) {
+entry:
+  %k0 = call i64 @l0_host_space_copy(i64 %s, i64 %va, ptr null, i64 0, i64 1)
+  call void @user_check(i64 %k0)
+  %q = inttoptr i64 %b to ptr
+  %n = load i64, ptr %q
+  %lo = icmp ule i64 %i, %j
+  %hi = icmp ule i64 %j, %n
+  %in = and i1 %lo, %hi
+  br i1 %in, label %copy, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+copy:
+  %o = add i64 %i, 8
+  %src = getelementptr i8, ptr %q, i64 %o
+  %len = sub i64 %j, %i
+  %k = call i64 @l0_host_space_copy(i64 %s, i64 %va, ptr %src, i64 %len, i64 1)
+  call void @user_check(i64 %k)
+  ret i64 0
+}
+
+; c is consumed, as array_set's array is: the thread runs on c itself when
+; nothing else holds it, and on a copy otherwise, which is returned.
+define i64 @l0_user_run(i64 %s, i64 %c) {
+entry:
+  %c1 = call i64 @arr_own(i64 %c)
+  %q = inttoptr i64 %c1 to ptr
+  %n = load i64, ptr %q
+  %w = getelementptr i64, ptr %q, i64 1
+  %k = call i64 @l0_host_user_run(i64 %s, ptr %w, i64 %n)
+  call void @user_check(i64 %k)
+  ret i64 %c1
 }
 
 ; ---------------------------------------------------------------- equality

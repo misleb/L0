@@ -1,0 +1,5 @@
+; Spec sections 6.13 and 10.3: on aarch64 a context is 104 words, and
+; user_run with any other array is a runtime error.
+(def main () int
+  (let s (space_new)
+    (array_len (user_run s (array_new 103 0)))))

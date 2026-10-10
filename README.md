@@ -63,9 +63,11 @@ kernel is a program, in a project of its own; each facility it needs is
 earned here first by a smaller program that cannot be written without it.
 The programs it will run already exist: `l0 build --target proc` makes a
 process image that any kernel answering the system calls the spec fixes
-can run, and under a kernel hand-written in IR for testing, the compiler
-built that way compiles itself to the same bytes, which `tools/test.sh
---virt` checks.
+can run. And a kernel can already be written in L0: a program on the
+`virt` board makes address spaces, maps pages into them, and runs threads
+in them until they trap, and the kernel in `tests/virt/user` runs the
+compiler that way, which compiles itself to the same bytes, as
+`tools/test.sh --virt` checks.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is
@@ -519,7 +521,8 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself), io (what
                stage 0 cannot run, with hand-written expectations), unit
                (tests written with l0 test), virt (run on the virt board,
-               and as processes under the kernel in virt/proc/harness)
+               and as processes under the kernels in virt/proc/harness,
+               in IR, and virt/user, in L0)
 tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
                l0check, l0c, l0ll, install.sh, linux-test.sh; virt/, the
                container that links virt board images

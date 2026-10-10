@@ -1,0 +1,1 @@
+Needs a host with no user mode: the virt board has it, so its space_new is 0.

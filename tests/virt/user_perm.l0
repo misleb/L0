@@ -1,0 +1,6 @@
+; Spec section 6.13: permissions are 0 to 3, checked after the frame and
+; before the page.
+(def main () int
+  (let s (space_new)
+    (let f (frame_new)
+      (space_map s 5 f 4))))

@@ -1,0 +1,14 @@
+; tests/virt/proc/harness/kernel.ll's loop, k_main, in L0: make an address
+; space, map a page of memory into it, and run a thread in it until it
+; traps, again and again, its registers carried from one trap to the next.
+(def step ((s int) (c (array int))) int
+  (let r (user_run s c)                       ; back at the thread's next trap
+    (if (eq (array_get r 35) 1)               ; an interrupt: run it again
+        (step s r)
+        (array_get r 8))))                    ; else the system call's number
+
+(def main () int
+  (let s (space_new)
+    (let f (frame_new)
+      (let m (space_map s 3221225472 f 1)     ; 0xC0000000, readable and writable
+        (step s (array_new 104 0))))))

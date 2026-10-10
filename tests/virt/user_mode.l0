@@ -1,0 +1,50 @@
+; Spec section 6.13 on the board: spaces and frames numbered from 0, a
+; page of code and one of data mapped and copied into and out of, device
+; pages, and a thread run until each kind of trap: a system call, an
+; instruction that is none, a page not mapped, and a page it may not run.
+(def show ((n int)) int
+  (write_line (digits n)))
+
+(def hex ((n int)) int
+  (write_line (hex_digits n 1)))
+
+(def say ((t Trap)) int
+  (match t
+    ((TrapCall n) (write_line (append "call " (digits n))))
+    ((TrapMissing va) (write_line (append "missing " (hex_digits va 1))))
+    ((TrapFault esr far) (write_line (append "fault " (hex_digits esr 1))))
+    ((TrapInterrupt) (write_line "interrupt"))))
+
+(def lo () int 3221225472)                          ; 0xC0000000
+
+(def code () bytes                                  ; svc #0, 0xd4000001
+  (bytes_from_list (cons 1 (cons 0 (cons 0 (cons 212 (nil int)))))))
+
+(def maps ((i int)) int
+  (let a (show (space_map 0 (lo) 0 2))              ; code: read, execute
+    (let b (show (space_map 0 (add (lo) 4096) 1 1)) ; data: read, write
+      (let w (show (space_write 0 (lo) (code) 0 4))
+        (let r (show (bytes_get (space_read 0 (lo) 8) 3))
+          (show (bytes_len (space_read 0 (add (lo) 4092) 8))))))))   ; both pages
+
+(def devices ((i int)) int
+  (let a (show (space_map_device 1 (lo) 150994944 4096))          ; the PL011
+    (let b (show (space_map_device 1 (add (lo) 4096) 1073741824 8)) ; RAM
+      (show (space_map_device 1 (add (lo) 8192) 150995968 8)))))  ; part of it
+
+(def traps ((i int)) int
+  (let c (user_run 0 (array_set (user_context (lo) (add (lo) 8192)) 8 42))
+    (let a (say (trap_of c))                        ; the svc, x8 still 42
+      (let b (hex (array_get c 32))                 ; and after it
+        (let d (say (trap_of (user_run 0 c)))       ; then 0, no instruction
+          (let e (say (trap_of (user_run 0 (user_context (add (lo) 16384) 0))))
+            (say (trap_of (user_run 0 (user_context (add (lo) 4096) 0))))))))))
+
+(def main () int
+  (let s (show (space_new))
+    (let t (show (space_new))
+      (let f (show (frame_new))
+        (let g (show (frame_new))
+          (let m (maps 0)
+            (let d (devices 0)
+              (traps 0))))))))

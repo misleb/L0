@@ -1,0 +1,5 @@
+; Spec section 6.13: mapping a frame the program was never given is a
+; runtime error, after the space is checked.
+(def main () int
+  (let s (space_new)
+    (space_map s 3221225472 7 0)))

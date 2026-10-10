@@ -93,8 +93,8 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
                compiler (stage tests for the compiler itself), io (what
                stage 0 cannot run, with hand-written expectations), unit
                (tests written with l0 test), virt (run on the virt board
-               by tools/test.sh --virt, and as processes under the kernel
-               in virt/proc/harness)
+               by tools/test.sh --virt, and as processes under the kernels
+               in virt/proc/harness, in IR, and virt/user, in L0)
 tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
                l0c, l0check, l0ll, install.sh, linux-test.sh; virt/, the
                container that links virt board images

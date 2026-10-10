@@ -9,7 +9,8 @@
 #                    operating system: stage2, built as a board image, must
 #                    compile compiler.l0 to stage3.ll's bytes there too, and
 #                    again built as a process, under the kernel in
-#                    tests/virt/proc/harness (spec section 9.2). Needs
+#                    tests/virt/proc/harness and the one in L0 in
+#                    tests/virt/user (spec sections 6.13 and 9.2). Needs
 #                    qemu-system-aarch64, and Docker or L0_VIRT_LD.
 #
 # Self-hosting is verified by a byte-for-byte fixpoint, not by judgment:
@@ -212,6 +213,36 @@ if [ "$VIRT" = 1 ]; then
         exit 1
     fi
     echo "AS A PROCESS: stage2 under the harness kernel writes stage3.ll too, in $took s"
+
+    # And as the process of a kernel written in L0, tests/virt/user/kernel.l0
+    # (spec section 6.13), built by stage2 itself.
+    if ! L0_COMPILER="$BUILD/stage2" L0_VIRT_DIR="$BUILD/virt" tools/l0 build \
+        --target virt tests/virt/user/kernel.l0 -o "$BUILD/user-kernel.elf"; then
+        echo "FAIL: stage2 did not build tests/virt/user/kernel.l0" >&2
+        exit 1
+    fi
+    start=$(date +%s)
+    if ! tests/virt/user/run.sh "$BUILD/user-kernel.elf" "$BUILD/stage2-proc.elf" \
+        "$BUILD/user-boot" < "$SRC" > "$BUILD/stage3-user.ll.tagged"; then
+        echo "FAIL: stage2 failed as a process of the L0 kernel" >&2
+        exit 1
+    fi
+    took=$(( $(date +%s) - start ))
+    case "$(head -n 1 "$BUILD/stage3-user.ll.tagged")" in
+        O) tail -n +2 "$BUILD/stage3-user.ll.tagged" > "$BUILD/stage3-user.ll" ;;
+        *)
+            echo "FAIL: stage2 under the L0 kernel did not write IR" >&2
+            head -5 "$BUILD/stage3-user.ll.tagged" | sed 's/^/    /' >&2
+            exit 1
+            ;;
+    esac
+    if ! cmp -s "$BUILD/stage3.ll" "$BUILD/stage3-user.ll"; then
+        echo "FAIL: under the L0 kernel, stage2 compiles compiler.l0 to other bytes"
+        echo "      than on this host. First difference:"
+        diff "$BUILD/stage3.ll" "$BUILD/stage3-user.ll" | head -20 | sed 's/^/    /'
+        exit 1
+    fi
+    echo "UNDER L0: stage2 as the process of a kernel in L0 writes stage3.ll too, in $took s"
 fi
 
 # ------------------------------------------------------------ seed handling

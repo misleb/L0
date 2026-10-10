@@ -7,6 +7,103 @@ New entries go at the top.
 
 ---
 
+## User mode: address spaces, frames, and running a thread until it traps
+
+**What changed.** Section 6.13 is new, with seven builtins: `space_new`
+and `frame_new` give an address space and a zeroed 4 KB frame; `space_map`
+maps a frame at a user page with read, write, and execute permissions;
+`space_map_device` maps a device's pages; `space_read` and `space_write`
+copy bytes out of and into a space; and `user_run` runs the thread whose
+registers an `(array int)` context holds until it traps, and returns the
+context updated. Section 8 gains seven runtime errors for misusing them,
+9.2 says an operating system and a process have no user mode, and 10.3
+has the runtime calls, six host functions, and what the virt board gives:
+the user range, the 4th gigabyte; a pool of frames apart from the heap;
+and the aarch64 context of 104 words. The library's `Trap` and `trap_of`
+decode a context's trap, and `user_context` makes one. Roadmap 0078,
+0074's item 5, of the goal "A new goal: a microkernel written in L0".
+
+**Why.** The one kernel that runs processes here,
+`tests/virt/proc/harness/kernel.ll`, is hand-written IR, and its loop cannot
+be written in L0:
+
+```
+(def step ((s int) (c (array int))) int
+  (let r (user_run s c)                       ; back at the thread's next trap
+    (if (eq (array_get r 35) 1)               ; an interrupt: run it again
+        (step s r)
+        (array_get r 8))))                    ; else the system call's number
+```
+
+```
+roadmap/0078/why.l0:5:10: error: unknown function user_run
+roadmap/0078/why.l0:11:10: error: unknown function space_new
+```
+
+It comes before the timer and interrupts, 0074's item 4, by the user's
+choice: one program alone on a board can already poll a device, so nothing
+failed without interrupts, and this loop fails at its first line. Once a
+kernel in L0 runs two processes, `tests/virt/proc/preempted.l0` fails
+without a timer, and that is item 4's Why (0079).
+
+**Why handles, not page tables.** 0074 drew the line: what the hardware's
+formats decide, descriptor bits, ASIDs, the TLB, saving registers, and
+`eret`, stays in the host file; what a kernel decides, which thread runs,
+what it may reach, how a fault is answered, is L0. Its prototype found
+that one wrong descriptor bit maps the kernel into a process or makes its
+code writable, and that is the bug a handle keeps out of L0: a space and a
+frame are numbers, a mapping takes only frames from the host's pool, and a
+copy is the only way into or out of a space. A kernel that maps the wrong
+frame gives a process the wrong page, never the kernel's own memory, so
+section 8's guarantee holds of a kernel as it does of a driver.
+
+**Why 4 KB pages.** The prototype mapped 2 MB blocks, which cannot keep a
+process's code from being writable, nor map one device without its
+neighbours, and a process's region call maps single device pages. One
+size serves both. It costs the compiler, compiling itself as a process
+of the kernel below, 8,864 page faults where 2 MB blocks took 20, and that
+run takes 7 s, against 6 s under the IR harness's 2 MB blocks and 5 s
+on the bare board.
+
+**Why a context is an array.** A thread's registers are 104 words on
+aarch64, read and set by the kernel at every trap: the system call's
+number and arguments, its result, the address that faulted. An `(array
+int)` holds them with no new type, and 0076 made the loop that hands the
+same context back to `user_run` each time update it in place, as written.
+The layout is the host's to give, in 10.3, since it is the machine's.
+
+**Why copies are bytes.** A kernel answering a process's write must read
+the process's buffer, and one answering a read must fill it. As bytes, the
+kernel holds a copy, never an address in the process, which 0074 found was
+the alternative to a pointer. They reach only frames, so a device page is
+never read as memory by accident.
+
+**Why misuse is a runtime error, and exhaustion a code.** A space that
+does not exist, a page mapped twice, or a copy from memory never mapped is
+a bug in the kernel, as an array index out of range is in any program; a
+pool or ASIDs running out is a state a kernel must handle, so it is -5, as
+a full table of regions is.
+
+**How it is tested.** `tests/virt/user/kernel.l0` is a kernel in L0, 206
+lines with its comments: it reads one process image from its standard input, maps it, and
+runs it, answering spec 10.3's ten system calls, mapping the heap and
+stack a page at a time as they fault, and reporting a fault it cannot
+answer. `tools/test.sh --virt` runs every `tests/virt` program as its
+process against the board's expectations, and `fault.ll`, which it must
+kill; `tools/bootstrap.sh --virt` has the compiler, as its process,
+compile itself to the same bytes. `tests/virt/user_mode` checks each
+builtin's results and every kind of trap, a `user_` test each of the
+errors, and `tests/io/user_absent` the absence of user mode here.
+
+**What it does not do.** Nothing frees a space or a frame yet, so a kernel
+that runs processes one after another runs out; freeing needs the TLB
+flushed by ASID and a frame known to be mapped nowhere, which waits for a
+kernel that ends processes. No interrupt reaches a thread yet: that is
+0079. And a context's layout is aarch64's, since that is the one machine
+with user mode.
+
+---
+
 ## A host for programs run as processes by a kernel
 
 **No semantic change to a program.** What an L0 program means is what it

@@ -1,5 +1,6 @@
-; io.l0 -- lines, strings, bytes, arguments, files, and devices, over the
-; I/O builtins of spec sections 6.2 to 6.4 and 6.6, and the regions of 6.12.
+; io.l0 -- lines, strings, bytes, arguments, files, devices, and threads'
+; traps, over the I/O builtins of spec sections 6.2 to 6.4 and 6.6, the
+; regions of 6.12, and the user mode of 6.13.
 ;
 ; tools/l0 links this into every program, in the prelude group alongside
 ; lib/prelude.l0, so a program may define its own read_line and keep using it
@@ -10,9 +11,9 @@
 ; ;; comments are what l0 doc shows, as in lib/prelude.l0.
 
 ;;; Reading and writing lines, strings, and bytes, command-line arguments,
-;;; files, and devices' registers. The I/O is built on the builtins of spec
-;;; sections 6.2 to 6.4, 6.6, and 6.12, and like them happens in evaluation
-;;; order: sequence it with let.
+;;; files, devices' registers, and the traps of threads a kernel runs. The
+;;; I/O is built on the builtins of spec sections 6.2 to 6.4, 6.6, 6.12, and
+;;; 6.13, and like them happens in evaluation order: sequence it with let.
 
 ;; The next line of standard input, including its newline if it has one. The
 ;; empty list means end of input: a blank line is "\n", and a last line with
@@ -465,3 +466,42 @@
 ;; Writes all 64 bits of v at off in d, and returns 0.
 (def device_write64 ((d IoDevice) (off int) (v int)) int
   (match d ((IoDevice r) (region_write64 r off v))))
+
+; A thread's trap, over the user-mode builtins of spec section 6.13, read
+; from its context as section 10.3 lays one out for aarch64: the trap's
+; kind in word 35, the syndrome in 36, and the address in 37.
+
+;; Why a thread came back from user_run: (TrapCall n), a system call with
+;; number n, which aarch64 puts in x8; (TrapMissing va), a fault at the user
+;; address va where nothing is mapped, which a kernel answers by mapping a
+;; page there or ending the thread; (TrapFault esr far), any other fault,
+;; with the machine's syndrome and the address; or (TrapInterrupt).
+(data Trap
+  (TrapCall int)
+  (TrapMissing int)
+  (TrapFault int int)
+  (TrapInterrupt))
+
+;; The trap the context c records, as a Trap, for the context user_run
+;; returned. On aarch64 a system call is an svc, and a missing page is a
+;; data or instruction abort from EL0 for a translation fault.
+(def trap_of ((c (array int))) Trap
+  (if (eq (array_get c 35) 1)
+      (TrapInterrupt)
+      (trap_of_exception (array_get c 36) (array_get c 37) (array_get c 8))))
+
+(def trap_of_exception ((esr int) (far int) (x8 int)) Trap
+  (let ec (bit_and (bit_shr esr 26) 63)
+    (if (eq ec 21)                                    ; svc from aarch64
+        (TrapCall x8)
+        (if (if (eq ec 36) true (eq ec 32))            ; a data or instruction abort
+            (if (eq (bit_and esr 60) 4)                ; a translation fault
+                (TrapMissing far)
+                (TrapFault esr far))
+            (TrapFault esr far)))))
+
+;; A context for user_run that starts a thread at pc with its stack pointer
+;; at sp, every other register 0: an (array int) of the 104 words spec
+;; section 10.3 gives for aarch64.
+(def user_context ((pc int) (sp int)) (array int)
+  (array_set (array_set (array_new 104 0) 32 pc) 31 sp))

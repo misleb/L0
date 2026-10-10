@@ -10,7 +10,9 @@ SECTIONS
   .bss : { *(.bss*) *(COMMON) }
   __image_end = .;
   __heap_start = 0x58000000;
-  __heap_end = 0xB0000000;
+  __heap_end = 0x98000000;
+  __frames_start = 0x98000000;
+  __frames_end = 0xB0000000;
   __stack_bottom = 0xB0000000;
   __stack_top = 0xC0000000;
   /DISCARD/ : { *(.eh_frame*) }

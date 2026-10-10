@@ -1,0 +1,5 @@
+; Spec section 6.13's order of checks: a space that does not exist is
+; reported before a negative count, on every host, since no program here
+; makes space 9.
+(def main () int
+  (bytes_len (space_read 9 3221225472 -1)))

@@ -70,16 +70,20 @@ in place through any function (0076), so the kernel's loop written plainly
 no longer copies a context per trap. A program now runs as a process of a
 kernel (0077): `l0 build --target proc` makes the image, the spec fixes the
 system calls any kernel answers, and the compiler reaches its fixpoint as a
-process under a test kernel in IR. The queue is empty: the timer and
-interrupts, user mode, and system calls for drivers wait for the programs
-those make possible, and 0074's Log says what comes before the kernel's
-own project.
+process under a test kernel in IR. User mode came next, ahead of the
+timer and interrupts by the user's choice (0078): a program on the board
+makes spaces and runs threads in them, and a kernel written in L0, in
+`tests/virt/user`, runs the compiler as a process to the same bytes. The
+timer and interrupts (0079) get their program from that kernel run with a
+second process; system calls for drivers wait for theirs, and 0074's Log
+says what comes before the kernel's own project.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-None.
+1. [0079](0079-timer-and-interrupts.md) a timer deadline, interrupts, and
+   waiting for one — proposed, needs its Why from 0078's kernel
 
 ## Other open items
 
@@ -287,3 +291,6 @@ None.
 - [0077](0077-host-for-processes.md) a host for programs run as processes by
   a kernel — done, changelog "A host for programs run as processes by a
   kernel"
+- [0078](0078-user-mode.md) user mode: address spaces, frames, and running a
+  thread until it traps — done, changelog "User mode: address spaces,
+  frames, and running a thread until it traps"; passed on Linux arm64

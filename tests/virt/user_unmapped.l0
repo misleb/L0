@@ -1,0 +1,8 @@
+; Spec section 6.13: a copy reaches only frames space_map mapped. A device
+; page is not one, so reading it as memory is a runtime error, though an
+; empty copy from there needs nothing mapped.
+(def main () int
+  (let s (space_new)
+    (let a (space_map_device s 3221225472 150994944 4096)
+      (let b (write_line (digits (bytes_len (space_read s 3221225472 0))))
+        (bytes_len (space_read s 3221225472 1))))))

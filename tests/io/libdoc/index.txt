@@ -74,7 +74,7 @@
   hex_val ((c int)) int
       The value of c as a hexadecimal digit, 0 to 15, in either case, or -1 if it is not one.
 
-== io: Reading and writing lines, strings, and bytes, command-line arguments, files, and devices' registers.
+== io: Reading and writing lines, strings, and bytes, command-line arguments, files, devices' registers, and the traps of threads a kernel runs.
   read_line () (list int)
       The next line of standard input, including its newline if it has one.
   (data IoLine (IoLine (list int)) (IoEnd) (IoError int))
@@ -173,6 +173,12 @@
       Writes the low 32 bits of v at off in d, and returns 0.
   device_write64 ((d IoDevice) (off int) (v int)) int
       Writes all 64 bits of v at off in d, and returns 0.
+  (data Trap (TrapCall int) (TrapMissing int) (TrapFault int int) (TrapInterrupt))
+      Why a thread came back from user_run: (TrapCall n), a system call with number n, which aarch64 puts in x8; (TrapMissing va), a fault at the user address va where nothing is mapped, which a kernel answers by mapping a page there or ending the thread; (TrapFault esr far), any other fault, with the machine's syndrome and the address; or (TrapInterrupt).
+  trap_of ((c (array int))) Trap
+      The trap the context c records, as a Trap, for the context user_run returned.
+  user_context ((pc int) (sp int)) (array int)
+      A context for user_run that starts a thread at pc with its stack pointer at sp, every other register 0: an (array int) of the 104 words spec section 10.3 gives for aarch64.
 
 == test: Assertions, golden files, and pseudo-random inputs for l0 test, which links this file.
   show_str ((s (list int))) (list int)

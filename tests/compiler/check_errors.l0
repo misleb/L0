@@ -102,7 +102,15 @@
   (let cb (push (check_source (m "(region_write8 1 2)")) ca)
   (let cc (push (check_source (m "(barrier 1)")) cb)
   (let cd (push (check_source (m "(head (region_read64 1 2))")) cc)
-    (rev cd))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let ce (push (check_source (m "(space_new 1)")) cd)
+  (let cf (push (check_source (m "(space_map 1 2 3)")) ce)
+  (let cg (push (check_source (m "(space_map 1 2 3 true)")) cf)
+  (let ch (push (check_source (m "(space_map_device 1 2 3)")) cg)
+  (let ci (push (check_source (m "(bytes_len (space_read 1 2 true))")) ch)
+  (let cj (push (check_source (m "(space_write 1 2 \"a\" 0 1)")) ci)
+  (let ck (push (check_source (m "(array_len (user_run 1 (array_new 104 true)))")) cj)
+  (let cl (push (check_source (m "(head (user_run 1 (array_new 104 0)))")) ck)
+    (rev cl))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

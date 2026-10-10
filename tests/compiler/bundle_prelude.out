@@ -61,6 +61,13 @@ declare i64 @l0_region_write32(i64, i64, i64)
 declare i64 @l0_region_write64(i64, i64, i64)
 declare i64 @l0_barrier()
 declare i64 @l0_array_take(i64, i64)
+declare i64 @l0_space_new()
+declare i64 @l0_frame_new()
+declare i64 @l0_space_map(i64, i64, i64, i64)
+declare i64 @l0_space_map_device(i64, i64, i64, i64)
+declare i64 @l0_space_read(i64, i64, i64)
+declare i64 @l0_space_write(i64, i64, i64, i64, i64)
+declare i64 @l0_user_run(i64, i64)
 
 @l0_main_ret_kind = global i64 0
 

@@ -257,3 +257,35 @@ entry:
   call void asm sideeffect "dsb sy", "~{memory}"()
   ret void
 }
+
+; Section 9.2: a process has no user mode of its own, so no space or frame
+; is ever made, and anything given one is told 1, not a space.
+define i64 @l0_host_space_new() {
+entry:
+  ret i64 -3
+}
+
+define i64 @l0_host_frame_new() {
+entry:
+  ret i64 -3
+}
+
+define i64 @l0_host_space_map(i64 %s, i64 %va, i64 %f, i64 %perm) {
+entry:
+  ret i64 1
+}
+
+define i64 @l0_host_space_map_device(i64 %s, i64 %va, i64 %base, i64 %len) {
+entry:
+  ret i64 1
+}
+
+define i64 @l0_host_space_copy(i64 %s, i64 %va, ptr %buf, i64 %n, i64 %dir) {
+entry:
+  ret i64 1
+}
+
+define i64 @l0_host_user_run(i64 %s, ptr %words, i64 %n) {
+entry:
+  ret i64 1
+}
