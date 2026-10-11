@@ -79,7 +79,9 @@ silent and converts a caught bug into a permanent one.
   changes it too. So does `tests/virt/user/kernel.l0`, the kernel in L0
   that runs `tests/virt` again through the user-mode builtins of spec
   6.13, which `host-virt.ll` gives, and `tests/virt/proc`'s tests with the
-  timer's slices of 6.14. `host-virt.ll` drives the GIC itself, so no test
+  timer's slices of 6.14. It defines calls of its own (6.15), which its
+  header lists, and a `tests/virt/user/NAME.procs` file names the processes
+  of a test under it, such as a serial driver and its client. `host-virt.ll` drives the GIC itself, so no test
   may open it as a region. A `tests/virt` program with a `.board`
   file runs on the board only, never as a process: one that uses user
   mode, which a process has not.

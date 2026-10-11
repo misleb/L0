@@ -72,6 +72,9 @@ declare i64 @l0_timer_at(i64)
 declare i64 @l0_interrupt_enable(i64)
 declare i64 @l0_interrupt_wait()
 declare i64 @l0_interrupt_done(i64)
+declare i64 @l0_supervisor_call(i64, i64, i64, i64)
+declare i64 @l0_supervisor_send(i64, i64, i64, i64, i64)
+declare i64 @l0_supervisor_receive(i64, i64, i64)
 
 @l0_main_ret_kind = global i64 0
 

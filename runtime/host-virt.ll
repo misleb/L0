@@ -1227,6 +1227,12 @@ e8:
   ret i64 8
 }
 
+; Spec section 9.2: no kernel beneath the program on the bare board.
+define i64 @l0_host_supervisor(i64 %n, i64 %a, i64 %b, i64 %c) {
+entry:
+  ret i64 -3
+}
+
 ; The virtual timer's compare value for t nanoseconds, rounded up, so that
 ; it fires no earlier than clock_ns reads t; a negative t disables it.
 define i64 @l0_host_timer_at(i64 %t) {

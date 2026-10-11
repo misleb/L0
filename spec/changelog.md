@@ -7,6 +7,64 @@ New entries go at the top.
 
 ---
 
+## A process calls its kernel's own system calls
+
+**What changed.** Section 6.15 is new, with three builtins: a process
+makes its kernel's own calls, numbered from 256, with `supervisor_call`
+(three words in, a word back), `supervisor_send` (a word and a range of
+bytes), and `supervisor_receive` (a word and room for bytes, which come
+back). A call numbered below 256 is the new runtime error `system call
+reserved`. 9.2 says every host but a process has no kernel to call, and
+10.3 has the runtime calls and one host function. Roadmap 0080, 0074's
+item 6.
+
+**Why.** A serial driver that is a process cannot be written: it must
+ask its kernel for the bytes other processes sent it, and they must send
+them, and `host-proc.ll` makes only the host's ten calls:
+
+```
+(def serve ((u int)) int                             ; the driver's loop
+  (let b (supervisor_call 257 0 0 0)                 ; the next byte sent
+    (let w (uart_put u b) (serve u))))
+```
+
+```
+roadmap/0080/why.l0:12:10: error: unknown function supervisor_call
+```
+
+**Why bytes as well as words.** 0074 sketched one call from words to
+words. The user chose bytes too: the goal's measure carries the
+compiler's output, 1.3 MB, through a driver that is a process, and three
+words a call would take tens of thousands. A range of bytes goes to the
+kernel as its address and count, which the kernel copies with
+`space_read` or `space_write` (6.13), as it already does for the host's
+own read and write; the process names no address, and no L0 value points
+into it, so section 8 holds.
+
+**Why the low numbers are refused.** The runtime keeps state about the
+calls numbered below 256, its handles' buffers and its arguments. A
+program making one itself would go around that, so it is an error, and
+spec 10.3's split of the numbers, made in 0077 for this, is enforced
+where a program could break it.
+
+**Why no library type.** 0074 expected one over the call. But what call
+256 means is the kernel's, and differs between kernels; a type for it
+belongs to the kernel's project, beside the kernel that defines it.
+
+**How it is tested.** `tests/virt/user/kernel.l0` defines six calls of
+its own: 256 sends bytes, 257 receives them, 258 waits until all that was
+sent is written, 259 and 260 wait for a device's interrupt and end it, and
+261 sleeps. A client process sends lines through a serial driver process,
+which writes them to the PL011 through a region a byte at a time, waiting
+for the device's transmit interrupt after each; the driver blocks while
+nothing is sent, and the client while its lines are unwritten. A process
+asleep alone leaves the kernel nothing to run, so the kernel waits for an
+interrupt, the first use of `interrupt_wait` by a kernel. The driver's
+interrupt alone would not test that: it arrives while the driver still
+runs, before it asks to wait, so the kernel keeps it for the wait.
+
+---
+
 ## Interrupts: a timer deadline, and taking, waiting for, and ending one
 
 **What changed.** Section 6.14 is new, with four builtins: `timer_at` sets

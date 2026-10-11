@@ -502,6 +502,13 @@ entry:
   ret i64 8
 }
 
+; Spec section 9.2: no kernel beneath a program under an operating system
+; answers a call of its own.
+define i64 @l0_host_supervisor(i64 %n, i64 %a, i64 %b, i64 %c) {
+entry:
+  ret i64 -3
+}
+
 ; ------------------------------------------------------------- entry point
 
 ; Before the program's thread starts, spec section 6.3. A write to a pipe

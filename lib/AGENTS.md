@@ -82,7 +82,10 @@ ends interrupts, with those of section 6.14.
 aarch64, in an address space of its own, reaching the kernel through the
 system calls the spec's section 10.3 fixes. The kernel decides what the
 program gets: files, arguments, and devices, or none. No kernel comes with
-the toolchain, so nothing here runs the image.
+the toolchain, so nothing here runs the image. Such a program also makes
+its kernel's own calls, numbered from 256, with `supervisor_call`,
+`supervisor_send`, and `supervisor_receive` (section 6.15); what each
+means is that kernel's.
 
 `l0 check` accepts files with no `main`, so `hello.l0` checks on its own;
 `l0 build` and `l0 run` need one, and say so. `l0 run` builds into a

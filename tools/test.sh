@@ -59,6 +59,8 @@
 #   <stem>.args    tests/virt/proc only: the process's arguments, one per line
 #   <stem>.with    tests/virt/proc only: what the kernel runs beside it, one
 #                  per line, spin or fault from tests/virt/proc/harness
+#   <stem>.procs   tests/virt/user only: the processes kernel.l0 runs, in
+#                  order, an L0 program by its path or harness IR by name
 #
 # tests/io has no oracle, since stage 0 cannot run it, so its expectations
 # are written by hand and never blessed: --bless skips the suite, and it is
@@ -449,11 +451,11 @@ if [ "$VIRT" = 1 ]; then
     # And under a kernel written in L0 (spec sections 6.13 and 6.14): each
     # tests/virt program, as built above, the one process of
     # tests/virt/user/kernel.l0, against the board's expectations once more;
-    # then tests/virt/user's own expectations, each for a process that is
-    # not L0, the harness's IR of the same name: fault, which the kernel must
-    # kill; then tests/virt/proc's, beside what their .with files name, as
-    # under the harness, but for those given arguments, which this kernel
-    # gives none.
+    # then tests/virt/user's own, each a NAME.procs file naming its
+    # processes in order, an L0 program by its path or the harness's IR by
+    # its name, such as fault, which the kernel must kill; then
+    # tests/virt/proc's, beside what their .with files name, as under the
+    # harness, but for those given arguments, which this kernel gives none.
     user=tests/virt/user
     uwork="$TMP/user"
     mkdir -p "$uwork"
@@ -490,13 +492,27 @@ if [ "$VIRT" = 1 ]; then
             run_case virt-user "$name" "tests/virt/$name" "$user/run.sh" \
                 "$uwork/kernel.elf" "$uwork" "$TMP/$name.proc.elf"
         done
-        for exp in "$user"/*.out; do
-            [ -f "$exp" ] || continue
-            name=$(basename "$exp" .out)
+        for spec in "$user"/*.procs; do
+            [ -f "$spec" ] || continue
+            name=$(basename "$spec" .procs)
             selected "$name" || continue
-            user_ir "$name" || continue
+            images=""
+            for p in $(cat "$spec"); do
+                case $p in
+                    *.l0)
+                        pn=$(basename "$p" .l0)
+                        proc_build user "$pn" "$p" "${p%.l0}" || continue 2
+                        images="$images $TMP/$pn.proc.elf"
+                        ;;
+                    *)
+                        user_ir "$p" || continue 2
+                        images="$images $uwork/$p.elf"
+                        ;;
+                esac
+            done
+            # shellcheck disable=SC2086
             run_case user "$name" "$user/$name" "$user/run.sh" \
-                "$uwork/kernel.elf" "$uwork" "$uwork/$name.elf"
+                "$uwork/kernel.elf" "$uwork" $images
         done
         for src in tests/virt/proc/*.l0; do
             [ -f "$src" ] || continue

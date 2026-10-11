@@ -37,6 +37,7 @@ declare i64 @l0_host_timer_at(i64)
 declare i64 @l0_host_interrupt_enable(i64)
 declare i64 @l0_host_interrupt_wait()
 declare i64 @l0_host_interrupt_done(i64)
+declare i64 @l0_host_supervisor(i64, i64, i64, i64)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
@@ -2524,6 +2525,76 @@ entry:
   %k = call i64 @l0_host_interrupt_done(i64 %n)
   call void @user_check(i64 %k)
   ret i64 0
+}
+
+; ------------------------------------------------------- calls to a kernel
+;
+; Spec section 6.15. The numbers below 256 are the runtime's own calls,
+; spec section 10.3, refused here on every host; bytes go to the kernel as
+; the address of their first byte and their count.
+
+@m_reserved = private constant [20 x i8] c"system call reserved"
+
+define internal void @call_check(i64 %n) {
+entry:
+  %low = icmp slt i64 %n, 256
+  br i1 %low, label %err, label %ok
+err:
+  call void @rt_error(ptr @m_reserved, i64 20)
+  unreachable
+ok:
+  ret void
+}
+
+define i64 @l0_supervisor_call(i64 %n, i64 %a, i64 %b, i64 %c) {
+entry:
+  call void @call_check(i64 %n)
+  %r = call i64 @l0_host_supervisor(i64 %n, i64 %a, i64 %b, i64 %c)
+  ret i64 %r
+}
+
+; b is read, not consumed, as write_bytes reads its bytes.
+define i64 @l0_supervisor_send(i64 %n, i64 %a, i64 %b, i64 %i, i64 %j) {
+entry:
+  call void @call_check(i64 %n)
+  %q = inttoptr i64 %b to ptr
+  %len = load i64, ptr %q
+  %lo = icmp ule i64 %i, %j
+  %hi = icmp ule i64 %j, %len
+  %in = and i1 %lo, %hi
+  br i1 %in, label %send, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+send:
+  %o = add i64 %i, 8
+  %at = add i64 %b, %o
+  %k = sub i64 %j, %i
+  %r = call i64 @l0_host_supervisor(i64 %n, i64 %a, i64 %at, i64 %k)
+  ret i64 %r
+}
+
+; Room for max bytes, of which the kernel's word says how many it wrote:
+; never more than max, and none if it is negative.
+define i64 @l0_supervisor_receive(i64 %n, i64 %a, i64 %max) {
+entry:
+  call void @call_check(i64 %n)
+  %neg = icmp slt i64 %max, 0
+  br i1 %neg, label %err, label %go
+err:
+  call void @rt_error(ptr @m_bcount, i64 23)
+  unreachable
+go:
+  %b = call i64 @bytes_alloc(i64 %max)
+  %at = add i64 %b, 8
+  %r = call i64 @l0_host_supervisor(i64 %n, i64 %a, i64 %at, i64 %max)
+  %none = icmp slt i64 %r, 0
+  %r0 = select i1 %none, i64 0, i64 %r
+  %over = icmp ugt i64 %r0, %max
+  %k = select i1 %over, i64 %max, i64 %r0
+  %q = inttoptr i64 %b to ptr
+  store i64 %k, ptr %q
+  ret i64 %b
 }
 
 ; ---------------------------------------------------------------- equality

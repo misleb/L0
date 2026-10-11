@@ -66,9 +66,11 @@ process image that any kernel answering the system calls the spec fixes
 can run. And a kernel can already be written in L0: a program on the
 `virt` board makes address spaces, maps pages into them, runs threads in
 them until they trap, and takes the timer's and devices' interrupts, and
-the kernel in `tests/virt/user` runs the compiler that way, preempted
-every 10 ms, which compiles itself to the same bytes, as `tools/test.sh
---virt` checks.
+its processes make calls of the kernel's own, with words and bytes. The
+kernel in `tests/virt/user` runs the compiler that way, preempted every
+10 ms, which compiles itself to the same bytes, and runs a serial driver
+that is a process, writing what a client process sends it and waiting for
+its device's interrupt, as `tools/test.sh --virt` checks.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is

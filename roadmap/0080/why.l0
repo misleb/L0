@@ -1,0 +1,19 @@
+; A serial driver that is a process, serving others: it takes the PL011
+; as a region, by system call 10, and then asks its kernel, by a call of
+; the kernel's own, for the next byte any process sent it, and writes it.
+; A client sends it a byte by another of the kernel's calls. Spec section
+; 10.3 keeps the numbers below 256 for the host, so these are 256 and 257.
+(def uart_put ((u int) (b int)) int
+  (if (eq (bit_and (region_read32 u 24) 32) 32)      ; transmit FIFO full
+      (uart_put u b)
+      (region_write8 u 0 b)))
+
+(def serve ((u int)) int                             ; the driver's loop
+  (let b (supervisor_call 257 0 0 0)                 ; the next byte sent
+    (let w (uart_put u b) (serve u))))
+
+(def send ((b int)) int                              ; a client
+  (supervisor_call 256 b 0 0))
+
+(def main () int
+  (serve (region_open 150994944 4096)))

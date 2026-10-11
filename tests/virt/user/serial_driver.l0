@@ -1,0 +1,25 @@
+; A serial driver, run as a process of kernel.l0: it opens the PL011 as a
+; region, by the host's system call 10, unmasks its transmit interrupt, and
+; then writes what other processes send it (the kernel's call 257), a byte
+; at a time, waiting after each for the transmit interrupt (259), which says
+; the byte has gone, and clearing it before ending it (260). It never ends:
+; the kernel ends the run when process 0 does.
+(def put ((u int) (b int)) int
+  (let w (region_write8 u 0 b)                          ; the data register
+    (let n (supervisor_call 259 33 0 0)                 ; until it is sent
+      (let c (region_write32 u 68 32)                   ; UARTICR: cleared
+        (supervisor_call 260 33 0 0)))))
+
+(def put_all ((u int) (b bytes) (i int)) int
+  (if (ge i (bytes_len b))
+      0
+      (let w (put u (bytes_get b i)) (put_all u b (add i 1)))))
+
+(def serve ((u int)) int
+  (let b (supervisor_receive 257 0 4096)
+    (let w (put_all u b 0) (serve u))))
+
+(def main () int
+  (let u (region_open 150994944 4096)
+    (let m (region_write32 u 56 32)                     ; UARTIMSC: transmit
+      (serve u))))

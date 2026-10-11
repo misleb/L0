@@ -1,0 +1,9 @@
+; Spec sections 6.15 and 9.2: with no kernel beneath, as under an
+; operating system or on the bare board, a call of a kernel's own is -3 and
+; gives no bytes; a number below 256 is refused on every host.
+(def main () int
+  (let b (bytes_from_list "abc")
+    (let c (write_line (digits (supervisor_call 256 1 2 3)))
+      (let s (write_line (digits (supervisor_send 256 0 b 0 3)))
+        (let r (write_line (digits (bytes_len (supervisor_receive 256 0 16))))
+          (supervisor_call 255 0 0 0))))))

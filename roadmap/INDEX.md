@@ -75,9 +75,12 @@ timer and interrupts by the user's choice (0078): a program on the board
 makes spaces and runs threads in them, and a kernel written in L0, in
 `tests/virt/user`, runs the compiler as a process to the same bytes. With
 the timer and interrupts (0079) it runs several processes, preempted, the
-host driving the GIC behind builtins. System calls for drivers and servers
-(0074's item 6) wait for a driver serving another process, and 0074's Log
-says what comes before the kernel's own project.
+host driving the GIC behind builtins. A process calls its kernel's own
+system calls (0080), and under that kernel a serial driver that is a
+process writes what a client sends it, waiting for its device's
+interrupt. 0074's language items are done; left are the kernel in a
+project of its own and the measure as a test, after the two gaps 0074's
+Log names: `l0 test` on the board, and bundling process images.
 
 ## Language queue
 
@@ -297,3 +300,6 @@ None.
 - [0079](0079-timer-and-interrupts.md) a timer deadline, interrupts, and
   waiting for one — done, changelog "Interrupts: a timer deadline, and
   taking, waiting for, and ending one"; passed on Linux arm64
+- [0080](0080-kernel-calls.md) a process's calls to its kernel's own system
+  calls — done, changelog "A process calls its kernel's own system calls";
+  passed on Linux arm64

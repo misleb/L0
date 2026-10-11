@@ -1,0 +1,11 @@
+; Sleeps by kernel.l0's call 261, alone, so no process can run and the
+; kernel waits for the timer's interrupt; then says it woke no earlier than
+; asked, and that a call of the kernel's it does not define is -5 and one
+; of the host's numbers is refused.
+(def main () int
+  (let t (add (clock_ns) 2000000)                       ; 2 ms from now
+    (let s (supervisor_call 261 t 0 0)
+      (let a (write_line (if (ge (clock_ns) t) "woke in time" "woke early"))
+        (let b (write_line (digits (supervisor_call 300 0 0 0)))
+          (let f (flush 1)
+            (supervisor_call 5 0 0 0)))))))

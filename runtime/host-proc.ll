@@ -127,6 +127,14 @@ entry:
   ret i64 %r
 }
 
+; One of the kernel's own calls, numbered from 256, spec section 6.15,
+; which l0rt.ll has checked.
+define i64 @l0_host_supervisor(i64 %n, i64 %a, i64 %b, i64 %c) {
+entry:
+  %r = call i64 @sys(i64 %n, i64 %a, i64 %b, i64 %c, i64 0)
+  ret i64 %r
+}
+
 ; The address in this process at which the kernel mapped the device, or
 ; -3 or -5. base and len are checked by l0rt.ll first; the kernel checks
 ; them again, since it cannot trust a process.

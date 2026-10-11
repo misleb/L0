@@ -1,0 +1,16 @@
+; A client of serial_driver.l0 under kernel.l0: it sends two lines to the
+; driver (the kernel's call 256), the second in pieces, waits until all are
+; written (258), and exits with 0 if every send was taken whole. Its own
+; standard output, by the host's calls, says what it did, after the lines.
+(def send ((s (list int))) int
+  (let b (bytes_from_list s)
+    (if (eq (supervisor_send 256 0 b 0 (bytes_len b)) (bytes_len b)) 0 1)))
+
+(def main () int
+  (let a (send "a line by way of a driver\n")
+    (let b (send "and another, ")
+      (let c (send "in pieces\n")
+        (let w (supervisor_call 258 0 0 0)
+          (let f (flush 1)
+            (let e (write_line "sent and written")
+              (add a (add b c)))))))))
