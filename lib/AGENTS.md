@@ -75,7 +75,8 @@ an operating system there are none, and opening one fails. Tests still
 run on this host, with `l0 test`. A program there can also be a kernel: it
 makes address spaces, maps pages into them, and runs threads in them until
 they trap, with the user-mode builtins of the spec's section 6.13 and the
-library's `Trap` (`l0 doc Trap`).
+library's `Trap` (`l0 doc Trap`), and sets the timer, and waits for and
+ends interrupts, with those of section 6.14.
 
 `l0 build --target proc` builds a program as a process for a kernel on
 aarch64, in an address space of its own, reaching the kernel through the

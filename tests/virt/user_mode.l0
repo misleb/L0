@@ -13,7 +13,7 @@
     ((TrapCall n) (write_line (append "call " (digits n))))
     ((TrapMissing va) (write_line (append "missing " (hex_digits va 1))))
     ((TrapFault esr far) (write_line (append "fault " (hex_digits esr 1))))
-    ((TrapInterrupt) (write_line "interrupt"))))
+    ((TrapInterrupt n) (write_line (append "interrupt " (digits n))))))
 
 (def lo () int 3221225472)                          ; 0xC0000000
 

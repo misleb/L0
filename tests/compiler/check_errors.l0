@@ -110,7 +110,11 @@
   (let cj (push (check_source (m "(space_write 1 2 \"a\" 0 1)")) ci)
   (let ck (push (check_source (m "(array_len (user_run 1 (array_new 104 true)))")) cj)
   (let cl (push (check_source (m "(head (user_run 1 (array_new 104 0)))")) ck)
-    (rev cl))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let cm (push (check_source (m "(timer_at)")) cl)
+  (let cn (push (check_source (m "(interrupt_wait 1)")) cm)
+  (let co (push (check_source (m "(interrupt_enable true)")) cn)
+  (let cp (push (check_source (m "(head (interrupt_done 0))")) co)
+    (rev cp))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

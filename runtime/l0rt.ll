@@ -33,6 +33,10 @@ declare i64 @l0_host_space_map(i64, i64, i64, i64)
 declare i64 @l0_host_space_map_device(i64, i64, i64, i64)
 declare i64 @l0_host_space_copy(i64, i64, ptr, i64, i64)
 declare i64 @l0_host_user_run(i64, ptr, i64)
+declare i64 @l0_host_timer_at(i64)
+declare i64 @l0_host_interrupt_enable(i64)
+declare i64 @l0_host_interrupt_wait()
+declare i64 @l0_host_interrupt_done(i64)
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
@@ -2361,6 +2365,7 @@ entry:
 @m_umapped = private constant [24 x i8] c"user page already mapped"
 @m_unmapped = private constant [22 x i8] c"user memory not mapped"
 @m_context = private constant [13 x i8] c"not a context"
+@m_taken = private constant [19 x i8] c"interrupt not taken"
 
 define internal void @user_check(i64 %k) {
 entry:
@@ -2370,7 +2375,8 @@ entry:
                              i64 4, label %upage
                              i64 5, label %mapped
                              i64 6, label %unmapped
-                             i64 7, label %context ]
+                             i64 7, label %context
+                             i64 8, label %taken ]
 space:
   call void @rt_error(ptr @m_space, i64 11)
   unreachable
@@ -2391,6 +2397,9 @@ unmapped:
   unreachable
 context:
   call void @rt_error(ptr @m_context, i64 13)
+  unreachable
+taken:
+  call void @rt_error(ptr @m_taken, i64 19)
   unreachable
 ok:
   ret void
@@ -2484,6 +2493,37 @@ entry:
   %k = call i64 @l0_host_user_run(i64 %s, ptr %w, i64 %n)
   call void @user_check(i64 %k)
   ret i64 %c1
+}
+
+; -------------------------------------------------------------- interrupts
+;
+; Spec section 6.14. The host takes and ends interrupts and keeps which are
+; taken; interrupt_done's code 8 is its runtime error.
+
+define i64 @l0_timer_at(i64 %t) {
+entry:
+  %r = call i64 @l0_host_timer_at(i64 %t)
+  ret i64 %r
+}
+
+define i64 @l0_interrupt_enable(i64 %n) {
+entry:
+  %r = call i64 @l0_host_interrupt_enable(i64 %n)
+  ret i64 %r
+}
+
+define i64 @l0_interrupt_wait() {
+entry:
+  call void @flush_std()
+  %r = call i64 @l0_host_interrupt_wait()
+  ret i64 %r
+}
+
+define i64 @l0_interrupt_done(i64 %n) {
+entry:
+  %k = call i64 @l0_host_interrupt_done(i64 %n)
+  call void @user_check(i64 %k)
+  ret i64 0
 }
 
 ; ---------------------------------------------------------------- equality

@@ -1,0 +1,8 @@
+; Spec sections 6.14 and 9.2: under an operating system there are no
+; interrupts, so there is no deadline to set, none to enable or wait for,
+; and none ever taken to end.
+(def main () int
+  (let t (write_line (digits (timer_at 0)))
+    (let e (write_line (digits (interrupt_enable 0)))
+      (let w (write_line (digits (interrupt_wait)))
+        (interrupt_done 0)))))

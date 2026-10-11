@@ -926,11 +926,9 @@ bad:
 ; ------------------------------------------------------------ regions
 
 ; The board's devices, as runtime/host-virt.ll gives them, spec section
-; 10.3's table: a base and a length each.
-@devices = private constant [16 x i64] [
-  i64 134217728, i64 65536,       ; 0x08000000, the GIC's distributor
-  i64 134283264, i64 65536,       ; 0x08010000, its CPU interface
-  i64 134348800, i64 4096,        ; 0x08020000, its GICv2m frame
+; 10.3's table: a base and a length each. Not the GIC, which this kernel
+; drives itself.
+@devices = private constant [10 x i64] [
   i64 150994944, i64 4096,        ; 0x09000000, the PL011
   i64 151060480, i64 4096,        ; 0x09010000, the PL031
   i64 151126016, i64 24,          ; 0x09020000, firmware configuration
@@ -950,14 +948,14 @@ scan:
   br label %loop
 loop:
   %j = phi i64 [ 0, %scan ], [ %j1, %next ]
-  %more = icmp ult i64 %j, 8
+  %more = icmp ult i64 %j, 5
   br i1 %more, label %look, label %no
 look:
   %k = mul i64 %j, 2
-  %bp = getelementptr [16 x i64], ptr @devices, i64 0, i64 %k
+  %bp = getelementptr [10 x i64], ptr @devices, i64 0, i64 %k
   %db = load i64, ptr %bp
   %k1 = add i64 %k, 1
-  %lp = getelementptr [16 x i64], ptr @devices, i64 0, i64 %k1
+  %lp = getelementptr [10 x i64], ptr @devices, i64 0, i64 %k1
   %dl = load i64, ptr %lp
   %de = add i64 %db, %dl
   %from = icmp uge i64 %base, %db

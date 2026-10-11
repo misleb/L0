@@ -25,8 +25,10 @@
 ; apart on a board with one serial line. As section 9.2 says, there are no
 ; files, no arguments, and no environment. The clock is the generic timer.
 ; The board's devices are what a program may open as regions (spec section
-; 6.12), the serial port among them. A program runs at EL1, and may run
-; threads at EL0 in spaces of its own (spec section 6.13).
+; 6.12), the serial port among them, but not the interrupt controller,
+; which this file drives (spec section 6.14). A program runs at EL1, with
+; interrupts masked, and may run threads at EL0 in spaces of its own (spec
+; section 6.13).
 ;
 ; An exception the runtime does not expect is a bug in it, and is reported
 ; on standard error, with the registers that say where, and stops with
@@ -273,6 +275,7 @@ declare ptr @memcpy(ptr, ptr, i64)
 ; the top, so the size it is given leaves 64 KB for what lies above it.
 define void @l0_virt_main() noreturn {
 entry:
+  call void @gic_init()
   %top = ptrtoint ptr @__stack_top to i64
   %bottom = ptrtoint ptr @__stack_bottom to i64
   %all = sub i64 %top, %bottom
@@ -522,11 +525,8 @@ entry:
 ; device at its width and in order. Anything else, RAM and the runtime's
 ; heap among it, is no region, and so is any range of the flash, the PCIe
 ; windows, or the gaps between devices, where QEMU would answer an access
-; with an external abort.
-@devices = private constant [16 x i64] [
-  i64 134217728, i64 65536,       ; 0x08000000, the GIC's distributor
-  i64 134283264, i64 65536,       ; 0x08010000, its CPU interface
-  i64 134348800, i64 4096,        ; 0x08020000, its GICv2m frame
+; with an external abort, and so is the GIC, which this file drives itself.
+@devices = private constant [10 x i64] [
   i64 150994944, i64 4096,        ; 0x09000000, the PL011
   i64 151060480, i64 4096,        ; 0x09010000, the PL031
   i64 151126016, i64 24,          ; 0x09020000, firmware configuration
@@ -540,14 +540,14 @@ entry:
   br label %loop
 loop:
   %i = phi i64 [ 0, %entry ], [ %i1, %next ]
-  %more = icmp ult i64 %i, 8
+  %more = icmp ult i64 %i, 5
   br i1 %more, label %look, label %none
 look:
   %k = mul i64 %i, 2
-  %bp = getelementptr [16 x i64], ptr @devices, i64 0, i64 %k
+  %bp = getelementptr [10 x i64], ptr @devices, i64 0, i64 %k
   %db = load i64, ptr %bp
   %k1 = add i64 %k, 1
-  %lp = getelementptr [16 x i64], ptr @devices, i64 0, i64 %k1
+  %lp = getelementptr [10 x i64], ptr @devices, i64 0, i64 %k1
   %dl = load i64, ptr %lp
   %de = add i64 %db, %dl
   %from = icmp uge i64 %base, %db
@@ -1024,7 +1024,8 @@ e6:
 
 ; Runs the thread whose context is the n words at words, in space s, until
 ; it traps. Only the flags of its pstate are its own: it runs at EL0t, with
-; interrupts unmasked.
+; interrupts unmasked. An interrupt is taken before returning, its number
+; in word 36; a spurious one sends the thread straight back.
 define i64 @l0_host_user_run(i64 %s, ptr %words, i64 %n) {
 entry:
   %l1 = call i64 @space_l1(i64 %s)
@@ -1032,19 +1033,224 @@ entry:
   br i1 %nos, label %e1, label %len
 len:
   %right = icmp eq i64 %n, 104
-  br i1 %right, label %run, label %e7
-run:
-  %pp = getelementptr i64, ptr %words, i64 33
-  %ps = load i64, ptr %pp
-  %flags = and i64 %ps, 4026531840
-  store i64 %flags, ptr %pp
+  br i1 %right, label %prep, label %e7
+prep:
   %asid0 = add i64 %s, 1
   %asid = shl i64 %asid0, 48
   %ttbr = or i64 %l1, %asid
+  %pp = getelementptr i64, ptr %words, i64 33
+  br label %run
+run:
+  %ps = load i64, ptr %pp
+  %flags = and i64 %ps, 4026531840
+  store i64 %flags, ptr %pp
   call void @l0_virt_user_run(ptr %words, i64 %ttbr)
+  %kp = getelementptr i64, ptr %words, i64 35
+  %kind = load i64, ptr %kp
+  %irq = icmp eq i64 %kind, 1
+  br i1 %irq, label %take, label %done
+take:
+  %num = call i64 @irq_take()
+  %spurious = icmp slt i64 %num, 0
+  br i1 %spurious, label %run, label %record
+record:
+  %np = getelementptr i64, ptr %words, i64 36
+  store i64 %num, ptr %np
+  br label %done
+done:
   ret i64 0
 e1:
   ret i64 1
 e7:
   ret i64 7
+}
+
+; -------------------------------------------------------------- interrupts
+;
+; Spec sections 6.14 and 10.3. The GICv2's distributor is at 0x08000000
+; and its CPU interface at 0x08010000, and neither is a region, so only
+; this file touches them. The CPU interface runs with EOImode 1: taking an
+; interrupt reads its acknowledge register and at once writes its
+; end-of-interrupt register, which drops the running priority so that
+; others can come, and interrupt_done writes its deactivate register, which
+; lets the same one come again. That is section 6.14's taken until ended.
+; Every interrupt has priority 0, and the program runs with interrupts
+; masked at EL1, so one arrives only at interrupt_wait's wfi or while a
+; thread runs. Interrupt 0 is the virtual timer's, the GIC's 27; a
+; device's number is its GIC ID.
+
+@irq_taken = internal global [1024 x i8] zeroinitializer
+@irq_enabled = internal global [1024 x i8] zeroinitializer
+@irq_count = internal global i64 0
+
+define internal void @gic_init() {
+entry:
+  call void @mmio_w32(i64 134217728, i32 1)                 ; GICD_CTLR, on
+  call void @mmio_w32(i64 134283268, i32 240)               ; GICC_PMR
+  call void @mmio_w32(i64 134283264, i32 513)               ; GICC_CTLR, on, EOImode 1
+  ret void
+}
+
+define internal void @mmio_w32(i64 %a, i32 %v) {
+entry:
+  %p = inttoptr i64 %a to ptr
+  store volatile i32 %v, ptr %p
+  ret void
+}
+
+define internal void @mmio_w8(i64 %a, i8 %v) {
+entry:
+  %p = inttoptr i64 %a to ptr
+  store volatile i8 %v, ptr %p
+  ret void
+}
+
+define internal i32 @mmio_r32(i64 %a) {
+entry:
+  %p = inttoptr i64 %a to ptr
+  %v = load volatile i32, ptr %p
+  ret i32 %v
+}
+
+; The GIC ID of interrupt n, or -1 if the host gives no interrupt n: the
+; timer's, 0, is 27; the PL011's, PL031's, and PL061's are 33, 34, and 39,
+; and the virtio-mmio transports' 48 to 79.
+define internal i64 @irq_id(i64 %n) {
+entry:
+  %timer = icmp eq i64 %n, 0
+  br i1 %timer, label %t, label %dev
+t:
+  ret i64 27
+dev:
+  %uart = icmp eq i64 %n, 33
+  %rtc = icmp eq i64 %n, 34
+  %gpio = icmp eq i64 %n, 39
+  %lo = icmp sge i64 %n, 48
+  %hi = icmp sle i64 %n, 79
+  %virtio = and i1 %lo, %hi
+  %a = or i1 %uart, %rtc
+  %b = or i1 %gpio, %virtio
+  %ok = or i1 %a, %b
+  %r = select i1 %ok, i64 %n, i64 -1
+  ret i64 %r
+}
+
+define i64 @l0_host_interrupt_enable(i64 %n) {
+entry:
+  %id = call i64 @irq_id(i64 %n)
+  %none = icmp slt i64 %id, 0
+  br i1 %none, label %out, label %on
+out:
+  ret i64 -3
+on:
+  %ep = getelementptr [1024 x i8], ptr @irq_enabled, i64 0, i64 %id
+  %was = load i8, ptr %ep
+  %fresh = icmp eq i8 %was, 0
+  br i1 %fresh, label %count, label %done
+count:
+  store i8 1, ptr %ep
+  %c = load i64, ptr @irq_count
+  %c1 = add i64 %c, 1
+  store i64 %c1, ptr @irq_count
+  %spi = icmp uge i64 %id, 32
+  br i1 %spi, label %target, label %enable
+target:
+  %ta = add i64 134219776, %id                              ; GICD_ITARGETSR, CPU 0
+  call void @mmio_w8(i64 %ta, i8 1)
+  br label %enable
+enable:
+  %word = lshr i64 %id, 5
+  %wo = shl i64 %word, 2
+  %ra = add i64 134217984, %wo                              ; GICD_ISENABLER
+  %bit = and i64 %id, 31
+  %m = shl i64 1, %bit
+  %m32 = trunc i64 %m to i32
+  call void @mmio_w32(i64 %ra, i32 %m32)
+  call void asm sideeffect "dsb sy\0Aisb", "~{memory}"()
+  br label %done
+done:
+  ret i64 0
+}
+
+; Takes the interrupt the CPU interface signals, and returns its number, or
+; -1 for a spurious one, which needs no end.
+define internal i64 @irq_take() {
+entry:
+  %iar = call i32 @mmio_r32(i64 134283276)                  ; GICC_IAR
+  %id32 = and i32 %iar, 1023
+  %id = zext i32 %id32 to i64
+  %spurious = icmp uge i64 %id, 1020
+  br i1 %spurious, label %none, label %take
+none:
+  ret i64 -1
+take:
+  call void @mmio_w32(i64 134283280, i32 %iar)              ; GICC_EOIR, priority drop
+  %tp = getelementptr [1024 x i8], ptr @irq_taken, i64 0, i64 %id
+  store i8 1, ptr %tp
+  %timer = icmp eq i64 %id, 27
+  %n = select i1 %timer, i64 0, i64 %id
+  ret i64 %n
+}
+
+define i64 @l0_host_interrupt_wait() {
+entry:
+  %c = load i64, ptr @irq_count
+  %none = icmp eq i64 %c, 0
+  br i1 %none, label %out, label %wait
+out:
+  ret i64 -5
+wait:
+  call void asm sideeffect "dsb sy\0Awfi", "~{memory}"()
+  %n = call i64 @irq_take()
+  %spurious = icmp slt i64 %n, 0
+  br i1 %spurious, label %wait, label %got
+got:
+  ret i64 %n
+}
+
+define i64 @l0_host_interrupt_done(i64 %n) {
+entry:
+  %id = call i64 @irq_id(i64 %n)
+  %none = icmp slt i64 %id, 0
+  br i1 %none, label %e8, label %look
+look:
+  %tp = getelementptr [1024 x i8], ptr @irq_taken, i64 0, i64 %id
+  %t = load i8, ptr %tp
+  %taken = icmp ne i8 %t, 0
+  br i1 %taken, label %end, label %e8
+end:
+  store i8 0, ptr %tp
+  %id32 = trunc i64 %id to i32
+  call void @mmio_w32(i64 134287360, i32 %id32)             ; GICC_DIR
+  ret i64 0
+e8:
+  ret i64 8
+}
+
+; The virtual timer's compare value for t nanoseconds, rounded up, so that
+; it fires no earlier than clock_ns reads t; a negative t disables it.
+define i64 @l0_host_timer_at(i64 %t) {
+entry:
+  %off = icmp slt i64 %t, 0
+  br i1 %off, label %disarm, label %arm
+disarm:
+  call void asm sideeffect "msr cntv_ctl_el0, $0\0Aisb", "r"(i64 0)
+  ret i64 0
+arm:
+  %frq = call i64 asm "mrs $0, cntfrq_el0", "=r"()
+  %nofrq = icmp eq i64 %frq, 0
+  br i1 %nofrq, label %out, label %set
+out:
+  ret i64 -3
+set:
+  %sec = udiv i64 %t, 1000000000
+  %rem = urem i64 %t, 1000000000
+  %whole = mul i64 %sec, %frq
+  %part0 = mul i64 %rem, %frq
+  %part1 = add i64 %part0, 999999999
+  %part = udiv i64 %part1, 1000000000
+  %cval = add i64 %whole, %part
+  call void asm sideeffect "msr cntv_cval_el0, $0", "r"(i64 %cval)
+  call void asm sideeffect "msr cntv_ctl_el0, $0\0Aisb", "r"(i64 1)
+  ret i64 0
 }

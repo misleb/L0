@@ -1,8 +1,10 @@
 ; Spec section 6.12 on the board: the PL011 driven through its registers,
 ; as roadmap/0074/progs/uart.l0 could not be. Then reads of every width from
 ; the PL011's and a virtio-mmio transport's identification registers, whose
-; values the devices fix, and writes of every width to the GIC
-; distributor's interrupt priorities, read back.
+; values the devices fix, and writes of every width to the PL061's
+; direction register, each read back by the one byte that register keeps,
+; which each write sets differently. The GIC, whose registers kept every
+; width, is no region since spec section 6.14: the host drives it.
 ;
 ; "hi" goes straight to the serial port, while what write_line writes is
 ; held back until the program ends, so it comes after on standard output.
@@ -28,15 +30,15 @@
           (hex (device_read64 v 0)))))))            ; magic, then version 1
 
 (def writes ((g IoDevice)) int
-  (let a (device_write8 g 1056 160)
-    (let b (hex (device_read8 g 1056))
-      (let c (device_write16 g 1058 49184)
-        (let d (hex (device_read16 g 1058))
-          (let e (device_write32 g 1060 2153791520)
-            (let f (hex (device_read32 g 1060))
-              (let h (device_write64 g 1064 -8613303245920329199)
+  (let a (device_write8 g 1024 161)                         ; 0xa1
+    (let b (hex (device_read8 g 1024))
+      (let c (device_write16 g 1024 49330)                  ; 0xc0b2
+        (let d (hex (device_read8 g 1024))
+          (let e (device_write32 g 1024 2153791683)         ; 0x806040c3
+            (let f (hex (device_read8 g 1024))
+              (let h (device_write64 g 1024 -8613303245920329004)  ; 0x88776655443322d4
                 (let i (barrier)
-                  (hex (device_read64 g 1064)))))))))))
+                  (hex (device_read8 g 1024)))))))))))
 
 (def opened ((r DeviceOpened)) IoDevice
   (match r
@@ -46,7 +48,7 @@
 (def main () int
   (let u (opened (open_device 150994944 4096))      ; the PL011
     (let v (opened (open_device 167772160 512))     ; virtio-mmio transport 0
-      (let g (opened (open_device 134217728 65536)) ; the GIC distributor
+      (let g (opened (open_device 151191552 4096))  ; the PL061
         (let w (put_all u "hi\n")
           (let r (reads u v)
             (writes g)))))))

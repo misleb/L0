@@ -78,7 +78,9 @@ silent and converts a caught bug into a permanent one.
   `tests/backend` is: it answers spec 10.3's calls, and a change to them
   changes it too. So does `tests/virt/user/kernel.l0`, the kernel in L0
   that runs `tests/virt` again through the user-mode builtins of spec
-  6.13, which `host-virt.ll` gives. A `tests/virt` program with a `.board`
+  6.13, which `host-virt.ll` gives, and `tests/virt/proc`'s tests with the
+  timer's slices of 6.14. `host-virt.ll` drives the GIC itself, so no test
+  may open it as a region. A `tests/virt` program with a `.board`
   file runs on the board only, never as a process: one that uses user
   mode, which a process has not.
 - `stage0/l0core.c`, `stage0/l0core.h` — stage 0's value representation and

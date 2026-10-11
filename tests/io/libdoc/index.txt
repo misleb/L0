@@ -173,8 +173,8 @@
       Writes the low 32 bits of v at off in d, and returns 0.
   device_write64 ((d IoDevice) (off int) (v int)) int
       Writes all 64 bits of v at off in d, and returns 0.
-  (data Trap (TrapCall int) (TrapMissing int) (TrapFault int int) (TrapInterrupt))
-      Why a thread came back from user_run: (TrapCall n), a system call with number n, which aarch64 puts in x8; (TrapMissing va), a fault at the user address va where nothing is mapped, which a kernel answers by mapping a page there or ending the thread; (TrapFault esr far), any other fault, with the machine's syndrome and the address; or (TrapInterrupt).
+  (data Trap (TrapCall int) (TrapMissing int) (TrapFault int int) (TrapInterrupt int))
+      Why a thread came back from user_run: (TrapCall n), a system call with number n, which aarch64 puts in x8; (TrapMissing va), a fault at the user address va where nothing is mapped, which a kernel answers by mapping a page there or ending the thread; (TrapFault esr far), any other fault, with the machine's syndrome and the address; or (TrapInterrupt n), interrupt n, taken, which interrupt_done ends (spec section 6.14).
   trap_of ((c (array int))) Trap
       The trap the context c records, as a Trap, for the context user_run returned.
   user_context ((pc int) (sp int)) (array int)

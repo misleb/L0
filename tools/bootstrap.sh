@@ -222,8 +222,8 @@ if [ "$VIRT" = 1 ]; then
         exit 1
     fi
     start=$(date +%s)
-    if ! tests/virt/user/run.sh "$BUILD/user-kernel.elf" "$BUILD/stage2-proc.elf" \
-        "$BUILD/user-boot" < "$SRC" > "$BUILD/stage3-user.ll.tagged"; then
+    if ! tests/virt/user/run.sh "$BUILD/user-kernel.elf" "$BUILD/user-boot" \
+        "$BUILD/stage2-proc.elf" < "$SRC" > "$BUILD/stage3-user.ll.tagged"; then
         echo "FAIL: stage2 failed as a process of the L0 kernel" >&2
         exit 1
     fi

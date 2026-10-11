@@ -1,0 +1,1 @@
+Needs the board's interrupts: a process has none, so its interrupt_wait is -3.

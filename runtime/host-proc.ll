@@ -289,3 +289,25 @@ define i64 @l0_host_user_run(i64 %s, ptr %words, i64 %n) {
 entry:
   ret i64 1
 }
+
+; Section 9.2: a process's interrupts are its kernel's, so none is ever
+; taken here, and ending one is told 8, interrupt not taken.
+define i64 @l0_host_timer_at(i64 %t) {
+entry:
+  ret i64 -3
+}
+
+define i64 @l0_host_interrupt_enable(i64 %n) {
+entry:
+  ret i64 -3
+}
+
+define i64 @l0_host_interrupt_wait() {
+entry:
+  ret i64 -3
+}
+
+define i64 @l0_host_interrupt_done(i64 %n) {
+entry:
+  ret i64 8
+}

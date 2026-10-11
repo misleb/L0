@@ -7,6 +7,75 @@ New entries go at the top.
 
 ---
 
+## Interrupts: a timer deadline, and taking, waiting for, and ending one
+
+**What changed.** Section 6.14 is new, with four builtins: `timer_at` sets
+the timer's deadline on the clock; `interrupt_enable` lets an interrupt
+reach the program; `interrupt_wait` waits for one, takes it, and gives its
+number; and `interrupt_done` ends one taken. An interrupt while a thread
+runs ends its `user_run`, taken, its number in the context, and the
+library's `TrapInterrupt` carries it. Interrupt 0 is the timer's on every
+host. Section 8 gains `interrupt not taken`; 9.2 says an operating system
+and a process have no interrupts; 10.3 has the runtime calls, four host
+functions, the virt board's interrupt numbers, and its regions without the
+GIC, which the host now drives itself. Roadmap 0079, 0074's item 4.
+
+**Why.** `tests/virt/user/kernel.l0`, the kernel in L0 0078 made, now runs
+several processes. Beside `spin.l0`, which never traps, `preempted.l0`
+never ends under it: killed after 30 s, where the IR harness, whose timer
+preempts, runs the pair in 0.19 s. The kernel's slice cannot be written:
+
+```
+(def slice ((s int) (c (array int))) (array int)
+  (let t (timer_at (add (clock_ns) 10000000))
+    (user_run s c)))
+```
+
+```
+roadmap/0079/why.l0:6:10: error: unknown function timer_at
+```
+
+**Why the host owns the controller.** 0074 found the stub drove the GIC
+with six 32-bit accesses an L0 kernel could make through regions, and the
+0075 entry said a kernel's interrupt controller would start that way. The
+user reversed that, in 0074's Log, for two reasons. Taking and ending an
+interrupt is on every trap's path, and its format is the hardware's, the
+test that put the vectors in the host file. And a kernel that drives a
+GIC runs only on boards that have one: the Raspberry Pi 3B has none.
+Behind builtins, a kernel names an interrupt by a number and the host does
+the rest, so the GIC's three ranges leave the regions, and no program can
+disable or take an interrupt behind the host.
+
+**Why 0 is the timer's.** A kernel needs the timer to preempt, on every
+machine, and with the timer at 0 it names it without knowing the board's
+number for it (27 on virt). A device's interrupt keeps the machine's
+number, which its driver must be given with its registers anyway.
+
+**Why the whole set, with only the timer's program.** The user chose the
+set 0074's Log decided, enabling, waiting, and ending, over the timer
+alone, so that a driver, the next item that needs interrupts, starts from
+an interface already fixed. `tests/virt/interrupts` takes the PL011's
+interrupt as a driver would, so each builtin has a program.
+
+**Why taken until ended.** An interrupt is level-triggered on this board,
+the timer's included: it stays pending while its cause holds. Taking one
+and ending it apart, as the GIC does, gives the kernel the time between to
+remove the cause, a new deadline or a device's register, so the same
+interrupt does not come straight back.
+
+**What it costs.** `tests/virt/device.l0` wrote every width to the GIC
+distributor's priority registers and read them back, and no other device
+on the board keeps what is written at 16, 32, or 64 bits: the PL061's
+direction register keeps one byte. Those writes are now checked by the
+byte the PL061 keeps, at every width. The user chose this, over keeping
+the GIC a region.
+
+**What it does not do.** No interrupt is ever disabled again once enabled,
+since nothing yet needs one disabled; a driver stops its device instead.
+One processor only, as everywhere here.
+
+---
+
 ## User mode: address spaces, frames, and running a thread until it traps
 
 **What changed.** Section 6.13 is new, with seven builtins: `space_new`

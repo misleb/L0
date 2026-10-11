@@ -475,19 +475,20 @@
 ;; number n, which aarch64 puts in x8; (TrapMissing va), a fault at the user
 ;; address va where nothing is mapped, which a kernel answers by mapping a
 ;; page there or ending the thread; (TrapFault esr far), any other fault,
-;; with the machine's syndrome and the address; or (TrapInterrupt).
+;; with the machine's syndrome and the address; or (TrapInterrupt n),
+;; interrupt n, taken, which interrupt_done ends (spec section 6.14).
 (data Trap
   (TrapCall int)
   (TrapMissing int)
   (TrapFault int int)
-  (TrapInterrupt))
+  (TrapInterrupt int))
 
 ;; The trap the context c records, as a Trap, for the context user_run
 ;; returned. On aarch64 a system call is an svc, and a missing page is a
 ;; data or instruction abort from EL0 for a translation fault.
 (def trap_of ((c (array int))) Trap
   (if (eq (array_get c 35) 1)
-      (TrapInterrupt)
+      (TrapInterrupt (array_get c 36))
       (trap_of_exception (array_get c 36) (array_get c 37) (array_get c 8))))
 
 (def trap_of_exception ((esr int) (far int) (x8 int)) Trap

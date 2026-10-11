@@ -64,10 +64,11 @@ earned here first by a smaller program that cannot be written without it.
 The programs it will run already exist: `l0 build --target proc` makes a
 process image that any kernel answering the system calls the spec fixes
 can run. And a kernel can already be written in L0: a program on the
-`virt` board makes address spaces, maps pages into them, and runs threads
-in them until they trap, and the kernel in `tests/virt/user` runs the
-compiler that way, which compiles itself to the same bytes, as
-`tools/test.sh --virt` checks.
+`virt` board makes address spaces, maps pages into them, runs threads in
+them until they trap, and takes the timer's and devices' interrupts, and
+the kernel in `tests/virt/user` runs the compiler that way, preempted
+every 10 ms, which compiles itself to the same bytes, as `tools/test.sh
+--virt` checks.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is

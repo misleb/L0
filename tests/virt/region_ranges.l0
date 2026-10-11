@@ -1,6 +1,7 @@
 ; Spec sections 6.12 and 10.3 on the board: a region opens over any range
-; wholly within one of its devices, and over nothing else; regions are
-; numbered from 0, and after 64 no more can be open.
+; wholly within one of its devices, and over nothing else, the interrupt
+; controller among it; regions are numbered from 0, and after 64 no more
+; can be open.
 (def show ((r int)) int
   (write_line (digits r)))
 
@@ -19,11 +20,12 @@
 (def refusals ((i int)) int
   (let a (show (region_open 151257088 4))          ; 0x09040000, no device
     (let b (show (region_open 1073741824 8))       ; RAM
-      (show (region_open 150994944 0)))))          ; no bytes
+      (let g (show (region_open 134217728 4))      ; the GIC, the host's (6.14)
+        (show (region_open 150994944 0))))))       ; no bytes
 
 (def main () int
   (let a (opens 0)
     (let b (refusals 0)
-      (let c (show (region_open 134283264 65536))  ; GIC CPU interface: 3
+      (let c (show (region_open 151060480 4096))   ; the PL031: 3
         (let d (fill 60)
           (show (region_open 167772160 512)))))))  ; a 65th

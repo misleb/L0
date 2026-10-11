@@ -1,0 +1,10 @@
+; tests/virt/user/kernel.l0's schedule, given a slice: before each process
+; runs, a deadline 10 ms off, so that one that never traps, as spin.l0
+; never does, is interrupted and the next one runs. user_run then returns
+; at the interrupt, as it would at a system call.
+(def slice ((s int) (c (array int))) (array int)
+  (let t (timer_at (add (clock_ns) 10000000))
+    (user_run s c)))
+
+(def main () int
+  (array_len (slice (space_new) (user_context 3221225472 3892314112))))

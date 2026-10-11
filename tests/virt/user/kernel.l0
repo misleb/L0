@@ -1,31 +1,43 @@
-; A kernel, in L0, for QEMU's virt board: it runs one L0 program, built
-; with l0 build --target proc, as a process at EL0 in an address space of
+; A kernel, in L0, for QEMU's virt board: it runs L0 programs, built with
+; l0 build --target proc, as processes at EL0, each in an address space of
 ; its own, through the user-mode builtins of spec section 6.13, and answers
-; the system calls spec section 10.3 fixes for it. tools/test.sh --virt
+; the system calls spec section 10.3 fixes for them. tools/test.sh --virt
 ; runs the tests/virt programs under it against the board's expectations,
 ; and tools/bootstrap.sh --virt the compiler. It is
-; tests/virt/proc/harness/kernel.ll's loop in L0, for one process and
-; without a timer.
+; tests/virt/proc/harness/kernel.ll's loop in L0.
 ;
-; Its standard input is the process image's length in decimal and a
-; newline, then the image's bytes, as llvm-objcopy -O binary writes them,
-; to be mapped from 0xC0000000, then what the process reads as its own
-; standard input. The process's standard output and error are the
-; kernel's. It gives no files and no arguments, as the board does, and
-; maps the board's devices for the region call. Its heap and stack, and
-; the image's bss, are mapped a page at a time as they are first touched.
-; When the process exits, the kernel does, with its status; when the
-; process faults, the kernel says so on standard error and exits with 99.
+; Its standard input is the number of processes in decimal and a newline;
+; then for each, its image's length in decimal and a newline, and the
+; image's bytes, as llvm-objcopy -O binary writes them, to be mapped from
+; 0xC0000000; then what the processes read as their standard input, which
+; they share. Their standard output and error are the kernel's. It gives
+; no files and no arguments, as the board does, and maps the board's
+; devices for the region call. A process's heap and stack, and its image's
+; bss, are mapped a page at a time as they are first touched.
+;
+; A process runs for a slice of 10 ms, the timer's deadline set as its turn
+; starts (spec section 6.14), or until it exits or faults, and then the
+; next runnable one after it runs, the first of them first, so that one
+; beside it runs before it does. A system call does not end a turn, nor
+; start a new slice. The run ends when process 0 ends, with its status, or
+; 99 if the kernel killed it, which it says on standard error.
 
 (def user_lo () int 3221225472)                   ; 0xC0000000, the image
 (def user_top () int 3892314112)                  ; 0xE8000000, the stack's top
 (def window () int 3892314112)                    ; regions from 0xE8000000
 (def window_pages () int 512)
 
+; A process: its space, its context, which pages from user_lo to user_top
+; have a frame, how many pages of its region window are used, and -1 while
+; it can run, or the status it ended with.
+(data Proc
+  (Proc int (array int) (array int) int int))
+
+(def proc_state ((p Proc)) int
+  (match p ((Proc s c m w st) st)))
+
 ; ----------------------------------------------------------------- memory
 
-; Which pages from user_lo to user_top are mapped: 1 for a page with a
-; frame, as an array indexed by page.
 (def page_count () int (bit_shr (sub (user_top) (user_lo)) 12))
 
 (def page_of ((va int)) int (bit_shr (sub va (user_lo)) 12))
@@ -64,12 +76,12 @@
 
 (def page_floor ((va int)) int (bit_and va -4096))
 
-; --------------------------------------------------------------- the image
+; -------------------------------------------------------------- the images
 
-(def read_size ((acc int)) int
+(def read_number ((acc int)) int
   (let b (read_byte)
     (if (if (ge b 48) (le b 57) false)
-        (read_size (add (mul acc 10) (sub b 48)))
+        (read_number (add (mul acc 10) (sub b 48)))
         acc)))
 
 ; Copies the next left bytes of standard input into the space from va.
@@ -86,121 +98,176 @@
                     (load s m1 (add va n) (sub left n))))
                 ((NoFrames m1) (NoFrames m1))))))))
 
+; The next process, read from standard input: its length, then its image,
+; in a space of its own. One the kernel cannot give memory to has ended.
+(def new_proc ((i int)) Proc
+  (let size (read_number 0)
+    (let s (space_new)
+      (if (lt s 0)
+          (Proc s (array_new 0 0) (array_new 0 0) 0 (no_user_mode i))
+          (match (load s (array_new (page_count) 0) (user_lo) size)
+            ((Mem m) (Proc s (user_context (user_lo) (user_top)) m 0 -1))
+            ((NoFrames m) (Proc s (array_new 0 0) m 0 (out_of_memory i))))))))
+
+(def new_procs ((ps (array Proc)) (i int) (n int)) (array Proc)
+  (if (ge i n)
+      ps
+      (new_procs (array_set ps i (new_proc i)) (add i 1) n)))
+
 ; ---------------------------------------------------------------- the loop
 
-; Runs the process until its next trap, and answers it.
-(def step ((s int) (m (array int)) (w int) (c (array int))) int
+; The next process after cur, in turn, that can run, or -1.
+(def pick ((ps (array Proc)) (cur int) (k int)) int
+  (let n (array_len ps)
+    (if (gt k n)
+        -1
+        (let i (mod (add cur k) n)
+          (if (lt (proc_state (array_get ps i)) 0) i (pick ps cur (add k 1)))))))
+
+(def slice_ns () int 10000000)
+
+(def schedule ((ps (array Proc)) (cur int)) int
+  (let i (pick ps cur 1)
+    (if (lt i 0)
+        (proc_state (array_get ps 0))
+        (let t (timer_at (add (clock_ns) (slice_ns)))
+          (let ps1 (array_set ps i (run_proc i (array_get ps i)))
+            (let st (proc_state (array_get ps1 0))
+              (if (ge st 0) st (schedule ps1 i))))))))
+
+; Ends interrupt n, taken while a process ran: the timer's after disarming
+; it, so it does not come again before the next turn sets a deadline.
+(def quiet ((n int)) int
+  (if (eq n 0)
+      (let d (timer_at -1) (interrupt_done 0))
+      (interrupt_done n)))
+
+(def run_proc ((i int) (p Proc)) Proc
+  (match p ((Proc s c m w st) (step i s m w c))))
+
+; Runs process i until its next trap, and answers it: a system call or a
+; missing page in place, and anything else by ending its turn.
+(def step ((i int) (s int) (m (array int)) (w int) (c (array int))) Proc
   (let r (user_run s c)
     (match (trap_of r)
-      ((TrapCall n) (syscall s m w r n))
-      ((TrapMissing va) (demand s m w r va))
-      ((TrapFault esr far) (killed r))
-      ((TrapInterrupt) (step s m w r)))))
+      ((TrapCall n) (syscall i s m w r n))
+      ((TrapMissing va) (demand i s m w r va))
+      ((TrapFault esr far) (Proc s r m w (killed i r)))
+      ((TrapInterrupt n) (let q (quiet n) (Proc s r m w -1))))))
 
-; Gives the process v as its system call's result, and runs it on.
-(def answer ((s int) (m (array int)) (w int) (c (array int)) (v int)) int
-  (step s m w (array_set c 0 v)))
+; Gives process i v as its system call's result, and runs it on.
+(def answer ((i int) (s int) (m (array int)) (w int) (c (array int)) (v int)) Proc
+  (step i s m w (array_set c 0 v)))
 
-(def demand ((s int) (m (array int)) (w int) (c (array int)) (va int)) int
+(def demand ((i int) (s int) (m (array int)) (w int) (c (array int)) (va int)) Proc
   (if (if (ge va (user_lo)) (lt va (user_top)) false)
       (match (ensure s m (page_floor va) (add va 1))
-        ((Mem m1) (step s m1 w c))
-        ((NoFrames m1) (out_of_memory 0)))
-      (killed c)))
+        ((Mem m1) (step i s m1 w c))
+        ((NoFrames m1) (Proc s c m1 w (out_of_memory i))))
+      (Proc s c m w (killed i c))))
 
-(def killed ((c (array int))) int
-  (let a (write_err "kernel: process 0 killed: fault esr = 0x")
-    (let b (write_err (hex_digits (array_get c 36) 16))
-      (let d (write_err " elr = 0x")
-        (let e (write_err (hex_digits (array_get c 32) 16))
-          (let f (write_err " far = 0x")
-            (let g (write_err (hex_digits (array_get c 37) 16))
-              (let h (write_err "\n") 99))))))))
+(def say_proc ((i int)) int
+  (let a (write_err "kernel: process ")
+    (write_err (digits i))))
+
+(def killed ((i int) (c (array int))) int
+  (let a (say_proc i)
+    (let b (write_err " killed: fault esr = 0x")
+      (let d (write_err (hex_digits (array_get c 36) 16))
+        (let e (write_err " elr = 0x")
+          (let f (write_err (hex_digits (array_get c 32) 16))
+            (let g (write_err " far = 0x")
+              (let h (write_err (hex_digits (array_get c 37) 16))
+                (let j (write_err "\n") 99)))))))))
 
 (def out_of_memory ((i int)) int
-  (let a (write_err "kernel: process 0 killed: out of memory\n") 99))
+  (let a (say_proc i)
+    (let b (write_err " killed: out of memory\n") 99)))
+
+(def no_user_mode ((i int)) int
+  (let a (say_proc i)
+    (let b (write_err " not started: no user mode here\n") 99)))
 
 ; ------------------------------------------------------------ system calls
 
 ; Spec section 10.3's numbers. Arguments are x0 to x3, words 0 to 3.
-(def syscall ((s int) (m (array int)) (w int) (c (array int)) (n int)) int
+(def syscall ((i int) (s int) (m (array int)) (w int) (c (array int)) (n int)) Proc
   (let a (array_get c 0)
     (let b (array_get c 1)
       (let d (array_get c 2)
         (if (eq n 1)
-            (sys_read s m w c a b d)
+            (sys_read i s m w c a b d)
             (if (eq n 2)
-                (sys_write s m w c a b d)
+                (sys_write i s m w c a b d)
                 (if (eq n 3)
-                    (bit_and a 255)
-                    (sys_rest s m w c n a b d))))))))
+                    (Proc s c m w (bit_and a 255))
+                    (sys_rest i s m w c n a b d))))))))
 
-(def sys_rest ((s int) (m (array int)) (w int) (c (array int)) (n int)
-               (a int) (b int) (d int)) int
+(def sys_rest ((i int) (s int) (m (array int)) (w int) (c (array int)) (n int)
+               (a int) (b int) (d int)) Proc
   (if (eq n 4)
-      (answer s m w c (if (user_ok a b) (if (eq d 1) -3 -9) -5))
+      (answer i s m w c (if (user_ok a b) (if (eq d 1) -3 -9) -5))
       (if (eq n 6)
-          (answer s m w c (if (if (user_ok a b) (user_ok d (array_get c 3)) false) -3 -5))
+          (answer i s m w c (if (if (user_ok a b) (user_ok d (array_get c 3)) false) -3 -5))
           (if (eq n 7)
-              (answer s m w c (if (user_ok a b) -3 -5))
+              (answer i s m w c (if (user_ok a b) -3 -5))
               (if (eq n 8)
-                  (answer s m w c 0)
+                  (answer i s m w c 0)
                   (if (eq n 10)
-                      (sys_region s m w c a b)
-                      (answer s m w c -5)))))))   ; close, arg, and any other
+                      (sys_region i s m w c a b)
+                      (answer i s m w c -5)))))))   ; close, arg, and any other
 
 ; read(stream, buf, len): standard input, into the process, at most 64 KB.
-(def sys_read ((s int) (m (array int)) (w int) (c (array int))
-               (h int) (buf int) (len int)) int
+(def sys_read ((i int) (s int) (m (array int)) (w int) (c (array int))
+               (h int) (buf int) (len int)) Proc
   (if (if (eq h 0) (user_ok buf len) false)
       (if (eq len 0)
-          (answer s m w c 0)
+          (answer i s m w c 0)
           (let k (if (lt len 65536) len 65536)
             (match (ensure s m (page_floor buf) (add buf k))
               ((Mem m1)
                 (let bs (read_some 0 k)
                   (let got (bytes_len bs)
                     (let r (space_write s buf bs 0 got)
-                      (answer s m1 w c got)))))
-              ((NoFrames m1) (out_of_memory 0)))))
-      (answer s m w c -5)))
+                      (answer i s m1 w c got)))))
+              ((NoFrames m1) (Proc s c m1 w (out_of_memory i))))))
+      (answer i s m w c -5)))
 
 ; write(stream, buf, len): standard output or error, out of the process.
-(def sys_write ((s int) (m (array int)) (w int) (c (array int))
-                (h int) (buf int) (len int)) int
+(def sys_write ((i int) (s int) (m (array int)) (w int) (c (array int))
+                (h int) (buf int) (len int)) Proc
   (if (if (if (eq h 1) true (eq h 2)) (user_ok buf len) false)
       (if (eq len 0)
-          (answer s m w c 0)
+          (answer i s m w c 0)
           (match (ensure s m (page_floor buf) (add buf len))
             ((Mem m1)
               (let r (write_bytes h (space_read s buf len) 0 len)
-                (answer s m1 w c (if (lt r 0) r len))))
-            ((NoFrames m1) (out_of_memory 0))))
-      (answer s m w c -5)))
+                (answer i s m1 w c (if (lt r 0) r len))))
+            ((NoFrames m1) (Proc s c m1 w (out_of_memory i)))))
+      (answer i s m w c -5)))
 
 ; region(base, len): the device's pages at the next pages of the window
 ; above the stack. The host decides what is a device; a range too long for
 ; what is left of the window is -5, before the host is asked.
-(def sys_region ((s int) (m (array int)) (w int) (c (array int))
-                 (base int) (len int)) int
+(def sys_region ((i int) (s int) (m (array int)) (w int) (c (array int))
+                 (base int) (len int)) Proc
   (if (if (lt len 1) true (lt base 0))
-      (answer s m w c -3)
+      (answer i s m w c -3)
       (let first (page_floor base)
         (let pages (add (bit_shr (sub (page_floor (sub (add base len) 1)) first) 12) 1)
           (if (gt pages (sub (window_pages) w))
-              (answer s m w c -5)
+              (answer i s m w c -5)
               (let va (add (window) (mul w 4096))
                 (let r (space_map_device s va base len)
                   (if (lt r 0)
-                      (answer s m w c r)
-                      (answer s m (add w pages) c
+                      (answer i s m w c r)
+                      (answer i s m (add w pages) c
                         (add va (sub base first)))))))))))
 
 (def main () int
-  (let s (space_new)
-    (if (lt s 0)
-        (let e (write_err "kernel: no user mode here\n") 99)
-        (let size (read_size 0)
-          (match (load s (array_new (page_count) 0) (user_lo) size)
-            ((Mem m) (step s m 0 (user_context (user_lo) (user_top))))
-            ((NoFrames m) (out_of_memory 0)))))))
+  (let n (read_number 0)
+    (if (lt n 1)
+        (let e (write_err "kernel: no process to run\n") 99)
+        (let ended (Proc -1 (array_new 0 0) (array_new 0 0) 0 99)
+          (let e (interrupt_enable 0)                   ; the timer
+            (schedule (new_procs (array_new n ended) 0 n) 0))))))

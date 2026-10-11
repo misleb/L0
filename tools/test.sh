@@ -446,14 +446,35 @@ if [ "$VIRT" = 1 ]; then
             "$TMP/$name.proc.elf" $beside
     done
 
-    # And under a kernel written in L0 (spec section 6.13): each tests/virt
-    # program, as built above, the one process of tests/virt/user/kernel.l0,
-    # against the board's expectations once more; then tests/virt/user's own
-    # expectations, each for a process that is not L0, the harness's IR of
-    # the same name: fault, which the kernel must kill.
+    # And under a kernel written in L0 (spec sections 6.13 and 6.14): each
+    # tests/virt program, as built above, the one process of
+    # tests/virt/user/kernel.l0, against the board's expectations once more;
+    # then tests/virt/user's own expectations, each for a process that is
+    # not L0, the harness's IR of the same name: fault, which the kernel must
+    # kill; then tests/virt/proc's, beside what their .with files name, as
+    # under the harness, but for those given arguments, which this kernel
+    # gives none.
     user=tests/virt/user
     uwork="$TMP/user"
     mkdir -p "$uwork"
+
+    # user_ir NAME links the harness's NAME.ll as a process, into
+    # $uwork/NAME.elf, or fails the test of that name.
+    user_ir() {
+        if [ -f "$uwork/$1.elf" ]; then
+            return 0
+        fi
+        if { "$CC" --target=aarch64-none-elf -O2 -c "$harness/$1.ll" -o "$uwork/$1.o" &&
+            "$L0_VIRT_LD" -T runtime/proc.ld "$uwork/$1.o" -o "$uwork/$1.elf"; } \
+            > "$uwork/$1.berr" 2>&1; then
+            return 0
+        fi
+        nfail=$((nfail + 1))
+        failures="$failures user/$1"
+        echo "FAIL user/$1: did not build"
+        sed 's/^/    /' "$uwork/$1.berr"
+        return 1
+    }
     if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$user/kernel.l0" \
         -o "$uwork/kernel.elf" > "$uwork/kernel.berr" 2>&1; then
         nfail=$((nfail + 1))
@@ -467,24 +488,38 @@ if [ "$VIRT" = 1 ]; then
             selected "$name" || continue
             [ -f "$TMP/$name.proc.elf" ] || continue
             run_case virt-user "$name" "tests/virt/$name" "$user/run.sh" \
-                "$uwork/kernel.elf" "$TMP/$name.proc.elf" "$uwork"
+                "$uwork/kernel.elf" "$uwork" "$TMP/$name.proc.elf"
         done
         for exp in "$user"/*.out; do
             [ -f "$exp" ] || continue
             name=$(basename "$exp" .out)
-            src="$harness/$name.ll"
             selected "$name" || continue
-            if ! { "$CC" --target=aarch64-none-elf -O2 -c "$src" -o "$uwork/$name.o" &&
-                "$L0_VIRT_LD" -T runtime/proc.ld "$uwork/$name.o" -o "$uwork/$name.elf"; } \
-                > "$uwork/$name.berr" 2>&1; then
-                nfail=$((nfail + 1))
-                failures="$failures user/$name"
-                echo "FAIL user/$name: did not build"
-                sed 's/^/    /' "$uwork/$name.berr"
-                continue
-            fi
+            user_ir "$name" || continue
             run_case user "$name" "$user/$name" "$user/run.sh" \
-                "$uwork/kernel.elf" "$uwork/$name.elf" "$uwork"
+                "$uwork/kernel.elf" "$uwork" "$uwork/$name.elf"
+        done
+        for src in tests/virt/proc/*.l0; do
+            [ -f "$src" ] || continue
+            name=$(basename "$src" .l0)
+            selected "$name" || continue
+            stem="tests/virt/proc/$name"
+            [ -f "$stem.args" ] && continue
+            [ -f "$TMP/$name.proc.elf" ] || continue
+            beside=""
+            if [ -f "$stem.with" ]; then
+                for w in $(cat "$stem.with"); do
+                    case $w in
+                        spin) beside="$beside $TMP/spin.proc.elf" ;;
+                        *)
+                            user_ir "$w" || continue 2
+                            beside="$beside $uwork/$w.elf"
+                            ;;
+                    esac
+                done
+            fi
+            # shellcheck disable=SC2086
+            run_case user-proc "$name" "$stem" "$user/run.sh" \
+                "$uwork/kernel.elf" "$uwork" "$TMP/$name.proc.elf" $beside
         done
     fi
 

@@ -73,17 +73,17 @@ system calls any kernel answers, and the compiler reaches its fixpoint as a
 process under a test kernel in IR. User mode came next, ahead of the
 timer and interrupts by the user's choice (0078): a program on the board
 makes spaces and runs threads in them, and a kernel written in L0, in
-`tests/virt/user`, runs the compiler as a process to the same bytes. The
-timer and interrupts (0079) get their program from that kernel run with a
-second process; system calls for drivers wait for theirs, and 0074's Log
+`tests/virt/user`, runs the compiler as a process to the same bytes. With
+the timer and interrupts (0079) it runs several processes, preempted, the
+host driving the GIC behind builtins. System calls for drivers and servers
+(0074's item 6) wait for a driver serving another process, and 0074's Log
 says what comes before the kernel's own project.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0079](0079-timer-and-interrupts.md) a timer deadline, interrupts, and
-   waiting for one — proposed, needs its Why from 0078's kernel
+None.
 
 ## Other open items
 
@@ -294,3 +294,6 @@ None.
 - [0078](0078-user-mode.md) user mode: address spaces, frames, and running a
   thread until it traps — done, changelog "User mode: address spaces,
   frames, and running a thread until it traps"; passed on Linux arm64
+- [0079](0079-timer-and-interrupts.md) a timer deadline, interrupts, and
+  waiting for one — done, changelog "Interrupts: a timer deadline, and
+  taking, waiting for, and ending one"; passed on Linux arm64

@@ -480,6 +480,28 @@ entry:
   ret i64 1
 }
 
+; Spec section 9.2: no interrupts under an operating system, so none is
+; ever taken, and ending one is told 8, interrupt not taken.
+define i64 @l0_host_timer_at(i64 %t) {
+entry:
+  ret i64 -3
+}
+
+define i64 @l0_host_interrupt_enable(i64 %n) {
+entry:
+  ret i64 -3
+}
+
+define i64 @l0_host_interrupt_wait() {
+entry:
+  ret i64 -3
+}
+
+define i64 @l0_host_interrupt_done(i64 %n) {
+entry:
+  ret i64 8
+}
+
 ; ------------------------------------------------------------- entry point
 
 ; Before the program's thread starts, spec section 6.3. A write to a pipe
