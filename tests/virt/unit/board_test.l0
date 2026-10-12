@@ -1,0 +1,35 @@
+; Tests written with l0 test, run on the virt board by l0 test --target
+; virt, each booted on its own: what only the board has, user mode (spec
+; section 6.13) and interrupts (6.14), and a runtime error expected there.
+(def lo () int 3221225472)                          ; 0xC0000000
+
+(def test_space_round_trip () int
+  (let s (space_new)
+    (let f (frame_new)
+      (let m (space_map s (lo) f 1)
+        (let b (bytes_from_list "a page of a thread's")
+          (let w (space_write s (add (lo) 100) b 0 (bytes_len b))
+            (add (check_true "made a space" (ge s 0))
+              (check_str "read back" (bytes_to_list (space_read s (add (lo) 100) (bytes_len b)))
+                "a page of a thread's"))))))))
+
+(def test_timer () int
+  (let e (interrupt_enable 0)
+    (let t (add (clock_ns) 1000000)
+      (let a (timer_at t)
+        (let n (interrupt_wait)
+          (let late (ge (clock_ns) t)
+            (let d (timer_at -1)
+              (add (check_int "the timer's interrupt" n 0)
+                (add (check_true "not before its time" late)
+                  (check_int "ended" (interrupt_done n) 0))))))))))
+
+(def test_ended_twice () int
+  (let e (interrupt_enable 0)
+    (let a (timer_at (clock_ns))
+      (let n (interrupt_wait)
+        (let d (timer_at -1)
+          (let f (interrupt_done n)
+            (interrupt_done n)))))))
+
+(def expect_ended_twice () (list int) "interrupt not taken")

@@ -80,7 +80,8 @@ system calls (0080), and under that kernel a serial driver that is a
 process writes what a client sends it, waiting for its device's
 interrupt. 0074's language items are done; left are the kernel in a
 project of its own and the measure as a test, after the two gaps 0074's
-Log names: `l0 test` on the board, and bundling process images.
+Log names: `l0 test` on the board, now done (0081), and process images a
+kernel can read (0082).
 
 ## Language queue
 
@@ -90,7 +91,8 @@ None.
 
 ## Other open items
 
-None.
+- [0082](0082-kernel-input.md) tooling: process images for a kernel's
+  input — proposed, next
 
 ## Done and dropped
 
@@ -303,3 +305,6 @@ None.
 - [0080](0080-kernel-calls.md) a process's calls to its kernel's own system
   calls — done, changelog "A process calls its kernel's own system calls";
   passed on Linux arm64
+- [0081](0081-test-on-the-board.md) tooling: l0 test on the virt board —
+  done, changelog "l0 test runs on the virt board, and no language change
+  for it"; passed on Linux arm64

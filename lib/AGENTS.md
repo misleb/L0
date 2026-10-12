@@ -71,8 +71,10 @@ and error, and the clock, but no files, no arguments, and no environment:
 the spec's section 9.2 says what each builtin gives then. It also has the
 board's devices, which a program drives through their registers with
 `open_device` and `device_read32` and the rest (`l0 doc IoDevice`); under
-an operating system there are none, and opening one fails. Tests still
-run on this host, with `l0 test`. A program there can also be a kernel: it
+an operating system there are none, and opening one fails. `l0 test
+--target virt` runs tests on the board, booting the program once a test;
+there are no files there, so a golden file's test fails and `--bless` is
+refused, and tests that need files stay on this host. A program there can also be a kernel: it
 makes address spaces, maps pages into them, and runs threads in them until
 they trap, with the user-mode builtins of the spec's section 6.13 and the
 library's `Trap` (`l0 doc Trap`), and sets the timer, and waits for and

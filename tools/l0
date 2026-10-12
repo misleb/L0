@@ -26,9 +26,9 @@
 #   --test          l0 check: check as l0 test builds, with test.l0 linked
 #   --match TEXT    l0 test: run only tests whose names contain TEXT
 #   --bless         l0 test: rewrite golden files instead of comparing
-#   --target virt   l0 build, run, and link: for QEMU's aarch64 virt board, with
-#                   no operating system (spec section 9.2), rather than this
-#                   host
+#   --target virt   l0 build, run, link, and test: for QEMU's aarch64 virt
+#                   board, with no operating system (spec section 9.2),
+#                   rather than this host
 #   --target proc   l0 build and link: a process for a kernel on aarch64
 #                   (spec sections 9.2 and 10.3), which only a kernel runs
 #
@@ -50,6 +50,10 @@
 #
 # l0 test runs every test with L0_RC_CHECK set, and a test that leaves
 # memory it never freed fails, since that is a compiler or runtime bug.
+# With --target virt it boots the program once a test, naming the test on
+# standard input, since the board gives no arguments; there is no
+# environment there, so no leak check, and no files, so check_file fails
+# and --bless is refused.
 #
 # Several files are compiled together, because L0 has no module system.
 # The standard library, lib/prelude.l0 and lib/io.l0, is included
@@ -661,11 +665,12 @@ case "$cmd" in
     test)
         WANT_TEST=1
         setup "$@"
-        if [ "$TARGET" = virt ]; then
-            echo "l0 test: runs on this host only; a test is named by an argument, and the virt board gives none" >&2
+        if [ "$TARGET" = proc ]; then
+            echo "l0 test: runs on this host or the virt board; a process runs under a kernel, and no kernel comes with the toolchain" >&2
             exit 2
-        elif [ "$TARGET" = proc ]; then
-            echo "l0 test: runs on this host only; a process runs under a kernel, and no kernel comes with the toolchain" >&2
+        fi
+        if [ "$TARGET" = virt ] && [ -n "$BLESS" ]; then
+            echo "l0 test: --bless writes golden files, and the virt board has no files" >&2
             exit 2
         fi
 
@@ -687,11 +692,18 @@ case "$cmd" in
         fi
 
         # The generated main runs the test (arg 0) names, or writes the
-        # runtime error a test expects when asked for "expect:NAME".
+        # runtime error a test expects when asked for "expect:NAME". The
+        # virt board gives no arguments, so there the name is the first
+        # line of standard input instead.
         gen="$TMP/l0test_main.l0"
         {
-            echo "(def main () int"
-            echo "  (let name (arg 0)"
+            if [ "$TARGET" = virt ]; then
+                echo "(def main () int"
+                echo "  (let name (test_name_from_input 0)"
+            else
+                echo "(def main () int"
+                echo "  (let name (arg 0)"
+            fi
             closes=""
             for t in $tests; do
                 echo "  (if (list_eq name \"$t\") (test_status ($t))"
@@ -705,8 +717,26 @@ case "$cmd" in
         } > "$gen"
         SOURCES="$SOURCES $gen"
         run_compiler "$TMP/out.ll"
-        "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
-            "$HOST" -o "$TMP/prog"
+        if [ "$TARGET" = virt ]; then
+            bare_link virt "$TMP/out.ll" "$TMP/prog.elf"
+        else
+            "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
+                "$HOST" -o "$TMP/prog"
+        fi
+
+        # run_one NAME runs the test program for NAME, a test or
+        # "expect:TEST", its standard output and error in t.out and t.err:
+        # here with NAME its argument, and under L0_RC_CHECK, whose leak
+        # check is section 10.3's; on the board, booted with NAME as its
+        # input, where there is no environment to check under.
+        run_one() {
+            if [ "$TARGET" = virt ]; then
+                printf '%s\n' "$1" > "$TMP/t.in"
+                virt_boot "$TMP/prog.elf" "$TMP/t.in"
+            else
+                L0_RC_CHECK=1 "$TMP/prog" "$1" $BLESS < /dev/null
+            fi
+        }
 
         selected=""
         for t in $tests; do
@@ -720,8 +750,7 @@ case "$cmd" in
         failed=0
         for t in "$@"; do
             n=$((n + 1))
-            if L0_RC_CHECK=1 "$TMP/prog" "$t" $BLESS > "$TMP/t.out" \
-                2> "$TMP/t.err" < /dev/null
+            if run_one "$t" > "$TMP/t.out" 2> "$TMP/t.err"
             then st=0
             else st=$?
             fi
@@ -736,7 +765,7 @@ case "$cmd" in
             fi
             want=""
             case " $expects " in
-                *" ${t#test_} "*) want=$("$TMP/prog" "expect:${t#test_}" 2> /dev/null) ;;
+                *" ${t#test_} "*) want=$(run_one "expect:${t#test_}" 2> /dev/null) ;;
             esac
             if [ -n "$want" ]; then
                 if [ "$st" = 70 ] &&

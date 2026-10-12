@@ -1,0 +1,2 @@
+It tests that opening a device fails under an operating system, and on the
+virt board the PL011 opens.

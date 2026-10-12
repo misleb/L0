@@ -7,6 +7,33 @@ New entries go at the top.
 
 ---
 
+## l0 test runs on the virt board, and no language change for it
+
+**No semantic change. L0 is exactly the language it was before this entry.**
+`l0 test --target virt` runs tests on the board, booting the program once a
+test, and `tools/test.sh --virt` runs `tests/unit` there, and
+`tests/virt/unit`, tests of what only the board has. Roadmap 0081, the
+first of the gaps 0074's Log named before a kernel's own project.
+
+**Why.** A project made by `l0 init` is not done until `l0 test` passes,
+and a kernel's functions that make spaces, run threads, or take
+interrupts do nothing on an operating system (section 9.2). `l0 test`
+refused the board, since it named the test to run by an argument, and the
+board gives none.
+
+**How.** On the board the test's name is the first line of standard
+input, which the board has, read by a function of `lib/test.l0`. It was
+first written in the generated `main`, where `tests/unit/shadow_test`
+broke it: its own `is_empty` shadowed the builtin there, since a
+program's definitions shadow every name in it but the library's own
+calls (section 7.1). What the board lacks, a test there lacks: files, so
+`check_file` fails and `--bless` is refused, and an environment, so
+`L0_RC_CHECK`'s leak check is not made. Five of `tests/unit`'s files need
+files or an operating system's absence of devices, and say so in a
+`.host` file, as `tests/io`'s programs do.
+
+---
+
 ## A process calls its kernel's own system calls
 
 **What changed.** Section 6.15 is new, with three builtins: a process

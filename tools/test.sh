@@ -29,8 +29,11 @@
 #   tests/check/*.l0     programs that must fail to type check
 #   tests/io/*.l0        programs using features stage 0 does not have, such
 #                        as the I/O builtins; run by --compiled only
-#   tests/unit/*_test.l0 tests written with l0 test; run by --compiled only,
-#                        each file counting as one test
+#   tests/unit/*_test.l0 tests written with l0 test; run by --compiled, and by
+#                        --virt on the board, each file counting as one test
+#   tests/virt/unit/*_test.l0
+#                        tests written with l0 test of what only the board has;
+#                        run by --virt only
 #   tests/virt/*.l0      programs run on the virt board, against hand-written
 #                        expectations, and as processes of a kernel against
 #                        the same; run by --virt only
@@ -258,15 +261,16 @@ extra_sources() {
 # section 9.2), against the very expectations
 # --compiled holds them to: tests/lang, tests/compiler, and tests/io, each
 # compiled by the current compiler with tools/l0c, linked with tools/l0
-# link --target virt, and booted with tools/l0 boot. Then tests/virt, the
-# board's own, built with tools/l0 build --target virt.
+# link --target virt, and booted with tools/l0 boot; and tests/unit, by
+# tools/l0 test --target virt. Then tests/virt, the board's own, built with
+# tools/l0 build --target virt, and tests/virt/unit, by l0 test there too.
 #
 # What skips, rather than failing, is what needs a host the board is not:
 #   - a tests/io program with a .sh script, which examines the program
 #     through the host: its files, arguments, signals, timing, or how it
 #     was built
-#   - tests/unit, since l0 test names the test to run by an argument
-#   - a program with a <stem>.host file, which says why it needs files or
+#   - a program, or a tests/unit file, with a <stem>.host file, which says
+#     why it needs files or
 #     arguments the board does not have, or no devices where the board has
 #     them, and so expectations the board cannot meet. A new one without a
 #     script gets a .host file, or fails here.
@@ -357,10 +361,32 @@ if [ "$VIRT" = 1 ]; then
         fi
         virt_case "virt-$(basename "$dir")" "$name" "$src" "$stem"
     done
-    for src in tests/unit/*_test.l0; do
+    # Tests written with l0 test, on the board with l0 test --target virt,
+    # each file in a scratch directory as --compiled runs them: tests/unit's
+    # but for those with a .host file, and tests/virt/unit's, the board's
+    # own.
+    for src in tests/unit/*_test.l0 tests/virt/unit/*_test.l0; do
         [ -f "$src" ] || continue
-        selected "$(basename "$src" .l0)" || continue
-        nskip=$((nskip + 1))
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        ustem="${src%.l0}"
+        if [ -f "$ustem.host" ]; then
+            nskip=$((nskip + 1))
+            continue
+        fi
+        udir="$TMP/vunit-$name"
+        mkdir -p "$udir"
+        # shellcheck disable=SC2046
+        if (cd "$udir" && L0_COMPILER="$vcc" "$ROOT/tools/l0" test --target virt \
+            "$ROOT/$src" $(extra_sources "$ROOT/$ustem" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
+            > "$udir.tap" 2>&1; then
+            npass=$((npass + 1))
+        else
+            nfail=$((nfail + 1))
+            failures="$failures virt-unit/$name"
+            echo "FAIL virt-unit/$name:"
+            grep -v '^ok ' "$udir.tap" | sed 's/^/    /'
+        fi
     done
 
     for src in tests/virt/*.l0; do
