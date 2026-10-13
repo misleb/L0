@@ -81,18 +81,21 @@ process writes what a client sends it, waiting for its device's
 interrupt. 0074's language items are done; left are the kernel in a
 project of its own and the measure as a test, after the two gaps 0074's
 Log names: `l0 test` on the board, now done (0081), and process images a
-kernel can read (0082).
+kernel can read (0082). Before 0082, the board gives arguments by the arm64
+boot protocol (0083), so a kernel is told at boot what to do with its
+images.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-None.
+1. [0083](0083-board-arguments.md) the virt board gives arguments, by the
+   arm64 boot protocol — queued, not started
 
 ## Other open items
 
 - [0082](0082-kernel-input.md) tooling: process images for a kernel's
-  input — proposed, next
+  input — proposed, needs 0083
 
 ## Done and dropped
 

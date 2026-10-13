@@ -1,0 +1,12 @@
+; What a kernel on the board would read at boot: which of its processes is
+; the serial driver, and that driver's device and interrupt, as arguments,
+; with spec section 6.4's builtins, so that it can start the driver with
+; them (spec section 10.3's arguments call) rather than the driver naming
+; the board. The board gives a program none.
+(def show ((i int) (n int)) int
+  (if (ge i n)
+      0
+      (let w (write_line (arg i)) (show (add i 1) n))))
+
+(def main () int
+  (show 0 (arg_count)))

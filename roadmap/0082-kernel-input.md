@@ -2,7 +2,7 @@
 
 Kind: tooling
 Status: proposed
-Needs: 0081
+Needs: 0083
 
 ## Why
 
@@ -26,3 +26,8 @@ project. Settle it when 0081 is done.
 ## Log
 
 - 2026-10-11: opened from 0074's Log beside 0081.
+- 2026-10-13: narrowed, behind 0083. What to do with the images, which
+  is the driver and its device, is to be the kernel's boot arguments
+  (0083), not part of its input; this item is only the images, raw, as a
+  kernel loads them, with standard input staying how they reach the
+  board until a real board's initrd is needed.
