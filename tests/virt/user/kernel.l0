@@ -9,7 +9,7 @@
 ;
 ; Its standard input is the number of processes in decimal and a newline;
 ; then for each, its image's length in decimal and a newline, and the
-; image's bytes, as llvm-objcopy -O binary writes them, to be mapped from
+; image's bytes, as tools/l0 build --target proc writes them, to be mapped from
 ; 0xC0000000; then what the processes read as their standard input, which
 ; they share. Their standard output and error are the kernel's. It gives
 ; no files, as the board does, and maps the board's devices for the region

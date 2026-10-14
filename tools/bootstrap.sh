@@ -190,9 +190,9 @@ if [ "$VIRT" = 1 ]; then
         exit 1
     fi
     L0_PROC_DIR="$BUILD/proc" tools/l0 link --target proc "$BUILD/stage2.ll" \
-        -o "$BUILD/stage2-proc.elf"
+        -o "$BUILD/stage2-proc.img"
     start=$(date +%s)
-    if ! tests/virt/proc/harness/boot.sh "$BUILD/proc-boot" - "$BUILD/stage2-proc.elf" \
+    if ! tests/virt/proc/harness/boot.sh "$BUILD/proc-boot" - "$BUILD/stage2-proc.img" \
         < "$SRC" > "$BUILD/stage3-proc.ll.tagged"; then
         echo "FAIL: stage2 failed as a process" >&2
         exit 1
@@ -223,7 +223,7 @@ if [ "$VIRT" = 1 ]; then
     fi
     start=$(date +%s)
     if ! tests/virt/user/run.sh "$BUILD/user-kernel.img" "$BUILD/user-boot" - \
-        "$BUILD/stage2-proc.elf" < "$SRC" > "$BUILD/stage3-user.ll.tagged"; then
+        "$BUILD/stage2-proc.img" < "$SRC" > "$BUILD/stage3-user.ll.tagged"; then
         echo "FAIL: stage2 failed as a process of the L0 kernel" >&2
         exit 1
     fi

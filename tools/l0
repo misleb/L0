@@ -43,11 +43,12 @@
 # emulator, and L0_VIRT_DIR the board's runtime, which defaults to the
 # installed one.
 #
-# With --target proc, l0 build writes an ELF image at the virtual addresses
-# spec section 10.3 fixes for a process, with runtime/host-proc.ll as its
-# host file, which any kernel that answers that section's system calls
-# runs. It is linked as --target virt's images are; L0_PROC_DIR names its
-# runtime, which defaults to the installed one.
+# With --target proc, l0 build writes a process's image as its kernel loads
+# it: raw, its bytes from 0xC0000000, the virtual address spec section
+# 10.3 fixes, with runtime/host-proc.ll as its host file, which any kernel
+# that answers that section's system calls runs. It is linked as --target
+# virt's images are; L0_PROC_DIR names its runtime, which defaults to the
+# installed one.
 #
 # l0 test runs every test with L0_RC_CHECK set, and a test that leaves
 # memory it never freed fails, since that is a compiler or runtime bug.
@@ -307,10 +308,10 @@ bare_link() {
         -Xclang -mlink-bitcode-file -Xclang "$tdir/l0rt.bc" \
         -Xclang -mlink-bitcode-file -Xclang "$tdir/freestanding.bc" \
         -Xclang -mlink-bitcode-file -Xclang "$tdir/host.bc" -o "$TMP/bare.o"
-    # The board's image is raw, as the arm64 boot protocol loads it (spec
-    # section 10.3); a process's is an ELF, which its kernel lays out.
-    oformat=""
-    [ "$1" = virt ] && oformat="--oformat binary"
+    # Each image is raw, as its loader loads it (spec section 10.3): the
+    # board's by the arm64 boot protocol, and a process's by its kernel,
+    # its bytes from 0xC0000000.
+    oformat="--oformat binary"
     if [ -n "${L0_VIRT_LD:-}" ]; then
         # shellcheck disable=SC2086
         "$L0_VIRT_LD" -T "$tdir/$1.ld" $oformat "$TMP/bare.o" -o "$3"

@@ -84,8 +84,11 @@ ends interrupts, with those of section 6.14.
 `l0 build --target proc` builds a program as a process for a kernel on
 aarch64, in an address space of its own, reaching the kernel through the
 system calls the spec's section 10.3 fixes. The kernel decides what the
-program gets: files, arguments, and devices, or none. No kernel comes with
-the toolchain, so nothing here runs the image. Such a program also makes
+program gets: files, arguments, and devices, or none. The image is raw,
+its bytes from 0xC0000000, as a kernel maps them, so a kernel written in
+L0 can take its processes' images from its own standard input, in a
+layout of its choosing, and be booted with them by `l0 boot`. No kernel
+comes with the toolchain. Such a program also makes
 its kernel's own calls, numbered from 256, with `supervisor_call`,
 `supervisor_send`, and `supervisor_receive` (section 6.15); what each
 means is that kernel's.

@@ -439,7 +439,7 @@ if [ "$VIRT" = 1 ]; then
     proc_build() {
         # shellcheck disable=SC2046
         if L0_COMPILER="$vcc" ./tools/l0 build --target proc "$3" \
-            $(extra_sources "$4") -o "$TMP/$2.proc.elf" \
+            $(extra_sources "$4") -o "$TMP/$2.proc.img" \
             > "$TMP/$2.proc.berr" 2>&1; then
             return 0
         fi
@@ -460,7 +460,7 @@ if [ "$VIRT" = 1 ]; then
         pargs=-
         [ -f "$stem.args" ] && pargs="$stem.args"
         run_case virt-proc "$name" "$stem" "$harness/boot.sh" "$pwork" "$pargs" \
-            "$TMP/$name.proc.elf"
+            "$TMP/$name.proc.img"
     done
 
     spin=""
@@ -479,7 +479,7 @@ if [ "$VIRT" = 1 ]; then
                     spin)
                         if [ -z "$spin" ]; then
                             proc_build proc spin "$harness/spin.l0" "$harness/spin" || continue 2
-                            spin="$TMP/spin.proc.elf"
+                            spin="$TMP/spin.proc.img"
                         fi
                         beside="$beside $spin"
                         ;;
@@ -489,7 +489,7 @@ if [ "$VIRT" = 1 ]; then
         fi
         # shellcheck disable=SC2086
         run_case proc "$name" "$stem" "$harness/boot.sh" "$pwork" "$args" \
-            "$TMP/$name.proc.elf" $beside
+            "$TMP/$name.proc.img" $beside
     done
 
     # And under a kernel written in L0 (spec sections 6.13 and 6.14): each
@@ -507,11 +507,12 @@ if [ "$VIRT" = 1 ]; then
     # user_ir NAME links the harness's NAME.ll as a process, into
     # $uwork/NAME.elf, or fails the test of that name.
     user_ir() {
-        if [ -f "$uwork/$1.elf" ]; then
+        if [ -f "$uwork/$1.img" ]; then
             return 0
         fi
         if { "$CC" --target=aarch64-none-elf -O2 -c "$harness/$1.ll" -o "$uwork/$1.o" &&
-            "$L0_VIRT_LD" -T runtime/proc.ld "$uwork/$1.o" -o "$uwork/$1.elf"; } \
+            "$L0_VIRT_LD" -T runtime/proc.ld --oformat binary "$uwork/$1.o" \
+                -o "$uwork/$1.img"; } \
             > "$uwork/$1.berr" 2>&1; then
             return 0
         fi
@@ -532,7 +533,7 @@ if [ "$VIRT" = 1 ]; then
             [ -f "$src" ] || continue
             name=$(basename "$src" .l0)
             selected "$name" || continue
-            [ -f "$TMP/$name.proc.elf" ] || continue
+            [ -f "$TMP/$name.proc.img" ] || continue
             # The program's arguments are the kernel's for process 0.
             kargs=-
             if [ -f "tests/virt/$name.args" ]; then
@@ -540,7 +541,7 @@ if [ "$VIRT" = 1 ]; then
                 kargs="$uwork/$name.kargs"
             fi
             run_case virt-user "$name" "tests/virt/$name" "$user/run.sh" \
-                "$uwork/kernel.img" "$uwork" "$kargs" "$TMP/$name.proc.elf"
+                "$uwork/kernel.img" "$uwork" "$kargs" "$TMP/$name.proc.img"
         done
         for spec in "$user"/*.procs; do
             [ -f "$spec" ] || continue
@@ -552,11 +553,11 @@ if [ "$VIRT" = 1 ]; then
                     *.l0)
                         pn=$(basename "$p" .l0)
                         proc_build user "$pn" "$p" "${p%.l0}" || continue 2
-                        images="$images $TMP/$pn.proc.elf"
+                        images="$images $TMP/$pn.proc.img"
                         ;;
                     *)
                         user_ir "$p" || continue 2
-                        images="$images $uwork/$p.elf"
+                        images="$images $uwork/$p.img"
                         ;;
                 esac
             done
@@ -572,22 +573,22 @@ if [ "$VIRT" = 1 ]; then
             selected "$name" || continue
             stem="tests/virt/proc/$name"
             [ -f "$stem.args" ] && continue
-            [ -f "$TMP/$name.proc.elf" ] || continue
+            [ -f "$TMP/$name.proc.img" ] || continue
             beside=""
             if [ -f "$stem.with" ]; then
                 for w in $(cat "$stem.with"); do
                     case $w in
-                        spin) beside="$beside $TMP/spin.proc.elf" ;;
+                        spin) beside="$beside $TMP/spin.proc.img" ;;
                         *)
                             user_ir "$w" || continue 2
-                            beside="$beside $uwork/$w.elf"
+                            beside="$beside $uwork/$w.img"
                             ;;
                     esac
                 done
             fi
             # shellcheck disable=SC2086
             run_case user-proc "$name" "$stem" "$user/run.sh" \
-                "$uwork/kernel.img" "$uwork" - "$TMP/$name.proc.elf" $beside
+                "$uwork/kernel.img" "$uwork" - "$TMP/$name.proc.img" $beside
         done
     fi
 

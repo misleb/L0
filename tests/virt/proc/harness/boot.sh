@@ -7,14 +7,15 @@
 #   WORK    a directory for the kernel's image and the processes' raw bytes,
 #           inside the repository, where the linker container can see it
 #   ARGS    a file of slot 0's arguments, one per line, or - for none
-#   SLOTn   a process image, built by tools/l0 build --target proc; fault,
-#           for fault.ll beside it; or - for an empty slot
+#   SLOTn   a process image, built by tools/l0 build --target proc, raw;
+#           fault, for fault.ll beside it; or - for an empty slot
 #
 # Standard input is the processes' standard input. Standard output is the
 # board's serial line; standard error and the exit status come back by
 # semihosting. The kernel and fault.ll are linked once into WORK, by
 # L0_VIRT_LD if it names an ld.lld, or else in the l0-virt-link container,
-# as tools/l0 links --target virt.
+# as tools/l0 links --target virt: the kernel as an ELF, which QEMU boots
+# as it is, needing no boot arguments, and fault.ll raw, as a process.
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -46,18 +47,20 @@ lld() {
     fi
 }
 
-# image LL LD OUT links LL by LD into OUT, unless OUT is newer than both.
+# image LL LD OUT [FLAG ...] links LL by LD into OUT, unless OUT is newer
+# than both.
 image() {
-    if [ ! -f "$3" ] || [ "$1" -nt "$3" ] || [ "$2" -nt "$3" ]; then
-        "$CC" --target=aarch64-none-elf -O2 -c "$1" -o "${3%.elf}.o"
-        lld -T "$2" "${3%.elf}.o" -o "$3"
+    ll=$1
+    ld=$2
+    out=$3
+    shift 3
+    if [ ! -f "$out" ] || [ "$ll" -nt "$out" ] || [ "$ld" -nt "$out" ]; then
+        "$CC" --target=aarch64-none-elf -O2 -c "$ll" -o "$out.o"
+        lld -T "$ld" "$@" "$out.o" -o "$out"
     fi
 }
 image "$HERE/kernel.ll" "$HERE/kernel.ld" "$work/kernel.elf"
-image "$HERE/fault.ll" "$ROOT/runtime/proc.ld" "$work/fault.elf"
-
-objcopy="$LLVM_PREFIX/bin/llvm-objcopy"
-[ -x "$objcopy" ] || objcopy=llvm-objcopy
+image "$HERE/fault.ll" "$ROOT/runtime/proc.ld" "$work/fault.img" --oformat binary
 
 cat > "$work/stdin"
 len=$(wc -c < "$work/stdin" | tr -d ' ')
@@ -81,19 +84,18 @@ if [ "$alen" -gt 0 ]; then
     dev="$dev -device loader,file=$work/args,addr=0x5F000000,force-raw=on"
 fi
 
-# Each process's bytes from 0xC0000000, raw, at its slot's physical
-# address; its bss is RAM that QEMU starts zero.
+# Each process's image, its raw bytes from 0xC0000000, at its slot's
+# physical address; its bss is RAM that QEMU starts zero.
 slot=0
 for p in "$@"; do
     case $p in
         -) ;;
-        fault) img="$work/fault.elf" ;;
+        fault) img="$work/fault.img" ;;
         *) img=$p ;;
     esac
     if [ "$p" != - ]; then
-        "$objcopy" -O binary "$img" "$work/slot$slot.bin"
         addr=$(printf '0x%X' $((0x58000000 + slot * 0x400000)))
-        dev="$dev -device loader,file=$work/slot$slot.bin,addr=$addr,force-raw=on"
+        dev="$dev -device loader,file=$img,addr=$addr,force-raw=on"
     fi
     slot=$((slot + 1))
 done

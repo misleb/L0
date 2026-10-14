@@ -7,6 +7,31 @@ New entries go at the top.
 
 ---
 
+## A process's image is raw, as its kernel loads it, and no language change for it
+
+**No semantic change. L0 is exactly the language it was before this entry.**
+`l0 build --target proc` writes a process's image raw, its bytes from
+0xC0000000, which is what section 10.3 says a kernel maps; it wrote an
+ELF. Section 10.3 now says so. Roadmap 0082, the second of the gaps 0074's
+Log named before a kernel's own project.
+
+**Why.** A kernel on the board reads its processes' images from its
+standard input, and what it loads is those raw bytes. From an ELF, they
+took `llvm-objcopy`, which `tests/virt/user/bundle.sh` and the IR
+harness ran and a project using the installed toolchain has no name for,
+so it could not make its kernel's input. What the toolchain writes for a
+target is now what that target's loader loads: the board's image raw for
+the arm64 boot protocol since the last entry, and a process's raw for its
+kernel. How a kernel's input lays its images out stays the kernel's, as
+its calls are (section 6.15).
+
+**What it gives up.** An ELF's segments say which bytes are code and
+which data, which a kernel mapping code read-only and data never
+executable would want. No kernel here does yet; one that does is the
+reason to write the ELF beside the raw image.
+
+---
+
 ## The virt board gives arguments, by the arm64 boot protocol
 
 **What changed.** A program on QEMU's virt board has arguments: its boot

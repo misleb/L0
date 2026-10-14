@@ -81,10 +81,12 @@ process writes what a client sends it, waiting for its device's
 interrupt. 0074's language items are done; left are the kernel in a
 project of its own and the measure as a test, after the two gaps 0074's
 Log names: `l0 test` on the board, now done (0081), and process images a
-kernel can read (0082). Before 0082, the board came to give arguments by
-the arm64 boot protocol (0083), so a kernel is told at boot what to do
-with its images, as the L0 kernel now tells its serial driver where its
-device is.
+kernel can read (0082), now done too: the toolchain writes a process's
+image raw, as a kernel loads it. Before 0082, the board came to give
+arguments by the arm64 boot protocol (0083), so a kernel is told at boot
+what to do with its images, as the L0 kernel now tells its serial driver
+where its device is. Both gaps are closed; what is left of 0074 is the
+kernel in a project of its own (item 7) and the measure as a test (item 8).
 
 ## Language queue
 
@@ -94,8 +96,7 @@ None.
 
 ## Other open items
 
-- [0082](0082-kernel-input.md) tooling: process images for a kernel's
-  input — proposed, next
+None.
 
 ## Done and dropped
 
@@ -314,3 +315,6 @@ None.
 - [0083](0083-board-arguments.md) the virt board gives arguments, by the
   arm64 boot protocol — done, changelog "The virt board gives arguments, by
   the arm64 boot protocol"; passed on Linux arm64
+- [0082](0082-kernel-input.md) tooling: process images for a kernel's input
+  — done, changelog "A process's image is raw, as its kernel loads it, and
+  no language change for it"
