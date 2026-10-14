@@ -65,10 +65,11 @@ standard library is linked automatically, and `l0 test` adds its assertions,
 so never pass library files on the command line.
 
 `l0 build --target virt` builds an image for QEMU's aarch64 `virt` board,
-with no operating system, and `l0 boot IMAGE < input` runs one (`l0 run
---target virt` does both). There the program has standard input, output,
-and error, and the clock, but no files, no arguments, and no environment:
-the spec's section 9.2 says what each builtin gives then. It also has the
+with no operating system, and `l0 boot IMAGE ARG ... < input` runs one
+(`l0 run --target virt -- ARG ...` does both). There the program has
+standard input, output, and error, the clock, and arguments, its boot
+arguments, which hold no spaces, but no files and no environment: the
+spec's section 9.2 says what each builtin gives then. It also has the
 board's devices, which a program drives through their registers with
 `open_device` and `device_read32` and the rest (`l0 doc IoDevice`); under
 an operating system there are none, and opening one fails. `l0 test

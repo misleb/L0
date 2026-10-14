@@ -159,9 +159,9 @@ if [ "$VIRT" = 1 ]; then
         exit 1
     fi
     L0_VIRT_DIR="$BUILD/virt" tools/l0 link --target virt "$BUILD/stage2.ll" \
-        -o "$BUILD/stage2.elf"
+        -o "$BUILD/stage2.img"
     start=$(date +%s)
-    if ! tools/l0 boot "$BUILD/stage2.elf" < "$SRC" > "$BUILD/stage3-virt.ll.tagged"; then
+    if ! tools/l0 boot "$BUILD/stage2.img" < "$SRC" > "$BUILD/stage3-virt.ll.tagged"; then
         echo "FAIL: stage2 failed on the virt board" >&2
         exit 1
     fi
@@ -217,12 +217,12 @@ if [ "$VIRT" = 1 ]; then
     # And as the process of a kernel written in L0, tests/virt/user/kernel.l0
     # (spec section 6.13), built by stage2 itself.
     if ! L0_COMPILER="$BUILD/stage2" L0_VIRT_DIR="$BUILD/virt" tools/l0 build \
-        --target virt tests/virt/user/kernel.l0 -o "$BUILD/user-kernel.elf"; then
+        --target virt tests/virt/user/kernel.l0 -o "$BUILD/user-kernel.img"; then
         echo "FAIL: stage2 did not build tests/virt/user/kernel.l0" >&2
         exit 1
     fi
     start=$(date +%s)
-    if ! tests/virt/user/run.sh "$BUILD/user-kernel.elf" "$BUILD/user-boot" \
+    if ! tests/virt/user/run.sh "$BUILD/user-kernel.img" "$BUILD/user-boot" - \
         "$BUILD/stage2-proc.elf" < "$SRC" > "$BUILD/stage3-user.ll.tagged"; then
         echo "FAIL: stage2 failed as a process of the L0 kernel" >&2
         exit 1

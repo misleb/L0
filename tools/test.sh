@@ -59,7 +59,12 @@
 #                  one without devices; --virt skips it
 #   <stem>.board   tests/virt only: why the program needs the board itself, such
 #                  as its user mode; it is not run again as a process
-#   <stem>.args    tests/virt/proc only: the process's arguments, one per line
+#   <stem>.args    tests/virt: the program's arguments, one per line, which
+#                  hold no spaces: its boot arguments on the board, and its
+#                  arguments as a process under both kernels.
+#                  tests/virt/proc: the process's arguments, which may
+#                  hold spaces, so the L0 kernel does not run it.
+#                  tests/virt/user: the L0 kernel's boot arguments
 #   <stem>.with    tests/virt/proc only: what the kernel runs beside it, one
 #                  per line, spin or fault from tests/virt/proc/harness
 #   <stem>.procs   tests/virt/user only: the processes kernel.l0 runs, in
@@ -254,6 +259,14 @@ extra_sources() {
     fi
 }
 
+# The arguments a tests/virt program is booted with, one per line of its
+# .args file, which hold no spaces.
+args_of() {
+    if [ -f "$1.args" ]; then
+        tr '\n' ' ' < "$1.args"
+    fi
+}
+
 # --------------------------------------------------------------------- virt
 #
 # The fixpoint's last step on QEMU's aarch64 virt board, and then the
@@ -336,7 +349,7 @@ if [ "$VIRT" = 1 ]; then
             sed 's/^/    /' "$TMP/$vname_.cerr"
             return
         fi
-        if ! ./tools/l0 link --target virt "$TMP/$vname_.ll" -o "$TMP/$vname_.elf" \
+        if ! ./tools/l0 link --target virt "$TMP/$vname_.ll" -o "$TMP/$vname_.img" \
             > "$TMP/$vname_.lerr" 2>&1; then
             nfail=$((nfail + 1))
             failures="$failures $vsuite/$vname_"
@@ -344,7 +357,7 @@ if [ "$VIRT" = 1 ]; then
             sed 's/^/    /' "$TMP/$vname_.lerr"
             return
         fi
-        run_case "$vsuite" "$vname_" "$vstem" ./tools/l0 boot "$TMP/$vname_.elf"
+        run_case "$vsuite" "$vname_" "$vstem" ./tools/l0 boot "$TMP/$vname_.img"
     }
 
     nskip=0
@@ -396,7 +409,7 @@ if [ "$VIRT" = 1 ]; then
         stem="tests/virt/$name"
         # shellcheck disable=SC2046
         if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$src" \
-            $(extra_sources "$stem") -o "$TMP/$name.elf" \
+            $(extra_sources "$stem") -o "$TMP/$name.img" \
             > "$TMP/$name.berr" 2>&1; then
             nfail=$((nfail + 1))
             failures="$failures virt/$name"
@@ -404,15 +417,18 @@ if [ "$VIRT" = 1 ]; then
             sed 's/^/    /' "$TMP/$name.berr"
             continue
         fi
-        run_case virt "$name" "$stem" ./tools/l0 boot "$TMP/$name.elf"
+        # shellcheck disable=SC2046
+        run_case virt "$name" "$stem" ./tools/l0 boot "$TMP/$name.img" \
+            $(args_of "$stem")
     done
 
     # The same programs, but for those a .board file keeps on the board, as
     # processes of a kernel (spec section 9.2), each
     # built with tools/l0 build --target proc and run alone, as the first
     # process of tests/virt/proc/harness/kernel.ll, against the board's
-    # expectations: that kernel gives no files, arguments, or environment,
-    # which is what the board gives, and maps the board's devices. Then
+    # expectations: that kernel gives no files or environment, which is
+    # what the board gives, the arguments the program's .args file gives,
+    # as the board does, and maps the board's devices. Then
     # tests/virt/proc, the process host's own, with the arguments and the
     # processes beside it that its .args and .with files give.
     pwork="$TMP/proc"
@@ -441,7 +457,9 @@ if [ "$VIRT" = 1 ]; then
         stem="tests/virt/$name"
         [ -f "$stem.board" ] && continue
         proc_build virt-proc "$name" "$src" "$stem" || continue
-        run_case virt-proc "$name" "$stem" "$harness/boot.sh" "$pwork" - \
+        pargs=-
+        [ -f "$stem.args" ] && pargs="$stem.args"
+        run_case virt-proc "$name" "$stem" "$harness/boot.sh" "$pwork" "$pargs" \
             "$TMP/$name.proc.elf"
     done
 
@@ -504,7 +522,7 @@ if [ "$VIRT" = 1 ]; then
         return 1
     }
     if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$user/kernel.l0" \
-        -o "$uwork/kernel.elf" > "$uwork/kernel.berr" 2>&1; then
+        -o "$uwork/kernel.img" > "$uwork/kernel.berr" 2>&1; then
         nfail=$((nfail + 1))
         failures="$failures virt-user/kernel"
         echo "FAIL virt-user/kernel: did not build"
@@ -515,8 +533,14 @@ if [ "$VIRT" = 1 ]; then
             name=$(basename "$src" .l0)
             selected "$name" || continue
             [ -f "$TMP/$name.proc.elf" ] || continue
+            # The program's arguments are the kernel's for process 0.
+            kargs=-
+            if [ -f "tests/virt/$name.args" ]; then
+                sed 's/^/0:/' "tests/virt/$name.args" > "$uwork/$name.kargs"
+                kargs="$uwork/$name.kargs"
+            fi
             run_case virt-user "$name" "tests/virt/$name" "$user/run.sh" \
-                "$uwork/kernel.elf" "$uwork" "$TMP/$name.proc.elf"
+                "$uwork/kernel.img" "$uwork" "$kargs" "$TMP/$name.proc.elf"
         done
         for spec in "$user"/*.procs; do
             [ -f "$spec" ] || continue
@@ -536,9 +560,11 @@ if [ "$VIRT" = 1 ]; then
                         ;;
                 esac
             done
+            kargs=-
+            [ -f "$user/$name.args" ] && kargs="$user/$name.args"
             # shellcheck disable=SC2086
             run_case user "$name" "$user/$name" "$user/run.sh" \
-                "$uwork/kernel.elf" "$uwork" $images
+                "$uwork/kernel.img" "$uwork" "$kargs" $images
         done
         for src in tests/virt/proc/*.l0; do
             [ -f "$src" ] || continue
@@ -561,7 +587,7 @@ if [ "$VIRT" = 1 ]; then
             fi
             # shellcheck disable=SC2086
             run_case user-proc "$name" "$stem" "$user/run.sh" \
-                "$uwork/kernel.elf" "$uwork" "$TMP/$name.proc.elf" $beside
+                "$uwork/kernel.img" "$uwork" - "$TMP/$name.proc.elf" $beside
         done
     fi
 

@@ -1,0 +1,13 @@
+; Spec sections 6.4 and 10.3: the program's arguments, on the board its
+; boot arguments, which tools/test.sh passes from boot_args.args; as a
+; process, the same, given by its kernel. One holds a colon and an equals
+; sign, which mean nothing to the board; past the last, arg is empty.
+(def show ((i int) (n int)) int
+  (if (ge i n)
+      (write_line (arg n))
+      (let w (write_line (arg i)) (show (add i 1) n))))
+
+(def main () int
+  (let n (arg_count)
+    (let w (write_line (digits n))
+      (show 0 n))))

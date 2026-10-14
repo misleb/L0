@@ -7,6 +7,55 @@ New entries go at the top.
 
 ---
 
+## The virt board gives arguments, by the arm64 boot protocol
+
+**What changed.** A program on QEMU's virt board has arguments: its boot
+arguments, the device tree's `/chosen/bootargs`, split at runs of spaces.
+The board's image now boots by the arm64 boot protocol, Linux's, which
+hands the device tree over in `x0`: a raw image with the protocol's
+header, where it was an ELF. Section 10.3 says so; section 9.2's absence
+of arguments no longer applies to the board. `l0 boot IMAGE ARG...` and
+`l0 run --target virt -- ARG...` pass them, by QEMU's `-append`, and
+`l0 test --target virt` names its test by one, as it does here. Roadmap
+0083.
+
+**Why.** A kernel must be told at boot what to do with the images it is
+given: which process is the serial driver, and the driver's device and
+interrupt, so that it can start the driver with them through the
+arguments call 0077 gave processes for that. `tests/virt/user/kernel.l0`
+had all of it in its standard input, in a format of its own, which mixed
+the payload with the configuration; a real boot keeps the two apart, the
+images as a loaded file and the configuration as a command line. And the
+board refused any argument:
+
+```
+$ tools/l0 run --target virt roadmap/0083/why.l0 -- driver=1 base=0x09000000 irq=33
+l0: the virt board gives a program no arguments
+```
+
+**Why the boot protocol.** `roadmap/0083/probe.ll` found that QEMU gives
+a bare-metal ELF nothing: `x0` is 0, `-append` goes nowhere, and no
+device tree is at the bottom of RAM, though `host-virt.ll`'s memory map
+said one was. The same code with the protocol's header, booted as a raw
+image, gets the device tree's address in `x0`, with `-append`'s text in
+it. U-Boot and the Raspberry Pi's firmware boot an arm64 kernel the same
+way, the Pi with `cmdline.txt`, so one host file serves QEMU now and a
+board later.
+
+**Why split at spaces.** A command line has no quoting a board's
+firmware agrees on, and an argument with a space in it is rare enough
+for a kernel's configuration that refusing it is the simpler promise: `l0
+boot` refuses one, rather than splitting it in two.
+
+**Why copied out first.** The protocol puts the device tree wherever the
+firmware chose, QEMU at 0x48000000, and the host knows nothing of that
+range. It copies the arguments into its own memory before the program
+starts, while nothing else has touched any, and the image is now bounded
+below 0x48000000, its bss zeroed by the boot code rather than trusted to
+QEMU's empty RAM, which a board does not promise.
+
+---
+
 ## l0 test runs on the virt board, and no language change for it
 
 **No semantic change. L0 is exactly the language it was before this entry.**

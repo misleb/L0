@@ -7,7 +7,7 @@
 #   l0 run   FILE.l0 [MORE.l0 ...] [-- ARG ...]
 #                                             build to a temporary file, and run
 #                                             it with the arguments after --
-#   l0 boot  IMAGE                            boot an image built with
+#   l0 boot  IMAGE [ARG ...]                  boot an image built with
 #                                             --target virt, on standard input
 #   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
 #   l0 link  IR -o OUT                        link IR the compiler wrote, as
@@ -32,11 +32,12 @@
 #   --target proc   l0 build and link: a process for a kernel on aarch64
 #                   (spec sections 9.2 and 10.3), which only a kernel runs
 #
-# With --target virt, l0 build writes an ELF image, and l0 run boots it with
-# qemu-system-aarch64, with all of standard input loaded as the program's,
-# its standard output on the board's serial line, and its standard error
-# and exit status passed back as the program's own. The board gives no
-# arguments, so l0 run takes none after --. The image is linked by
+# With --target virt, l0 build writes a raw image, as the arm64 boot
+# protocol loads it, and l0 run boots it with qemu-system-aarch64, with all
+# of standard input loaded as the program's, the arguments after -- as its
+# boot arguments, which hold no space, its standard output on the board's
+# serial line, and its standard error and exit status passed back as the
+# program's own. l0 boot IMAGE ARG ... does the same for a built image. The image is linked by
 # L0_VIRT_LD, an ld.lld, if set, and otherwise by ld.lld in a container
 # built from tools/virt/Dockerfile the first time; L0_QEMU names the
 # emulator, and L0_VIRT_DIR the board's runtime, which defaults to the
@@ -50,10 +51,9 @@
 #
 # l0 test runs every test with L0_RC_CHECK set, and a test that leaves
 # memory it never freed fails, since that is a compiler or runtime bug.
-# With --target virt it boots the program once a test, naming the test on
-# standard input, since the board gives no arguments; there is no
-# environment there, so no leak check, and no files, so check_file fails
-# and --bless is refused.
+# With --target virt it boots the program once a test, naming the test by
+# its boot argument; there is no environment there, so no leak check, and
+# no files, so check_file fails and --bless is refused.
 #
 # Several files are compiled together, because L0 has no module system.
 # The standard library, lib/prelude.l0 and lib/io.l0, is included
@@ -307,8 +307,13 @@ bare_link() {
         -Xclang -mlink-bitcode-file -Xclang "$tdir/l0rt.bc" \
         -Xclang -mlink-bitcode-file -Xclang "$tdir/freestanding.bc" \
         -Xclang -mlink-bitcode-file -Xclang "$tdir/host.bc" -o "$TMP/bare.o"
+    # The board's image is raw, as the arm64 boot protocol loads it (spec
+    # section 10.3); a process's is an ELF, which its kernel lays out.
+    oformat=""
+    [ "$1" = virt ] && oformat="--oformat binary"
     if [ -n "${L0_VIRT_LD:-}" ]; then
-        "$L0_VIRT_LD" -T "$tdir/$1.ld" "$TMP/bare.o" -o "$3"
+        # shellcheck disable=SC2086
+        "$L0_VIRT_LD" -T "$tdir/$1.ld" $oformat "$TMP/bare.o" -o "$3"
         return
     fi
     if ! command -v docker > /dev/null 2>&1; then
@@ -320,33 +325,60 @@ bare_link() {
         docker build -q -t l0-virt-link "$tdir" > /dev/null
     fi
     cp "$tdir/$1.ld" "$TMP/$1.ld"
+    # shellcheck disable=SC2086
     docker run --rm -v "$TMP:/w" -w /w l0-virt-link \
-        ld.lld -T "$1.ld" bare.o -o bare.elf
-    cp "$TMP/bare.elf" "$3"
+        ld.lld -T "$1.ld" $oformat bare.o -o bare.out
+    cp "$TMP/bare.out" "$3"
 }
 
-# virt_boot IMAGE INPUT: boots IMAGE with the bytes of INPUT as its standard
-# input, loaded at 0x50000000 with their count in the word below, as
-# runtime/host-virt.ll reads them, and exits with the program's status.
-# QEMU's own standard input is not the program's, so it gets none.
+# virt_boot IMAGE INPUT [ARG ...]: boots IMAGE with the bytes of INPUT as
+# its standard input, loaded at 0x50000000 with their count in the word
+# below, as runtime/host-virt.ll reads them, and the ARGs as its boot
+# arguments, by QEMU's -append, and exits with the program's status. The
+# board splits its boot arguments at spaces, so an ARG holding one, or
+# none at all, is refused rather than split. QEMU's own standard input is
+# not the program's, so it gets none.
 virt_boot() {
     qemu=${L0_QEMU:-qemu-system-aarch64}
     if ! command -v "$qemu" > /dev/null 2>&1; then
         echo "l0: --target virt runs on $qemu, which is not installed" >&2
         exit 2
     fi
-    len=$(wc -c < "$2" | tr -d ' ')
+    image=$1
+    input=$2
+    shift 2
+    len=$(wc -c < "$input" | tr -d ' ')
     if [ "$len" -gt 134217720 ]; then
         echo "l0: the virt board takes at most 128 MB of standard input" >&2
         exit 2
     fi
+    line=""
+    for a in "$@"; do
+        case $a in
+            "" | *" "*)
+                echo "l0: a boot argument on the virt board holds no space and is not empty: '$a'" >&2
+                exit 2
+                ;;
+        esac
+        line="${line:+$line }$a"
+    done
+    if [ "${#line}" -gt 65535 ]; then
+        echo "l0: the virt board takes at most 65,535 bytes of boot arguments" >&2
+        exit 2
+    fi
     load="-device loader,addr=0x4FFFFFF8,data=$len,data-len=8"
     if [ "$len" -gt 0 ]; then
-        load="$load -device loader,file=$2,addr=0x50000000,force-raw=on"
+        load="$load -device loader,file=$input,addr=0x50000000,force-raw=on"
     fi
-    # shellcheck disable=SC2086
-    "$qemu" -M virt -cpu cortex-a72 -m 2G -display none -monitor none \
-        -serial stdio -semihosting $load -kernel "$1" < /dev/null
+    if [ -n "$line" ]; then
+        # shellcheck disable=SC2086
+        "$qemu" -M virt -cpu cortex-a72 -m 2G -display none -monitor none \
+            -serial stdio -semihosting $load -kernel "$image" -append "$line" < /dev/null
+    else
+        # shellcheck disable=SC2086
+        "$qemu" -M virt -cpu cortex-a72 -m 2G -display none -monitor none \
+            -serial stdio -semihosting $load -kernel "$image" < /dev/null
+    fi
 }
 
 # ---------------------------------------------------------------- reference
@@ -587,14 +619,16 @@ case "$cmd" in
         ;;
 
     boot)
-        if [ $# -ne 1 ] || [ ! -f "$1" ]; then
-            echo "usage: l0 boot IMAGE < input, for an image l0 build --target virt wrote" >&2
+        if [ $# -lt 1 ] || [ ! -f "$1" ]; then
+            echo "usage: l0 boot IMAGE [ARG ...] < input, for an image l0 build --target virt wrote" >&2
             exit 2
         fi
         TMP=$(mktemp -d "$(scratch_base)/l0.XXXXXX")
         trap 'rm -rf "$TMP"' EXIT
         cat > "$TMP/stdin"
-        virt_boot "$1" "$TMP/stdin"
+        image=$1
+        shift
+        virt_boot "$image" "$TMP/stdin" "$@"
         ;;
 
     link)
@@ -646,14 +680,10 @@ case "$cmd" in
             echo "l0: a process runs under a kernel, and no kernel comes with the toolchain; l0 build --target proc writes its image" >&2
             exit 2
         elif [ "$TARGET" = virt ]; then
-            if [ $# -gt 0 ]; then
-                echo "l0: the virt board gives a program no arguments" >&2
-                exit 2
-            fi
             cat > "$TMP/stdin"
             run_compiler "$TMP/out.ll"
-            bare_link virt "$TMP/out.ll" "$TMP/prog.elf"
-            virt_boot "$TMP/prog.elf" "$TMP/stdin"
+            bare_link virt "$TMP/out.ll" "$TMP/prog.img"
+            virt_boot "$TMP/prog.img" "$TMP/stdin" "$@"
         else
             run_compiler "$TMP/out.ll"
             "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
@@ -692,18 +722,12 @@ case "$cmd" in
         fi
 
         # The generated main runs the test (arg 0) names, or writes the
-        # runtime error a test expects when asked for "expect:NAME". The
-        # virt board gives no arguments, so there the name is the first
-        # line of standard input instead.
+        # runtime error a test expects when asked for "expect:NAME", on the
+        # virt board as here, since it has boot arguments.
         gen="$TMP/l0test_main.l0"
         {
-            if [ "$TARGET" = virt ]; then
-                echo "(def main () int"
-                echo "  (let name (test_name_from_input 0)"
-            else
-                echo "(def main () int"
-                echo "  (let name (arg 0)"
-            fi
+            echo "(def main () int"
+            echo "  (let name (arg 0)"
             closes=""
             for t in $tests; do
                 echo "  (if (list_eq name \"$t\") (test_status ($t))"
@@ -718,21 +742,21 @@ case "$cmd" in
         SOURCES="$SOURCES $gen"
         run_compiler "$TMP/out.ll"
         if [ "$TARGET" = virt ]; then
-            bare_link virt "$TMP/out.ll" "$TMP/prog.elf"
+            bare_link virt "$TMP/out.ll" "$TMP/prog.img"
         else
             "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
                 "$HOST" -o "$TMP/prog"
         fi
 
         # run_one NAME runs the test program for NAME, a test or
-        # "expect:TEST", its standard output and error in t.out and t.err:
-        # here with NAME its argument, and under L0_RC_CHECK, whose leak
-        # check is section 10.3's; on the board, booted with NAME as its
-        # input, where there is no environment to check under.
+        # "expect:TEST", as its argument, its standard output and error in
+        # t.out and t.err: here under L0_RC_CHECK, whose leak check is
+        # section 10.3's; on the board, booted with NAME as its boot
+        # argument, with no environment to check under.
         run_one() {
             if [ "$TARGET" = virt ]; then
-                printf '%s\n' "$1" > "$TMP/t.in"
-                virt_boot "$TMP/prog.elf" "$TMP/t.in"
+                : > "$TMP/t.in"
+                virt_boot "$TMP/prog.img" "$TMP/t.in" "$1"
             else
                 L0_RC_CHECK=1 "$TMP/prog" "$1" $BLESS < /dev/null
             fi

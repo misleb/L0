@@ -8,9 +8,14 @@
 ; It names its machine's triple, unlike l0rt.ll and host-libc.ll, since the
 ; boot code is aarch64 assembly.
 ;
+; It boots by the arm64 boot protocol (spec section 10.3): a raw image with
+; the protocol's header, entered with the device tree's address in x0.
+;
 ; Memory, with QEMU's -m 2G (RAM is 0x40000000 to 0xC0000000):
-;   0x40000000  the device tree, put there by QEMU
-;   0x40080000  the image: code, data, bss
+;   0x40080000  the image: code, data, bss, which the boot code zeroes
+;   0x48000000  the device tree, where QEMU puts it for this protocol; the
+;               image must end below it, and the arguments are copied out
+;               of it before the program starts
 ;   0x4FFFFFF8  standard input's length, a word, written by QEMU's loader
 ;   0x50000000  standard input's bytes, loaded by QEMU's loader
 ;   0x58000000  the heap, to 0x98000000
@@ -22,8 +27,10 @@
 ; of input; with none loaded the length word is 0 and input is empty.
 ; Standard output is the PL011 serial port at 0x09000000. Standard error
 ; and the exit status reach the host by semihosting, so the three stay
-; apart on a board with one serial line. As section 9.2 says, there are no
-; files, no arguments, and no environment. The clock is the generic timer.
+; apart on a board with one serial line. The arguments are the boot
+; arguments, the device tree's /chosen/bootargs, split at runs of spaces.
+; As section 9.2 says, there are no files and no environment. The clock is
+; the generic timer.
 ; The board's devices are what a program may open as regions (spec section
 ; 6.12), the serial port among them, but not the interrupt controller,
 ; which this file drives (spec section 6.14). A program runs at EL1, with
@@ -38,9 +45,23 @@ target triple = "aarch64-unknown-none-elf"
 
 ; ------------------------------------------------------------------- boot
 
+; The arm64 boot protocol's header (Linux's Documentation/arm64/booting): a
+; branch past it, a text offset of 0x80000 from the base of RAM, the
+; image's size with its bss, no flags, and the magic "ARM\x64". A loader
+; that sees it enters at _start with the device tree's address in x0.
 module asm ".section .text.boot,\22ax\22"
 module asm ".global _start"
 module asm "_start:"
+module asm "  b l0_virt_boot"
+module asm "  .word 0"
+module asm "  .quad 0x80000"
+module asm "  .quad 0x7F80000"
+module asm "  .quad 0"
+module asm "  .quad 0, 0, 0"
+module asm "  .word 0x644d5241"
+module asm "  .word 0"
+module asm "l0_virt_boot:"
+module asm "  mov x20, x0"
 module asm "  mov x0, #(3 << 20)"
 module asm "  msr cpacr_el1, x0"
 module asm "  isb"
@@ -66,6 +87,15 @@ module asm "  orr x0, x0, x1"
 module asm "  bic x0, x0, #2"
 module asm "  msr sctlr_el1, x0"
 module asm "  isb"
+module asm "  ldr x1, =__bss_start"
+module asm "  ldr x2, =__bss_end"
+module asm "4:"
+module asm "  cmp x1, x2"
+module asm "  b.hs 5f"
+module asm "  str xzr, [x1], #8"
+module asm "  b 4b"
+module asm "5:"
+module asm "  mov x0, x20"
 module asm "  bl l0_virt_main"
 module asm "1: b 1b"
 
@@ -271,10 +301,13 @@ declare i64 @l0_rt_run(i64)
 ; Defined by runtime/freestanding.ll.
 declare ptr @memcpy(ptr, ptr, i64)
 
-; Called by _start on the boot stack. l0_rt_run's frame is a little below
-; the top, so the size it is given leaves 64 KB for what lies above it.
-define void @l0_virt_main() noreturn {
+; Called by _start on the boot stack, with the device tree's address. The
+; arguments are copied out of it before anything else, since the tree is
+; wherever the firmware put it. l0_rt_run's frame is a little below the
+; top, so the size it is given leaves 64 KB for what lies above it.
+define void @l0_virt_main(i64 %dtb) noreturn {
 entry:
+  call void @boot_args(i64 %dtb)
   call void @gic_init()
   %top = ptrtoint ptr @__stack_top to i64
   %bottom = ptrtoint ptr @__stack_bottom to i64
@@ -502,14 +535,225 @@ yes:
   ret i64 %t
 }
 
-define i64 @l0_host_arg_count() {
+; ---------------------------------------------------------- the arguments
+;
+; Spec section 10.3: the boot arguments, the bootargs property of the
+; device tree's /chosen node, split at runs of spaces. The device tree is
+; read as the Devicetree Specification lays it out, big-endian: a header
+; whose words 1 to 3 are its total size and the offsets of its structure
+; and strings blocks, then tokens, 1 a node's beginning and its name, 2 its
+; end, 3 a property with its length and the offset of its name, 4 nothing,
+; 9 the end. The bytes are copied into args_buf, the spaces become NULs,
+; and arg_at holds where each argument starts.
+
+@args_buf = internal global [65536 x i8] zeroinitializer
+@arg_at = internal global [4096 x i64] zeroinitializer
+@arg_n = internal global i64 0
+@s_chosen = private constant [7 x i8] c"chosen\00"
+@s_bootargs = private constant [9 x i8] c"bootargs\00"
+
+declare i64 @strlen(ptr)
+
+define internal i64 @dt_byte(i64 %a) {
 entry:
-  ret i64 0
+  %p = inttoptr i64 %a to ptr
+  %c = load i8, ptr %p
+  %v = zext i8 %c to i64
+  ret i64 %v
 }
 
+define internal i64 @be32(i64 %a) {
+entry:
+  %b0 = call i64 @dt_byte(i64 %a)
+  %a1 = add i64 %a, 1
+  %b1 = call i64 @dt_byte(i64 %a1)
+  %a2 = add i64 %a, 2
+  %b2 = call i64 @dt_byte(i64 %a2)
+  %a3 = add i64 %a, 3
+  %b3 = call i64 @dt_byte(i64 %a3)
+  %s0 = shl i64 %b0, 24
+  %s1 = shl i64 %b1, 16
+  %s2 = shl i64 %b2, 8
+  %o0 = or i64 %s0, %s1
+  %o1 = or i64 %o0, %s2
+  %v = or i64 %o1, %b3
+  ret i64 %v
+}
+
+; Whether the NUL-terminated name at a is s.
+define internal i1 @dt_name_is(i64 %a, ptr %s) {
+entry:
+  br label %loop
+loop:
+  %k = phi i64 [ 0, %entry ], [ %k1, %same ]
+  %ak = add i64 %a, %k
+  %c = call i64 @dt_byte(i64 %ak)
+  %sp = getelementptr i8, ptr %s, i64 %k
+  %t8 = load i8, ptr %sp
+  %t = zext i8 %t8 to i64
+  %eq = icmp eq i64 %c, %t
+  br i1 %eq, label %check, label %no
+check:
+  %end = icmp eq i64 %t, 0
+  br i1 %end, label %yes, label %same
+same:
+  %k1 = add i64 %k, 1
+  br label %loop
+yes:
+  ret i1 true
+no:
+  ret i1 false
+}
+
+define internal i64 @pad4(i64 %n) {
+entry:
+  %a = add i64 %n, 3
+  %r = and i64 %a, -4
+  ret i64 %r
+}
+
+; Finds /chosen's bootargs in the device tree at dtb, if there is one, and
+; takes the arguments from it.
+define internal void @boot_args(i64 %dtb) {
+entry:
+  %null = icmp eq i64 %dtb, 0
+  br i1 %null, label %done, label %magic
+magic:
+  %m = call i64 @be32(i64 %dtb)
+  %ok = icmp eq i64 %m, 3490578157                          ; 0xd00dfeed
+  br i1 %ok, label %head, label %done
+head:
+  %ta = add i64 %dtb, 4
+  %total = call i64 @be32(i64 %ta)
+  %sa = add i64 %dtb, 8
+  %ostruct = call i64 @be32(i64 %sa)
+  %na = add i64 %dtb, 12
+  %ostr = call i64 @be32(i64 %na)
+  %p0 = add i64 %dtb, %ostruct
+  %end = add i64 %dtb, %total
+  %strings = add i64 %dtb, %ostr
+  br label %loop
+loop:
+  %p = phi i64 [ %p0, %head ], [ %bp, %begin ], [ %ep, %leave ], [ %pp, %prop ], [ %np, %nop ]
+  %depth = phi i64 [ 0, %head ], [ %bd, %begin ], [ %ed, %leave ], [ %depth, %prop ], [ %depth, %nop ]
+  %in = phi i1 [ false, %head ], [ %bin, %begin ], [ %in, %leave ], [ %in, %prop ], [ %in, %nop ]
+  %over = icmp uge i64 %p, %end
+  br i1 %over, label %done, label %token
+token:
+  %tok = call i64 @be32(i64 %p)
+  switch i64 %tok, label %done [ i64 1, label %begin
+                                 i64 2, label %endnode
+                                 i64 3, label %propchk
+                                 i64 4, label %nop ]
+begin:
+  %name = add i64 %p, 4
+  %top = icmp eq i64 %depth, 1
+  %np8 = inttoptr i64 %name to ptr
+  %nlen = call i64 @strlen(ptr %np8)
+  %isch = call i1 @dt_name_is(i64 %name, ptr @s_chosen)
+  %chosen = and i1 %top, %isch
+  %bin = or i1 %in, %chosen
+  %nl1 = add i64 %nlen, 1
+  %npad = call i64 @pad4(i64 %nl1)
+  %bp0 = add i64 %p, 4
+  %bp = add i64 %bp0, %npad
+  %bd = add i64 %depth, 1
+  br label %loop
+endnode:
+  %d2 = icmp eq i64 %depth, 2
+  %leaving = and i1 %in, %d2
+  br i1 %leaving, label %done, label %leave
+leave:
+  %ep = add i64 %p, 4
+  %ed = sub i64 %depth, 1
+  br label %loop
+propchk:
+  %la = add i64 %p, 4
+  %len = call i64 @be32(i64 %la)
+  %oa = add i64 %p, 8
+  %noff = call i64 @be32(i64 %oa)
+  %val = add i64 %p, 12
+  %pd2 = icmp eq i64 %depth, 2
+  %ours = and i1 %in, %pd2
+  br i1 %ours, label %named, label %prop
+named:
+  %pname = add i64 %strings, %noff
+  %isargs = call i1 @dt_name_is(i64 %pname, ptr @s_bootargs)
+  br i1 %isargs, label %take, label %prop
+take:
+  call void @take_args(i64 %val, i64 %len)
+  br label %done
+prop:
+  %lpad = call i64 @pad4(i64 %len)
+  %pp0 = add i64 %p, 12
+  %pp = add i64 %pp0, %lpad
+  br label %loop
+nop:
+  %np = add i64 %p, 4
+  br label %loop
+done:
+  ret void
+}
+
+; Copies the len bytes at val, at most 65,535, into args_buf, and splits
+; them at runs of spaces, or at a NUL, into at most 4,096 arguments.
+define internal void @take_args(i64 %val, i64 %len) {
+entry:
+  %big = icmp ugt i64 %len, 65535
+  %n = select i1 %big, i64 65535, i64 %len
+  %src = inttoptr i64 %val to ptr
+  %x = call ptr @memcpy(ptr @args_buf, ptr %src, i64 %n)
+  %zp = getelementptr [65536 x i8], ptr @args_buf, i64 0, i64 %n
+  store i8 0, ptr %zp
+  br label %scan
+scan:
+  %i = phi i64 [ 0, %entry ], [ %i1, %next ]
+  %inarg = phi i1 [ false, %entry ], [ %inarg1, %next ]
+  %more = icmp ult i64 %i, %n
+  br i1 %more, label %look, label %finish
+look:
+  %cp = getelementptr [65536 x i8], ptr @args_buf, i64 0, i64 %i
+  %c = load i8, ptr %cp
+  %space = icmp eq i8 %c, 32
+  %nul = icmp eq i8 %c, 0
+  %gap = or i1 %space, %nul
+  br i1 %gap, label %cut, label %letter
+cut:
+  store i8 0, ptr %cp
+  br label %next
+letter:
+  br i1 %inarg, label %next, label %start
+start:
+  %k = load i64, ptr @arg_n
+  %room = icmp ult i64 %k, 4096
+  br i1 %room, label %record, label %next
+record:
+  %ap = getelementptr [4096 x i64], ptr @arg_at, i64 0, i64 %k
+  store i64 %i, ptr %ap
+  %k1 = add i64 %k, 1
+  store i64 %k1, ptr @arg_n
+  br label %next
+next:
+  %inarg1 = phi i1 [ false, %cut ], [ true, %letter ], [ true, %start ], [ true, %record ]
+  %i1 = add i64 %i, 1
+  br label %scan
+finish:
+  ret void
+}
+
+define i64 @l0_host_arg_count() {
+entry:
+  %n = load i64, ptr @arg_n
+  ret i64 %n
+}
+
+; l0rt.ll asks only for an argument below the count.
 define ptr @l0_host_arg(i64 %i) {
 entry:
-  ret ptr null
+  %ap = getelementptr [4096 x i64], ptr @arg_at, i64 0, i64 %i
+  %o = load i64, ptr %ap
+  %p = getelementptr [65536 x i8], ptr @args_buf, i64 0, i64 %o
+  ret ptr %p
 }
 
 define ptr @l0_host_setting(ptr %name) {

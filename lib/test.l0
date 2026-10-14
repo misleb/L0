@@ -218,15 +218,3 @@
 (def unknown_test ((name (list int))) int
   (let w (write_err (append "l0 test: no test named " (append name "\n")))
     2))
-
-; The name of the test to run on a host that gives no arguments, such as
-; the virt board: the first line of standard input, without its newline.
-; Here, not in the generated main, so that a test's own definitions, which
-; shadow the library's and the builtins, cannot change it.
-(def test_name_from_input ((i int)) (list int)
-  (test_name_line (read_line)))
-
-(def test_name_line ((s (list int))) (list int)
-  (if (is_empty s)
-      s
-      (if (eq (head s) 10) (nil int) (cons (head s) (test_name_line (tail s))))))
