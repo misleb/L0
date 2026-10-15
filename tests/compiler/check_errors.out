@@ -93,3 +93,5 @@ ok
 35: supervisor_call takes 4 arguments, but got 3
 35: an argument of supervisor_send must be bytes, but this is (list int)
 35: head must be a list, but this is bytes
+35: frame_address takes 1 argument, but got 0
+35: an argument of frame_address must be int, but this is bool

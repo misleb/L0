@@ -79,7 +79,12 @@ refused, and tests that need files stay on this host. A program there can also b
 makes address spaces, maps pages into them, and runs threads in them until
 they trap, with the user-mode builtins of the spec's section 6.13 and the
 library's `Trap` (`l0 doc Trap`), and sets the timer, and waits for and
-ends interrupts, with those of section 6.14.
+ends interrupts, with those of section 6.14. It gives a device memory to
+read and write itself, by DMA, as a frame, whose address `frame_address`
+gives to write into the device's registers. The board's own devices
+include no virtio device; `L0_QEMU_ARGS="-device virtio-gpu-device"` adds
+one, and any QEMU options there are added to how `l0 boot`, `l0 run`, and
+`l0 test` start the board.
 
 `l0 build --target proc` builds a program as a process for a kernel on
 aarch64, in an address space of its own, reaching the kernel through the

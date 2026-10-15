@@ -895,6 +895,16 @@ take:
   ret i64 %f
 }
 
+; Section 10.3: a device on the board reaches a frame at its physical
+; address, through the caches as the CPU does, so nothing more is needed.
+define i64 @l0_host_frame_address(i64 %f) {
+entry:
+  %pa = call i64 @frame_pa(i64 %f)
+  %nof = icmp eq i64 %pa, 0
+  %r = select i1 %nof, i64 2, i64 %pa
+  ret i64 %r
+}
+
 ; The physical address of frame f, or 0 if f is not a frame.
 define internal i64 @frame_pa(i64 %f) {
 entry:

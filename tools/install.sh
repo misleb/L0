@@ -117,6 +117,10 @@ if [ "$(cd "$LIBDIR" && pwd)" != "$(cd "$ROOT/lib" && pwd)" ]; then
     cp "$ROOT/lib/AGENTS.md" "$LIBDIR/AGENTS.md"
     rm -rf "$LIBDIR/skills"
     cp -R "$ROOT/lib/skills" "$LIBDIR/skills"
+    # The request templates, retired with the request loop (spec/changelog.md,
+    # "A new goal, and the agent that uses L0 is the one that changes it"),
+    # which an earlier install left behind.
+    rm -f "$LIBDIR/request-template.md" "$LIBDIR/skill-note-template.md"
 else
     # The driver's init command reads L0.md from the library directory, so
     # give it one even when running straight out of the repository.

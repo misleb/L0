@@ -27,7 +27,7 @@
     (let b (hex (device_read8 u 4092))              ; PrimeCell ID3, 0xb1
       (let c (hex (device_read32 v 0))              ; virtio magic, "virt"
         (let d (hex (device_read16 v 0))
-          (hex (device_read64 v 0)))))))            ; magic, then version 1
+          (hex (device_read64 v 0)))))))            ; magic, then version 2, modern
 
 (def writes ((g IoDevice)) int
   (let a (device_write8 g 1024 161)                         ; 0xa1

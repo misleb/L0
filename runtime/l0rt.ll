@@ -29,6 +29,7 @@ declare i64 @l0_host_region(i64, i64)
 declare void @l0_host_barrier()
 declare i64 @l0_host_space_new()
 declare i64 @l0_host_frame_new()
+declare i64 @l0_host_frame_address(i64)
 declare i64 @l0_host_space_map(i64, i64, i64, i64)
 declare i64 @l0_host_space_map_device(i64, i64, i64, i64)
 declare i64 @l0_host_space_copy(i64, i64, ptr, i64, i64)
@@ -2416,6 +2417,15 @@ define i64 @l0_frame_new() {
 entry:
   %r = call i64 @l0_host_frame_new()
   ret i64 %r
+}
+
+; The address, a multiple of 4096 and so never a code, or -3, or 2, not a
+; frame.
+define i64 @l0_frame_address(i64 %f) {
+entry:
+  %k = call i64 @l0_host_frame_address(i64 %f)
+  call void @user_check(i64 %k)
+  ret i64 %k
 }
 
 ; 0, or -5 when the host has no room left for the tables.

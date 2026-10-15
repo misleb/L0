@@ -307,10 +307,13 @@ delete files, read its command-line arguments, and time itself on a
 monotonic clock, but there is no network, no environment, no wall-clock
 date, and no directories: none can be listed or created. Without an
 operating system it runs on one machine, QEMU's aarch64 `virt` board,
-where there are no files, arguments, or environment. It can drive the
-board's devices through their registers, but cannot yet take an interrupt
-or wait for one, run code in user mode, or give a device memory to DMA
-into.
+where there are no files and no environment, and its arguments are its
+boot arguments. There it drives the board's devices through their
+registers, takes and waits for interrupts, runs code in user mode, and
+gives a device frames to DMA into, but only on QEMU, whose devices see
+memory as its CPU does: real hardware whose devices bypass the caches
+would need frames it can clean, invalidate, or map uncached, which L0
+does not yet give.
 
 Memory is freed by reference counting. A whole-input `main` still receives its
 input as a list built in full before it starts, a cons cell per byte, but a

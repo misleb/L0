@@ -274,7 +274,7 @@
 (def bi_region ((i int)) (list (list int))
   (split_spaces "region_open region_read8 region_read16 region_read32 region_read64 region_write8 region_write16 region_write32 region_write64 barrier"))
 (def bi_user_ints ((i int)) (list (list int))
-  (split_spaces "space_new frame_new space_map space_map_device"))
+  (split_spaces "space_new frame_new space_map space_map_device frame_address"))
 (def bi_user ((i int)) (list (list int))
   (split_spaces "space_read space_write user_run supervisor_send supervisor_receive"))
 (def bi_path ((i int)) (list (list int))
@@ -306,7 +306,7 @@
   (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns barrier space_new frame_new interrupt_wait"))
       0
       (if (any_eq n (split_spaces
-            "neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes remove buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list timer_at interrupt_enable interrupt_done"))
+            "neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes remove buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list timer_at interrupt_enable interrupt_done frame_address"))
           1
           (if (any_eq n (split_spaces "array_set region_write8 region_write16 region_write32 region_write64 space_read supervisor_receive"))
               3

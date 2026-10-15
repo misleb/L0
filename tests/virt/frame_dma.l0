@@ -1,0 +1,52 @@
+; Spec sections 6.13 and 10.3 on the board: a device reads and writes a
+; frame at the address frame_address gives. The device is one of the
+; board's own, the firmware configuration interface, whose DMA register
+; takes the address of a request in memory, big-endian: a control word, a
+; count, and where to copy to. Asked to select item 0 and read 4 bytes of
+; it, it copies the item's signature, "QEMU", to that address, and sets
+; the control word to 0 once it has. The request and the copy are both in
+; one frame, which the program reaches only through a space, by copying.
+
+; The low n bytes of v, most significant first, onto acc.
+(def be_onto ((v int) (n int) (acc (list int))) (list int)
+  (if (eq n 0)
+      acc
+      (be_onto (bit_shr v 8) (sub n 1) (cons (bit_and v 255) acc))))
+
+; The low n bytes of v in the opposite order: what a write of a big-endian
+; register takes to hold v.
+(def swapped ((v int) (n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (swapped (bit_shr v 8) (sub n 1) (bit_or (bit_shl acc 8) (bit_and v 255)))))
+
+(def be_value ((b bytes) (i int) (n int) (acc int)) int
+  (if (eq n 0)
+      acc
+      (be_value b (add i 1) (sub n 1) (bit_or (bit_shl acc 8) (bytes_get b i)))))
+
+(def say_bool ((what (list int)) (b bool)) int
+  (write_line (append what (if b " true" " false"))))
+
+; Select item 0, the signature, and read it: control 0x0A, 4 bytes, to
+; the frame's byte 64.
+(def request ((a int)) bytes
+  (bytes_from_list (be_onto 10 4 (be_onto 4 4 (be_onto (add a 64) 8 (nil int))))))
+
+(def dma ((s int) (va int) (a int) (r int)) int
+  (let w (space_write s va (request a) 0 16)
+    (let b (barrier)
+      (let d (region_write64 r 16 (swapped a 8 0))     ; the DMA register
+        (let b2 (barrier)
+          (let c (write_line (append "control " (digits (be_value (space_read s va 4) 0 4 0))))
+            (write_line (bytes_to_list (space_read s (add va 64) 4)))))))))
+
+(def main () int
+  (let s (space_new)
+    (let f (frame_new)
+      (let g (frame_new)
+        (let a (frame_address f)
+          (let p (say_bool "on a page" (and (ge a 0) (eq (mod a 4096) 0)))
+            (let q (say_bool "frames apart" (not (eq a (frame_address g))))
+              (let m (space_map s 3221225472 f 1)            ; 0xC0000000
+                (dma s 3221225472 a (region_open 151126016 24))))))))))  ; 0x09020000

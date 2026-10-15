@@ -102,5 +102,6 @@ done
 
 # shellcheck disable=SC2086
 exec qemu-system-aarch64 -M virt -cpu cortex-a72 -m 2G -display none \
-    -monitor none -serial stdio -semihosting $dev \
+    -monitor none -serial stdio -semihosting \
+    -global virtio-mmio.force-legacy=false $dev \
     -kernel "$work/kernel.elf" < /dev/null

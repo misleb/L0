@@ -41,7 +41,10 @@
 # L0_VIRT_LD, an ld.lld, if set, and otherwise by ld.lld in a container
 # built from tools/virt/Dockerfile the first time; L0_QEMU names the
 # emulator, and L0_VIRT_DIR the board's runtime, which defaults to the
-# installed one.
+# installed one. The board's virtio-mmio transports are modern, and
+# L0_QEMU_ARGS, split at spaces, is added to QEMU's command line, to give
+# the board devices beyond its own: L0_QEMU_ARGS="-device virtio-gpu-device"
+# puts a display on a transport.
 #
 # With --target proc, l0 build writes a process's image as its kernel loads
 # it: raw, its bytes from 0xC0000000, the virtual address spec section
@@ -371,14 +374,17 @@ virt_boot() {
     if [ "$len" -gt 0 ]; then
         load="$load -device loader,file=$input,addr=0x50000000,force-raw=on"
     fi
+    # Modern virtio-mmio transports (spec section 10.3), and the devices
+    # L0_QEMU_ARGS adds, split at spaces.
+    board="-global virtio-mmio.force-legacy=false ${L0_QEMU_ARGS:-}"
     if [ -n "$line" ]; then
         # shellcheck disable=SC2086
         "$qemu" -M virt -cpu cortex-a72 -m 2G -display none -monitor none \
-            -serial stdio -semihosting $load -kernel "$image" -append "$line" < /dev/null
+            -serial stdio -semihosting $board $load -kernel "$image" -append "$line" < /dev/null
     else
         # shellcheck disable=SC2086
         "$qemu" -M virt -cpu cortex-a72 -m 2G -display none -monitor none \
-            -serial stdio -semihosting $load -kernel "$image" < /dev/null
+            -serial stdio -semihosting $board $load -kernel "$image" < /dev/null
     fi
 }
 

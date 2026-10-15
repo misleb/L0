@@ -1,0 +1,7 @@
+; Spec section 6.13, before roadmap 0084: a virtio driver must write the
+; address of its queue's memory into the device's registers, and nothing
+; gives the address of a frame. Checked with tools/l0check, as l0 check
+; links io.l0, for IoDevice.
+(def queue_address ((d IoDevice) (t int)) int
+  (let q (frame_new)
+    (device_write32 d (add (mul t 512) 128) (frame_address q))))

@@ -7,6 +7,98 @@ New entries go at the top.
 
 ---
 
+## A frame's address, so a kernel can give a device memory
+
+**What changed.** Section 6.13 has a new builtin, `(frame_address f)`:
+the address at which a device reaches frame `f`, a multiple of 4096, the
+same while the frame lasts, or -3 if the host lets no device reach
+frames, which no host here does. A frame the program was not given is
+`not a frame`, as for `space_map`, so on a host that makes no frames,
+every call raises it. 6.12's `barrier` now says it orders loads as well
+as stores, `space_read`'s and `space_write`'s copies among them. 10.3 has
+the runtime call and one host function, says that on the virt board the
+address is the frame's physical one and the board's devices see memory
+as its CPU does, and that `l0 boot` gives the board modern virtio-mmio
+transports. Roadmap 0084, at the request of L0S, the kernel's own project.
+
+**Why.** Every virtio device on the board, a display, a disk, a network,
+input, works in memory it reads and writes itself: its queues, the
+commands sent to it, its replies. The driver tells it where by writing an
+address into its registers, and nothing in L0 gives the address of
+anything:
+
+```
+(def queue_address ((d IoDevice) (t int)) int
+  (let q (frame_new)
+    (device_write32 d (add (mul t 512) 128) (frame_address q))))
+```
+
+```
+roadmap/0084/why.l0:7:45: error: unknown function frame_address
+```
+
+L0S's probe, `probes/virtio-gpu/gpu.l0` in that project, guessed the
+address from how `host-virt.ll` hands frames out, `0x98000000 + f*4096`,
+and with it drove QEMU's virtio-gpu: set up its control queue in three
+frames with `space_write`, wrote the guesses into the queue's registers,
+and read back the device's display-info reply, written by DMA, with
+`space_read`. So the address was the only thing missing. The guess is a
+correctness hole, not a style problem: when it is wrong, the device
+silently writes some other page, and the pool holds the host's page
+tables too. It goes wrong as soon as frames are freed, the pool moves,
+or the allocator changes, and the prelude cannot know any of that either,
+since it is the host's. Only the host can say, and so a builtin.
+
+**Why a frame, and not other memory.** A frame is already memory the
+program can share without giving up section 8: it is not the program's,
+and the program reaches it only by copying. A device writing it is a
+thread writing it, as far as any value goes. A region over RAM, or a
+range of RAM fixed for DMA, would be a new kind of memory with builtins
+of its own for what frames already are, and 6.12 keeps regions off
+memory the program or runtime uses for good reason.
+
+**Why "the address at which a device reaches", and why -3.** On the virt
+board that is the physical address. On a machine with an IOMMU, or whose
+devices see memory at an offset, it is not, and the builtin gives what
+the device needs, which is the only use of it. -3 is for a host with
+frames that no device can reach; none here is such a host, but a kernel
+that runs on one must not take an address for granted, and a code is how
+section 6.3's results already say "not on this host".
+
+**Why the barrier's wording.** It said every region access and every
+store made before it completes before any made after. A driver polls the
+used ring a device wrote with `space_read`, a load after the barrier, so
+it depends on loads being ordered too. `dsb sy` on the board and a
+sequentially consistent fence under an operating system already order
+both, so only the words changed.
+
+**Why modern transports by default.** QEMU makes the board's virtio-mmio
+transports legacy unless told otherwise. A legacy queue is one area at
+one page number, which past a few entries needs frames next to each
+other, which nothing in L0 gives; a modern one is three areas at
+addresses of their own, each in one frame. Nothing here drove either
+before; the one program that reads a transport, `tests/virt/device`, now
+reads version 2 where it read 1. `L0_QEMU_ARGS` adds
+devices to the board, since its own include no virtio device: L0S had
+written a wrapper script around QEMU, named by `L0_QEMU`, to attach one.
+
+**Left out.** Cache maintenance: frames are mapped write-back, which is
+right on QEMU, whose devices see memory as the CPU does, and wrong on
+much real hardware, where a driver would need frames mapped without
+caching, or to clean and invalidate them. That is the next request for a
+display on real hardware, and waits for one. Runs of frames next to each
+other are left out too, since nothing modern needs them: virtio-gpu takes
+a list of pages for a framebuffer.
+
+**How it is tested.** `tests/virt/frame_dma` makes a real device write a
+frame with no device beyond the board's own: the firmware configuration
+interface's DMA, given a request in a frame, by the frame's address,
+copies its signature, `QEMU`, into the same frame, and `space_read` finds
+it there. `tests/io/frame_unknown` is `not a frame` for a frame never
+given, on every host.
+
+---
+
 ## A process's image is raw, as its kernel loads it, and no language change for it
 
 **No semantic change. L0 is exactly the language it was before this entry.**
