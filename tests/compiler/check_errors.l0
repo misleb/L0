@@ -119,7 +119,11 @@
   (let cs (push (check_source (m "(head (supervisor_receive 256 0 1))")) cr)
   (let ct (push (check_source (m "(frame_address)")) cs)
   (let cu (push (check_source (m "(frame_address true)")) ct)
-    (rev cu)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let cv (push (check_source (m "(space_unmap 0)")) cu)
+  (let cw (push (check_source (m "(space_unmap 0 true)")) cv)
+  (let cx (push (check_source (m "(space_free)")) cw)
+  (let cy (push (check_source (m "(frame_free \"a\")")) cx)
+    (rev cy)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)

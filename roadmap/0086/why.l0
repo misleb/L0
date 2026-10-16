@@ -1,0 +1,14 @@
+; What L0S's kernel would do, if L0 could free a space and a frame and
+; unmap a page (L0S, probes/free/want.l0, with revoking added): when a
+; process ends, give back its space and each frame no other process maps;
+; and take back a page of shared memory from a process still running.
+
+(def release ((s int) (fs (list int))) int
+  (let r (space_free s)
+    (free_all fs)))
+
+(def free_all ((fs (list int))) int
+  (if (is_empty fs) 0 (let r (frame_free (head fs)) (free_all (tail fs)))))
+
+(def revoke ((s int) (va int)) int
+  (space_unmap s va))

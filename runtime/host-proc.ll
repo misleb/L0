@@ -268,7 +268,7 @@ entry:
 
 ; Section 9.2: a process has no user mode of its own, so no space or frame
 ; is ever made, and anything given one is told 1, not a space, or for a
-; frame's address 2, not a frame.
+; frame's address or freeing a frame 2, not a frame.
 define i64 @l0_host_space_new() {
 entry:
   ret i64 -3
@@ -282,6 +282,21 @@ entry:
 define i64 @l0_host_frame_address(i64 %f) {
 entry:
   ret i64 2
+}
+
+define i64 @l0_host_frame_free(i64 %f) {
+entry:
+  ret i64 2
+}
+
+define i64 @l0_host_space_unmap(i64 %s, i64 %va) {
+entry:
+  ret i64 1
+}
+
+define i64 @l0_host_space_free(i64 %s) {
+entry:
+  ret i64 1
 }
 
 define i64 @l0_host_space_map(i64 %s, i64 %va, i64 %f, i64 %perm) {

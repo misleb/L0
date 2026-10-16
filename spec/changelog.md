@@ -7,6 +7,82 @@ New entries go at the top.
 
 ---
 
+## Freeing spaces and frames, and unmapping a page
+
+**What changed.** Section 6.13 has three new builtins. `(space_unmap s
+va)` removes the mapping at one user page, of a frame or of device memory.
+`(space_free s)` removes every mapping of a space and gives back its
+tables, and `s` may be given again. `(frame_free f)` gives back a frame,
+and `f` may be given again, zeroed, at the same address. Freeing a frame
+that some space still maps is a new runtime error, `frame still mapped`,
+and unmapping a page that is not mapped is another, `user page not mapped`.
+Section 10.3 has the calls, three host functions, and codes 9 and 10. It
+also says how the board now hands out its pool: a page given back, as a
+frame or as a table, serves again as either, and a space's ASID goes with
+its number, flushed from the TLB first. Roadmap 0086, at the request of
+L0S, with `space_unmap` added at the user's.
+
+**Why.** Section 6.13 said nothing frees either, and the board handed out
+frames, tables, and its 255 spaces by bumping. A kernel whose processes
+come and go could give none of it back:
+
+```
+(def release ((s int) (fs (list int))) int
+  (let r (space_free s)
+    (free_all fs)))
+```
+
+```
+roadmap/0086/why.l0:7:10: error: unknown function space_free
+```
+
+L0S kept each ended process's space whole, frames still mapped, and zeroed
+it for the next process. That cannot be done for a space that mapped a
+device or a shared page, which the next process would reach. So every
+driver, window manager, and terminal that ended used up a space for good,
+and its probe was refused the 255th spawn with only one process alive.
+`space_unmap` lets a kernel take back shared memory from a process that is
+still running, which L0S's `shm_share` could not revoke.
+
+**Why freeing a mapped frame is an error.** Otherwise a thread could keep
+a page whose frame the host has given to someone else: one process would
+read another's memory, the one thing a kernel exists to prevent. The host
+counts each frame's mappings, which `space_map`, `space_unmap`, and
+`space_free` keep up to date, so the check costs a load. It matches `user
+page already mapped`, which refuses the other half of the same mistake.
+
+**Why frames outlive the spaces that map them.** A frame may be mapped in
+several spaces, shared memory being exactly that, and may be a device's
+DMA memory, which the device can still write after its driver ends. Only
+the kernel knows which frames are done with, so `space_free` frees the
+space and its tables, and leaves each frame to `frame_free`.
+
+**Why `space_unmap` frees no table.** A table it emptied would have to be
+found empty by scanning its 512 entries on every unmap, and the next
+mapping nearby would make it again. The tables go with the space.
+
+**What the board does.** Every page of the pool has a state, kept by the
+host: free, a table, or a frame and how many mappings it has. A freed page
+goes on one free list, which frames and tables both take from before the
+pool's untouched middle. A space's slot goes back with its number. Before
+a space's tables are freed, `ttbr0_el1` goes back to the boot map, since
+the host runs on the last thread's tables between traps, and the TLB is
+flushed whole, which drops the ASID's entries and any cached walk through
+the freed tables. An unmapped page's entry is flushed by its address and
+ASID.
+
+**What the tests can see.** `tests/virt/unit/free_test.l0` runs a thread
+that loads a word and returns it, so a translation the TLB kept shows as
+the old value. With the flush taken out of `space_unmap`, the thread read
+the unmapped frame's 7 where the new frame held 9, and the test failed.
+With it taken out of `space_free`, every test still passed: QEMU appears
+to drop its TLB whenever the ASID in `ttbr0_el1` changes, which the switch
+to the boot map does. Hardware that keeps entries by ASID needs the flush.
+The board cannot show that, so the flush stays on the strength of the
+architecture's rules.
+
+---
+
 ## Freed blocks go back to the host, a chunk at a time
 
 **What changed.** Section 10.3: cons cells and data blocks are cut from

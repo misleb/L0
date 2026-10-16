@@ -77,7 +77,9 @@ an operating system there are none, and opening one fails. `l0 test
 there are no files there, so a golden file's test fails and `--bless` is
 refused, and tests that need files stay on this host. A program there can also be a kernel: it
 makes address spaces, maps pages into them, and runs threads in them until
-they trap, with the user-mode builtins of the spec's section 6.13 and the
+they trap, and gives back a page, a space, or a frame once it is done with
+it (`space_unmap`, `space_free`, `frame_free`; a frame only once no space
+maps it), with the user-mode builtins of the spec's section 6.13 and the
 library's `Trap` (`l0 doc Trap`), and sets the timer, and waits for and
 ends interrupts, with those of section 6.14. It gives a device memory to
 read and write itself, by DMA, as a frame, whose address `frame_address`

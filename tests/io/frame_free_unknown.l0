@@ -1,0 +1,5 @@
+; Spec sections 6.13 and 9.2: freeing a frame the program was never given
+; is a runtime error, on every host: under an operating system and in a
+; process, which make no frames, and on the board before any is made.
+(def main () int
+  (frame_free 0))

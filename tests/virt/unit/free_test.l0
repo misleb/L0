@@ -1,0 +1,162 @@
+; Spec section 6.13 on the board: unmapping a page, freeing a space, and
+; freeing a frame, each seen by a thread run afterwards, so a translation
+; the TLB kept would show as the old value; numbers given again; and each
+; runtime error the three raise.
+(def lo () int 3221225472)                          ; 0xC0000000
+(def page2 () int 3221229568)                       ; 0xC0001000
+
+(def code () bytes                                  ; ldr x8, [x1]; svc #0
+  (bytes_from_list (append (cons 40 (cons 0 (cons 64 (cons 249 (nil int)))))
+                           (cons 1 (cons 0 (cons 0 (cons 212 (nil int))))))))
+
+(def word ((v int)) bytes
+  (bytes_from_list (cons v (zeros 7))))
+
+(def zeros ((n int)) (list int)
+  (if (eq n 0) (nil int) (cons 0 (zeros (sub n 1)))))
+
+; What the thread read, or -1 if its load found no page.
+(def called ((t Trap)) int
+  (match t
+    ((TrapCall n) n)
+    ((TrapMissing va) -1)
+    ((TrapFault esr far) -2)
+    ((TrapInterrupt n) -3)))
+
+; Runs the code at lo, its x1 the data page, and says what it read.
+(def run_load ((s int)) int
+  (called (trap_of (user_run s (array_set (user_context (lo) 0) 1 (page2))))))
+
+; Maps code at lo in s, from a new frame.
+(def with_code ((s int)) int
+  (let c (frame_new)
+    (let m (space_map s (lo) c 2)
+      (space_write s (lo) (code) 0 8))))
+
+; Maps a new frame holding v at the data page of s, and returns it.
+(def with_data ((s int) (v int)) int
+  (let d (frame_new)
+    (let m (space_map s (page2) d 1)
+      (let w (space_write s (page2) (word v) 0 8)
+        d))))
+
+(def test_unmap_then_remap () int
+  (let s (space_new)
+    (let c (with_code s)
+      (let d (with_data s 7)
+        (let a (run_load s)
+          (let u (space_unmap s (page2))
+            (let b (run_load s)
+              (let e (with_data s 9)
+                (let r (run_load s)
+                  (add (check_int "before" a 7)
+                    (add (check_int "unmapped" u 0)
+                      (add (check_int "no page" b -1)
+                        (check_int "the new frame, not the old" r 9)))))))))))))
+
+(def test_space_given_again () int
+  (let s (space_new)
+    (let c (with_code s)
+      (let d (with_data s 7)
+        (let a (run_load s)
+          (let f (space_free s)
+            (let t (space_new)
+              (let c2 (with_code t)
+                (let e (with_data t 9)
+                  (let r (run_load t)
+                    (add (check_int "before" a 7)
+                      (add (check_int "freed" f 0)
+                        (add (check_int "the same number" t s)
+                          (check_int "its new frame, not the old" r 9))))))))))))))
+
+(def test_frame_given_again () int
+  (let s (space_new)
+    (let f (with_data s 7)
+      (let a (frame_address f)
+        (let u (space_unmap s (page2))
+          (let k (frame_free f)
+            (let g (frame_new)
+              (let m (space_map s (page2) g 1)
+                (add (check_int "freed" k 0)
+                  (add (check_int "the same number, on this board" g f)
+                    (add (check_int "the same address" (frame_address g) a)
+                      (check_int "zeroed" (bytes_get (space_read s (page2) 1) 0) 0))))))))))))
+
+; More than the board's 255 spaces, one after another.
+(def spaces ((n int)) int
+  (if (eq n 0)
+      0
+      (let s (space_new)
+        (if (lt s 0)
+            n
+            (let f (frame_new)
+              (let m (space_map s (lo) f 1)
+                (let a (space_free s)
+                  (let b (frame_free f)
+                    (spaces (sub n 1))))))))))
+
+(def test_many_spaces () int
+  (check_int "spaces left unmade" (spaces 600) 0))
+
+(def test_frame_after_its_space () int
+  (let s (space_new)
+    (let f (with_data s 7)
+      (let a (space_free s)
+        (check_int "freed once no space maps it" (frame_free f) 0)))))
+
+(def test_device_page_unmapped () int
+  (let s (space_new)
+    (let m (space_map_device s (lo) 150994944 4096)  ; the PL011
+      (let u (space_unmap s (lo))
+        (let f (frame_new)
+          (add (check_int "unmapped" u 0)
+            (check_int "mapped again" (space_map s (lo) f 1) 0)))))))
+
+(def test_free_mapped () int
+  (let s (space_new)
+    (let f (with_data s 7)
+      (frame_free f))))
+
+(def expect_free_mapped () (list int) "frame still mapped")
+
+(def test_free_shared () int
+  (let s (space_new)
+    (let t (space_new)
+      (let f (with_data s 7)
+        (let m (space_map t (page2) f 1)
+          (let a (space_free s)
+            (frame_free f)))))))
+
+(def expect_free_shared () (list int) "frame still mapped")
+
+(def test_unmap_twice () int
+  (let s (space_new)
+    (let f (with_data s 7)
+      (let u (space_unmap s (page2))
+        (space_unmap s (page2))))))
+
+(def expect_unmap_twice () (list int) "user page not mapped")
+
+(def test_unmap_never_mapped () int
+  (space_unmap (space_new) (lo)))
+
+(def expect_unmap_never_mapped () (list int) "user page not mapped")
+
+(def test_unmap_not_a_page () int
+  (space_unmap (space_new) (add (lo) 1)))
+
+(def expect_unmap_not_a_page () (list int) "not a user page")
+
+(def test_space_after_free () int
+  (let s (space_new)
+    (let a (space_free s)
+      (space_map s (lo) (frame_new) 1))))
+
+(def expect_space_after_free () (list int) "not a space")
+
+(def test_frame_freed_twice () int
+  (let f (frame_new)
+    (let a (frame_free f)
+      (frame_free f))))
+
+(def expect_frame_freed_twice () (list int) "not a frame")

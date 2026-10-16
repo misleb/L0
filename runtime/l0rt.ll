@@ -33,6 +33,9 @@ declare i64 @l0_host_frame_new()
 declare i64 @l0_host_frame_address(i64)
 declare i64 @l0_host_space_map(i64, i64, i64, i64)
 declare i64 @l0_host_space_map_device(i64, i64, i64, i64)
+declare i64 @l0_host_space_unmap(i64, i64)
+declare i64 @l0_host_space_free(i64)
+declare i64 @l0_host_frame_free(i64)
 declare i64 @l0_host_space_copy(i64, i64, ptr, i64, i64)
 declare i64 @l0_host_user_run(i64, ptr, i64)
 declare i64 @l0_host_timer_at(i64)
@@ -2681,6 +2684,8 @@ entry:
 @m_unmapped = private constant [22 x i8] c"user memory not mapped"
 @m_context = private constant [13 x i8] c"not a context"
 @m_taken = private constant [19 x i8] c"interrupt not taken"
+@m_still = private constant [18 x i8] c"frame still mapped"
+@m_notmapped = private constant [20 x i8] c"user page not mapped"
 
 define internal void @user_check(i64 %k) {
 entry:
@@ -2691,7 +2696,9 @@ entry:
                              i64 5, label %mapped
                              i64 6, label %unmapped
                              i64 7, label %context
-                             i64 8, label %taken ]
+                             i64 8, label %taken
+                             i64 9, label %still
+                             i64 10, label %notmapped ]
 space:
   call void @rt_error(ptr @m_space, i64 11)
   unreachable
@@ -2715,6 +2722,12 @@ context:
   unreachable
 taken:
   call void @rt_error(ptr @m_taken, i64 19)
+  unreachable
+still:
+  call void @rt_error(ptr @m_still, i64 18)
+  unreachable
+notmapped:
+  call void @rt_error(ptr @m_notmapped, i64 20)
   unreachable
 ok:
   ret void
@@ -2749,6 +2762,28 @@ entry:
   %none = icmp slt i64 %k, 0
   %r = select i1 %none, i64 %k, i64 0
   ret i64 %r
+}
+
+; 0, or a runtime error: spec section 6.13.
+define i64 @l0_space_unmap(i64 %s, i64 %va) {
+entry:
+  %k = call i64 @l0_host_space_unmap(i64 %s, i64 %va)
+  call void @user_check(i64 %k)
+  ret i64 0
+}
+
+define i64 @l0_space_free(i64 %s) {
+entry:
+  %k = call i64 @l0_host_space_free(i64 %s)
+  call void @user_check(i64 %k)
+  ret i64 0
+}
+
+define i64 @l0_frame_free(i64 %f) {
+entry:
+  %k = call i64 @l0_host_frame_free(i64 %f)
+  call void @user_check(i64 %k)
+  ret i64 0
 }
 
 ; 0, or -3 when the host gives no region over the range, or -5 as for

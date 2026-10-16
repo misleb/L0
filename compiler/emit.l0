@@ -1030,7 +1030,7 @@
 ; Spec 10.3.
 (def io_names ((i int)) (list (list int))
   (split_spaces
-    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes clock_ns remove read_some region_open region_read8 region_read16 region_read32 region_read64 region_write8 region_write16 region_write32 region_write64 barrier space_new frame_new space_map space_map_device space_read space_write user_run timer_at interrupt_enable interrupt_wait interrupt_done supervisor_call supervisor_send supervisor_receive frame_address"))
+    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes clock_ns remove read_some region_open region_read8 region_read16 region_read32 region_read64 region_write8 region_write16 region_write32 region_write64 barrier space_new frame_new space_map space_map_device space_read space_write user_run timer_at interrupt_enable interrupt_wait interrupt_done supervisor_call supervisor_send supervisor_receive frame_address space_unmap space_free frame_free"))
 
 (def rt_names ((i int)) (list (list int))
   (append (split_spaces "div mod head tail is_empty array_len array_get array_set bit_shl bit_shr bit_count")
@@ -1833,7 +1833,10 @@
           (append "declare i64 @l0_supervisor_call(i64, i64, i64, i64)\n"
             (append "declare i64 @l0_supervisor_send(i64, i64, i64, i64, i64)\n"
               (append "declare i64 @l0_supervisor_receive(i64, i64, i64)\n"
-                "declare i64 @l0_frame_address(i64)\n\n"))))))))
+                (append "declare i64 @l0_frame_address(i64)\n"
+                  (append "declare i64 @l0_space_unmap(i64, i64)\n"
+                    (append "declare i64 @l0_space_free(i64)\n"
+                      "declare i64 @l0_frame_free(i64)\n\n")))))))))))
 
 (def ret_kind ((ds (list Decl))) int
   (if (is_empty ds)

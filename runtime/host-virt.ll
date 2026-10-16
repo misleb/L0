@@ -816,12 +816,16 @@ entry:
 ; --------------------------------------------------------------- user mode
 ;
 ; Spec sections 6.13 and 10.3. Pages come from the pool virt.ld lays out,
-; __frames_start to __frames_end, 98,304 of 4 KB, and never go back:
-; frames from the bottom, in order, so frame k is the k-th page, and the
-; host's own page tables from the top down, so no frame is ever a table,
-; until the two meet. A space is
-; an index into sp_l1, its level 1 table, and its ASID is the index plus 1,
-; so the 255 spaces have 255 ASIDs and moving between them flushes nothing.
+; __frames_start to __frames_end, 98,304 of 4 KB, and frame k is the k-th
+; page. Untouched pages go to frames from the bottom and to the host's own
+; page tables from the top, until the two meet; a page given back, frame
+; or table, goes on one free list, threaded through the pages' first words,
+; which both take from first. page_state says what each page is: 0 free or
+; a table, and k from 1 a frame mapped k - 1 times. A space is an index
+; into sp_l1, its level 1 table, or 0 once freed, and its ASID is the index
+; plus 1, so the 255 spaces have 255 ASIDs and moving between them flushes
+; nothing; a slot freed is given again, its ASID with it, so space_free
+; flushes the TLB.
 ;
 ; Each space's level 1 table maps blocks 0 to 2 as the boot map does, for
 ; EL1 alone, since the host runs on the thread's tables between traps, and
@@ -839,19 +843,105 @@ declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 @l0_virt_user_ctx = global i64 0
 @l0_virt_user_sp = global i64 0
 
-@frames_given = internal global i64 0
-@tables_used = internal global i64 0
+@pool_lo = internal global i64 0
+@pool_hi = internal global i64 0
+@pool_free = internal global i64 0
+@page_state = internal global [98304 x i32] zeroinitializer
 @sp_l1 = internal global [255 x i64] zeroinitializer
 @sp_count = internal global i64 0
 
-; Whether the pool has a page left between the frames and the tables.
-define internal i1 @pool_room() {
+define internal i64 @page_addr(i64 %k) {
 entry:
-  %f = load i64, ptr @frames_given
-  %t = load i64, ptr @tables_used
-  %used = add i64 %f, %t
+  %fs = ptrtoint ptr @__frames_start to i64
+  %o = shl i64 %k, 12
+  %pa = add i64 %fs, %o
+  ret i64 %pa
+}
+
+; The index of a page of the pool, not yet zeroed: a freed one if any,
+; else an untouched one from the top if top, from the bottom if not; or -1
+; when none is left.
+define internal i64 @page_take(i1 %top) {
+entry:
+  %f = load i64, ptr @pool_free
+  %have = icmp ne i64 %f, 0
+  br i1 %have, label %reuse, label %fresh
+reuse:
+  %k = sub i64 %f, 1
+  %pa = call i64 @page_addr(i64 %k)
+  %pq = inttoptr i64 %pa to ptr
+  %next = load i64, ptr %pq
+  store i64 %next, ptr @pool_free
+  ret i64 %k
+fresh:
+  %lo = load i64, ptr @pool_lo
+  %hi = load i64, ptr @pool_hi
+  %used = add i64 %lo, %hi
   %room = icmp ult i64 %used, 98304
-  ret i1 %room
+  br i1 %room, label %which, label %none
+which:
+  br i1 %top, label %high, label %low
+high:
+  %hi1 = add i64 %hi, 1
+  store i64 %hi1, ptr @pool_hi
+  %kh = sub i64 98304, %hi1
+  ret i64 %kh
+low:
+  %lo1 = add i64 %lo, 1
+  store i64 %lo1, ptr @pool_lo
+  ret i64 %lo
+none:
+  ret i64 -1
+}
+
+; Puts page k on the free list.
+define internal void @page_give(i64 %k) {
+entry:
+  %pa = call i64 @page_addr(i64 %k)
+  %pq = inttoptr i64 %pa to ptr
+  %f = load i64, ptr @pool_free
+  store i64 %f, ptr %pq
+  %k1 = add i64 %k, 1
+  store i64 %k1, ptr @pool_free
+  ret void
+}
+
+; Gives back the table page at pa.
+define internal void @table_give(i64 %pa) {
+entry:
+  %fs = ptrtoint ptr @__frames_start to i64
+  %o = sub i64 %pa, %fs
+  %k = lshr i64 %o, 12
+  call void @page_give(i64 %k)
+  ret void
+}
+
+define internal ptr @state_of(i64 %k) {
+entry:
+  %p = getelementptr [98304 x i32], ptr @page_state, i64 0, i64 %k
+  ret ptr %p
+}
+
+; Counts one mapping more, or one fewer for a negative by, of the frame a
+; level 3 descriptor d maps, if it maps one: a page of normal memory, not a
+; device's.
+define internal void @frame_mapped(i64 %d, i32 %by) {
+entry:
+  %attr = and i64 %d, 28
+  %normal = icmp eq i64 %attr, 4
+  br i1 %normal, label %count, label %done
+count:
+  %pa = and i64 %d, 281474976706560
+  %fs = ptrtoint ptr @__frames_start to i64
+  %o = sub i64 %pa, %fs
+  %k = lshr i64 %o, 12
+  %sp = call ptr @state_of(i64 %k)
+  %s = load i32, ptr %sp
+  %s1 = add i32 %s, %by
+  store i32 %s1, ptr %sp
+  br label %done
+done:
+  ret void
 }
 
 define internal void @zero_page(i64 %pa) {
@@ -861,38 +951,54 @@ entry:
   ret void
 }
 
-; A zeroed page for a table, from the top of the pool, or 0 when none is
-; left.
+; A zeroed page for a table, or 0 when none is left.
 define internal i64 @pool_page() {
 entry:
-  %room = call i1 @pool_room()
-  br i1 %room, label %take, label %none
-none:
+  %k = call i64 @page_take(i1 true)
+  %none = icmp slt i64 %k, 0
+  br i1 %none, label %out, label %take
+out:
   ret i64 0
 take:
-  %t = load i64, ptr @tables_used
-  %t1 = add i64 %t, 1
-  store i64 %t1, ptr @tables_used
-  %fe = ptrtoint ptr @__frames_end to i64
-  %o = shl i64 %t1, 12
-  %pa = sub i64 %fe, %o
+  %pa = call i64 @page_addr(i64 %k)
   call void @zero_page(i64 %pa)
   ret i64 %pa
 }
 
 define i64 @l0_host_frame_new() {
 entry:
-  %room = call i1 @pool_room()
-  br i1 %room, label %take, label %out
+  %k = call i64 @page_take(i1 false)
+  %none = icmp slt i64 %k, 0
+  br i1 %none, label %out, label %take
 out:
   ret i64 -5
 take:
-  %f = load i64, ptr @frames_given
-  %f1 = add i64 %f, 1
-  store i64 %f1, ptr @frames_given
-  %pa = call i64 @frame_pa(i64 %f)
+  %sp = call ptr @state_of(i64 %k)
+  store i32 1, ptr %sp
+  %pa = call i64 @page_addr(i64 %k)
   call void @zero_page(i64 %pa)
-  ret i64 %f
+  ret i64 %k
+}
+
+; 2 if f is not a frame, 9 if a space maps it, else 0, once it is free.
+define i64 @l0_host_frame_free(i64 %f) {
+entry:
+  %pa = call i64 @frame_pa(i64 %f)
+  %nof = icmp eq i64 %pa, 0
+  br i1 %nof, label %e2, label %check
+check:
+  %sp = call ptr @state_of(i64 %f)
+  %s = load i32, ptr %sp
+  %mapped = icmp ugt i32 %s, 1
+  br i1 %mapped, label %e9, label %give
+give:
+  store i32 0, ptr %sp
+  call void @page_give(i64 %f)
+  ret i64 0
+e2:
+  ret i64 2
+e9:
+  ret i64 9
 }
 
 ; Section 10.3: a device on the board reaches a frame at its physical
@@ -908,21 +1014,46 @@ entry:
 ; The physical address of frame f, or 0 if f is not a frame.
 define internal i64 @frame_pa(i64 %f) {
 entry:
-  %n = load i64, ptr @frames_given
-  %in = icmp ult i64 %f, %n
-  br i1 %in, label %yes, label %no
+  %in = icmp ult i64 %f, 98304
+  br i1 %in, label %look, label %no
+look:
+  %sp = call ptr @state_of(i64 %f)
+  %s = load i32, ptr %sp
+  %frame = icmp ne i32 %s, 0
+  br i1 %frame, label %yes, label %no
 yes:
-  %fs = ptrtoint ptr @__frames_start to i64
-  %o = shl i64 %f, 12
-  %pa = add i64 %fs, %o
+  %pa = call i64 @page_addr(i64 %f)
   ret i64 %pa
 no:
   ret i64 0
 }
 
-define i64 @l0_host_space_new() {
+; A freed slot below sp_count if there is one, else sp_count.
+define internal i64 @space_slot() {
 entry:
   %n = load i64, ptr @sp_count
+  br label %scan
+scan:
+  %i = phi i64 [ 0, %entry ], [ %i1, %next ]
+  %end = icmp eq i64 %i, %n
+  br i1 %end, label %none, label %look
+look:
+  %sp = getelementptr [255 x i64], ptr @sp_l1, i64 0, i64 %i
+  %t = load i64, ptr %sp
+  %free = icmp eq i64 %t, 0
+  br i1 %free, label %found, label %next
+next:
+  %i1 = add i64 %i, 1
+  br label %scan
+found:
+  ret i64 %i
+none:
+  ret i64 %n
+}
+
+define i64 @l0_host_space_new() {
+entry:
+  %n = call i64 @space_slot()
   %full = icmp uge i64 %n, 255
   br i1 %full, label %out, label %l1
 l1:
@@ -932,7 +1063,10 @@ l1:
 l2:
   %t2 = call i64 @pool_page()
   %no2 = icmp eq i64 %t2, 0
-  br i1 %no2, label %out, label %fill
+  br i1 %no2, label %back, label %fill
+back:
+  call void @table_give(i64 %t1)
+  br label %out
 fill:
   %p0 = inttoptr i64 %t1 to ptr
   store i64 27021597764224001, ptr %p0                      ; devices, EL1
@@ -945,12 +1079,115 @@ fill:
   store i64 %d3, ptr %p3
   %sp = getelementptr [255 x i64], ptr @sp_l1, i64 0, i64 %n
   store i64 %t1, ptr %sp
+  %c = load i64, ptr @sp_count
   %n1 = add i64 %n, 1
-  store i64 %n1, ptr @sp_count
+  %grew = icmp ugt i64 %n1, %c
+  %c1 = select i1 %grew, i64 %n1, i64 %c
+  store i64 %c1, ptr @sp_count
   call void asm sideeffect "dsb ishst", "~{memory}"()
   ret i64 %n
 out:
   ret i64 -5
+}
+
+; Removes the mapping at user page va of space s: 1 if s is not a space, 4
+; if va is not a user page, 10 if nothing is mapped there, else 0, once
+; the entry is gone from the TLB too. The level 3 table stays.
+define i64 @l0_host_space_unmap(i64 %s, i64 %va) {
+entry:
+  %l1 = call i64 @space_l1(i64 %s)
+  %nos = icmp eq i64 %l1, 0
+  br i1 %nos, label %e1, label %where
+where:
+  %okv = call i1 @user_page(i64 %va)
+  br i1 %okv, label %find, label %e4
+find:
+  %e = call i64 @l3_entry(i64 %l1, i64 %va, i1 false)
+  %notable = icmp eq i64 %e, 0
+  br i1 %notable, label %e10, label %look
+look:
+  %ep = inttoptr i64 %e to ptr
+  %d = load i64, ptr %ep
+  %none = icmp eq i64 %d, 0
+  br i1 %none, label %e10, label %clear
+clear:
+  call void @frame_mapped(i64 %d, i32 -1)
+  store i64 0, ptr %ep
+  %pg = lshr i64 %va, 12
+  %asid0 = add i64 %s, 1
+  %asid = shl i64 %asid0, 48
+  %x = or i64 %pg, %asid
+  call void asm sideeffect "dsb ishst\0Atlbi vae1is, $0\0Adsb ish\0Aisb", "r,~{memory}"(i64 %x)
+  ret i64 0
+e1:
+  ret i64 1
+e4:
+  ret i64 4
+e10:
+  ret i64 10
+}
+
+; Gives back space s, 1 if it is not one: every mapping counted off its
+; frame, its level 3, 2, and 1 tables freed, and its slot. The host runs on
+; the last thread's tables between traps, so it goes back to the boot map
+; first, and the whole TLB is flushed, the ASID's entries and any walk
+; cached through the tables, before a table page is written again.
+define i64 @l0_host_space_free(i64 %s) {
+entry:
+  %l1 = call i64 @space_l1(i64 %s)
+  %nos = icmp eq i64 %l1, 0
+  br i1 %nos, label %e1, label %off
+off:
+  %boot = ptrtoint ptr @l0_virt_pt to i64
+  call void asm sideeffect "msr ttbr0_el1, $0\0Aisb\0Adsb ishst\0Atlbi vmalle1is\0Adsb ish\0Aisb", "r,~{memory}"(i64 %boot)
+  %l1q = inttoptr i64 %l1 to ptr
+  %e3 = getelementptr i64, ptr %l1q, i64 3
+  %d3 = load i64, ptr %e3
+  %l2 = and i64 %d3, 281474976706560
+  %l2q = inttoptr i64 %l2 to ptr
+  br label %outer
+outer:
+  %i = phi i64 [ 0, %off ], [ %i1, %onext ]
+  %odone = icmp eq i64 %i, 512
+  br i1 %odone, label %tables, label %olook
+olook:
+  %p2 = getelementptr i64, ptr %l2q, i64 %i
+  %d2 = load i64, ptr %p2
+  %has = icmp ne i64 %d2, 0
+  br i1 %has, label %l3, label %onext
+l3:
+  %t3 = and i64 %d2, 281474976706560
+  %t3q = inttoptr i64 %t3 to ptr
+  br label %inner
+inner:
+  %j = phi i64 [ 0, %l3 ], [ %j1, %inext ]
+  %idone = icmp eq i64 %j, 512
+  br i1 %idone, label %l3done, label %ilook
+ilook:
+  %p3 = getelementptr i64, ptr %t3q, i64 %j
+  %d = load i64, ptr %p3
+  %mapped = icmp ne i64 %d, 0
+  br i1 %mapped, label %count, label %inext
+count:
+  call void @frame_mapped(i64 %d, i32 -1)
+  br label %inext
+inext:
+  %j1 = add i64 %j, 1
+  br label %inner
+l3done:
+  call void @table_give(i64 %t3)
+  br label %onext
+onext:
+  %i1 = add i64 %i, 1
+  br label %outer
+tables:
+  call void @table_give(i64 %l2)
+  call void @table_give(i64 %l1)
+  %sp = getelementptr [255 x i64], ptr @sp_l1, i64 0, i64 %s
+  store i64 0, ptr %sp
+  ret i64 0
+e1:
+  ret i64 1
 }
 
 ; The level 1 table of space s, or 0 if s is not a space.
@@ -1062,6 +1299,7 @@ map:
   %bits = call i64 @page_bits(i64 %perm)
   %d = or i64 %pa, %bits
   store i64 %d, ptr %ep
+  call void @frame_mapped(i64 %d, i32 1)
   call void asm sideeffect "dsb ishst\0Aisb", "~{memory}"()
   ret i64 0
 e1:

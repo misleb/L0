@@ -90,7 +90,9 @@ kernel in a project of its own (item 7) and the measure as a test (item 8).
 That project, L0S, asked for a frame's address, so its kernel can give a
 virtio device memory to DMA into, and has it (0084). Freed blocks now go
 back to the host a chunk at a time (0085), so a heap without an operating
-system beneath it can hold one shape of data and then another.
+system beneath it can hold one shape of data and then another. L0S then
+asked to give back spaces and frames, and a kernel now can, and unmap a
+page (0086).
 
 ## Language queue
 
@@ -328,3 +330,6 @@ None.
 - [0085](0085-freed-memory-back-to-the-host.md) freed blocks go back to the
   host, a chunk at a time — done, changelog "Freed blocks go back to the
   host, a chunk at a time"; passed on Linux arm64
+- [0086](0086-free-spaces-and-frames.md) freeing spaces and frames, and
+  unmapping a page — done, changelog "Freeing spaces and frames, and
+  unmapping a page"; passed on Linux arm64

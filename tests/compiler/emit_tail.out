@@ -76,6 +76,9 @@ declare i64 @l0_supervisor_call(i64, i64, i64, i64)
 declare i64 @l0_supervisor_send(i64, i64, i64, i64, i64)
 declare i64 @l0_supervisor_receive(i64, i64, i64)
 declare i64 @l0_frame_address(i64)
+declare i64 @l0_space_unmap(i64, i64)
+declare i64 @l0_space_free(i64)
+declare i64 @l0_frame_free(i64)
 
 @l0_main_ret_kind = global i64 0
 
