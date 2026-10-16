@@ -7,6 +7,89 @@ New entries go at the top.
 
 ---
 
+## Freed blocks go back to the host, a chunk at a time
+
+**What changed.** Section 10.3: cons cells and data blocks are cut from
+chunks of 1 MiB less 64 bytes, aligned to 1 MiB, rather than from an arena
+of 64 MB chunks that was never given back. A freed block still goes on the
+free list for its size. A sweep finds the chunks, other than the one being
+cut, whose every block is on a free list, takes those blocks off, and gives
+the chunks back, keeping up to 4 to make chunks from. One runs as a chunk
+is made, once the chunks made since the last are a quarter of all there
+are, and whenever the host has no memory for an allocation, before the
+runtime asks again; that one gives back everything it can, the chunk being
+cut and the 4 kept among it. The host interface has one new function,
+`l0_host_alloc_aligned(align, n)`, with `posix_memalign`'s contract:
+`host-libc.ll` calls it, and `freestanding.ll` gives it over its heap.
+Roadmap 0085.
+
+**Why.** A freed block went on the free list for its exact size, and the
+arena never gave a chunk back, so freed memory reached neither the host
+nor any other size. Where the heap is fixed, that is a program running out
+of memory it has freed. A process's heap is 380 MiB, and
+`tests/virt/reclaim.l0` holds 100 MiB of blocks of one size, frees it, and
+does the same at three other sizes. It stopped with `heap exhausted`
+under both kernels, though it never holds more than 100 MiB. It passed on
+the board, with 1 GiB, and on macOS, peaking at 421 MB resident. A kernel is
+the program the current goal is for, and it frees one process's lists and
+then needs memory of another shape for the next. The test now ends with an
+array of 300 MiB, which fits in a process's heap only once the lists'
+chunks are given back.
+
+**Why nothing is counted as blocks come and go.** Four designs that kept
+a count were built and measured on the compiler compiling itself, the
+workload that matters most and the one with the leanest allocator to
+beat. A freed block went to its exact size's list and allocation popped
+it: a few instructions. Pages of 64 KiB, one size each, with a free list
+and a count of their own, were 15 to 20% slower in cycles, at 16 KiB as at
+64, with headers staggered across cache sets, and with the page a block
+was freed into moved to the front. A count beside the old lists, in each
+page or in each 1 MiB chunk, was 15% slower with 15% more instructions:
+about eight per allocation and free, which on that hot path is the whole
+cost. Giving each size its own bump arena, with no count, cost nothing, so
+what costs is counting, not keeping sizes apart. A sweep that adds up what
+the free lists hold, chunk by chunk, needs no count at all, and leaves
+allocation and freeing exactly as they were.
+
+**Why a sweep costs no more than the chunks it follows.** A sweep walks
+every free list, which holds no more blocks than the chunks hold. Running
+one only after a quarter of the chunks' size has been made since the last
+bounds all sweeping by a fixed share of the cutting. Counting what arrays
+and bytes take from the host too, so that freed chunks would go back before
+a large array, made the compiler 20% slower: it takes far more from the
+host that way than it ever holds in chunks, and swept every megabyte.
+Arrays still reach freed chunks, when the host refuses them, through the
+sweep that runs then.
+
+**Why 1 MiB less 64 bytes.** A chunk is given back only once every block
+in it is free, so smaller chunks empty sooner, and every chunk costs one
+header line a sweep touches. A block of `freestanding.ll` carries 48
+bytes beside it, so a block of a full 1 MiB at a 1 MiB boundary leaves no
+room for the next at the next boundary: chunks lay 2 MiB apart, and the
+runtime's first small allocation after them, its free worklist, landed in
+a gap halfway up the heap and split the freed space in two, which is why
+the 300 MiB array first failed. Asked for 64 bytes less, and given a block
+`l0_host_alloc` already places on a boundary, chunks lie end to end.
+
+**Why a new host function.** Alignment from `l0_host_alloc` alone means
+asking for twice the chunk and wasting half, since `free` cannot give back
+part of a block. libc has `posix_memalign`, which takes any size, unlike
+`aligned_alloc`, which wants a multiple of the alignment; `freestanding.ll`
+takes a block larger by the alignment and frees what lies before and after
+the aligned part, which its merging reuses. The host interface is not
+pinned by the seed, since only `l0rt.ll` calls it.
+
+**What it costs, measured** on macOS. The compiler compiling itself writes
+the same bytes, in the same 0.24 s user, with cycles within half a percent,
+3.7% more instructions, which the sweeps account for, and 16 KB more at
+its peak of 40.7 MB. `tests/virt/reclaim.l0`'s four phases peak at 125 MB
+resident rather than 421 MB, at 16% more cycles, the cost of walking lists
+of millions of freed blocks; with its array, at 439 MB rather than 736 MB,
+since macOS's allocator keeps the freed chunks rather than using them for
+an array of 300 MiB.
+
+---
+
 ## A frame's address, so a kernel can give a device memory
 
 **What changed.** Section 6.13 has a new builtin, `(frame_address f)`:

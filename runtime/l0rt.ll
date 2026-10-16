@@ -12,6 +12,7 @@
 ; codes, so nothing here knows how a host tells its failures apart.
 
 declare ptr @l0_host_alloc(i64)
+declare ptr @l0_host_alloc_aligned(i64, i64)
 declare ptr @l0_host_resize(ptr, i64)
 declare void @l0_host_free(ptr)
 declare i64 @l0_host_read(i64, ptr, i64)
@@ -49,8 +50,6 @@ declare i32 @memcmp(ptr, ptr, i64)
 declare i64 @l0_f_main(i64)
 @l0_main_ret_kind = external global i64
 
-@arena_cur = internal global i64 0
-@arena_end = internal global i64 0
 @stack_limit = internal global i64 0
 
 ; The handle table of spec section 6.3. A handle is an index into it. mode is
@@ -167,37 +166,352 @@ entry:
   unreachable
 }
 
-; ------------------------------------------------------------------- arena
+; ------------------------------------------------------------------ chunks
+;
+; Cons cells and data blocks are cut from chunks of 1 MiB less 64 bytes,
+; aligned to 1 MiB, so a block's chunk is its address with the low 20 bits
+; cleared; the 64 bytes are what a host's allocator may keep beside a
+; block, so that chunks it gives one after another can lie end to end. The
+; current chunk is cut from its start up, every block a whole number of
+; words, and a chunk starts with four words:
+;
+;   0  scratch for a sweep: the bytes of its blocks on free lists, or -1
+;      once the sweep has taken it
+;   1  how far it was cut, in bytes, from the end of these words
+;   2  the next chunk in use, from @chunks
+;   3  the next chunk, among the empty chunks or those a sweep took
+;
+; A freed block goes on the free list for its size, threaded through its
+; header word, which allocation takes from before the current chunk, so
+; taking and giving a block touch only that list and the block. Nothing
+; counts as blocks come and go. A sweep counts instead: it adds up, chunk by
+; chunk, the bytes on the free lists, and a chunk other than the current one
+; whose count is how far it was cut has every block free. It takes those
+; blocks off their lists and gives those chunks back. A sweep walks every
+; free list, so one runs only as a new chunk is made, once the chunks made
+; since the last are a quarter of all there are and at least one: a sweep
+; walks no more blocks than the chunks hold, so sweeping costs a bounded
+; share of cutting them. Arrays and bytes, which come from the host, do not
+; count, since a program may take far more that way than it ever holds in
+; chunks. One runs too whenever the host has no memory for an allocation,
+; before it is asked again. A chunk given back goes on the empty chunks,
+; which a new chunk is taken from before the host, and to the host once 4
+; are kept. Spec section 10.3.
 
-; Chunks come from malloc, and every allocation is a whole number of words.
-define internal i64 @arena_alloc(i64 %bytes) {
+@free_lists = internal global [257 x i64] zeroinitializer
+@chunk = internal global i64 0
+@chunk_cur = internal global i64 0
+@chunk_end = internal global i64 0
+@chunks = internal global i64 0
+@chunk_count = internal global i64 0
+@made_since = internal global i64 0
+@empty_chunks = internal global i64 0
+@empty_count = internal global i64 0
+
+; Counts n bytes of chunks about to be made, and sweeps first if that makes
+; a sweep due.
+define internal void @making(i64 %n) {
 entry:
-  %b1 = add i64 %bytes, 7
-  %b = and i64 %b1, -8
-  %cur = load i64, ptr @arena_cur
-  %end = load i64, ptr @arena_end
-  %room = sub i64 %end, %cur
-  %fits = icmp uge i64 %room, %b
-  br i1 %fits, label %take, label %grow
-grow:
-  %big = icmp ugt i64 %b, 67108864
-  %want = select i1 %big, i64 %b, i64 67108864
-  %chunk = call ptr @l0_host_alloc(i64 %want)
-  %null = icmp eq ptr %chunk, null
-  br i1 %null, label %oom, label %ok
+  %s = load i64, ptr @made_since
+  %s1 = add i64 %s, %n
+  store i64 %s1, ptr @made_since
+  %k = load i64, ptr @chunk_count
+  %quarter = shl i64 %k, 18
+  %least = icmp ult i64 %quarter, 1048576
+  %bar = select i1 %least, i64 1048576, i64 %quarter
+  %due = icmp uge i64 %s1, %bar
+  br i1 %due, label %sweep, label %done
+sweep:
+  call void @sweep(i1 false)
+  br label %done
+done:
+  ret void
+}
+
+; l0_host_alloc and l0_host_resize, but when the host has no memory, asked
+; again after a sweep gives back the chunks it can.
+define internal ptr @host_alloc(i64 %n) {
+entry:
+  %p = call ptr @l0_host_alloc(i64 %n)
+  %null = icmp eq ptr %p, null
+  br i1 %null, label %again, label %done
+again:
+  call void @sweep(i1 true)
+  %q = call ptr @l0_host_alloc(i64 %n)
+  ret ptr %q
+done:
+  ret ptr %p
+}
+
+define internal ptr @host_resize(ptr %old, i64 %n) {
+entry:
+  %p = call ptr @l0_host_resize(ptr %old, i64 %n)
+  %null = icmp eq ptr %p, null
+  br i1 %null, label %again, label %done
+again:
+  call void @sweep(i1 true)
+  %q = call ptr @l0_host_resize(ptr %old, i64 %n)
+  ret ptr %q
+done:
+  ret ptr %p
+}
+
+; Puts chunk c among the empty chunks, or gives it to the host when 4 are.
+define internal void @chunk_drop(i64 %c) {
+entry:
+  %cq = inttoptr i64 %c to ptr
+  %n = load i64, ptr @empty_count
+  %many = icmp uge i64 %n, 4
+  br i1 %many, label %give, label %keep
+keep:
+  %e = load i64, ptr @empty_chunks
+  %np = getelementptr i64, ptr %cq, i64 3
+  store i64 %e, ptr %np
+  store i64 %c, ptr @empty_chunks
+  %n1 = add i64 %n, 1
+  store i64 %n1, ptr @empty_count
+  ret void
+give:
+  call void @l0_host_free(ptr %cq)
+  ret void
+}
+
+; Makes a new chunk current, cutting a block of b bytes from its start, and
+; returns that block: one of the empty chunks, or a new one from the host.
+; The chunk it replaces records how far it was cut, and a sweep may run
+; first, which that chunk is then open to.
+define internal i64 @chunk_new(i64 %b) noinline {
+entry:
+  %c0 = load i64, ptr @chunk
+  %had = icmp ne i64 %c0, 0
+  br i1 %had, label %retire, label %decide
+retire:
+  %cur = load i64, ptr @chunk_cur
+  %start0 = add i64 %c0, 32
+  %ext = sub i64 %cur, %start0
+  %c0q = inttoptr i64 %c0 to ptr
+  %xp = getelementptr i64, ptr %c0q, i64 1
+  store i64 %ext, ptr %xp
+  store i64 0, ptr @chunk
+  store i64 0, ptr @chunk_cur
+  store i64 0, ptr @chunk_end
+  br label %decide
+decide:
+  call void @making(i64 1048576)
+  br label %get
+get:
+  %swept = phi i1 [ false, %decide ], [ true, %retry ]
+  %e = load i64, ptr @empty_chunks
+  %have = icmp ne i64 %e, 0
+  br i1 %have, label %reuse, label %fresh
+reuse:
+  %eq = inttoptr i64 %e to ptr
+  %enp = getelementptr i64, ptr %eq, i64 3
+  %next = load i64, ptr %enp
+  store i64 %next, ptr @empty_chunks
+  %n = load i64, ptr @empty_count
+  %n1 = sub i64 %n, 1
+  store i64 %n1, ptr @empty_count
+  br label %init
+fresh:
+  %m = call ptr @l0_host_alloc_aligned(i64 1048576, i64 1048512)
+  %null = icmp eq ptr %m, null
+  br i1 %null, label %none, label %got
+none:
+  br i1 %swept, label %oom, label %retry
+retry:
+  call void @sweep(i1 true)
+  br label %get
 oom:
   call void @rt_error(ptr @m_heap, i64 14)
   unreachable
-ok:
-  %c = ptrtoint ptr %chunk to i64
-  %e = add i64 %c, %want
-  store i64 %e, ptr @arena_end
-  br label %take
-take:
-  %p = phi i64 [ %cur, %entry ], [ %c, %ok ]
-  %np = add i64 %p, %b
-  store i64 %np, ptr @arena_cur
-  ret i64 %p
+got:
+  %mi = ptrtoint ptr %m to i64
+  br label %init
+init:
+  %c = phi i64 [ %e, %reuse ], [ %mi, %got ]
+  %cq = inttoptr i64 %c to ptr
+  %lp = getelementptr i64, ptr %cq, i64 2
+  %head = load i64, ptr @chunks
+  store i64 %head, ptr %lp
+  store i64 %c, ptr @chunks
+  %k = load i64, ptr @chunk_count
+  %k1 = add i64 %k, 1
+  store i64 %k1, ptr @chunk_count
+  store i64 %c, ptr @chunk
+  %blk = add i64 %c, 32
+  %after = add i64 %blk, %b
+  store i64 %after, ptr @chunk_cur
+  %end = add i64 %c, 1048512
+  store i64 %end, ptr @chunk_end
+  ret i64 %blk
+}
+
+; Gives back every chunk, other than the current one, whose blocks are all
+; on free lists, taking those blocks off the lists and keeping the order of
+; the rest. When the host has no memory, urgent is true, and nothing is held
+; back: the current chunk is no longer current, so it is given back too if
+; it can be, and the empty chunks kept go back to the host.
+define internal void @sweep(i1 %urgent) noinline {
+entry:
+  %cur0 = load i64, ptr @chunk
+  %has = icmp ne i64 %cur0, 0
+  br i1 %has, label %mark, label %marked
+mark:
+  %cc = load i64, ptr @chunk_cur
+  %start = add i64 %cur0, 32
+  %ext = sub i64 %cc, %start
+  %curq = inttoptr i64 %cur0 to ptr
+  %xp = getelementptr i64, ptr %curq, i64 1
+  store i64 %ext, ptr %xp
+  br i1 %urgent, label %retire, label %marked
+retire:
+  store i64 0, ptr @chunk
+  store i64 0, ptr @chunk_cur
+  store i64 0, ptr @chunk_end
+  br label %marked
+marked:
+  %cur = load i64, ptr @chunk
+  br label %zero
+zero:
+  %first = load i64, ptr @chunks
+  br label %zloop
+zloop:
+  %z = phi i64 [ %first, %zero ], [ %zn, %zstep ]
+  %zend = icmp eq i64 %z, 0
+  br i1 %zend, label %count, label %zstep
+zstep:
+  %zq = inttoptr i64 %z to ptr
+  store i64 0, ptr %zq
+  %znp = getelementptr i64, ptr %zq, i64 2
+  %zn = load i64, ptr %znp
+  br label %zloop
+count:
+  br label %csize
+csize:
+  %t = phi i64 [ 1, %count ], [ %t1, %cnext ]
+  %cdone = icmp ugt i64 %t, 256
+  br i1 %cdone, label %pick, label %clist
+clist:
+  %flp = getelementptr [257 x i64], ptr @free_lists, i64 0, i64 %t
+  %top = load i64, ptr %flp
+  %b = mul i64 %t, 8
+  br label %cwalk
+cwalk:
+  %k = phi i64 [ %top, %clist ], [ %kn, %cstep ]
+  %kend = icmp eq i64 %k, 0
+  br i1 %kend, label %cnext, label %cstep
+cstep:
+  %kq = inttoptr i64 %k to ptr
+  %kn = load i64, ptr %kq
+  %kc = and i64 %k, -1048576
+  %kcq = inttoptr i64 %kc to ptr
+  %tally = load i64, ptr %kcq
+  %tally1 = add i64 %tally, %b
+  store i64 %tally1, ptr %kcq
+  br label %cwalk
+cnext:
+  %t1 = add i64 %t, 1
+  br label %csize
+pick:
+  %slot0 = ptrtoint ptr @chunks to i64
+  br label %ploop
+ploop:
+  %c = phi i64 [ %first, %pick ], [ %cn, %pkeep ], [ %cn, %ptake ]
+  %slot = phi i64 [ %slot0, %pick ], [ %cslot, %pkeep ], [ %slot, %ptake ]
+  %taken = phi i64 [ 0, %pick ], [ %taken, %pkeep ], [ %c, %ptake ]
+  %pend = icmp eq i64 %c, 0
+  br i1 %pend, label %picked, label %plook
+plook:
+  %cq = inttoptr i64 %c to ptr
+  %cslotp = getelementptr i64, ptr %cq, i64 2
+  %cslot = ptrtoint ptr %cslotp to i64
+  %cn = load i64, ptr %cslotp
+  %ctally = load i64, ptr %cq
+  %cxp = getelementptr i64, ptr %cq, i64 1
+  %cext = load i64, ptr %cxp
+  %all = icmp eq i64 %ctally, %cext
+  %current = icmp eq i64 %c, %cur
+  %notcur = xor i1 %current, true
+  %idle = and i1 %all, %notcur
+  br i1 %idle, label %ptake, label %pkeep
+pkeep:
+  br label %ploop
+ptake:
+  store i64 -1, ptr %cq
+  %sq = inttoptr i64 %slot to ptr
+  store i64 %cn, ptr %sq
+  %tnp = getelementptr i64, ptr %cq, i64 3
+  store i64 %taken, ptr %tnp
+  %n = load i64, ptr @chunk_count
+  %n1 = sub i64 %n, 1
+  store i64 %n1, ptr @chunk_count
+  br label %ploop
+picked:
+  store i64 0, ptr @made_since
+  %any = icmp ne i64 %taken, 0
+  br i1 %any, label %fsize, label %flush
+fsize:
+  %u = phi i64 [ 1, %picked ], [ %u1, %fclose ]
+  %fdone = icmp ugt i64 %u, 256
+  br i1 %fdone, label %give, label %flist
+flist:
+  %glp = getelementptr [257 x i64], ptr @free_lists, i64 0, i64 %u
+  %gtop = load i64, ptr %glp
+  %gslot0 = ptrtoint ptr %glp to i64
+  br label %fwalk
+fwalk:
+  %f = phi i64 [ %gtop, %flist ], [ %fn, %fkeep ], [ %fn, %fdrop ]
+  %fslot = phi i64 [ %gslot0, %flist ], [ %f, %fkeep ], [ %fslot, %fdrop ]
+  %fend = icmp eq i64 %f, 0
+  br i1 %fend, label %fclose, label %flook
+flook:
+  %fq = inttoptr i64 %f to ptr
+  %fn = load i64, ptr %fq
+  %fc = and i64 %f, -1048576
+  %fcq = inttoptr i64 %fc to ptr
+  %ft = load i64, ptr %fcq
+  %gone = icmp slt i64 %ft, 0
+  br i1 %gone, label %fdrop, label %fkeep
+fkeep:
+  %fsq = inttoptr i64 %fslot to ptr
+  store i64 %f, ptr %fsq
+  br label %fwalk
+fdrop:
+  br label %fwalk
+fclose:
+  %fendq = inttoptr i64 %fslot to ptr
+  store i64 0, ptr %fendq
+  %u1 = add i64 %u, 1
+  br label %fsize
+give:
+  %r = phi i64 [ %taken, %fsize ], [ %rn, %gmore ]
+  %gfin = icmp eq i64 %r, 0
+  br i1 %gfin, label %flush, label %gmore
+gmore:
+  %rq = inttoptr i64 %r to ptr
+  %rnp = getelementptr i64, ptr %rq, i64 3
+  %rn = load i64, ptr %rnp
+  call void @chunk_drop(i64 %r)
+  br label %give
+flush:
+  br i1 %urgent, label %eloop, label %done
+eloop:
+  %e = load i64, ptr @empty_chunks
+  %eend = icmp eq i64 %e, 0
+  br i1 %eend, label %emptied, label %estep
+estep:
+  %eq = inttoptr i64 %e to ptr
+  %enp = getelementptr i64, ptr %eq, i64 3
+  %en = load i64, ptr %enp
+  store i64 %en, ptr @empty_chunks
+  call void @l0_host_free(ptr %eq)
+  br label %eloop
+emptied:
+  store i64 0, ptr @empty_count
+  br label %done
+done:
+  ret void
 }
 
 ; ------------------------------------------------------------------ blocks
@@ -211,11 +525,7 @@ take:
 ;
 ; A count of all ones means the block is never freed; the allocation calls
 ; that predate counting make blocks like that, so programs an older compiler
-; built stay correct. A freed block goes on the free list for its size,
-; threaded through its header word, and allocation takes from there before
-; the arena.
-
-@free_lists = internal global [257 x i64] zeroinitializer
+; built stay correct. A freed block goes back to its page, above.
 
 ; L0_RC_CHECK set in the environment turns on checking: counted blocks are
 ; counted as they are made and freed, and any left at a normal exit are
@@ -240,24 +550,30 @@ count:
   br label %sized
 sized:
   %total = add i64 %words, 1
-  %small = icmp ule i64 %total, 256
-  br i1 %small, label %try, label %fresh
-try:
-  %fp = getelementptr [257 x i64], ptr @free_lists, i64 0, i64 %total
-  %top = load i64, ptr %fp
-  %have = icmp ne i64 %top, 0
-  br i1 %have, label %reuse, label %fresh
+  %bytes = mul i64 %total, 8
+  %flp = getelementptr [257 x i64], ptr @free_lists, i64 0, i64 %total
+  %top = load i64, ptr %flp
+  %none = icmp eq i64 %top, 0
+  br i1 %none, label %cut, label %reuse
 reuse:
   %tq = inttoptr i64 %top to ptr
   %next = load i64, ptr %tq
-  store i64 %next, ptr %fp
+  store i64 %next, ptr %flp
   br label %init
-fresh:
-  %bytes = mul i64 %total, 8
-  %new = call i64 @arena_alloc(i64 %bytes)
+cut:
+  %cur = load i64, ptr @chunk_cur
+  %end = load i64, ptr @chunk_end
+  %after = add i64 %cur, %bytes
+  %fits = icmp ule i64 %after, %end
+  br i1 %fits, label %bump, label %new
+bump:
+  store i64 %after, ptr @chunk_cur
+  br label %init
+new:
+  %fresh = call i64 @chunk_new(i64 %bytes)
   br label %init
 init:
-  %blk = phi i64 [ %top, %reuse ], [ %new, %fresh ]
+  %blk = phi i64 [ %top, %reuse ], [ %cur, %bump ], [ %fresh, %new ]
   %hq = inttoptr i64 %blk to ptr
   %rcs = shl i64 %rc, 40
   %ws = shl i64 %words, 32
@@ -371,7 +687,7 @@ grow:
   %c3 = select i1 %none, i64 1024, i64 %c2
   %bytes = mul i64 %c3, 8
   %old = load ptr, ptr @wl
-  %new = call ptr @l0_host_resize(ptr %old, i64 %bytes)
+  %new = call ptr @host_resize(ptr %old, i64 %bytes)
   %bad = icmp eq ptr %new, null
   br i1 %bad, label %oom, label %grown
 oom:
@@ -472,9 +788,6 @@ pstep:
   br label %ploop
 recycle:
   %total = add i64 %size, 1
-  %small = icmp ule i64 %total, 256
-  br i1 %small, label %onlist, label %out
-onlist:
   %fp = getelementptr [257 x i64], ptr @free_lists, i64 0, i64 %total
   %top = load i64, ptr %fp
   store i64 %top, ptr %hq
@@ -599,7 +912,7 @@ entry:
 ; cons cell is 2 words and a data block at least 1. Word 0 is the length and
 ; the elements follow, so element i is word i + 1. Mask bit 0 says whether
 ; the elements are pointers. Arrays come from malloc and go back to free,
-; since the free lists are by size and stop at 256 words.
+; since their sizes are any number of words, and a page's blocks are one.
 ;
 ; array_set consumes its array: when that was the only reference it stores in
 ; place, and otherwise it copies. L0_ARRAY_STATS in the environment reports
@@ -616,7 +929,7 @@ entry:
 try:
   %w = add i64 %n, 2
   %bytes = mul i64 %w, 8
-  %m = call ptr @l0_host_alloc(i64 %bytes)
+  %m = call ptr @host_alloc(i64 %bytes)
   %null = icmp eq ptr %m, null
   br i1 %null, label %oom, label %ok
 oom:
@@ -1312,7 +1625,7 @@ keep:
 grow:
   %ncap = shl i64 %cap, 1
   %ob = load ptr, ptr %bp
-  %nb = call ptr @l0_host_resize(ptr %ob, i64 %ncap)
+  %nb = call ptr @host_resize(ptr %ob, i64 %ncap)
   %oom = icmp eq ptr %nb, null
   br i1 %oom, label %exhausted, label %grown
 exhausted:
@@ -1355,7 +1668,7 @@ dbl:
   br i1 %enough, label %re, label %dbl
 re:
   %old = load ptr, ptr %bufp
-  %new = call ptr @l0_host_resize(ptr %old, i64 %c2)
+  %new = call ptr @host_resize(ptr %old, i64 %c2)
   %null = icmp eq ptr %new, null
   br i1 %null, label %oom, label %grown
 oom:
@@ -1382,7 +1695,7 @@ entry:
   %np = alloca i64
   store i64 0, ptr %np
   %init = add i64 %pre, 65536
-  %b0 = call ptr @l0_host_alloc(i64 %init)
+  %b0 = call ptr @host_alloc(i64 %init)
   %null = icmp eq ptr %b0, null
   br i1 %null, label %oom, label %start
 oom:
@@ -1479,7 +1792,7 @@ finish:
   %fbuf = load ptr, ptr %bufp
   %fsize = add i64 %pre, %n
   %fsize1 = add i64 %fsize, 8
-  %trim = call ptr @l0_host_resize(ptr %fbuf, i64 %fsize1)
+  %trim = call ptr @host_resize(ptr %fbuf, i64 %fsize1)
   %tnull = icmp eq ptr %trim, null
   %res = select i1 %tnull, ptr %fbuf, ptr %trim
   ret ptr %res
@@ -1515,7 +1828,7 @@ entry:
   br i1 %huge, label %oom, label %try
 try:
   %size = add i64 %n, 16
-  %m = call ptr @l0_host_alloc(i64 %size)
+  %m = call ptr @host_alloc(i64 %size)
   %null = icmp eq ptr %m, null
   br i1 %null, label %oom, label %ok
 oom:
@@ -1869,7 +2182,7 @@ entry:
   %none = icmp slt i64 %h, 0
   br i1 %none, label %fail, label %alloc
 alloc:
-  %b = call ptr @l0_host_alloc(i64 4096)
+  %b = call ptr @host_alloc(i64 4096)
   %nob = icmp eq ptr %b, null
   br i1 %nob, label %fail, label %ok
 fail:
@@ -2010,7 +2323,7 @@ cstep:
   br label %count
 alloc:
   %sz = add i64 %n, 1
-  %s = call ptr @l0_host_alloc(i64 %sz)
+  %s = call ptr @host_alloc(i64 %sz)
   %null = icmp eq ptr %s, null
   br i1 %null, label %fail, label %copy
 copy:
@@ -2078,7 +2391,7 @@ slot:
   %noh = icmp slt i64 %h, 0
   br i1 %noh, label %other_free, label %buf
 buf:
-  %b = call ptr @l0_host_alloc(i64 65536)
+  %b = call ptr @host_alloc(i64 65536)
   %nob = icmp eq ptr %b, null
   br i1 %nob, label %other_free, label %open
 open:
@@ -2627,7 +2940,7 @@ grow:
   %c3 = select i1 %none, i64 256, i64 %c2
   %bytes = mul i64 %c3, 16
   %old = load ptr, ptr @eq_wl
-  %new = call ptr @l0_host_resize(ptr %old, i64 %bytes)
+  %new = call ptr @host_resize(ptr %old, i64 %bytes)
   %bad = icmp eq ptr %new, null
   br i1 %bad, label %oom, label %grown
 oom:
@@ -2790,7 +3103,7 @@ grow:
   %c3 = select i1 %none, i64 256, i64 %c2
   %bytes = mul i64 %c3, 24
   %old = load ptr, ptr @cmp_wl
-  %new = call ptr @l0_host_resize(ptr %old, i64 %bytes)
+  %new = call ptr @host_resize(ptr %old, i64 %bytes)
   %bad = icmp eq ptr %new, null
   br i1 %bad, label %oom, label %grown
 oom:
@@ -3101,7 +3414,7 @@ entry:
   %bufp = alloca ptr
   %capp = alloca i64
   %lenp = alloca i64
-  %b0 = call ptr @l0_host_alloc(i64 65536)
+  %b0 = call ptr @host_alloc(i64 65536)
   %isnull0 = icmp eq ptr %b0, null
   br i1 %isnull0, label %oom, label %init
 init:
@@ -3117,7 +3430,7 @@ loop:
 grow:
   %cap2 = shl i64 %cap, 1
   %bold = load ptr, ptr %bufp
-  %bnew = call ptr @l0_host_resize(ptr %bold, i64 %cap2)
+  %bnew = call ptr @host_resize(ptr %bold, i64 %cap2)
   %isnull1 = icmp eq ptr %bnew, null
   br i1 %isnull1, label %oom, label %grown
 grown:

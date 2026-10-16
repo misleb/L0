@@ -27,6 +27,7 @@ declare i64 @read(i32, ptr, i64)
 declare i64 @write(i32, ptr, i64)
 declare void @_exit(i32) noreturn
 declare ptr @malloc(i64)
+declare i32 @posix_memalign(ptr, i64, i64)
 declare ptr @realloc(ptr, i64)
 declare void @free(ptr)
 declare ptr @getenv(ptr)
@@ -77,6 +78,19 @@ define ptr @l0_host_alloc(i64 %n) {
 entry:
   %p = call ptr @malloc(i64 %n)
   ret ptr %p
+}
+
+define ptr @l0_host_alloc_aligned(i64 %align, i64 %n) {
+entry:
+  %slot = alloca ptr
+  %r = call i32 @posix_memalign(ptr %slot, i64 %align, i64 %n)
+  %ok = icmp eq i32 %r, 0
+  br i1 %ok, label %got, label %none
+got:
+  %p = load ptr, ptr %slot
+  ret ptr %p
+none:
+  ret ptr null
 }
 
 define ptr @l0_host_resize(ptr %p, i64 %n) {

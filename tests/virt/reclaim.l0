@@ -1,0 +1,57 @@
+; Four phases, each holding 100 MiB of blocks of one size and then freeing
+; all of it, each at a size the others do not use, and then an array of 300
+; MiB. A process's heap is 380 MiB, so the program fits only if what one
+; phase frees can be used for another's size, and for the array: the
+; runtime's chunks go back to the host once every block in them is free.
+; Spec section 10.3.
+
+(data C2 (C2End) (C2Next int C2))
+(data C3 (C3End) (C3Next int int C3))
+(data C4 (C4End) (C4Next int int int C4))
+
+(def list_of ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (list_of (sub n 1) (cons n acc))))
+
+(def list_sum ((xs (list int)) (acc int)) int
+  (if (is_empty xs) acc (list_sum (tail xs) (add acc (head xs)))))
+
+(def c2_of ((n int) (acc C2)) C2
+  (if (eq n 0) acc (c2_of (sub n 1) (C2Next n acc))))
+
+(def c2_sum ((c C2) (acc int)) int
+  (match c
+    ((C2End) acc)
+    ((C2Next x rest) (c2_sum rest (add acc x)))))
+
+(def c3_of ((n int) (acc C3)) C3
+  (if (eq n 0) acc (c3_of (sub n 1) (C3Next n 0 acc))))
+
+(def c3_sum ((c C3) (acc int)) int
+  (match c
+    ((C3End) acc)
+    ((C3Next x y rest) (c3_sum rest (add acc (add x y))))))
+
+(def c4_of ((n int) (acc C4)) C4
+  (if (eq n 0) acc (c4_of (sub n 1) (C4Next n 0 0 acc))))
+
+(def c4_sum ((c C4) (acc int)) int
+  (match c
+    ((C4End) acc)
+    ((C4Next x y z rest) (c4_sum rest (add acc (add x (add y z)))))))
+
+; 100 MiB at 24, 32, 40, and 48 bytes a block, then 300 MiB at once.
+(def sums () (list int)
+  (let a (list_sum (list_of 4369066 (nil int)) 0)
+    (let b (c2_sum (c2_of 3276800 (C2End)) 0)
+      (let c (c3_sum (c3_of 2621440 (C3End)) 0)
+        (let d (c4_sum (c4_of 2184533 (C4End)) 0)
+          (let e (array_len (array_new 39321600 0))
+            (cons a (cons b (cons c (cons d (cons e (nil int))))))))))))
+
+(def lines ((xs (list int)) (acc (list int))) (list int)
+  (if (is_empty xs)
+      (rev acc)
+      (lines (tail xs) (cons 10 (push (digits (head xs)) acc)))))
+
+(def main ((input (list int))) (list int)
+  (lines (sums) (nil int)))

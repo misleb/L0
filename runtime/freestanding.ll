@@ -1,6 +1,6 @@
 ; freestanding.ll -- what a host without libc needs beneath runtime/l0rt.ll,
-; spec section 10.3: the allocator, l0_host_alloc, l0_host_resize, and
-; l0_host_free, and memcpy, memmove, memset, memcmp, bcmp, and strlen. It is linked
+; spec section 10.3: the allocator, l0_host_alloc, l0_host_alloc_aligned,
+; l0_host_resize, and l0_host_free, and memcpy, memmove, memset, memcmp, bcmp, and strlen. It is linked
 ; beside a host file that has no libc, runtime/host-virt.ll on QEMU's virt
 ; board and runtime/host-proc.ll in a process of a kernel, and the layout
 ; that host's linker script gives names the heap, __heap_start to
@@ -243,6 +243,85 @@ put:
   br label %done
 done:
   ret void
+}
+
+; A block whose contents start at a multiple of align, a power of two: the
+; block of n bytes that l0_host_alloc gives, if it is one, and otherwise one
+; larger by align and 48 bytes, cut at the first such address at least 48
+; bytes in, or at the start, so that what lies before and what lies after
+; are blocks of their own, which are then freed and merge as any block does.
+; Asked for less than align by 64 bytes or more, blocks taken one after
+; another from a free block lie end to end, each where the last left off.
+define ptr @l0_host_alloc_aligned(i64 %align, i64 %n) {
+entry:
+  %huge = icmp ugt i64 %n, 1099511627776
+  br i1 %huge, label %none, label %try
+try:
+  %p0 = call ptr @l0_host_alloc(i64 %n)
+  %null0 = icmp eq ptr %p0, null
+  br i1 %null0, label %none, label %check
+check:
+  %p0i = ptrtoint ptr %p0 to i64
+  %low = sub i64 %align, 1
+  %off = and i64 %p0i, %low
+  %fits = icmp eq i64 %off, 0
+  br i1 %fits, label %direct, label %undo
+direct:
+  ret ptr %p0
+undo:
+  call void @l0_host_free(ptr %p0)
+  br label %go
+go:
+  %extra = add i64 %align, 48
+  %want = add i64 %n, %extra
+  %p = call ptr @l0_host_alloc(i64 %want)
+  %null = icmp eq ptr %p, null
+  br i1 %null, label %none, label %got
+got:
+  %u0 = ptrtoint ptr %p to i64
+  %a1 = sub i64 %align, 1
+  %r0 = add i64 %u0, %a1
+  %na = sub i64 0, %align
+  %ua = and i64 %r0, %na
+  %g0 = sub i64 %ua, %u0
+  %tiny = icmp ult i64 %g0, 48
+  %some = icmp ne i64 %g0, 0
+  %shift = and i1 %tiny, %some
+  %ub = add i64 %ua, %align
+  %u = select i1 %shift, i64 %ub, i64 %ua
+  %g = sub i64 %u, %u0
+  %b0 = sub i64 %u0, 16
+  %h0p = inttoptr i64 %b0 to ptr
+  %t0 = load i64, ptr %h0p
+  %s0 = and i64 %t0, -16
+  %b = sub i64 %u, 16
+  %need = call i64 @block_size(i64 %n)
+  %rest = sub i64 %s0, %g
+  %tail = sub i64 %rest, %need
+  %cut = icmp uge i64 %tail, 48
+  br i1 %cut, label %trim, label %whole
+trim:
+  call void @set_tags(i64 %b, i64 %need, i64 1)
+  %tb = add i64 %b, %need
+  call void @set_tags(i64 %tb, i64 %tail, i64 1)
+  %tu = add i64 %tb, 16
+  %tp = inttoptr i64 %tu to ptr
+  call void @l0_host_free(ptr %tp)
+  br label %lead
+whole:
+  call void @set_tags(i64 %b, i64 %rest, i64 1)
+  br label %lead
+lead:
+  br i1 %some, label %front, label %done
+front:
+  call void @set_tags(i64 %b0, i64 %g, i64 1)
+  call void @l0_host_free(ptr %p)
+  br label %done
+done:
+  %r = inttoptr i64 %u to ptr
+  ret ptr %r
+none:
+  ret ptr null
 }
 
 ; In place when the block already holds n bytes, or can take in the free
