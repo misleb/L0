@@ -1,0 +1,6 @@
+; Spec sections 6.16 and 10.3: a host with an operating system does not
+; say which CPU it is on, so machine is 0, and the same each time it is
+; asked.
+(def main ((input (list int))) (list int)
+  (append (digits (machine))
+    (cons 10 (append (digits (sub (machine) (machine))) (cons 10 (nil int))))))

@@ -1,6 +1,6 @@
 /* The layout of an L0 program run as a process, spec section 10.3, for
-   runtime/host-proc.ll and runtime/freestanding.ll, which use every symbol
-   below. Every process runs at these virtual addresses, each in an address
+   runtime/bare/proc.ll and runtime/freestanding.ll, which use every symbol
+   below, on every CPU. Every process runs at these virtual addresses, each in an address
    space of its own; where the kernel puts it in physical memory is the
    kernel's to choose. */
 ENTRY(_start)

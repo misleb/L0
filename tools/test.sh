@@ -296,10 +296,13 @@ args_of() {
 
 if [ "$VIRT" = 1 ]; then
     vstart=$(date +%s)
-    vdir="$BUILD/virt"
-    pdir="$BUILD/proc"
-    if [ ! -f "$vdir/host.bc" ] || [ ! -f "$pdir/host.bc" ]; then
+    vdir="$BUILD/virt-aarch64"
+    pdir="$BUILD/proc-aarch64"
+    if [ ! -f "$vdir/parts" ] || [ ! -f "$pdir/parts" ]; then
         echo "FAIL: $CC cannot build the aarch64 runtimes for --target virt and proc"
+        for e in "$vdir.err" "$pdir.err"; do
+            [ -f "$e" ] && sed 's/^/    /' "$e"
+        done
         exit 1
     fi
     vcc=$(current_compiler)
@@ -318,9 +321,8 @@ if [ "$VIRT" = 1 ]; then
         chmod +x "$TMP/virt-ld"
         L0_VIRT_LD="$TMP/virt-ld"
     fi
-    L0_VIRT_DIR="$vdir"
-    L0_PROC_DIR="$pdir"
-    export L0_VIRT_LD L0_VIRT_DIR L0_PROC_DIR
+    L0_RUNTIMES="$BUILD"
+    export L0_VIRT_LD L0_RUNTIMES
 
     # First the goal's measure: the compiler compiles itself on the board,
     # and as a process, to the bytes it writes here (tools/bootstrap.sh

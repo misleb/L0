@@ -1,9 +1,9 @@
 ; freestanding.ll -- what a host without libc needs beneath runtime/l0rt.ll,
 ; spec section 10.3: the allocator, l0_host_alloc, l0_host_alloc_aligned,
 ; l0_host_resize, and l0_host_free, and memcpy, memmove, memset, memcmp, bcmp, and strlen. It is linked
-; beside a host file that has no libc, runtime/host-virt.ll on QEMU's virt
-; board and runtime/host-proc.ll in a process of a kernel, and the layout
-; that host's linker script gives names the heap, __heap_start to
+; beside a host that has no libc, a board's (runtime/bare/board.ll and its
+; parts) or a process's (runtime/bare/proc.ll and its CPU's part), and the
+; layout that host's linker script gives names the heap, __heap_start to
 ; __heap_end.
 ;
 ; It names no machine, and so carries no target triple, as l0rt.ll does not.

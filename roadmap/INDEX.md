@@ -94,11 +94,20 @@ system beneath it can hold one shape of data and then another. L0S then
 asked to give back spaces and frames, and a kernel now can, and unmap a
 page (0086).
 
+The user then asked for the hosts without an operating system to run on
+QEMU's riscv64 virt board as well as its aarch64 one, organized so that
+later boards, the VisionFive 2 and the Raspberry Pi 4, are less work.
+0087 found what the riscv64 board gives and laid out the route: the host
+in parts (0088), a builtin naming the CPU (0089) and the library over it
+(0090), per-CPU test plumbing, then the riscv64 board, its interrupts,
+its user mode, and its process host.
+
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-None.
+None active. 0090, the library and the L0 kernel over `(machine)`, comes
+next, once 0089's seed is committed.
 
 ## Other open items
 
@@ -333,3 +342,10 @@ None.
 - [0086](0086-free-spaces-and-frames.md) freeing spaces and frames, and
   unmapping a page — done, changelog "Freeing spaces and frames, and
   unmapping a page"; passed on Linux arm64
+- [0087](0087-route-to-riscv64.md) research: the route to riscv64, and
+  what QEMU's board gives — done
+- [0088](0088-host-in-parts.md) tooling: a host without an operating
+  system, in parts — done, changelog "A host without an operating system
+  is made of parts, and no language change for it"
+- [0089](0089-machine.md) `(machine)`, the CPU a program runs on — done,
+  changelog "A program asks which CPU it runs on"; passed on Linux arm64

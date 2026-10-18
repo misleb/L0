@@ -1,0 +1,11 @@
+; 0089: a system call's number, read from a thread's context, cannot be
+; written once for two CPUs. arm64 puts it in x8, word 8 of a context, and
+; riscv64 in a7, which would be word 17; the stack pointer is word 31 on
+; one and word 2 on the other. Nothing says which CPU this is, and the IR
+; is the same for every host (spec section 9.2), so the compiler cannot
+; choose either.
+(def call_number ((c (array int))) int
+  (array_get c 8))                        ; right on aarch64 alone
+
+(def main () int
+  (call_number (array_new 104 0)))

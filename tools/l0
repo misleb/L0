@@ -26,32 +26,35 @@
 #   --test          l0 check: check as l0 test builds, with test.l0 linked
 #   --match TEXT    l0 test: run only tests whose names contain TEXT
 #   --bless         l0 test: rewrite golden files instead of comparing
-#   --target virt   l0 build, run, link, and test: for QEMU's aarch64 virt
-#                   board, with no operating system (spec section 9.2),
-#                   rather than this host
-#   --target proc   l0 build and link: a process for a kernel on aarch64
-#                   (spec sections 9.2 and 10.3), which only a kernel runs
+#   --target virt   l0 build, run, link, and test: for QEMU's virt board,
+#                   with no operating system (spec section 9.2), rather
+#                   than this host
+#   --target proc   l0 build and link: a process for a kernel (spec
+#                   sections 9.2 and 10.3), which only a kernel runs
+#   --arch ARCH     with --target virt or proc, the CPU: aarch64, the
+#                   default, unless L0_ARCH names another
 #
-# With --target virt, l0 build writes a raw image, as the arm64 boot
-# protocol loads it, and l0 run boots it with qemu-system-aarch64, with all
-# of standard input loaded as the program's, the arguments after -- as its
-# boot arguments, which hold no space, its standard output on the board's
-# serial line, and its standard error and exit status passed back as the
-# program's own. l0 boot IMAGE ARG ... does the same for a built image. The image is linked by
-# L0_VIRT_LD, an ld.lld, if set, and otherwise by ld.lld in a container
-# built from tools/virt/Dockerfile the first time; L0_QEMU names the
-# emulator, and L0_VIRT_DIR the board's runtime, which defaults to the
-# installed one. The board's virtio-mmio transports are modern, and
+# With --target virt, l0 build writes a raw image, as the CPU's boot
+# protocol loads it, and l0 run boots it with QEMU, qemu-system-aarch64 for
+# aarch64, with all of standard input loaded as the program's, the
+# arguments after -- as its boot arguments, which hold no space, its
+# standard output on the board's serial line, and its standard error and
+# exit status passed back as the program's own. l0 boot IMAGE ARG ... does
+# the same for a built image, on the board its boot header names. The
+# image is linked by L0_VIRT_LD, an ld.lld, if set, and otherwise by ld.lld
+# in a container built from tools/virt/Dockerfile the first time; L0_QEMU
+# names the emulator, and L0_RUNTIMES a directory of the targets'
+# runtimes, one for each runtime/targets/NAME.target, which defaults to the
+# installed ones. The board's virtio-mmio transports are modern, and
 # L0_QEMU_ARGS, split at spaces, is added to QEMU's command line, to give
 # the board devices beyond its own: L0_QEMU_ARGS="-device virtio-gpu-device"
 # puts a display on a transport.
 #
 # With --target proc, l0 build writes a process's image as its kernel loads
 # it: raw, its bytes from 0xC0000000, the virtual address spec section
-# 10.3 fixes, with runtime/host-proc.ll as its host file, which any kernel
-# that answers that section's system calls runs. It is linked as --target
-# virt's images are; L0_PROC_DIR names its runtime, which defaults to the
-# installed one.
+# 10.3 fixes, with runtime/bare/proc.ll and the CPU's part as its host,
+# which any kernel that answers that section's system calls runs. It is
+# linked as --target virt's images are.
 #
 # l0 test runs every test with L0_RC_CHECK set, and a test that leaves
 # memory it never freed fails, since that is a compiler or runtime bug.
@@ -141,6 +144,7 @@ FILES=""
 MATCH=""
 BLESS=""
 TARGET=host
+ARCH=${L0_ARCH:-aarch64}
 
 parse_args() {
     while [ $# -gt 0 ]; do
@@ -158,6 +162,11 @@ parse_args() {
                         exit 2
                         ;;
                 esac
+                ;;
+            --arch)
+                shift
+                [ $# -gt 0 ] || { echo "l0: --arch needs a name" >&2; exit 2; }
+                ARCH=$1
                 ;;
             --match)
                 shift
@@ -274,86 +283,125 @@ scratch_base() {
 
 # ------------------------------------------------- hosts without libc
 
-# bare_link TARGET IR OUT: an image of IR for a host without libc, virt for
-# QEMU's virt board or proc for a process of a kernel. Each has its runtime
-# in a directory of its own: l0rt.ll, runtime/freestanding.ll, and the
-# target's host file, as bitcode for aarch64, and its layout, TARGET.ld.
-# clang compiles the program with the three linked into it, so all are
+# The targets without libc are described by manifests, runtime/targets/
+# NAME.target in a source checkout (tools/targets.sh says what they hold),
+# and each has its runtime in a directory of its own, NAME, under
+# L0_RUNTIMES or the library: its parts as bitcode for its CPU, listed in
+# its file parts, its layout, layout.ld, and its manifest, target. NAME is
+# the target and the CPU, virt-aarch64 for --target virt --arch aarch64.
+
+# load_target: the runtime of the target --target and --arch name, in
+# tdir, with its manifest's T_ variables set. In a source checkout it is
+# rebuilt from runtime/ first when it is missing or older than its
+# sources, as ensure_toolchain rebuilds the host's.
+load_target() {
+    tname="$TARGET-$ARCH"
+    tdir="${L0_RUNTIMES:-$LIB}/$tname"
+    root=$(cd "$LIB/.." && pwd)
+    if [ -z "${L0_RUNTIMES:-}" ] && [ -f "$root/tools/targets.sh" ]; then
+        if [ ! -f "$root/runtime/targets/$tname.target" ]; then
+            echo "l0: there is no --target $TARGET for --arch $ARCH" >&2
+            exit 2
+        fi
+        (
+            ROOT=$root
+            CC=$(find_cc)
+            # shellcheck source=/dev/null
+            . "$root/tools/targets.sh"
+            if target_stale "$tname" "$tdir"; then
+                target_runtime "$tname" "$tdir"
+            fi
+        ) || true
+    fi
+    if [ ! -f "$tdir/parts" ]; then
+        echo "l0: no runtime for --target $TARGET --arch $ARCH in $tdir; clang could not build one" >&2
+        [ -f "$tdir.err" ] && sed 's/^/    /' "$tdir.err" >&2
+        exit 2
+    fi
+    T_CFLAGS=""
+    # shellcheck source=/dev/null
+    . "$tdir/target"
+}
+
+# bare_link IR OUT: an image of IR for the target --target and --arch name,
+# a board with no operating system or a process of a kernel. clang
+# compiles the program with the target's parts linked into it, so all are
 # optimized as one module, and only a linker that places sections is
 # needed after. That is ld.lld: L0_VIRT_LD if it names one, or else the one
 # in a container, which never sees bitcode, so its LLVM may be older than
 # clang's.
 bare_link() {
-    case $1 in
-        virt) tdir=${L0_VIRT_DIR:-$LIB/virt} named=${L0_VIRT_DIR:-} ;;
-        proc) tdir=${L0_PROC_DIR:-$LIB/proc} named=${L0_PROC_DIR:-} ;;
-    esac
-    root=$(cd "$LIB/.." && pwd)
-    # In a source checkout, the target's runtime is rebuilt from runtime/
-    # when it is missing or older than its sources, as ensure_toolchain
-    # rebuilds the host's.
-    if [ -z "$named" ] && [ -f "$root/runtime/host-$1.ll" ]; then
-        if [ ! -f "$tdir/host.bc" ] || [ ! -f "$tdir/freestanding.bc" ] ||
-            [ "$root/runtime/l0rt.ll" -nt "$tdir/l0rt.bc" ] ||
-            [ "$root/runtime/freestanding.ll" -nt "$tdir/freestanding.bc" ] ||
-            [ "$root/runtime/host-$1.ll" -nt "$tdir/host.bc" ] ||
-            [ "$root/runtime/$1.ld" -nt "$tdir/$1.ld" ]; then
-            "$root/tools/install.sh" --into "$LIB" > /dev/null
-        fi
-    fi
-    for f in l0rt.bc freestanding.bc host.bc "$1.ld"; do
-        if [ ! -f "$tdir/$f" ]; then
-            echo "l0: no runtime for --target $1 in $tdir; clang could not build one for aarch64 at install" >&2
-            exit 2
-        fi
+    load_target
+    parts=""
+    for p in $(cat "$tdir/parts"); do
+        parts="$parts -Xclang -mlink-bitcode-file -Xclang $tdir/$p"
     done
-    "$(find_cc)" --target=aarch64-none-elf -O2 -Wno-override-module -c "$2" \
-        -Xclang -mlink-bitcode-file -Xclang "$tdir/l0rt.bc" \
-        -Xclang -mlink-bitcode-file -Xclang "$tdir/freestanding.bc" \
-        -Xclang -mlink-bitcode-file -Xclang "$tdir/host.bc" -o "$TMP/bare.o"
-    # Each image is raw, as its loader loads it (spec section 10.3): the
-    # board's by the arm64 boot protocol, and a process's by its kernel,
+    # shellcheck disable=SC2086
+    "$(find_cc)" --target="$T_TRIPLE" $T_CFLAGS -O2 -Wno-override-module -c "$1" \
+        $parts -o "$TMP/bare.o"
+    # Each image is raw, as its loader loads it (spec section 10.3): a
+    # board's by its CPU's boot protocol, and a process's by its kernel,
     # its bytes from 0xC0000000.
     oformat="--oformat binary"
     if [ -n "${L0_VIRT_LD:-}" ]; then
         # shellcheck disable=SC2086
-        "$L0_VIRT_LD" -T "$tdir/$1.ld" $oformat "$TMP/bare.o" -o "$3"
+        "$L0_VIRT_LD" -T "$tdir/layout.ld" $oformat "$TMP/bare.o" -o "$2"
         return
     fi
     if ! command -v docker > /dev/null 2>&1; then
-        echo "l0: --target $1 links with ld.lld; set L0_VIRT_LD to one, or install Docker" >&2
+        echo "l0: --target $TARGET links with ld.lld; set L0_VIRT_LD to one, or install Docker" >&2
         exit 2
     fi
     if ! docker image inspect l0-virt-link > /dev/null 2>&1; then
         echo "l0: building the l0-virt-link image, once" >&2
         docker build -q -t l0-virt-link "$tdir" > /dev/null
     fi
-    cp "$tdir/$1.ld" "$TMP/$1.ld"
+    cp "$tdir/layout.ld" "$TMP/layout.ld"
     # shellcheck disable=SC2086
     docker run --rm -v "$TMP:/w" -w /w l0-virt-link \
-        ld.lld -T "$1.ld" $oformat bare.o -o bare.out
-    cp "$TMP/bare.out" "$3"
+        ld.lld -T layout.ld $oformat bare.o -o bare.out
+    cp "$TMP/bare.out" "$2"
 }
 
-# virt_boot IMAGE INPUT [ARG ...]: boots IMAGE with the bytes of INPUT as
-# its standard input, loaded at 0x50000000 with their count in the word
-# below, as runtime/host-virt.ll reads them, and the ARGs as its boot
-# arguments, by QEMU's -append, and exits with the program's status. The
-# board splits its boot arguments at spaces, so an ARG holding one, or
-# none at all, is refused rather than split. QEMU's own standard input is
-# not the program's, so it gets none.
+# image_board IMAGE: the manifest's T_ variables of the board IMAGE boots
+# on, which QEMU emulates, found by the four bytes at 0x38 that its CPU's
+# boot protocol puts in its header, "ARM\x64" for arm64's.
+image_board() {
+    magic=$(od -An -tx1 -j56 -N4 "$1" | tr -d ' \n')
+    root=$(cd "$LIB/.." && pwd)
+    for m in "$root"/runtime/targets/*.target "${L0_RUNTIMES:-$LIB}"/*/target; do
+        [ -f "$m" ] || continue
+        T_KIND="" T_MAGIC="" T_QEMU=""
+        # shellcheck source=/dev/null
+        . "$m"
+        if [ "$T_KIND" = board ] && [ "$T_MAGIC" = "$magic" ] && [ -n "$T_QEMU" ]; then
+            return 0
+        fi
+    done
+    echo "l0: $1 has no boot header of a board l0 boot knows; l0 build --target virt writes one" >&2
+    exit 2
+}
+
+# virt_boot IMAGE INPUT [ARG ...]: boots IMAGE on the board whose manifest's
+# T_ variables are set, with the bytes of INPUT as its standard input,
+# loaded where the board's layout reads them with their count in the word
+# its manifest names, and the ARGs as its boot arguments, by QEMU's
+# -append, and exits with the program's status. The board splits its boot
+# arguments at spaces, so an ARG holding one, or none at all, is refused
+# rather than split. QEMU's own standard input is not the program's, so it
+# gets none.
 virt_boot() {
-    qemu=${L0_QEMU:-qemu-system-aarch64}
+    qemu=${L0_QEMU:-$T_QEMU}
     if ! command -v "$qemu" > /dev/null 2>&1; then
-        echo "l0: --target virt runs on $qemu, which is not installed" >&2
+        echo "l0: the $T_ARCH virt board runs on $qemu, which is not installed" >&2
         exit 2
     fi
     image=$1
     input=$2
     shift 2
     len=$(wc -c < "$input" | tr -d ' ')
-    if [ "$len" -gt 134217720 ]; then
-        echo "l0: the virt board takes at most 128 MB of standard input" >&2
+    if [ "$len" -gt "$T_INPUT_MAX" ]; then
+        echo "l0: the virt board takes at most $T_INPUT_MAX bytes of standard input" >&2
         exit 2
     fi
     line=""
@@ -370,21 +418,20 @@ virt_boot() {
         echo "l0: the virt board takes at most 65,535 bytes of boot arguments" >&2
         exit 2
     fi
-    load="-device loader,addr=0x4FFFFFF8,data=$len,data-len=8"
+    load="-device loader,addr=$T_INPUT_LEN_AT,data=$len,data-len=8"
     if [ "$len" -gt 0 ]; then
-        load="$load -device loader,file=$input,addr=0x50000000,force-raw=on"
+        load="$load -device loader,file=$input,addr=$T_INPUT_AT,force-raw=on"
     fi
-    # Modern virtio-mmio transports (spec section 10.3), and the devices
-    # L0_QEMU_ARGS adds, split at spaces.
-    board="-global virtio-mmio.force-legacy=false ${L0_QEMU_ARGS:-}"
+    # The board as its manifest gives it, its virtio-mmio transports modern
+    # (spec section 10.3), and the devices L0_QEMU_ARGS adds, split at
+    # spaces.
+    board="$T_QEMU_ARGS -display none -monitor none -serial stdio ${L0_QEMU_ARGS:-}"
     if [ -n "$line" ]; then
         # shellcheck disable=SC2086
-        "$qemu" -M virt -cpu cortex-a72 -m 2G -display none -monitor none \
-            -serial stdio -semihosting $board $load -kernel "$image" -append "$line" < /dev/null
+        "$qemu" $board $load -kernel "$image" -append "$line" < /dev/null
     else
         # shellcheck disable=SC2086
-        "$qemu" -M virt -cpu cortex-a72 -m 2G -display none -monitor none \
-            -serial stdio -semihosting $board $load -kernel "$image" < /dev/null
+        "$qemu" $board $load -kernel "$image" < /dev/null
     fi
 }
 
@@ -635,6 +682,7 @@ case "$cmd" in
         cat > "$TMP/stdin"
         image=$1
         shift
+        image_board "$image"
         virt_boot "$image" "$TMP/stdin" "$@"
         ;;
 
@@ -643,11 +691,11 @@ case "$cmd" in
         # shellcheck disable=SC2086
         set -- $FILES
         if [ $# -ne 1 ] || [ -z "$OUT" ]; then
-            echo "usage: l0 link IR -o OUT [--target virt | --target proc]" >&2
+            echo "usage: l0 link IR -o OUT [--target virt | --target proc] [--arch ARCH]" >&2
             exit 2
         fi
         if [ "$TARGET" != host ]; then
-            bare_link "$TARGET" "$1" "$OUT"
+            bare_link "$1" "$OUT"
         else
             "$(find_cc)" -O2 -flto -Wno-override-module "$1" "$RUNTIME" \
                 "$HOST" -o "$OUT"
@@ -659,7 +707,7 @@ case "$cmd" in
         [ -n "$OUT" ] || OUT=$(default_out)
         run_compiler "$TMP/out.ll"
         if [ "$TARGET" != host ]; then
-            bare_link "$TARGET" "$TMP/out.ll" "$OUT"
+            bare_link "$TMP/out.ll" "$OUT"
         else
             "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
                 "$HOST" -o "$OUT"
@@ -689,7 +737,7 @@ case "$cmd" in
         elif [ "$TARGET" = virt ]; then
             cat > "$TMP/stdin"
             run_compiler "$TMP/out.ll"
-            bare_link virt "$TMP/out.ll" "$TMP/prog.img"
+            bare_link "$TMP/out.ll" "$TMP/prog.img"
             virt_boot "$TMP/prog.img" "$TMP/stdin" "$@"
         else
             run_compiler "$TMP/out.ll"
@@ -749,7 +797,7 @@ case "$cmd" in
         SOURCES="$SOURCES $gen"
         run_compiler "$TMP/out.ll"
         if [ "$TARGET" = virt ]; then
-            bare_link virt "$TMP/out.ll" "$TMP/prog.img"
+            bare_link "$TMP/out.ll" "$TMP/prog.img"
         else
             "$(find_cc)" -O2 -flto -Wno-override-module "$TMP/out.ll" "$RUNTIME" \
                 "$HOST" -o "$TMP/prog"

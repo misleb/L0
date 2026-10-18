@@ -141,15 +141,16 @@ optimization, so the runtime's small functions are inlined into it. You can dele
 `runtime/`, `compiler/`, and `lib/` from a checkout and an installed `l0`
 keeps working.
 
-When `clang` can target aarch64, installing also puts the runtime for QEMU's
-`virt` board in `lib/l0/virt/`: `l0rt.ll`, `runtime/freestanding.ll`, and
-`runtime/host-virt.ll` as bitcode, the image layout, and the Dockerfile of
-the container that links images. `l0 build --target virt` and `l0 boot`
-need `qemu-system-aarch64`, and Docker, or an `ld.lld` named by
-`L0_VIRT_LD`. Beside it, `lib/l0/proc/` holds the same with
-`runtime/host-proc.ll`, for `l0 build --target proc`, which makes an image
-for a program run as a process by a kernel; no kernel comes with the
-toolchain.
+When `clang` can target a target's CPU, installing also puts the runtime for
+each target without an operating system in a directory of its own, named for
+its manifest in `runtime/targets/`: `lib/l0/virt-aarch64/` for QEMU's aarch64
+`virt` board holds `l0rt.ll`, `runtime/freestanding.ll`, and the host's
+parts as bitcode, the image layout, and the Dockerfile of the container that
+links images. `l0 build --target virt` and `l0 boot` need
+`qemu-system-aarch64`, and Docker, or an `ld.lld` named by `L0_VIRT_LD`.
+Beside it, `lib/l0/proc-aarch64/` holds the same for `l0 build --target
+proc`, which makes an image for a program run as a process by a kernel; no
+kernel comes with the toolchain.
 
 `clang` is still invoked on every build, but only as an assembler and linker
 for LLVM IR. GCC has no LLVM IR frontend, so it cannot do that job. Removing
@@ -513,11 +514,12 @@ not have. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 spec/          L0.md (what the language is) and changelog.md (why)
 runtime/       l0rt.ll, the runtime: allocation, reference counting,
                buffered I/O, stack checks; host-libc.ll, its host file:
-               libc, the clock, the entry point; host-virt.ll and
-               virt.ld, the host file and image layout for QEMU's virt
-               board, with no operating system; host-proc.ll and proc.ld,
-               for a process of a kernel; freestanding.ll, the allocator
-               and mem functions both of those link
+               libc, the clock, the entry point; the parts of a host with
+               no operating system, in bare/ (what no machine decides),
+               arch/ (a CPU's), board/ (a board's, with its layout), and
+               dev/ (drivers), listed for each target by its manifest in
+               targets/; proc.ld, a process's layout; freestanding.ll, the
+               allocator and mem functions all of those link
 compiler/      the L0 compiler, written in L0
 lib/           the standard library (prelude.l0, io.l0, test.l0), examples,
                and the AGENTS.md and skill `l0 init` copies into a project

@@ -5,8 +5,8 @@
 ;
 ; It carries no target triple, and is the same text on every host. It
 ; reaches the host only through the l0_host_ functions of spec section 10.3,
-; which a host file defines: runtime/host-libc.ll on macOS and Linux, and
-; runtime/host-virt.ll and runtime/host-proc.ll without libc. Beyond
+; which a host defines: runtime/host-libc.ll on macOS and Linux, and the
+; parts of runtime/bare/ and those beside them without libc. Beyond
 ; those it calls only memcmp, as every C environment provides, and LLVM's
 ; memory intrinsics. A host file's results are already spec section 6.3's
 ; codes, so nothing here knows how a host tells its failures apart.
@@ -22,6 +22,7 @@ declare i64 @l0_host_close(i64)
 declare i64 @l0_host_rename(ptr, ptr)
 declare i64 @l0_host_remove(ptr)
 declare i64 @l0_host_clock_ns()
+declare i64 @l0_host_machine()
 declare i64 @l0_host_arg_count()
 declare ptr @l0_host_arg(i64)
 declare ptr @l0_host_setting(ptr)
@@ -2520,6 +2521,15 @@ define i64 @l0_clock_ns() {
 entry:
   %t = call i64 @l0_host_clock_ns()
   ret i64 %t
+}
+
+; ----------------------------------------------------------------- machine
+
+; Spec section 6.16.
+define i64 @l0_machine() {
+entry:
+  %m = call i64 @l0_host_machine()
+  ret i64 %m
 }
 
 ; ----------------------------------------------------------------- regions

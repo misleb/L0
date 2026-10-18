@@ -1,5 +1,5 @@
 ; Spec sections 6.4 and 10.3 for a process: the kernel gives its
-; arguments, by system calls 8 and 9, and host-proc.ll keeps them. One is
+; arguments, by system calls 8 and 9, and the process's host keeps them. One is
 ; empty and one has a space; past the last, arg gives an empty list.
 (def show_args ((i int) (n int)) int
   (if (ge i n)

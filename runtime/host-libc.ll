@@ -544,6 +544,13 @@ entry:
   ret i64 -3
 }
 
+; Spec section 6.16: this file carries no triple and serves every CPU
+; alike, so it does not say which it is on.
+define i64 @l0_host_machine() {
+entry:
+  ret i64 0
+}
+
 ; ------------------------------------------------------------- entry point
 
 ; Before the program's thread starts, spec section 6.3. A write to a pipe

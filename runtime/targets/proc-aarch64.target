@@ -1,0 +1,9 @@
+# A process of a kernel on aarch64: l0 build --target proc --arch aarch64.
+# Only a kernel runs one, so nothing here boots it. tools/targets.sh says
+# what each variable means.
+T_KIND=proc
+T_ARCH=aarch64
+T_TRIPLE=aarch64-none-elf
+T_CFLAGS=""
+T_PARTS="bare/proc.ll arch/aarch64/proc.ll"
+T_LAYOUT=proc.ld

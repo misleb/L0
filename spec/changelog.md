@@ -7,6 +7,78 @@ New entries go at the top.
 
 ---
 
+## A program asks which CPU it runs on
+
+**What changed.** A new builtin, `(machine)`, section 6.16, returns the
+number of the CPU the program runs on: 1 for aarch64, and 0 where the host
+does not say, as under an operating system. Section 10.3 has the runtime
+call, `@l0_machine`, and the host function, `l0_host_machine`, which
+`host-libc.ll` answers with 0 and each CPU's part with its own number.
+Section 9.2 says a program that must know the CPU asks it. Roadmap 0089,
+the first language step of 0087's route to riscv64.
+
+**Why.** A kernel reads a thread's registers out of its context, and the
+library reads them for it: `trap_of` in `lib/io.l0` decodes arm64's
+exception syndrome and takes a system call's number from `x8`, word 8, and
+`user_context` puts the stack pointer in word 31. On riscv64 the number is
+in `a7`, word 17, the stack pointer in word 2, and a trap's cause is a
+different register with different values. Nothing in L0 said which CPU a
+program was on, so neither could be written once for both
+(`roadmap/0089/why.l0`), and the IR is the same for every host (9.2), so
+the compiler cannot choose either. The choices were:
+
+- **a builtin naming the CPU.** One library and one kernel, branching on it
+  where a CPU decides, and the IR still the same for every host. Chosen,
+  with the user
+- **a library file for each CPU, chosen by the tools.** No language change,
+  but the program, and so its IR, would differ by target, which is what
+  9.2 promises it does not
+- **the host making the context the same on every CPU,** copying a system
+  call's number and arguments into words of their own. That keeps the
+  kernel's reading the same, but a thread's machine code, and a context's
+  registers, are still the CPU's, so a kernel would still need to know
+
+**What it costs.** One builtin, which is a constant for the whole run. A
+program that branches on it holds code for every CPU it knows, and runs
+only one.
+
+## A host without an operating system is made of parts, and no language change for it
+
+**What changed.** Section 10.3 no longer names one host file for the virt
+board and one for a process. A board's host is now `runtime/bare/board.ll`,
+which no machine decides; a CPU's part, `runtime/arch/aarch64/boot.ll`; a
+board's part, `runtime/board/virt-aarch64.ll`, with its layout beside it;
+and drivers, `runtime/dev/gicv2.ll` and `runtime/dev/pl011.ll`, which take
+their device's address. Semihosting, which only an emulator answers, is
+`runtime/bare/semihost.ll`. A process's host is `runtime/bare/proc.ll` and
+its CPU's `runtime/arch/aarch64/proc.ll`. A manifest,
+`runtime/targets/NAME.target`, says which parts a target links, how to build
+them, and how QEMU boots its images, and the tools read nothing else about
+a target. The tools take `--arch` beside `--target virt` and `--target proc`,
+aarch64 the only one so far and the default, and `l0 boot` tells an image's
+board from its boot header. What any program sees is unchanged. Roadmap
+0087 and 0088, at the user's request.
+
+**Why.** The user asked for the virt board on riscv64 as well as aarch64,
+and for later boards, the StarFive VisionFive 2 and the Raspberry Pi 4, to
+be less work. In one 1,754-line file, aarch64's boot code, its page
+descriptors, QEMU's memory map, the GICv2, the PL011, semihosting, the
+device tree, the frame pool, and the interrupt bookkeeping were all one
+thing, so a second CPU or board would have been a copy of all of it. Split
+by who decides each, a riscv64 board writes only its CPU's part, its
+board's part, and the drivers it lacks; the Pi 4, an arm64 board with a
+GIC-400 and a PL011, needs only a board's part and its layout. The split is
+by who decides, not by size: the frame pool and the page tables' walk are
+in the neutral part, since arm64's 4 KB granule and RISC-V's Sv39 both
+have three levels of 4 KB tables with 9-bit indices, and only the
+descriptors' bits are the CPU's. A leaf maps a frame when its address is in
+the pool, which no CPU decides, rather than when arm64's attribute index
+says normal memory.
+
+**What it costs.** Seven files where there were two, and a manifest per
+target. The parts are bitcode linked into the program as before, so LLVM
+optimizes them as one module and the image is what it was.
+
 ## Freeing spaces and frames, and unmapping a page
 
 **What changed.** Section 6.13 has three new builtins. `(space_unmap s

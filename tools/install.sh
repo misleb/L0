@@ -73,32 +73,23 @@ rm -f "$LIBDIR/libl0rt.a"
 cp "$BUILD/l0rt.o" "$LIBDIR/l0rt.o"
 cp "$BUILD/l0host.o" "$LIBDIR/l0host.o"
 
-# The runtimes of the hosts without libc, for l0 build --target virt, QEMU's
-# virt board, and --target proc, a process of a kernel: l0rt.ll,
-# runtime/freestanding.ll, and the target's host file, runtime/host-virt.ll
-# or runtime/host-proc.ll, as bitcode for aarch64, which the driver links
-# into the program, beside the image's layout and the Dockerfile of the
-# container that links it. Skipped, with the directory removed, when clang
-# cannot target aarch64; the host toolchain does not need them.
-bare_runtime() {
-    d="$LIBDIR/$1"
-    echo "ll   runtime/l0rt.ll runtime/freestanding.ll runtime/host-$1.ll, for --target $1"
-    mkdir -p "$d"
-    if "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
-            "$ROOT/runtime/l0rt.ll" -o "$d/l0rt.bc" 2> /dev/null &&
-        "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
-            "$ROOT/runtime/freestanding.ll" -o "$d/freestanding.bc" 2> /dev/null &&
-        "$CC" --target=aarch64-none-elf -O2 -c -emit-llvm \
-            "$ROOT/runtime/host-$1.ll" -o "$d/host.bc" 2> /dev/null; then
-        cp "$ROOT/runtime/$1.ld" "$d/$1.ld"
-        cp "$ROOT/tools/virt/Dockerfile" "$d/Dockerfile"
-    else
-        rm -rf "$d"
-        echo "     skipped: $CC cannot target aarch64-none-elf"
+# The runtimes of the targets without libc, for l0 build --target virt, a
+# board with no operating system, and --target proc, a process of a kernel,
+# one for each manifest in runtime/targets (tools/targets.sh): l0rt.ll,
+# runtime/freestanding.ll, and the target's parts, as bitcode for its CPU,
+# which the driver links into the program, beside the image's layout and
+# the Dockerfile of the container that links it. Skipped, with the
+# directory removed, when clang cannot build one; the host toolchain does
+# not need them. Those an earlier install named for virt and proc alone are
+# removed.
+. "$ROOT/tools/targets.sh"
+rm -rf "$LIBDIR/virt" "$LIBDIR/proc"
+for t in $(target_names); do
+    echo "ll   runtime/targets/$t.target, for --target ${t%-*} --arch ${t##*-}"
+    if ! target_runtime "$t" "$LIBDIR/$t"; then
+        echo "     skipped: $CC cannot build it; see $LIBDIR/$t.err"
     fi
-}
-bare_runtime virt
-bare_runtime proc
+done
 
 echo "link compiler from bootstrap/stage2.ll"
 "$CC" -O2 -flto -Wno-override-module "$ROOT/bootstrap/stage2.ll" \

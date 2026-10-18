@@ -150,15 +150,15 @@ echo "FIXPOINT: stage2.ll == stage3.ll ($(wc -c < "$BUILD/stage2.ll" | tr -d ' '
 # -------------------------------------------- the last step, on the board
 
 # stage2 again, but as an image for QEMU's virt board, linked with the
-# board's runtime as tools/build.sh left it in build/virt, and booted on the
-# same source. It must write stage3.ll exactly: the compiler compiles
-# itself to itself with no operating system beneath it.
+# board's runtime as tools/build.sh left it in build/virt-aarch64, and
+# booted on the same source. It must write stage3.ll exactly: the compiler
+# compiles itself to itself with no operating system beneath it.
 if [ "$VIRT" = 1 ]; then
-    if [ ! -f "$BUILD/virt/host.bc" ]; then
+    if [ ! -f "$BUILD/virt-aarch64/parts" ]; then
         echo "error: $CC cannot build the virt board's runtime for aarch64" >&2
         exit 1
     fi
-    L0_VIRT_DIR="$BUILD/virt" tools/l0 link --target virt "$BUILD/stage2.ll" \
+    L0_RUNTIMES="$BUILD" tools/l0 link --target virt "$BUILD/stage2.ll" \
         -o "$BUILD/stage2.img"
     start=$(date +%s)
     if ! tools/l0 boot "$BUILD/stage2.img" < "$SRC" > "$BUILD/stage3-virt.ll.tagged"; then
@@ -182,14 +182,14 @@ if [ "$VIRT" = 1 ]; then
     fi
     echo "ON THE BOARD: stage2 on QEMU's virt board writes stage3.ll too, in $took s"
 
-    # And as a process of a kernel: stage2 built with runtime/host-proc.ll,
+    # And as a process of a kernel: stage2 built with runtime/bare/proc.ll,
     # run at EL0 in an address space of its own by the harness kernel, its
     # input and output by system calls.
-    if [ ! -f "$BUILD/proc/host.bc" ]; then
+    if [ ! -f "$BUILD/proc-aarch64/parts" ]; then
         echo "error: $CC cannot build the process runtime for aarch64" >&2
         exit 1
     fi
-    L0_PROC_DIR="$BUILD/proc" tools/l0 link --target proc "$BUILD/stage2.ll" \
+    L0_RUNTIMES="$BUILD" tools/l0 link --target proc "$BUILD/stage2.ll" \
         -o "$BUILD/stage2-proc.img"
     start=$(date +%s)
     if ! tests/virt/proc/harness/boot.sh "$BUILD/proc-boot" - "$BUILD/stage2-proc.img" \
@@ -216,7 +216,7 @@ if [ "$VIRT" = 1 ]; then
 
     # And as the process of a kernel written in L0, tests/virt/user/kernel.l0
     # (spec section 6.13), built by stage2 itself.
-    if ! L0_COMPILER="$BUILD/stage2" L0_VIRT_DIR="$BUILD/virt" tools/l0 build \
+    if ! L0_COMPILER="$BUILD/stage2" L0_RUNTIMES="$BUILD" tools/l0 build \
         --target virt tests/virt/user/kernel.l0 -o "$BUILD/user-kernel.img"; then
         echo "FAIL: stage2 did not build tests/virt/user/kernel.l0" >&2
         exit 1

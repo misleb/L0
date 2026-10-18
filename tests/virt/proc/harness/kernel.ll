@@ -2,7 +2,7 @@
 ; that runs L0 programs built with tools/l0 build --target proc as processes
 ; at EL0, each in an address space of its own, and answers the system calls
 ; spec section 10.3 fixes for them. It is the harness tools/test.sh --virt
-; and tools/bootstrap.sh --virt test runtime/host-proc.ll against, as
+; and tools/bootstrap.sh --virt test runtime/bare/proc.ll against, as
 ; tests/backend holds hand-written IR: not the kernel, which is to be L0,
 ; and the virt board's, since it drives the GIC. It began as roadmap 0074's
 ; prototype.
@@ -262,7 +262,7 @@ module asm "  ret"
 @k_cur_ctx = global i64 0
 @k_saved_sp = global i64 0
 
-; The kernel's own map, as runtime/host-virt.ll's: devices, then RAM.
+; The kernel's own map, as runtime/board/virt-aarch64.ll's: devices, then RAM.
 @k_boot_pt = global [4 x i64] [i64 1025, i64 1073743621, i64 2147485445, i64 0], align 4096
 
 @l1 = global [3 x [512 x i64]] zeroinitializer, align 4096
@@ -925,7 +925,7 @@ bad:
 
 ; ------------------------------------------------------------ regions
 
-; The board's devices, as runtime/host-virt.ll gives them, spec section
+; The board's devices, as runtime/board/virt-aarch64.ll gives them, spec section
 ; 10.3's table: a base and a length each. Not the GIC, which this kernel
 ; drives itself.
 @devices = private constant [10 x i64] [

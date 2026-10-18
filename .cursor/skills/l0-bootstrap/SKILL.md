@@ -61,28 +61,36 @@ silent and converts a caught bug into a permanent one.
   functions, through libc, and the entry point. It must stay the same text
   on both; its header says what that rules out. A change in it needs
   `tools/linux-test.sh`, as one in `l0rt.ll` does.
-- `runtime/host-virt.ll` and `runtime/virt.ld` — the host file and image
-  layout for QEMU's aarch64 virt board, with no operating system. A change
-  to either, to `l0rt.ll`, or to the emitter needs `tools/test.sh --virt`,
-  which checks the fixpoint on the board and runs the compiled suite's
-  programs and `tests/virt` there, about a minute and a half. A new test
-  that needs files or arguments and has no `.sh` script gets a `.host`
-  file saying why, or fails there.
-- `runtime/host-proc.ll` and `runtime/proc.ld` — the host file and layout
-  for a program run as a process by a kernel, which makes the system calls
-  of spec 10.3; `runtime/freestanding.ll` — the allocator and `mem`
-  functions both it and `host-virt.ll` link. A change to any of them, or
+- the hosts without an operating system, in parts by who decides them:
+  `runtime/bare/board.ll`, what no machine decides of a board's host;
+  `runtime/arch/aarch64/boot.ll`, the CPU's part; `runtime/board/
+  virt-aarch64.ll` and `.ld`, QEMU's aarch64 virt board and its layout;
+  `runtime/dev/`, the drivers a board's part drives its devices with; and
+  `runtime/bare/semihost.ll`. Each target's manifest,
+  `runtime/targets/NAME.target`, lists its parts, and `tools/targets.sh`
+  builds them into `build/NAME/`; a new board or CPU is a new manifest and
+  the parts it lacks, and the tools need no change. A change to any part,
+  to `l0rt.ll`, or to the emitter needs `tools/test.sh --virt`, which
+  checks the fixpoint on the board and runs the compiled suite's programs
+  and `tests/virt` there, about three minutes. A new test that needs files
+  or arguments and has no `.sh` script gets a `.host` file saying why, or
+  fails there.
+- `runtime/bare/proc.ll`, `runtime/arch/aarch64/proc.ll`, and
+  `runtime/proc.ld` — the host and layout for a program run as a process by
+  a kernel, which makes the system calls of spec 10.3;
+  `runtime/freestanding.ll` — the allocator and `mem` functions every host
+  without libc links. A change to any of them, or
   to the calls, needs `tools/test.sh --virt`, which runs `tests/virt` again
   as processes, and `tests/virt/proc`, under the kernel hand-written in IR
   in `tests/virt/proc/harness`. That kernel is a test harness, as
   `tests/backend` is: it answers spec 10.3's calls, and a change to them
   changes it too. So does `tests/virt/user/kernel.l0`, the kernel in L0
   that runs `tests/virt` again through the user-mode builtins of spec
-  6.13, which `host-virt.ll` gives, and `tests/virt/proc`'s tests with the
+  6.13, which the board's host gives, and `tests/virt/proc`'s tests with the
   timer's slices of 6.14. It defines calls of its own (6.15), which its
   header lists, and a `tests/virt/user/NAME.procs` file names the processes
-  of a test under it, such as a serial driver and its client. `host-virt.ll` drives the GIC itself, so no test
-  may open it as a region. A `tests/virt` program with a `.board`
+  of a test under it, such as a serial driver and its client. The board's
+  host drives the GIC itself, so no test may open it as a region. A `tests/virt` program with a `.board`
   file runs on the board only, never as a process: one that uses user
   mode, which a process has not.
 - `stage0/l0core.c`, `stage0/l0core.h` — stage 0's value representation and

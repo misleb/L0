@@ -1,41 +1,32 @@
-; host-proc.ll -- the host file for an L0 program run as a process by a
-; kernel, at EL0 of an aarch64 machine and in an address space of its own:
-; spec section 9.2's process of a kernel. runtime/l0rt.ll calls the
-; l0_host_ functions below, spec section 10.3, as on every host; the program
-; and l0rt.ll are unchanged. runtime/proc.ld lays out the process, and
-; runtime/freestanding.ll, linked beside it, gives the allocator over its
-; heap and the mem functions.
+; proc.ll -- the part of the host for an L0 program run as a process by a
+; kernel, spec section 9.2's process of a kernel, that no architecture
+; decides. runtime/l0rt.ll calls the l0_host_ functions below, spec section
+; 10.3, as on every host; the program and l0rt.ll are unchanged. It carries
+; no triple, and is linked with an architecture's part,
+; runtime/arch/ARCH/proc.ll, which enters the process, calling
+; @l0_proc_main, makes its system calls, @l0_arch_syscall, and gives the
+; clock and the barrier; runtime/freestanding.ll, the allocator over the
+; heap and the mem functions; and the layout, runtime/proc.ld, the same on
+; every architecture.
 ;
-; It names its architecture's triple, since its entry and its system calls
-; are aarch64 instructions, and no board: nothing here is a device's
-; address, so one image runs under any kernel that gives what section 10.3
-; says a process's host needs.
-;
-; Everything that leaves the process is a system call (svc #0, the number
-; in x8, arguments in x0 to x3, the result in x0), numbered as section 10.3
-; fixes them:
+; Nothing here is a device's address, so one image runs under any kernel
+; for its architecture that gives what section 10.3 says a process's host
+; needs. Everything that leaves the process is a system call, numbered as
+; section 10.3 fixes them:
 ;   1  read(stream, buf, n)         6  rename(from, len, to, len)
 ;   2  write(stream, buf, n)        7  remove(path, len)
 ;   3  exit(status)                 8  arg_count()
 ;   4  open(path, len, mode)        9  arg(i, buf, n)
 ;   5  close(stream)               10  region(base, len)
-; What needs no kernel stays here: the allocator, the clock, which reads
-; the virtual counter the kernel lets EL0 read, and the barrier. There are
-; no settings, as on a host with no environment.
+; What needs no kernel stays here: the allocator, the barrier, and the
+; clock where the architecture's part reads it. There are no settings, as
+; on a host with no environment.
 ;
 ; The process's memory, at the virtual addresses proc.ld gives:
 ;   0xC0000000  the image: code, data, bss, at most 4 MB
 ;   0xC0400000  the heap, to 0xD8000000
 ;   0xD8000000  the stack, 256 MB, growing down from 0xE8000000
 ;   0xE8000000  and above, the kernel's: where it maps regions
-
-target triple = "aarch64-unknown-none-elf"
-
-module asm ".section .text.boot,\22ax\22"
-module asm ".global _start"
-module asm "_start:"
-module asm "  bl l0_proc_main"
-module asm "1: b 1b"
 
 @__stack_top = external global i8
 @__stack_bottom = external global i8
@@ -48,11 +39,14 @@ declare i64 @l0_rt_run(i64)
 declare ptr @l0_host_alloc(i64)
 declare i64 @strlen(ptr)
 
-; Called by _start on the stack the kernel gave, from 0xE8000000 down. The
-; arguments are fetched first, while nothing is held back to be written, so
-; that running out of memory for them can stop the process at once.
-; l0_rt_run's frame is a little below the top, so the size it is given
-; leaves 64 KB for what lies above it.
+; Defined by the architecture's part: system call nr with four arguments.
+declare i64 @l0_arch_syscall(i64, i64, i64, i64, i64)
+
+; Called by the architecture's entry, on the stack the kernel gave, from
+; 0xE8000000 down. The arguments are fetched first, while nothing is held
+; back to be written, so that running out of memory for them can stop the
+; process at once. l0_rt_run's frame is a little below the top, so the size
+; it is given leaves 64 KB for what lies above it.
 define void @l0_proc_main() noreturn {
 entry:
   call void @fetch_args()
@@ -69,7 +63,7 @@ entry:
 
 define internal i64 @sys(i64 %nr, i64 %a, i64 %b, i64 %c, i64 %d) {
 entry:
-  %r = call i64 asm sideeffect "svc #0", "={x0},{x0},{x1},{x2},{x3},{x8},~{memory}"(i64 %a, i64 %b, i64 %c, i64 %d, i64 %nr)
+  %r = call i64 @l0_arch_syscall(i64 %nr, i64 %a, i64 %b, i64 %c, i64 %d)
   ret i64 %r
 }
 
@@ -237,33 +231,6 @@ none:
 define ptr @l0_host_setting(ptr %name) {
 entry:
   ret ptr null
-}
-
-; The virtual counter, at cntfrq_el0 counts a second, in seconds and then
-; nanoseconds, so that the product cannot overflow; the kernel lets EL0
-; read both.
-define i64 @l0_host_clock_ns() {
-entry:
-  %cnt = call i64 asm sideeffect "isb\0Amrs $0, cntvct_el0", "=r"()
-  %frq = call i64 asm "mrs $0, cntfrq_el0", "=r"()
-  %none = icmp eq i64 %frq, 0
-  br i1 %none, label %no, label %yes
-no:
-  ret i64 -5
-yes:
-  %sec = udiv i64 %cnt, %frq
-  %rem = urem i64 %cnt, %frq
-  %remns = mul i64 %rem, 1000000000
-  %ns = udiv i64 %remns, %frq
-  %sns = mul i64 %sec, 1000000000
-  %t = add i64 %sns, %ns
-  ret i64 %t
-}
-
-define void @l0_host_barrier() {
-entry:
-  call void asm sideeffect "dsb sy", "~{memory}"()
-  ret void
 }
 
 ; Section 9.2: a process has no user mode of its own, so no space or frame

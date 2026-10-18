@@ -81,9 +81,13 @@ that this file deliberately omits.
 spec/          L0.md (the language) and changelog.md (why it is that way)
 runtime/       l0rt.ll, the runtime every compiled program links, as LLVM IR,
                and host-libc.ll, its host file, the only one calling libc;
-               host-virt.ll and virt.ld, for QEMU's virt board;
-               host-proc.ll and proc.ld, for a process of a kernel; and
-               freestanding.ll, the allocator both of those link
+               for a host without an operating system, its parts: bare/
+               (board.ll and proc.ll, what no machine decides, for a board
+               and for a process of a kernel, and semihost.ll), arch/ARCH/
+               (a CPU's boot.ll and proc.ll), board/ (a board's part and
+               layout), dev/ (drivers), and targets/ (each target's
+               manifest, listing its parts); proc.ld, a process's layout;
+               and freestanding.ll, the allocator all of those link
 compiler/      the L0 compiler, written in L0
 lib/           the standard library (prelude.l0, which is compiler source too,
                io.l0, test.l0), the examples, and what l0 init copies
@@ -96,7 +100,8 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
                by tools/test.sh --virt, and as processes under the kernels
                in virt/proc/harness, in IR, and virt/user, in L0)
 tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
-               l0c, l0check, l0ll, install.sh, linux-test.sh; virt/, the
+               l0c, l0check, l0ll, install.sh, linux-test.sh, targets.sh
+               (builds a target's runtime from its manifest); virt/, the
                container that links virt board images
 seeds/         the original seed spec, kept for history, superseded by spec/
 roadmap/       plans and status for work in progress (see l0-roadmap)

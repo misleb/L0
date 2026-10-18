@@ -1,0 +1,17 @@
+# QEMU's aarch64 virt board, with no operating system: l0 build --target
+# virt --arch aarch64. A target's manifest, sourced by tools/targets.sh and
+# tools/l0, says how to build and boot an image for it; tools/targets.sh
+# says what each variable means.
+T_KIND=board
+T_ARCH=aarch64
+T_TRIPLE=aarch64-none-elf
+T_CFLAGS=""
+T_PARTS="bare/board.ll bare/semihost.ll dev/gicv2.ll dev/pl011.ll board/virt-aarch64.ll arch/aarch64/boot.ll"
+T_LAYOUT=board/virt-aarch64.ld
+T_MAGIC=41524d64
+T_QEMU=qemu-system-aarch64
+T_QEMU_ARGS="-M virt -cpu cortex-a72 -m 2G -semihosting -global virtio-mmio.force-legacy=false"
+T_SERIAL=stdio
+T_INPUT_LEN_AT=0x4FFFFFF8
+T_INPUT_AT=0x50000000
+T_INPUT_MAX=134217720

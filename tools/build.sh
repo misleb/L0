@@ -30,35 +30,22 @@ echo "ll  runtime/l0rt.ll runtime/host-libc.ll"
 "$CC" -O2 -flto -Wno-override-module -c "$ROOT/runtime/host-libc.ll" -o "$BUILD/l0host.o"
 "$CC" -O2 -Wno-override-module -c "$ROOT/runtime/host-libc.ll" -o "$BUILD/l0host-native.o"
 
-# The runtimes of the hosts without libc, as tools/install.sh installs
-# them, in build/virt for QEMU's virt board and build/proc for a process of
-# a kernel, for tools/test.sh --virt and tools/bootstrap.sh --virt: each
-# rebuilt when its sources are newer, and left out when clang cannot target
-# aarch64.
-bare_runtime() {
-    V="$BUILD/$1"
-    if [ ! -f "$V/host.bc" ] || [ ! -f "$V/freestanding.bc" ] ||
-        [ "$ROOT/runtime/l0rt.ll" -nt "$V/l0rt.bc" ] ||
-        [ "$ROOT/runtime/freestanding.ll" -nt "$V/freestanding.bc" ] ||
-        [ "$ROOT/runtime/host-$1.ll" -nt "$V/host.bc" ] ||
-        [ "$ROOT/runtime/$1.ld" -nt "$V/$1.ld" ] ||
-        [ "$ROOT/tools/virt/Dockerfile" -nt "$V/Dockerfile" ]; then
-        mkdir -p "$V"
-        if "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
-                "$ROOT/runtime/l0rt.ll" -o "$V/l0rt.bc" 2> /dev/null &&
-            "$CC" --target=aarch64-none-elf -O2 -Wno-override-module -c -emit-llvm \
-                "$ROOT/runtime/freestanding.ll" -o "$V/freestanding.bc" 2> /dev/null &&
-            "$CC" --target=aarch64-none-elf -O2 -c -emit-llvm \
-                "$ROOT/runtime/host-$1.ll" -o "$V/host.bc" 2> /dev/null; then
-            echo "ll  runtime/l0rt.ll runtime/freestanding.ll runtime/host-$1.ll, for --target $1"
-            cp "$ROOT/runtime/$1.ld" "$ROOT/tools/virt/Dockerfile" "$V/"
+# The runtimes of the targets without libc, one for each manifest in
+# runtime/targets (tools/targets.sh), as tools/install.sh installs them, in
+# build/NAME, for tools/test.sh --virt and tools/bootstrap.sh --virt: each
+# rebuilt when its sources are newer, and left out, with clang's complaint
+# in build/NAME.err, when clang cannot build it.
+. "$ROOT/tools/targets.sh"
+for t in $(target_names); do
+    if target_stale "$t" "$BUILD/$t"; then
+        if target_runtime "$t" "$BUILD/$t"; then
+            echo "ll  runtime/targets/$t.target: $T_PARTS"
         else
-            rm -rf "$V"
+            echo "--  runtime/targets/$t.target: not built; see build/$t.err"
         fi
     fi
-}
-bare_runtime virt
-bare_runtime proc
+done
+rm -rf "$BUILD/virt" "$BUILD/proc"
 
 if [ -f "$ROOT/stage0/l0i.c" ]; then
     echo "cc  stage0/l0core.c"

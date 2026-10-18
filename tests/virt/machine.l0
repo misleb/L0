@@ -1,0 +1,5 @@
+; Spec sections 6.16 and 10.3: on the board and in a process, machine is
+; the number of the CPU the host's part is for, the same each time.
+(def main ((input (list int))) (list int)
+  (append (digits (machine))
+    (cons 10 (append (digits (sub (machine) (machine))) (cons 10 (nil int))))))

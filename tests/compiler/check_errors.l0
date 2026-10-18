@@ -123,7 +123,9 @@
   (let cw (push (check_source (m "(space_unmap 0 true)")) cv)
   (let cx (push (check_source (m "(space_free)")) cw)
   (let cy (push (check_source (m "(frame_free \"a\")")) cx)
-    (rev cy)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
+  (let cz (push (check_source (m "(machine 1)")) cy)
+  (let da (push (check_source (m "(head (machine))")) cz)
+    (rev da)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.
 (def wide_data ((n int)) (list int)
