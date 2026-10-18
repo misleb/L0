@@ -13,8 +13,10 @@
 #                  compiler's own diagnostics
 #   --virt         run tests/virt on QEMU's virt board, with no operating
 #                  system, through tools/l0 build --target virt, and again
-#                  as processes of a kernel, through --target proc; needs
-#                  qemu-system-aarch64, and Docker or L0_VIRT_LD
+#                  as processes of a kernel, through --target proc, once for
+#                  each CPU with a board, aarch64 and riscv64, or those
+#                  L0_VIRT_ARCHS names; needs qemu-system-aarch64 and
+#                  qemu-system-riscv64, and Docker or L0_VIRT_LD
 #   name-filter    a substring of a test's file name without its directory or
 #                  extension, such as bundle_prelude, matched in every suite.
 #                  A filter that matches nothing passes, with "0 tests".
@@ -59,6 +61,8 @@
 #                  one without devices; --virt skips it
 #   <stem>.board   tests/virt only: why the program needs the board itself, such
 #                  as its user mode; it is not run again as a process
+#   <stem>.refused tests/virt only: the board's toolchain must refuse to
+#                  build the program, writing this file's text
 #   <stem>.args    tests/virt: the program's arguments, one per line, which
 #                  hold no spaces: its boot arguments on the board, and its
 #                  arguments as a process under both kernels.
@@ -181,10 +185,11 @@ judge_case() {
     stem=$3
     res=$4
 
-    out_file="$stem.out"
-    err_file="$stem.err"
-    exit_file="$stem.exit"
+    out_file=$(expect_file "$stem" out)
+    err_file=$(expect_file "$stem" err)
+    exit_file=$(expect_file "$stem" exit)
     got_exit=$(cat "$res.exit")
+    label="${VARCH:+$VARCH:}$suite/$name"
 
     if [ "$BLESS" = 1 ]; then
         cp "$res.out" "$out_file"
@@ -227,8 +232,8 @@ judge_case() {
     fi
 
     nfail=$((nfail + 1))
-    failures="$failures $suite/$name"
-    echo "FAIL $suite/$name: $why"
+    failures="$failures $label"
+    echo "FAIL $label: $why"
     case "$why" in
         "stdout differs")
             diff -u "$out_file" "$res.out" | sed 's/^/    /' || true
@@ -259,19 +264,34 @@ extra_sources() {
     fi
 }
 
+# VARCH is the CPU --virt is testing, and empty outside it. A test's
+# expectation, or its arguments, for that CPU is <stem>.ARCH.EXT if there is
+# one, and <stem>.EXT otherwise.
+VARCH=""
+
+expect_file() {
+    if [ -n "$VARCH" ] && [ -f "$1.$VARCH.$2" ]; then
+        echo "$1.$VARCH.$2"
+    else
+        echo "$1.$2"
+    fi
+}
+
 # The arguments a tests/virt program is booted with, one per line of its
 # .args file, which hold no spaces.
 args_of() {
-    if [ -f "$1.args" ]; then
-        tr '\n' ' ' < "$1.args"
+    a=$(expect_file "$1" args)
+    if [ -f "$a" ]; then
+        tr '\n' ' ' < "$a"
     fi
 }
 
 # --------------------------------------------------------------------- virt
 #
-# The fixpoint's last step on QEMU's aarch64 virt board, and then the
-# compiled suite's programs there, a host without an operating system (spec
-# section 9.2), against the very expectations
+# For each CPU with a virt board, aarch64 and riscv64, or those
+# L0_VIRT_ARCHS names: the fixpoint's last step on QEMU's virt board for
+# it, and then the compiled suite's programs there, a host without an
+# operating system (spec section 9.2), against the very expectations
 # --compiled holds them to: tests/lang, tests/compiler, and tests/io, each
 # compiled by the current compiler with tools/l0c, linked with tools/l0
 # link --target virt, and booted with tools/l0 boot; and tests/unit, by
@@ -290,21 +310,19 @@ args_of() {
 # The board has no environment, so L0_RC_CHECK, which --compiled sets, is
 # not checked here.
 #
+# tests/virt programs, and tests/virt/unit's, are built with the board's
+# constants, tests/virt/board/virt-ARCH.l0, beside them, and tests/virt/ARCH
+# holds those that only one CPU's board runs. A test's expectations for one
+# CPU, where they differ, are <stem>.ARCH.out and the like. A CPU with no
+# --target proc runtime, or no harness kernel, skips what runs as a
+# process.
+#
 # Every image is linked by one container, started once and given each link
 # by docker exec, rather than a docker run per image, unless L0_VIRT_LD
 # already names a linker.
 
 if [ "$VIRT" = 1 ]; then
     vstart=$(date +%s)
-    vdir="$BUILD/virt-aarch64"
-    pdir="$BUILD/proc-aarch64"
-    if [ ! -f "$vdir/parts" ] || [ ! -f "$pdir/parts" ]; then
-        echo "FAIL: $CC cannot build the aarch64 runtimes for --target virt and proc"
-        for e in "$vdir.err" "$pdir.err"; do
-            [ -f "$e" ] && sed 's/^/    /' "$e"
-        done
-        exit 1
-    fi
     vcc=$(current_compiler)
     if [ -z "${L0_VIRT_LD:-}" ]; then
         if ! docker image inspect l0-virt-link > /dev/null 2>&1; then
@@ -323,16 +341,58 @@ if [ "$VIRT" = 1 ]; then
     fi
     L0_RUNTIMES="$BUILD"
     export L0_VIRT_LD L0_RUNTIMES
+    nskip=0
+    base_tmp=$TMP
+
+    # The CPUs with a board: every board manifest's, unless L0_VIRT_ARCHS
+    # names some.
+    varchs=${L0_VIRT_ARCHS:-}
+    if [ -z "$varchs" ]; then
+        for m in runtime/targets/*.target; do
+            T_KIND=""
+            . "$m"
+            [ "$T_KIND" = board ] && varchs="$varchs $T_ARCH"
+        done
+    fi
+
+    # The extra sources of a tests/virt program, NAME.extra's and the
+    # board's constants.
+    virt_extra() {
+        echo "$(extra_sources "$1") tests/virt/board/virt-$VARCH.l0"
+    }
+
+    # virt_arch ARCH runs the suite on ARCH's board.
+    virt_arch() {
+    VARCH=$1
+    L0_ARCH=$1
+    export L0_ARCH
+    TMP="$base_tmp/$1"
+    mkdir -p "$TMP"
+    vdir="$BUILD/virt-$VARCH"
+    pdir="$BUILD/proc-$VARCH"
+    if [ ! -f "$vdir/parts" ]; then
+        nfail=$((nfail + 1))
+        failures="$failures $VARCH:virt/runtime"
+        echo "FAIL $VARCH:virt/runtime: $CC cannot build the runtime for --target virt --arch $VARCH"
+        [ -f "$vdir.err" ] && sed 's/^/    /' "$vdir.err"
+        return 0
+    fi
+    # Whether this CPU's programs run as processes too: under the harness
+    # kernel in IR, and under the L0 kernel.
+    procs=0
+    if [ -f "$pdir/parts" ] && [ -f "tests/virt/proc/harness/$VARCH/kernel.ll" ]; then
+        procs=1
+    fi
 
     # First the goal's measure: the compiler compiles itself on the board,
     # and as a process, to the bytes it writes here (tools/bootstrap.sh
     # --virt).
-    if ./tools/bootstrap.sh --virt > "$TMP/bootstrap.log" 2>&1; then
+    if L0_VIRT_ARCHS=$VARCH ./tools/bootstrap.sh --virt > "$TMP/bootstrap.log" 2>&1; then
         npass=$((npass + 1))
     else
         nfail=$((nfail + 1))
-        failures="$failures virt/fixpoint"
-        echo "FAIL virt/fixpoint: tools/bootstrap.sh --virt failed"
+        failures="$failures $VARCH:virt/fixpoint"
+        echo "FAIL $VARCH:virt/fixpoint: tools/bootstrap.sh --virt failed"
         sed 's/^/    /' "$TMP/bootstrap.log"
     fi
 
@@ -346,23 +406,22 @@ if [ "$VIRT" = 1 ]; then
         if ! ./tools/l0c "$vsrc" $(extra_sources "$vstem") > "$TMP/$vname_.ll" \
             2> "$TMP/$vname_.cerr"; then
             nfail=$((nfail + 1))
-            failures="$failures $vsuite/$vname_"
-            echo "FAIL $vsuite/$vname_: compiler rejected a valid program"
+            failures="$failures $VARCH:$vsuite/$vname_"
+            echo "FAIL $VARCH:$vsuite/$vname_: compiler rejected a valid program"
             sed 's/^/    /' "$TMP/$vname_.cerr"
             return
         fi
         if ! ./tools/l0 link --target virt "$TMP/$vname_.ll" -o "$TMP/$vname_.img" \
             > "$TMP/$vname_.lerr" 2>&1; then
             nfail=$((nfail + 1))
-            failures="$failures $vsuite/$vname_"
-            echo "FAIL $vsuite/$vname_: did not link for the board"
+            failures="$failures $VARCH:$vsuite/$vname_"
+            echo "FAIL $VARCH:$vsuite/$vname_: did not link for the board"
             sed 's/^/    /' "$TMP/$vname_.lerr"
             return
         fi
         run_case "$vsuite" "$vname_" "$vstem" ./tools/l0 boot "$TMP/$vname_.img"
     }
 
-    nskip=0
     for src in tests/lang/*.l0 tests/compiler/*.l0 tests/io/*.l0; do
         [ -f "$src" ] || continue
         name=$(basename "$src" .l0)
@@ -391,31 +450,54 @@ if [ "$VIRT" = 1 ]; then
         fi
         udir="$TMP/vunit-$name"
         mkdir -p "$udir"
+        case $src in
+            tests/virt/*) uextra=$(virt_extra "$ROOT/$ustem") ;;
+            *) uextra=$(extra_sources "$ROOT/$ustem") ;;
+        esac
         # shellcheck disable=SC2046
         if (cd "$udir" && L0_COMPILER="$vcc" "$ROOT/tools/l0" test --target virt \
-            "$ROOT/$src" $(extra_sources "$ROOT/$ustem" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
+            "$ROOT/$src" $(echo "$uextra" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
             > "$udir.tap" 2>&1; then
             npass=$((npass + 1))
         else
             nfail=$((nfail + 1))
-            failures="$failures virt-unit/$name"
-            echo "FAIL virt-unit/$name:"
+            failures="$failures $VARCH:virt-unit/$name"
+            echo "FAIL $VARCH:virt-unit/$name:"
             grep -v '^ok ' "$udir.tap" | sed 's/^/    /'
         fi
     done
 
-    for src in tests/virt/*.l0; do
+    for src in tests/virt/*.l0 tests/virt/"$VARCH"/*.l0; do
         [ -f "$src" ] || continue
         name=$(basename "$src" .l0)
         selected "$name" || continue
-        stem="tests/virt/$name"
+        stem="${src%.l0}"
+        if [ -f "$stem.refused" ]; then
+            # A program the board's toolchain must refuse to build, saying
+            # what its .refused file says.
+            # shellcheck disable=SC2046
+            if L0_COMPILER="$vcc" ./tools/l0 build --target virt "$src" \
+                $(virt_extra "$stem") -o "$TMP/$name.img" > "$TMP/$name.berr" 2>&1; then
+                nfail=$((nfail + 1))
+                failures="$failures $VARCH:virt/$name"
+                echo "FAIL $VARCH:virt/$name: built, though it must be refused"
+            elif ! cmp -s "$TMP/$name.berr" "$stem.refused"; then
+                nfail=$((nfail + 1))
+                failures="$failures $VARCH:virt/$name"
+                echo "FAIL $VARCH:virt/$name: refused, but not as $stem.refused says"
+                diff -u "$stem.refused" "$TMP/$name.berr" | sed 's/^/    /' || true
+            else
+                npass=$((npass + 1))
+            fi
+            continue
+        fi
         # shellcheck disable=SC2046
         if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$src" \
-            $(extra_sources "$stem") -o "$TMP/$name.img" \
+            $(virt_extra "$stem") -o "$TMP/$name.img" \
             > "$TMP/$name.berr" 2>&1; then
             nfail=$((nfail + 1))
-            failures="$failures virt/$name"
-            echo "FAIL virt/$name: did not build"
+            failures="$failures $VARCH:virt/$name"
+            echo "FAIL $VARCH:virt/$name: did not build"
             sed 's/^/    /' "$TMP/$name.berr"
             continue
         fi
@@ -441,26 +523,33 @@ if [ "$VIRT" = 1 ]; then
     proc_build() {
         # shellcheck disable=SC2046
         if L0_COMPILER="$vcc" ./tools/l0 build --target proc "$3" \
-            $(extra_sources "$4") -o "$TMP/$2.proc.img" \
+            $(virt_extra "$4") -o "$TMP/$2.proc.img" \
             > "$TMP/$2.proc.berr" 2>&1; then
             return 0
         fi
         nfail=$((nfail + 1))
-        failures="$failures $1/$2"
-        echo "FAIL $1/$2: did not build as a process"
+        failures="$failures $VARCH:$1/$2"
+        echo "FAIL $VARCH:$1/$2: did not build as a process"
         sed 's/^/    /' "$TMP/$2.proc.berr"
         return 1
     }
 
-    for src in tests/virt/*.l0; do
+    if [ "$procs" = 0 ]; then
+        nskip=$((nskip + 1))
+        echo "skip $VARCH: no process runtime or harness kernel, so nothing runs as a process"
+        return 0
+    fi
+
+    for src in tests/virt/*.l0 tests/virt/"$VARCH"/*.l0; do
         [ -f "$src" ] || continue
         name=$(basename "$src" .l0)
         selected "$name" || continue
-        stem="tests/virt/$name"
+        stem="${src%.l0}"
         [ -f "$stem.board" ] && continue
+        [ -f "$stem.refused" ] && continue
         proc_build virt-proc "$name" "$src" "$stem" || continue
-        pargs=-
-        [ -f "$stem.args" ] && pargs="$stem.args"
+        pargs=$(expect_file "$stem" args)
+        [ -f "$pargs" ] || pargs=-
         run_case virt-proc "$name" "$stem" "$harness/boot.sh" "$pwork" "$pargs" \
             "$TMP/$name.proc.img"
     done
@@ -506,43 +595,48 @@ if [ "$VIRT" = 1 ]; then
     uwork="$TMP/user"
     mkdir -p "$uwork"
 
-    # user_ir NAME links the harness's NAME.ll as a process, into
+    # user_ir NAME links this CPU's harness's NAME.ll as a process, into
     # $uwork/NAME.elf, or fails the test of that name.
     user_ir() {
         if [ -f "$uwork/$1.img" ]; then
             return 0
         fi
-        if { "$CC" --target=aarch64-none-elf -O2 -c "$harness/$1.ll" -o "$uwork/$1.o" &&
+        T_CFLAGS=""
+        . "runtime/targets/proc-$VARCH.target"
+        # shellcheck disable=SC2086
+        if { "$CC" --target="$T_TRIPLE" $T_CFLAGS -O2 -c "$harness/$VARCH/$1.ll" -o "$uwork/$1.o" &&
             "$L0_VIRT_LD" -T runtime/proc.ld --oformat binary "$uwork/$1.o" \
                 -o "$uwork/$1.img"; } \
             > "$uwork/$1.berr" 2>&1; then
             return 0
         fi
         nfail=$((nfail + 1))
-        failures="$failures user/$1"
-        echo "FAIL user/$1: did not build"
+        failures="$failures $VARCH:user/$1"
+        echo "FAIL $VARCH:user/$1: did not build"
         sed 's/^/    /' "$uwork/$1.berr"
         return 1
     }
     if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$user/kernel.l0" \
         -o "$uwork/kernel.img" > "$uwork/kernel.berr" 2>&1; then
         nfail=$((nfail + 1))
-        failures="$failures virt-user/kernel"
-        echo "FAIL virt-user/kernel: did not build"
+        failures="$failures $VARCH:virt-user/kernel"
+        echo "FAIL $VARCH:virt-user/kernel: did not build"
         sed 's/^/    /' "$uwork/kernel.berr"
     else
-        for src in tests/virt/*.l0; do
+        for src in tests/virt/*.l0 tests/virt/"$VARCH"/*.l0; do
             [ -f "$src" ] || continue
             name=$(basename "$src" .l0)
             selected "$name" || continue
+            stem="${src%.l0}"
             [ -f "$TMP/$name.proc.img" ] || continue
             # The program's arguments are the kernel's for process 0.
             kargs=-
-            if [ -f "tests/virt/$name.args" ]; then
-                sed 's/^/0:/' "tests/virt/$name.args" > "$uwork/$name.kargs"
+            pargs=$(expect_file "$stem" args)
+            if [ -f "$pargs" ]; then
+                sed 's/^/0:/' "$pargs" > "$uwork/$name.kargs"
                 kargs="$uwork/$name.kargs"
             fi
-            run_case virt-user "$name" "tests/virt/$name" "$user/run.sh" \
+            run_case virt-user "$name" "$stem" "$user/run.sh" \
                 "$uwork/kernel.img" "$uwork" "$kargs" "$TMP/$name.proc.img"
         done
         for spec in "$user"/*.procs; do
@@ -563,8 +657,8 @@ if [ "$VIRT" = 1 ]; then
                         ;;
                 esac
             done
-            kargs=-
-            [ -f "$user/$name.args" ] && kargs="$user/$name.args"
+            kargs=$(expect_file "$user/$name" args)
+            [ -f "$kargs" ] || kargs=-
             # shellcheck disable=SC2086
             run_case user "$name" "$user/$name" "$user/run.sh" \
                 "$uwork/kernel.img" "$uwork" "$kargs" $images
@@ -593,6 +687,13 @@ if [ "$VIRT" = 1 ]; then
                 "$uwork/kernel.img" "$uwork" - "$TMP/$name.proc.img" $beside
         done
     fi
+    }
+
+    for a in $varchs; do
+        virt_arch "$a"
+    done
+    VARCH=""
+    TMP=$base_tmp
 
     echo
     echo "virt suite: $npass passed, $nfail failed, $nskip skipped, in $(( $(date +%s) - vstart )) s"

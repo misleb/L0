@@ -99,15 +99,18 @@ QEMU's riscv64 virt board as well as its aarch64 one, organized so that
 later boards, the VisionFive 2 and the Raspberry Pi 4, are less work.
 0087 found what the riscv64 board gives and laid out the route: the host
 in parts (0088), a builtin naming the CPU (0089) and the library over it
-(0090), per-CPU test plumbing, then the riscv64 board, its interrupts,
-its user mode, and its process host.
+(0090), and the riscv64 board, its process host, and the tests on both
+CPUs (0091), which found LLVM's RISC-V back end passing a tail call's
+stack words wrong, so every L0 function is now `fastcc`. Both boards run
+everything, the compiler's fixpoint and both kernels included. Left for
+the VisionFive 2 and the Pi 4: their RAM in the user range, DMA that is not
+cache-coherent, and the Pi 4's boot at EL2 (changelog, 0091's entry).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-None active. 0090, the library and the L0 kernel over `(machine)`, comes
-next, once 0089's seed is committed.
+None.
 
 ## Other open items
 
@@ -349,3 +352,10 @@ None.
   is made of parts, and no language change for it"
 - [0089](0089-machine.md) `(machine)`, the CPU a program runs on — done,
   changelog "A program asks which CPU it runs on"; passed on Linux arm64
+- [0090](0090-calls-over-machine.md) the library and the L0 kernel read a
+  system call over `(machine)` — done, changelog "The library reads a
+  system call wherever the CPU keeps it"
+- [0091](0091-riscv64-virt-board.md) the riscv64 virt board, and the tests
+  on both CPUs — done, changelog "The virt board and the process host on
+  riscv64" and "Every L0 function has the fast calling convention"; passed
+  on Linux arm64 and amd64

@@ -3,6 +3,6 @@
 ; empty copy from there needs nothing mapped.
 (def main () int
   (let s (space_new)
-    (let a (space_map_device s 3221225472 150994944 4096)
+    (let a (space_map_device s 3221225472 (board_uart) (board_uart_len))
       (let b (write_line (digits (bytes_len (space_read s 3221225472 0))))
         (bytes_len (space_read s 3221225472 1))))))

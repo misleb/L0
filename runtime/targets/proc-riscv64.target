@@ -1,0 +1,10 @@
+# A process of a kernel on riscv64: l0 build --target proc --arch riscv64.
+# Only a kernel runs one, so nothing here boots it. tools/targets.sh says
+# what each variable means.
+T_KIND=proc
+T_ARCH=riscv64
+T_TRIPLE=riscv64-unknown-elf
+T_CFLAGS="-march=rv64gc -mabi=lp64d -mcmodel=medany -mno-relax"
+T_TAIL_WORDS=13
+T_PARTS="bare/proc.ll arch/riscv64/proc.ll"
+T_LAYOUT=proc.ld

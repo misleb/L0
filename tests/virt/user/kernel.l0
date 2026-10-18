@@ -1,5 +1,5 @@
 ; A kernel, in L0, for QEMU's virt board: it runs L0 programs, built with
-; l0 build --target proc, as processes at EL0, each in an address space of
+; l0 build --target proc, as processes at user level, each in an address space of
 ; its own, through the user-mode builtins of spec section 6.13, and answers
 ; the system calls spec section 10.3 fixes for them, and calls of its own
 ; (spec section 6.15), below. tools/test.sh --virt runs the tests/virt
@@ -39,6 +39,10 @@
 ;        give n back; -3 for one the host has not, or the timer's
 ;   260  end(n): end interrupt n, given by wait; -5 if it was not given
 ;   261  sleep(t): wait until the clock reads t
+;   262  listen(n): enable device interrupt n, and give 0 back at once, or
+;        -3 for one the host has not, or the timer's: so that a driver can
+;        have its interrupt enabled before its device raises it, which on
+;        QEMU's riscv64 board is lost if the PLIC's source is not enabled
 ; So a serial driver receives what its clients send and writes it, waiting
 ; for its device's interrupt, and a client sends and then syncs.
 
@@ -73,7 +77,11 @@
 
 ; p, runnable, with v as its call's result.
 (def resume ((p Proc) (v int)) Proc
-  (match p ((Proc s c m w st) (Proc s (array_set c 0 v) m w -1))))
+  (match p ((Proc s c m w st) (Proc s (call_result c v) m w -1))))
+
+; Argument a of the system call p made.
+(def proc_arg ((p Proc) (a int)) int
+  (match p ((Proc s c m w st) (call_arg c a))))
 
 ; The kernel: its processes; the bytes sent and not yet all received, and
 ; how many of them have been; the device interrupts taken that no process
@@ -87,6 +95,16 @@
 
 (def kword ((k Kern) (i int) (n int)) int
   (match k ((Kern ps q qo arr held pa) (proc_word (array_get ps i) n))))
+
+; Argument a of process i's system call, and the call's number.
+(def karg ((k Kern) (i int) (a int)) int
+  (match k ((Kern ps q qo arr held pa) (proc_arg (array_get ps i) a))))
+
+(def kcall_number ((k Kern) (i int)) int
+  (match k ((Kern ps q qo arr held pa) (proc_call_number (array_get ps i)))))
+
+(def proc_call_number ((p Proc)) int
+  (match p ((Proc s c m w st) (call_number c))))
 
 (def kcount ((k Kern)) int
   (match k ((Kern ps q qo arr held pa) (array_len ps))))
@@ -216,7 +234,7 @@
   (if (ge i (kcount k))
       t
       (if (eq (kstate k i) -7)
-          (let w (kword k i 0)
+          (let w (karg k i 0)
             (earliest k (add i 1) (if (if (lt t 0) true (lt w t)) w t)))
           (earliest k (add i 1) t))))
 
@@ -224,7 +242,7 @@
 (def wake_sleepers ((k Kern) (i int) (now int)) Kern
   (if (ge i (kcount k))
       k
-      (if (if (eq (kstate k i) -7) (le (kword k i 0) now) false)
+      (if (if (eq (kstate k i) -7) (le (karg k i 0) now) false)
           (wake_sleepers (kresume k i 0) (add i 1) now)
           (wake_sleepers k (add i 1) now))))
 
@@ -286,7 +304,7 @@
 (def waiter ((k Kern) (n int) (i int)) int
   (if (ge i (kcount k))
       -1
-      (if (if (eq (kstate k i) -5) (eq (kword k i 0) n) false)
+      (if (if (eq (kstate k i) -5) (eq (karg k i 0) n) false)
           i
           (waiter k n (add i 1)))))
 
@@ -318,7 +336,7 @@
 
 ; Gives process i v as its system call's result, and runs it on.
 (def answer ((i int) (s int) (m (array int)) (w int) (c (array int)) (v int)) Proc
-  (step i s m w (array_set c 0 v)))
+  (step i s m w (call_result c v)))
 
 (def demand ((i int) (s int) (m (array int)) (w int) (c (array int)) (va int)) Proc
   (if (if (ge va (user_lo)) (lt va (user_top)) false)
@@ -333,13 +351,20 @@
 
 (def killed ((i int) (c (array int))) int
   (let a (say_proc i)
-    (let b (write_err " killed: fault esr = 0x")
+    (let b (write_err (append " killed: fault " (append (fault_word 0) " = 0x")))
       (let d (write_err (hex_digits (array_get c 36) 16))
-        (let e (write_err " elr = 0x")
+        (let e (write_err (append " " (append (fault_word 1) " = 0x")))
           (let f (write_err (hex_digits (array_get c 32) 16))
-            (let g (write_err " far = 0x")
+            (let g (write_err (append " " (append (fault_word 2) " = 0x")))
               (let h (write_err (hex_digits (array_get c 37) 16))
                 (let j (write_err "\n") 99)))))))))
+
+; The names the CPU gives a fault's cause, where it was, and its address,
+; words 36, 32, and 37 of a context, as the harness kernels print them.
+(def fault_word ((k int)) (list int)
+  (if (eq (machine) 2)
+      (if (eq k 0) "scause" (if (eq k 1) "sepc" "stval"))
+      (if (eq k 0) "esr" (if (eq k 1) "elr" "far"))))
 
 (def out_of_memory ((i int)) int
   (let a (say_proc i)
@@ -352,7 +377,7 @@
 ; ------------------------------------------------------ the kernel's calls
 
 (def kcall ((k Kern) (i int)) int
-  (let n (kword k i 8)
+  (let n (kcall_number k i)
     (if (eq n 8)
         (k_arg_count k i)
         (if (eq n 9)
@@ -371,8 +396,17 @@
       (if (eq n 260)
           (k_end k i)
           (if (eq n 261)
-              (schedule (kset k i -7) i)                ; asleep until x0
-              (schedule (kresume k i -5) i)))))
+              (schedule (kset k i -7) i)                ; asleep until its argument
+              (if (eq n 262)
+                  (k_listen k i)
+                  (schedule (kresume k i -5) i))))))
+
+; listen(n)
+(def k_listen ((k Kern) (i int)) int
+  (let n (karg k i 0)
+    (if (eq n 0)
+        (schedule (kresume k i -3) i)
+        (schedule (kresume k i (if (lt (interrupt_enable n) 0) -3 0)) i))))
 
 ; The unread bytes of q from qo, then those of b, as one.
 (def join ((q bytes) (qo int) (b bytes)) bytes
@@ -394,8 +428,8 @@
 
 ; send(_, bytes)
 (def k_send ((k Kern) (i int)) int
-  (let buf (kword k i 1)
-    (let len (kword k i 2)
+  (let buf (karg k i 1)
+    (let len (karg k i 2)
       (if (user_ok buf len)
           (let k1 (kmapped k i buf len)
             (if (ge (kstate k1 i) 0)
@@ -409,8 +443,8 @@
   (let r (find_state k -2 0)
     (if (if (lt r 0) true (eq (kunread k) 0))
         k
-        (let room (kword k r 2)
-          (let buf (kword k r 1)
+        (let room (karg k r 2)
+          (let buf (karg k r 1)
             (let n (if (lt (kunread k) room) (kunread k) room)
               (let k1 (kmapped k r buf n)
                 (if (ge (kstate k1 r) 0) k1 (give k1 r buf n)))))))))
@@ -423,8 +457,8 @@
 
 ; receive(_, room)
 (def k_receive ((k Kern) (i int)) int
-  (let buf (kword k i 1)
-    (let room (kword k i 2)
+  (let buf (karg k i 1)
+    (let room (karg k i 2)
       (if (if (user_ok buf room) (gt room 0) false)
           (let k1 (kset k i -2)
             (if (gt (kunread k1) 0)
@@ -449,7 +483,7 @@
 
 ; wait(n)
 (def k_wait ((k Kern) (i int)) int
-  (let n (kword k i 0)
+  (let n (karg k i 0)
     (if (eq n 0)
         (schedule (kresume k i -3) i)
         (if (lt (interrupt_enable n) 0)
@@ -462,7 +496,7 @@
 
 ; end(n)
 (def k_end ((k Kern) (i int)) int
-  (let n (kword k i 0)
+  (let n (karg k i 0)
     (match k
       ((Kern ps q qo arr held pa)
         (if (any_eq n held)
@@ -477,15 +511,16 @@
 
 ; ------------------------------------------------------------ system calls
 
-; Spec section 10.3's numbers. Arguments are x0 to x3, words 0 to 3. A
-; number from 256 is the kernel's own, and 8 and 9 ask for the arguments,
-; which the kernel holds: the scheduler answers those.
+; Spec section 10.3's numbers. Arguments are the library's call_arg, in
+; the registers the CPU passes them in. A number from 256 is the kernel's
+; own, and 8 and 9 ask for the arguments, which the kernel holds: the
+; scheduler answers those.
 (def syscall ((i int) (s int) (m (array int)) (w int) (c (array int)) (n int)) Proc
   (if (if (ge n 256) true (if (eq n 8) true (eq n 9)))
       (Proc s c m w -4)
-      (let a (array_get c 0)
-        (let b (array_get c 1)
-          (let d (array_get c 2)
+      (let a (call_arg c 0)
+        (let b (call_arg c 1)
+          (let d (call_arg c 2)
             (if (eq n 1)
                 (sys_read i s m w c a b d)
                 (if (eq n 2)
@@ -499,12 +534,14 @@
   (if (eq n 4)
       (answer i s m w c (if (user_ok a b) (if (eq d 1) -3 -9) -5))
       (if (eq n 6)
-          (answer i s m w c (if (if (user_ok a b) (user_ok d (array_get c 3)) false) -3 -5))
+          (answer i s m w c (if (if (user_ok a b) (user_ok d (call_arg c 3)) false) -3 -5))
           (if (eq n 7)
               (answer i s m w c (if (user_ok a b) -3 -5))
               (if (eq n 10)
                   (sys_region i s m w c a b)
-                  (answer i s m w c -5))))))           ; close, and any other
+                  (if (eq n 11)
+                      (answer i s m w c (clock_ns))    ; the clock
+                      (answer i s m w c -5)))))))      ; close, and any other
 
 ; read(stream, buf, len): standard input, into the process, at most 64 KB.
 (def sys_read ((i int) (s int) (m (array int)) (w int) (c (array int))
@@ -601,9 +638,9 @@
   (schedule (kresume k i (length (kargs k i))) i))
 
 (def k_arg ((k Kern) (i int)) int
-  (let n (kword k i 0)
-    (let buf (kword k i 1)
-      (let room (kword k i 2)
+  (let n (karg k i 0)
+    (let buf (karg k i 1)
+      (let room (karg k i 2)
         (let as (kargs k i)
           (if (if (lt n 0) true (ge n (length as)))
               (schedule (kresume k i -5) i)

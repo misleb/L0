@@ -1,32 +1,71 @@
-; A serial driver, run as a process of kernel.l0, for a PL011: it is given
-; its device's base and interrupt as arguments, in decimal, by the kernel,
-; which has them from its own boot arguments, so it names no board. It
-; opens the device as a region, by the host's system call 10, unmasks its
-; transmit interrupt, and then writes what other processes send it (the
-; kernel's call 257), a byte at a time, waiting after each for the
-; transmit interrupt (259), which says the byte has gone, and clearing it
-; before ending it (260). It never ends: the kernel ends the run when
-; process 0 does.
-(def put ((u int) (irq int) (b int)) int
-  (let w (region_write8 u 0 b)                          ; the data register
-    (let n (supervisor_call 259 irq 0 0)                ; until it is sent
-      (let c (region_write32 u 68 32)                   ; UARTICR: cleared
-        (supervisor_call 260 irq 0 0)))))
+; A serial driver, run as a process of kernel.l0, for a PL011 or a 16550:
+; it is given its device's base, its interrupt, and which of the two it is
+; as arguments, the first two in decimal, by the kernel, which has them from
+; its own boot arguments, so it names no board. It opens the device as a
+; region, by the host's system call 10, turns on its transmit interrupt,
+; and then writes what other processes send it (the kernel's call 257), a
+; byte at a time, waiting after each for the transmit interrupt (259),
+; which says the byte has gone, and clearing it before ending it (260). It
+; never ends: the kernel ends the run when process 0 does.
 
-(def put_all ((u int) (irq int) (b bytes) (i int)) int
+; The UART's kinds: a PL011, whose registers are 4096 bytes, its transmit
+; interrupt unmasked once, in UARTIMSC, raised as each byte goes, and
+; cleared in UARTICR; or a 16550, whose are 256, and whose transmit
+; interrupt says the holding register is empty: turned on in IER after
+; each byte is written, which raises it once the byte has gone, its cause
+; read from IIR, and turned off again, since a byte written while it is on
+; clears it, and QEMU's 16550 does not raise it again.
+(data Uart (Pl011) (Ns16550))
+
+(def uart_len ((k Uart)) int
+  (match k ((Pl011) 4096) ((Ns16550) 256)))
+
+(def tx_on ((k Uart) (u int)) int
+  (match k ((Pl011) (region_write32 u 56 32)) ((Ns16550) 0)))
+
+(def sent_on ((k Uart) (u int)) int
+  (match k ((Pl011) 0) ((Ns16550) (region_write8 u 1 2))))
+
+(def tx_clear ((k Uart) (u int)) int
+  (match k
+    ((Pl011) (region_write32 u 68 32))
+    ((Ns16550) (let c (region_read8 u 2) (region_write8 u 1 0)))))
+
+(def put ((k Uart) (u int) (irq int) (b int)) int
+  (let w (region_write8 u 0 b)                          ; the data register
+    (let s (sent_on k u)
+      (let n (supervisor_call 259 irq 0 0)              ; until it is sent
+        (let c (tx_clear k u)
+          (supervisor_call 260 irq 0 0))))))
+
+(def put_all ((k Uart) (u int) (irq int) (b bytes) (i int)) int
   (if (ge i (bytes_len b))
       0
-      (let w (put u irq (bytes_get b i)) (put_all u irq b (add i 1)))))
+      (let w (put k u irq (bytes_get b i)) (put_all k u irq b (add i 1)))))
 
-(def serve ((u int) (irq int)) int
+(def serve ((k Uart) (u int) (irq int)) int
   (let b (supervisor_receive 257 0 4096)
-    (let w (put_all u irq b 0) (serve u irq))))
+    (let w (put_all k u irq b 0) (serve k u irq))))
+
+(def kind_of ((s (list int))) (Option Uart)
+  (if (list_eq s "pl011")
+      (Some (Pl011))
+      (if (list_eq s "ns16550") (Some (Ns16550)) ((None Uart)))))
+
+; The interrupt is enabled, by the kernel's call 262, before the device can
+; raise it.
+(def start ((k Uart)) int
+  (let u (region_open (int_prefix (arg 0) 0) (uart_len k))
+    (if (lt u 0)
+        (let e (write_err "serial driver: no device there\n") 2)
+        (let irq (int_prefix (arg 1) 0)
+          (let l (supervisor_call 262 irq 0 0)
+            (let m (tx_on k u)
+              (serve k u irq)))))))
 
 (def main () int
-  (if (lt (arg_count) 2)
-      (let e (write_err "serial driver: give it its device's base and interrupt\n") 2)
-      (let u (region_open (int_prefix (arg 0) 0) 4096)
-        (if (lt u 0)
-            (let e (write_err "serial driver: no device there\n") 2)
-            (let m (region_write32 u 56 32)               ; UARTIMSC: transmit
-              (serve u (int_prefix (arg 1) 0)))))))
+  (if (lt (arg_count) 3)
+      (let e (write_err "serial driver: give it its device's base, interrupt, and kind\n") 2)
+      (match (kind_of (arg 2))
+        ((Some k) (start k))
+        ((None) (let e (write_err "serial driver: a kind is pl011 or ns16550\n") 2)))))

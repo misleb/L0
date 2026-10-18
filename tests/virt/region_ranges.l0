@@ -1,31 +1,31 @@
 ; Spec sections 6.12 and 10.3 on the board: a region opens over any range
 ; wholly within one of its devices, and over nothing else, the interrupt
 ; controller among it; regions are numbered from 0, and after 64 no more
-; can be open.
+; can be open. The board's devices are tests/virt/board's.
 (def show ((r int)) int
   (write_line (digits r)))
 
 (def fill ((k int)) int
   (if (le k 0)
       0
-      (let r (region_open 150994944 4)
+      (let r (region_open (board_uart) 4)
         (fill (sub k 1)))))
 
 (def opens ((i int)) int
-  (let a (show (region_open 150994944 4096))       ; the whole PL011: 0
-    (let b (show (region_open 150995968 8))        ; part of it: 1
-      (let c (show (region_open 151126016 24))     ; firmware configuration: 2
-        (show (region_open 150994944 4097))))))    ; past the PL011's end
+  (let a (show (region_open (board_uart) (board_uart_len)))    ; the whole port: 0
+    (let b (show (region_open (board_uart_part) 8))             ; part of it: 1
+      (let c (show (region_open (board_fw_cfg) 24))             ; firmware configuration: 2
+        (show (region_open (board_uart) (add (board_uart_len) 1)))))))   ; past its end
 
 (def refusals ((i int)) int
-  (let a (show (region_open 151257088 4))          ; 0x09040000, no device
-    (let b (show (region_open 1073741824 8))       ; RAM
-      (let g (show (region_open 134217728 4))      ; the GIC, the host's (6.14)
-        (show (region_open 150994944 0))))))       ; no bytes
+  (let a (show (region_open (board_no_device) 4))  ; no device
+    (let b (show (region_open (board_ram) 8))      ; RAM
+      (let g (show (region_open (board_intc) 4))   ; the interrupt controller, the host's (6.14)
+        (show (region_open (board_uart) 0))))))    ; no bytes
 
 (def main () int
   (let a (opens 0)
     (let b (refusals 0)
-      (let c (show (region_open 151060480 4096))   ; the PL031: 3
+      (let c (show (region_open (board_rtc) 4096)) ; the clock: 3
         (let d (fill 60)
-          (show (region_open 167772160 512)))))))  ; a 65th
+          (show (region_open (board_virtio) 512)))))))  ; a 65th

@@ -3,5 +3,5 @@
 (def main () int
   (let s (space_new)
     (let f (frame_new)
-      (let a (write_line (digits (space_map_device s 3221225472 150994944 4096)))
+      (let a (write_line (digits (space_map_device s 3221225472 (board_uart) (board_uart_len))))
         (space_map s 3221225472 f 1)))))

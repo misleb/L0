@@ -174,11 +174,17 @@
   device_write64 ((d IoDevice) (off int) (v int)) int
       Writes all 64 bits of v at off in d, and returns 0.
   (data Trap (TrapCall int) (TrapMissing int) (TrapFault int int) (TrapInterrupt int))
-      Why a thread came back from user_run: (TrapCall n), a system call with number n, which aarch64 puts in x8; (TrapMissing va), a fault at the user address va where nothing is mapped, which a kernel answers by mapping a page there or ending the thread; (TrapFault esr far), any other fault, with the machine's syndrome and the address; or (TrapInterrupt n), interrupt n, taken, which interrupt_done ends (spec section 6.14).
+      Why a thread came back from user_run: (TrapCall n), a system call with number n, which call_number reads; (TrapMissing va), a fault at the user address va where nothing is mapped, which a kernel answers by mapping a page there or ending the thread; (TrapFault why va), any other fault, with what the CPU said of it, its syndrome or cause, and the address; or (TrapInterrupt n), interrupt n, taken, which interrupt_done ends (spec section 6.14).
   trap_of ((c (array int))) Trap
       The trap the context c records, as a Trap, for the context user_run returned.
+  call_number ((c (array int))) int
+      The number of the system call the thread whose context is c made, from the register its CPU keeps it in: x8 on aarch64, a7 on riscv64.
+  call_arg ((c (array int)) (k int)) int
+      Argument k, 0 to 3, of the system call the thread whose context is c made, from the register its CPU passes it in: x0 to x3 on aarch64, a0 to a3 on riscv64.
+  call_result ((c (array int)) (v int)) (array int)
+      The context c with v as its system call's result, in the register its CPU returns one in, x0 on aarch64 and a0 on riscv64, so that the thread, run again with it, resumes after its call with that result.
   user_context ((pc int) (sp int)) (array int)
-      A context for user_run that starts a thread at pc with its stack pointer at sp, every other register 0: an (array int) of the 104 words spec section 10.3 gives for aarch64.
+      A context for user_run that starts a thread at pc with its stack pointer at sp, every other register 0: an (array int) of the 104 words spec section 10.3 gives for each CPU.
 
 == test: Assertions, golden files, and pseudo-random inputs for l0 test, which links this file.
   show_str ((s (list int))) (list int)

@@ -19,7 +19,7 @@
 ;   - the arguments, the device tree's /chosen/bootargs, split at runs of
 ;     spaces
 ;   - regions over the board's table of devices, and the barrier the CPU's
-;   - user mode: the pool of frames from __frames_start to __frames_end,
+;   - user mode: the pool of frames the board's part says it has,
 ;     the spaces, and the tables mapping their user range, written through
 ;     the CPU's descriptors: three levels of 4 KB tables with 9-bit
 ;     indices, which arm64's 4 KB granule and RISC-V's Sv39 both are
@@ -39,8 +39,6 @@ declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 ; The board's layout, runtime/board/BOARD.ld.
 @__stack_top = external global i8
 @__stack_bottom = external global i8
-@__frames_start = external global i8
-@__frames_end = external global i8
 @__input_len = external global i64
 @__input_start = external global i8
 
@@ -71,6 +69,8 @@ declare i64 @l0_board_device_count()
 declare i64 @l0_board_device_base(i64)
 declare i64 @l0_board_device_len(i64)
 declare void @l0_board_space_init(i64, i64)
+declare i64 @l0_board_pool_start()
+declare i64 @l0_board_pool_end()
 declare i1 @l0_board_irq_exists(i64)
 declare void @l0_board_irq_enable(i64)
 declare i64 @l0_board_irq_take()
@@ -522,8 +522,9 @@ entry:
 
 ; --------------------------------------------------------------- user mode
 ;
-; Spec sections 6.13 and 10.3. Pages come from the pool the layout gives,
-; __frames_start to __frames_end, at most 98,304 of 4 KB, and frame k is
+; Spec sections 6.13 and 10.3. Pages come from the pool the board's part
+; gives, l0_board_pool_start up to l0_board_pool_end, at most 98,304 of 4
+; KB, mapped where they are by the boot map, and frame k is
 ; the k-th page. Untouched pages go to frames from the bottom and to the
 ; host's own page tables from the top, until the two meet; a page given
 ; back, frame or table, goes on one free list, threaded through the pages'
@@ -548,19 +549,21 @@ entry:
 @sp_l1 = internal global [255 x i64] zeroinitializer
 @sp_count = internal global i64 0
 
-; How many pages the pool has, which the layout keeps to 98,304.
+; How many pages the pool has, at most 98,304.
 define internal i64 @pool_pages() {
 entry:
-  %fs = ptrtoint ptr @__frames_start to i64
-  %fe = ptrtoint ptr @__frames_end to i64
+  %fs = call i64 @l0_board_pool_start()
+  %fe = call i64 @l0_board_pool_end()
   %b = sub i64 %fe, %fs
-  %n = lshr i64 %b, 12
+  %n0 = lshr i64 %b, 12
+  %big = icmp ugt i64 %n0, 98304
+  %n = select i1 %big, i64 98304, i64 %n0
   ret i64 %n
 }
 
 define internal i64 @page_addr(i64 %k) {
 entry:
-  %fs = ptrtoint ptr @__frames_start to i64
+  %fs = call i64 @l0_board_pool_start()
   %o = shl i64 %k, 12
   %pa = add i64 %fs, %o
   ret i64 %pa
@@ -569,8 +572,8 @@ entry:
 ; The pool's index of the page at pa, or -1 if pa is not in the pool.
 define internal i64 @page_of(i64 %pa) {
 entry:
-  %fs = ptrtoint ptr @__frames_start to i64
-  %fe = ptrtoint ptr @__frames_end to i64
+  %fs = call i64 @l0_board_pool_start()
+  %fe = call i64 @l0_board_pool_end()
   %lo = icmp uge i64 %pa, %fs
   %hi = icmp ult i64 %pa, %fe
   %in = and i1 %lo, %hi
@@ -1119,6 +1122,29 @@ yes:
   ret i64 %pa
 no:
   ret i64 0
+}
+
+; Whether the user address va is on a page mapped in the space whose root
+; table is root, a frame's or a device's, for a CPU whose fault does not
+; itself say whether anything was mapped there.
+define i1 @l0_bare_user_mapped(i64 %root, i64 %va) {
+entry:
+  %lo = icmp uge i64 %va, 3221225472
+  %hi = icmp ult i64 %va, 4294967296
+  %in = and i1 %lo, %hi
+  br i1 %in, label %walk, label %no
+walk:
+  %page = and i64 %va, -4096
+  %e = call i64 @l3_entry(i64 %root, i64 %page, i1 false)
+  %none = icmp eq i64 %e, 0
+  br i1 %none, label %no, label %look
+look:
+  %ep = inttoptr i64 %e to ptr
+  %d = load i64, ptr %ep
+  %some = icmp ne i64 %d, 0
+  ret i1 %some
+no:
+  ret i1 false
 }
 
 ; Copies n bytes between buf and the space from va, into it when dir is 1,

@@ -69,10 +69,16 @@ silent and converts a caught bug into a permanent one.
   `runtime/bare/semihost.ll`. Each target's manifest,
   `runtime/targets/NAME.target`, lists its parts, and `tools/targets.sh`
   builds them into `build/NAME/`; a new board or CPU is a new manifest and
-  the parts it lacks, and the tools need no change. A change to any part,
-  to `l0rt.ll`, or to the emitter needs `tools/test.sh --virt`, which
-  checks the fixpoint on the board and runs the compiled suite's programs
-  and `tests/virt` there, about three minutes. A new test that needs files
+  the parts it lacks, and the tools need no change. There are two boards,
+  QEMU's aarch64 and riscv64 virt boards; a test's expectations for one
+  CPU, where they differ, are `<stem>.ARCH.out` and the like, and board
+  constants for tests are `tests/virt/board/virt-ARCH.l0`. A change to any
+  part, to `l0rt.ll`, or to the emitter needs `tools/test.sh --virt`, which
+  checks the fixpoint on each board and runs the compiled suite's programs
+  and `tests/virt` there, about six minutes for both
+  (`L0_VIRT_ARCHS=riscv64` runs one while iterating). The emitter's
+  `fastcc` is load-bearing on riscv64, where LLVM 23 gets a tail call's
+  stack words wrong (spec 10.3). A new test that needs files
   or arguments and has no `.sh` script gets a `.host` file saying why, or
   fails there.
 - `runtime/bare/proc.ll`, `runtime/arch/aarch64/proc.ll`, and

@@ -1,6 +1,6 @@
 #!/bin/sh
-# Boots kernel.ll on QEMU's virt board with up to three processes, and
-# exits with the first one's status, or 99 if the kernel killed it.
+# Boots a CPU's kernel.ll on QEMU's virt board with up to three processes,
+# and exits with the first one's status, or 99 if the kernel killed it.
 #
 # Usage: tests/virt/proc/harness/boot.sh WORK ARGS SLOT0 [SLOT1 [SLOT2]] < INPUT
 #
@@ -8,8 +8,11 @@
 #           inside the repository, where the linker container can see it
 #   ARGS    a file of slot 0's arguments, one per line, or - for none
 #   SLOTn   a process image, built by tools/l0 build --target proc, raw;
-#           fault, for fault.ll beside it; or - for an empty slot
+#           fault, for fault.ll beside the kernel; or - for an empty slot
 #
+# The CPU is L0_ARCH's, aarch64 unless it names another, and its kernel,
+# fault.ll, and board.sh, which says where the kernel reads what is loaded
+# for it and how QEMU boots it, are in the directory named for it here.
 # Standard input is the processes' standard input. Standard output is the
 # board's serial line; standard error and the exit status come back by
 # semihosting. The kernel and fault.ll are linked once into WORK, by
@@ -33,6 +36,15 @@ if [ $# -gt 3 ]; then
     echo "boot.sh: the kernel has three slots" >&2
     exit 2
 fi
+arch=${L0_ARCH:-aarch64}
+H="$HERE/$arch"
+if [ ! -f "$H/kernel.ll" ]; then
+    echo "boot.sh: no harness kernel for $arch" >&2
+    exit 2
+fi
+. "$H/board.sh"
+T_CFLAGS=""
+. "$ROOT/runtime/targets/proc-$arch.target"
 mkdir -p "$work"
 work=$(cd "$work" && pwd)
 
@@ -55,12 +67,13 @@ image() {
     out=$3
     shift 3
     if [ ! -f "$out" ] || [ "$ll" -nt "$out" ] || [ "$ld" -nt "$out" ]; then
-        "$CC" --target=aarch64-none-elf -O2 -c "$ll" -o "$out.o"
+        # shellcheck disable=SC2086
+        "$CC" --target="$T_TRIPLE" $T_CFLAGS -O2 -c "$ll" -o "$out.o"
         lld -T "$ld" "$@" "$out.o" -o "$out"
     fi
 }
-image "$HERE/kernel.ll" "$HERE/kernel.ld" "$work/kernel.elf"
-image "$HERE/fault.ll" "$ROOT/runtime/proc.ld" "$work/fault.img" --oformat binary
+image "$H/kernel.ll" "$H/kernel.ld" "$work/kernel.elf"
+image "$H/fault.ll" "$ROOT/runtime/proc.ld" "$work/fault.img" --oformat binary
 
 cat > "$work/stdin"
 len=$(wc -c < "$work/stdin" | tr -d ' ')
@@ -68,9 +81,9 @@ if [ "$len" -gt 134217720 ]; then
     echo "boot.sh: the kernel takes at most 128 MB of standard input" >&2
     exit 2
 fi
-dev="-device loader,addr=0x4FFFFFF8,data=$len,data-len=8"
+dev="-device loader,addr=$H_INPUT_LEN_AT,data=$len,data-len=8"
 if [ "$len" -gt 0 ]; then
-    dev="$dev -device loader,file=$work/stdin,addr=0x50000000,force-raw=on"
+    dev="$dev -device loader,file=$work/stdin,addr=$H_INPUT_AT,force-raw=on"
 fi
 
 # Slot 0's arguments, each line ending in a NUL rather than a newline.
@@ -79,13 +92,13 @@ if [ "$args" != - ]; then
     tr '\n' '\000' < "$args" > "$work/args"
     alen=$(wc -c < "$work/args" | tr -d ' ')
 fi
-dev="$dev -device loader,addr=0x5EFFFFF8,data=$alen,data-len=8"
+dev="$dev -device loader,addr=$H_ARGS_LEN_AT,data=$alen,data-len=8"
 if [ "$alen" -gt 0 ]; then
-    dev="$dev -device loader,file=$work/args,addr=0x5F000000,force-raw=on"
+    dev="$dev -device loader,file=$work/args,addr=$H_ARGS_AT,force-raw=on"
 fi
 
 # Each process's image, its raw bytes from 0xC0000000, at its slot's
-# physical address; its bss is RAM that QEMU starts zero.
+# physical address, 4 MB apart; its bss is RAM that QEMU starts zero.
 slot=0
 for p in "$@"; do
     case $p in
@@ -94,14 +107,20 @@ for p in "$@"; do
         *) img=$p ;;
     esac
     if [ "$p" != - ]; then
-        addr=$(printf '0x%X' $((0x58000000 + slot * 0x400000)))
+        addr=$(printf '0x%X' $((H_SLOT_BASE + slot * 0x400000)))
         dev="$dev -device loader,file=$img,addr=$addr,force-raw=on"
     fi
     slot=$((slot + 1))
 done
 
+# Where firmware writes on QEMU's standard output, the serial line is a
+# descriptor of its own, 3, which is ours, and QEMU's goes nowhere.
+if [ "$H_SERIAL" = fd3 ]; then
+    # shellcheck disable=SC2086
+    exec "$H_QEMU" $H_QEMU_ARGS -display none -monitor none \
+        -chardev file,id=l0serial,path=/dev/fd/3,append=on -serial chardev:l0serial \
+        $dev -kernel "$work/kernel.elf" 3>&1 > /dev/null < /dev/null
+fi
 # shellcheck disable=SC2086
-exec qemu-system-aarch64 -M virt -cpu cortex-a72 -m 2G -display none \
-    -monitor none -serial stdio -semihosting \
-    -global virtio-mmio.force-legacy=false $dev \
-    -kernel "$work/kernel.elf" < /dev/null
+exec "$H_QEMU" $H_QEMU_ARGS -display none -monitor none -serial stdio \
+    $dev -kernel "$work/kernel.elf" < /dev/null

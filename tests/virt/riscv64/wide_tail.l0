@@ -1,0 +1,12 @@
+; Spec section 10.3 on riscv64: a tail call of 14 words, more than the 13
+; the fast calling convention passes in registers there, is refused when
+; the program is built, since LLVM's RISC-V back end gets the words it
+; passes on the stack wrong.
+(def spin ((a int) (b int) (c int) (d int) (e int) (f int) (g int) (h int)
+           (i int) (j int) (k int) (l int) (m int) (n int)) int
+  (if (eq n 0)
+      (add a m)
+      (spin b c d e f g h i j k l m a (sub n 1))))
+
+(def main () int
+  (spin 1 2 3 4 5 6 7 8 9 10 11 12 13 100))

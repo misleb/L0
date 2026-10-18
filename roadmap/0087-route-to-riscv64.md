@@ -85,3 +85,5 @@ and the PLIC at 0xC000000 (95 sources).
 
 - 2026-10-17: opened at the user's request, with the route above agreed.
   Probe written and booted; findings above. Next: 0088.
+- 2026-10-18: steps 4 to 8 are one item, 0091, since the riscv64 board's
+  parts were written together; it found an LLVM RISC-V tail-call bug.

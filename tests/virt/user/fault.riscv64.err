@@ -1,0 +1,2 @@
+fault: reading the kernel's image
+kernel: process 0 killed: fault scause = 0x000000000000000d sepc = 0x00000000c0000020 stval = 0x0000000080200000

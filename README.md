@@ -40,9 +40,9 @@ IR compiled from it changes with where it runs. The measure is the compiler
 compiling itself on a machine with no operating system, to the same bytes it
 produces under one. L0 code drives the machine's devices itself, through
 regions of their memory that the host checks and opens, read and written
-one register at a time. A program already runs on one such machine, QEMU's
-aarch64 `virt` board:
-`l0 build --target virt` makes an image and `l0 boot` runs it, and the
+one register at a time. A program already runs on two such machines, QEMU's
+aarch64 and riscv64 `virt` boards:
+`l0 build --target virt [--arch riscv64]` makes an image and `l0 boot` runs it, and the
 compiler built that way compiles itself to the same bytes, which
 `tools/test.sh --virt` checks, with the compiled suite's programs run there
 against the expectations they meet here.
@@ -146,9 +146,10 @@ each target without an operating system in a directory of its own, named for
 its manifest in `runtime/targets/`: `lib/l0/virt-aarch64/` for QEMU's aarch64
 `virt` board holds `l0rt.ll`, `runtime/freestanding.ll`, and the host's
 parts as bitcode, the image layout, and the Dockerfile of the container that
-links images. `l0 build --target virt` and `l0 boot` need
-`qemu-system-aarch64`, and Docker, or an `ld.lld` named by `L0_VIRT_LD`.
-Beside it, `lib/l0/proc-aarch64/` holds the same for `l0 build --target
+links images, and `lib/l0/virt-riscv64/` the same for QEMU's riscv64 one.
+`l0 build --target virt` and `l0 boot` need `qemu-system-aarch64` or
+`qemu-system-riscv64`, and Docker, or an `ld.lld` named by `L0_VIRT_LD`.
+Beside them, `lib/l0/proc-aarch64/` and `proc-riscv64/` hold the same for `l0 build --target
 proc`, which makes an image for a program run as a process by a kernel; no
 kernel comes with the toolchain.
 
@@ -307,7 +308,7 @@ A program can read and write its standard streams and files, rename and
 delete files, read its command-line arguments, and time itself on a
 monotonic clock, but there is no network, no environment, no wall-clock
 date, and no directories: none can be listed or created. Without an
-operating system it runs on one machine, QEMU's aarch64 `virt` board,
+operating system it runs on two machines, QEMU's aarch64 and riscv64 `virt` boards,
 where there are no files and no environment, and its arguments are its
 boot arguments. There it drives the board's devices through their
 registers, takes and waits for interrupts, runs code in user mode, and
@@ -352,7 +353,7 @@ with the compiler it stops being independent. Programs using constructs it
 cannot handle simply skip.
 
 `tools/test.sh --virt` holds the same programs to the same expectations on
-QEMU's aarch64 `virt` board, with no operating system beneath them, after
+QEMU's aarch64 and riscv64 `virt` boards, with no operating system beneath them, after
 checking that the compiler built for the board compiles itself there to
 the bytes it writes on the host (`tools/bootstrap.sh --virt`). What needs a
 host the board is not skips, by a rule the script states: a program whose

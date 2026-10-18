@@ -115,6 +115,22 @@ entry:
   ret void
 }
 
+; The pool of frames and page tables, as the layout gives it.
+@__frames_start = external global i8
+@__frames_end = external global i8
+
+define i64 @l0_board_pool_start() {
+entry:
+  %a = ptrtoint ptr @__frames_start to i64
+  ret i64 %a
+}
+
+define i64 @l0_board_pool_end() {
+entry:
+  %a = ptrtoint ptr @__frames_end to i64
+  ret i64 %a
+}
+
 ; ------------------------------------------------------------- interrupts
 ;
 ; Interrupt 0 is the virtual timer's, the GIC's 27; a device's number is

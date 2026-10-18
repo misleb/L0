@@ -7,6 +7,139 @@ New entries go at the top.
 
 ---
 
+## The virt board and the process host on riscv64
+
+**What changed.** Section 10.3 has a second virt board, QEMU's riscv64
+one, and a riscv64 process host. `l0 build --target virt --arch riscv64`
+builds an image OpenSBI boots by the RISC-V Linux image protocol, in
+S-mode, with the hart in `a0` and the device tree in `a1`; its parts are
+`runtime/arch/riscv64/boot.ll`, `runtime/board/virt-riscv64.ll` and its
+layout, and two drivers, `runtime/dev/ns16550.ll` and `runtime/dev/plic.ll`.
+It has the 16550 as standard output, semihosting for standard error and
+the exit status, the board's devices as regions, user mode on Sv39 with
+threads in U-mode, a riscv64 context layout, interrupts by the PLIC, and
+the SBI's timer. `--target proc --arch riscv64` is a process making system
+calls by `ecall`, and the process's clock is a new system call, 11, which
+every kernel answers, the aarch64 harness kernel and the L0 kernel too.
+`(machine)` is 2 there, and the library's helpers and `trap_of` read the
+riscv64 context; the L0 kernel asks it, too, for the names of a killed
+process's fault registers. `tools/test.sh --virt` and `tools/bootstrap.sh --virt`
+run everything on both boards. Roadmap 0091, the last of 0087's route.
+
+**Why.** The user asked for the board on riscv64, for the VisionFive 2
+later. The parts of 0088 did what they were for: the board is two new
+part files, two drivers, and a manifest, and `runtime/bare/board.ll`, the
+frame pool, the page walk, the interrupt bookkeeping, and the arguments
+from the device tree, serve it unchanged but for one helper, which tells
+a riscv64 thread's fault where nothing is mapped from one a page's
+permissions make: arm64's syndrome says which, and RISC-V's cause does
+not, so the host walks the space and says so in word 34. Word 32 is past
+the `ecall`, as it is past the `svc`, so a kernel resumes a thread the
+same way on both.
+
+**The decisions.**
+
+- **RAM and the user range.** The riscv64 board's RAM starts at
+  0x80000000, so the user range, the 4th gigabyte, is RAM there. It stays
+  where section 10.3 has it for both CPUs, and the host leaves that RAM
+  unused: with 1 GB the board could not hold a 380 MB heap for `reclaim`
+  on the board and 380 MB of frames for `reclaim` as a process of the L0
+  kernel, so it runs with 3 GB, its pool in the 5th gigabyte. The pool is
+  past what medany code reaches by an address, so the board's part gives
+  its bounds as numbers, `l0_board_pool_start` and `l0_board_pool_end`,
+  where the aarch64 board's gives its layout's symbols. The VisionFive 2
+  and the Pi 4 have RAM in the 4th gigabyte too, and can leave it the same
+  way, or use a region table of physical and virtual addresses; not
+  decided here.
+- **A device's interrupt raised before it is enabled.** On QEMU's riscv64
+  board a PLIC source that rises while it is disabled is never taken once
+  enabled, which on the aarch64 board it is. The L0 kernel's serial driver
+  armed its 16550 before its first wait enabled the interrupt, and hung,
+  so the kernel has a call of its own, 262, listen(n), that enables a
+  device's interrupt and returns, which the driver makes first. Section
+  6.14 does not promise that an interrupt raised before it is enabled is
+  taken, so nothing in the language changes.
+- **The process's clock.** The time CSR's rate is the board's, which a
+  process cannot learn, and an L0 kernel cannot either, so the kernel must
+  answer it; a system call was the one way open without a new builtin.
+  aarch64's process host reads `cntfrq_el0` and does not need it.
+- **The banner.** OpenSBI writes a banner on every boot, on QEMU's
+  standard output through semihosting whatever chardev semihosting is
+  given (roadmap 0087). So the serial line goes to a descriptor of its
+  own, `-chardev file,path=/dev/fd/3`, and QEMU's standard output is
+  thrown away; a target's manifest says which it needs.
+- **Timer and ASIDs.** The SBI's `set_timer`, not the Sstc extension's
+  `stimecmp`, since the VisionFive 2's U74 has no Sstc; and spaces fall
+  back to ASID 0 with a flush on every switch on a hart with fewer than 8
+  ASID bits, as the U74 is said to have. QEMU has Sstc and 16 bits, so
+  neither fallback is exercised here.
+
+## Every L0 function has the fast calling convention
+
+**What changed.** Section 10.2: every L0 function is `fastcc`, and so is
+every call of one; only `@l0_f_main`, which the runtime calls, keeps the C
+convention. Section 10.3 says why, and that a riscv64 target refuses to
+build a program with a tail call of more than 13 words. The compiler's
+output changes by the word `fastcc` and nothing else; the seed is
+refreshed. Roadmap 0091.
+
+**Why.** On the riscv64 board the compiler crashed compiling itself, with
+a null context in `check_call`. Its tail-call components are padded to 9
+and 10 words (10.2), and RISC-V's C convention passes 8 in registers, so
+the 9th goes on the stack, in the caller's own incoming words. LLVM 23's
+RISC-V back end writes that word at the bottom of the caller's frame, the
+one the tail call frees, rather than into the incoming words, at every
+optimization level, so the callee reads whatever its caller's caller left
+there (`tmp/` probes, recorded in roadmap 0091):
+
+```
+caller:
+	addi	sp, sp, -16
+	...
+	addi	a0, s0, 40        ; the new 9th word
+	sd	a0, 0(sp)         ; written into this frame, over the saved s0
+	ld	s0, 0(sp)
+	addi	sp, sp, 16
+	tail	callee            ; which reads its 9th word at 0(sp), stale
+```
+
+aarch64 writes the word where it belongs. LLVM's fast convention passes 13
+words in registers on RISC-V, so no tail call of 13 words or fewer puts
+one on the stack, and every component of the compiler is narrower. The
+choices were:
+
+- **`fastcc` everywhere.** The IR stays the same for every host, and on
+  aarch64 and x86-64 the fast convention passes integers as the C one
+  does. Chosen. A wider tail call still goes on the stack on
+  riscv64, so the target refuses one when the program is built, as
+  section 10.3 says a host that cannot honor a tail call does, rather than
+  building one that reads stale words
+- **passing the words past the 8th in memory,** a block of the
+  callee's: it would work at any width, but it changes every target's
+  tail calls to work around one back end's bug
+- **rewriting the IR for riscv64 when it is linked:** the IR would no
+  longer be what the spec says it is
+
+## The library reads a system call wherever the CPU keeps it
+
+**What changed.** `lib/io.l0` has `call_number`, `call_arg`, and
+`call_result`, which read a system call's number and its arguments from a
+thread's context and set its result, and `trap_of` and `user_context` now
+find the call's number and the stack pointer through the same table, by
+`(machine)`. Section 6.13 names them. `tests/virt/user/kernel.l0` answers
+every call through them and reads no register by its word. aarch64 is the
+only CPU so far, so nothing a program sees changes. Roadmap 0090, the use
+0089's builtin was for.
+
+**Why.** The library's `trap_of` read `x8` as word 8 and `user_context`
+wrote the stack pointer to word 31, and the L0 kernel read a call's
+arguments from words 0 to 3 and wrote its result to word 0, about 25
+places, all aarch64's. With them behind three helpers and `(machine)`, a
+second CPU is a row in the library's table, and the kernel is the same
+program on both. Words 32, 35, 36, and 37, the program counter, the trap's
+kind, what the CPU said of it, and the address, stay where section 10.3
+puts them on every CPU, so no helper reads those.
+
 ## A program asks which CPU it runs on
 
 **What changed.** A new builtin, `(machine)`, section 6.16, returns the

@@ -83,14 +83,14 @@ declare i64 @l0_machine()
 
 @l0_main_ret_kind = global i64 0
 
-define internal i64 @l0_p_h(i64 %a0) {
+define internal fastcc i64 @l0_p_h(i64 %a0) {
 entry:
   call void @l0_stack_check()
   %t0 = add i64 %a0, 1
   ret i64 %t0
 }
 
-define internal i64 @l0_f_h(i64 %a0) {
+define internal fastcc i64 @l0_f_h(i64 %a0) {
 entry:
   call void @l0_stack_check()
   %t0 = mul i64 %a0, 10
@@ -99,15 +99,15 @@ entry:
 
 define i64 @l0_f_main(i64 %a0) {
 entry:
-  %r = call i64 @l0_f_main.body(i64 %a0)
+  %r = call fastcc i64 @l0_f_main.body(i64 %a0)
   ret i64 %r
 }
 
-define internal i64 @l0_f_main.body(i64 %a0) {
+define internal fastcc i64 @l0_f_main.body(i64 %a0) {
 entry:
   call void @l0_stack_check()
   call void @l0_dec(i64 %a0)
-  %t0 = musttail call i64 @l0_f_h(i64 4)
+  %t0 = musttail call fastcc i64 @l0_f_h(i64 4)
   ret i64 %t0
 }
 

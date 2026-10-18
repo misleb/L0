@@ -10,8 +10,10 @@
 #                    compile compiler.l0 to stage3.ll's bytes there too, and
 #                    again built as a process, under the kernel in
 #                    tests/virt/proc/harness and the one in L0 in
-#                    tests/virt/user (spec sections 6.13 and 9.2). Needs
-#                    qemu-system-aarch64, and Docker or L0_VIRT_LD.
+#                    tests/virt/user (spec sections 6.13 and 9.2), for each
+#                    CPU with a virt board, or those L0_VIRT_ARCHS names.
+#                    Needs qemu-system-aarch64 and qemu-system-riscv64, and
+#                    Docker or L0_VIRT_LD.
 #
 # Self-hosting is verified by a byte-for-byte fixpoint, not by judgment:
 #
@@ -149,100 +151,103 @@ echo "FIXPOINT: stage2.ll == stage3.ll ($(wc -c < "$BUILD/stage2.ll" | tr -d ' '
 
 # -------------------------------------------- the last step, on the board
 
-# stage2 again, but as an image for QEMU's virt board, linked with the
-# board's runtime as tools/build.sh left it in build/virt-aarch64, and
-# booted on the same source. It must write stage3.ll exactly: the compiler
-# compiles itself to itself with no operating system beneath it.
-if [ "$VIRT" = 1 ]; then
-    if [ ! -f "$BUILD/virt-aarch64/parts" ]; then
-        echo "error: $CC cannot build the virt board's runtime for aarch64" >&2
+# stage2 again, for each CPU with a virt board, or those L0_VIRT_ARCHS
+# names: as an image for QEMU's virt board, linked with the board's runtime
+# as tools/build.sh left it in build/virt-ARCH, and booted on the same
+# source. It must write stage3.ll exactly: the compiler compiles itself to
+# itself with no operating system beneath it. Then, where the CPU has a
+# process runtime and a harness kernel, as a process, under that kernel and
+# under the one in L0.
+
+# same_bytes WHERE TAGGED: whether stage2 wrote stage3.ll's bytes WHERE,
+# into TAGGED, as the compiler tags its output.
+same_bytes() {
+    case "$(head -n 1 "$2")" in
+        O) tail -n +2 "$2" > "${2%.tagged}" ;;
+        *)
+            echo "FAIL: stage2 $1 did not write IR" >&2
+            head -5 "$2" | sed 's/^/    /' >&2
+            exit 1
+            ;;
+    esac
+    if ! cmp -s "$BUILD/stage3.ll" "${2%.tagged}"; then
+        echo "FAIL: $1, stage2 compiles compiler.l0 to other bytes"
+        echo "      than on this host. First difference:"
+        diff "$BUILD/stage3.ll" "${2%.tagged}" | head -20 | sed 's/^/    /'
+        exit 1
+    fi
+}
+
+# virt_step ARCH takes the last step on ARCH's board, and as a process.
+virt_step() {
+    a=$1
+    L0_ARCH=$a
+    export L0_ARCH
+    if [ ! -f "$BUILD/virt-$a/parts" ]; then
+        echo "error: $CC cannot build the virt board's runtime for $a" >&2
         exit 1
     fi
     L0_RUNTIMES="$BUILD" tools/l0 link --target virt "$BUILD/stage2.ll" \
-        -o "$BUILD/stage2.img"
+        -o "$BUILD/stage2-$a.img"
     start=$(date +%s)
-    if ! tools/l0 boot "$BUILD/stage2.img" < "$SRC" > "$BUILD/stage3-virt.ll.tagged"; then
-        echo "FAIL: stage2 failed on the virt board" >&2
+    if ! tools/l0 boot "$BUILD/stage2-$a.img" < "$SRC" > "$BUILD/stage3-virt-$a.ll.tagged"; then
+        echo "FAIL: stage2 failed on the $a virt board" >&2
         exit 1
     fi
     took=$(( $(date +%s) - start ))
-    case "$(head -n 1 "$BUILD/stage3-virt.ll.tagged")" in
-        O) tail -n +2 "$BUILD/stage3-virt.ll.tagged" > "$BUILD/stage3-virt.ll" ;;
-        *)
-            echo "FAIL: stage2 on the virt board did not write IR" >&2
-            head -5 "$BUILD/stage3-virt.ll.tagged" | sed 's/^/    /' >&2
-            exit 1
-            ;;
-    esac
-    if ! cmp -s "$BUILD/stage3.ll" "$BUILD/stage3-virt.ll"; then
-        echo "FAIL: on the virt board, stage2 compiles compiler.l0 to other bytes"
-        echo "      than on this host. First difference:"
-        diff "$BUILD/stage3.ll" "$BUILD/stage3-virt.ll" | head -20 | sed 's/^/    /'
-        exit 1
+    same_bytes "on the $a virt board" "$BUILD/stage3-virt-$a.ll.tagged"
+    echo "ON THE BOARD: stage2 on QEMU's $a virt board writes stage3.ll too, in $took s"
+
+    if [ ! -f "$BUILD/proc-$a/parts" ] || [ ! -f "tests/virt/proc/harness/$a/kernel.ll" ]; then
+        echo "AS A PROCESS: not on $a, which has no process runtime or harness kernel yet"
+        return 0
     fi
-    echo "ON THE BOARD: stage2 on QEMU's virt board writes stage3.ll too, in $took s"
 
     # And as a process of a kernel: stage2 built with runtime/bare/proc.ll,
-    # run at EL0 in an address space of its own by the harness kernel, its
-    # input and output by system calls.
-    if [ ! -f "$BUILD/proc-aarch64/parts" ]; then
-        echo "error: $CC cannot build the process runtime for aarch64" >&2
-        exit 1
-    fi
+    # run at user level in an address space of its own by the harness
+    # kernel, its input and output by system calls.
     L0_RUNTIMES="$BUILD" tools/l0 link --target proc "$BUILD/stage2.ll" \
-        -o "$BUILD/stage2-proc.img"
+        -o "$BUILD/stage2-proc-$a.img"
     start=$(date +%s)
-    if ! tests/virt/proc/harness/boot.sh "$BUILD/proc-boot" - "$BUILD/stage2-proc.img" \
-        < "$SRC" > "$BUILD/stage3-proc.ll.tagged"; then
-        echo "FAIL: stage2 failed as a process" >&2
+    if ! tests/virt/proc/harness/boot.sh "$BUILD/proc-boot-$a" - "$BUILD/stage2-proc-$a.img" \
+        < "$SRC" > "$BUILD/stage3-proc-$a.ll.tagged"; then
+        echo "FAIL: stage2 failed as a process on $a" >&2
         exit 1
     fi
     took=$(( $(date +%s) - start ))
-    case "$(head -n 1 "$BUILD/stage3-proc.ll.tagged")" in
-        O) tail -n +2 "$BUILD/stage3-proc.ll.tagged" > "$BUILD/stage3-proc.ll" ;;
-        *)
-            echo "FAIL: stage2 as a process did not write IR" >&2
-            head -5 "$BUILD/stage3-proc.ll.tagged" | sed 's/^/    /' >&2
-            exit 1
-            ;;
-    esac
-    if ! cmp -s "$BUILD/stage3.ll" "$BUILD/stage3-proc.ll"; then
-        echo "FAIL: as a process, stage2 compiles compiler.l0 to other bytes"
-        echo "      than on this host. First difference:"
-        diff "$BUILD/stage3.ll" "$BUILD/stage3-proc.ll" | head -20 | sed 's/^/    /'
-        exit 1
-    fi
-    echo "AS A PROCESS: stage2 under the harness kernel writes stage3.ll too, in $took s"
+    same_bytes "as a process on $a" "$BUILD/stage3-proc-$a.ll.tagged"
+    echo "AS A PROCESS: stage2 under the $a harness kernel writes stage3.ll too, in $took s"
 
     # And as the process of a kernel written in L0, tests/virt/user/kernel.l0
     # (spec section 6.13), built by stage2 itself.
     if ! L0_COMPILER="$BUILD/stage2" L0_RUNTIMES="$BUILD" tools/l0 build \
-        --target virt tests/virt/user/kernel.l0 -o "$BUILD/user-kernel.img"; then
-        echo "FAIL: stage2 did not build tests/virt/user/kernel.l0" >&2
+        --target virt tests/virt/user/kernel.l0 -o "$BUILD/user-kernel-$a.img"; then
+        echo "FAIL: stage2 did not build tests/virt/user/kernel.l0 for $a" >&2
         exit 1
     fi
     start=$(date +%s)
-    if ! tests/virt/user/run.sh "$BUILD/user-kernel.img" "$BUILD/user-boot" - \
-        "$BUILD/stage2-proc.img" < "$SRC" > "$BUILD/stage3-user.ll.tagged"; then
-        echo "FAIL: stage2 failed as a process of the L0 kernel" >&2
+    if ! tests/virt/user/run.sh "$BUILD/user-kernel-$a.img" "$BUILD/user-boot-$a" - \
+        "$BUILD/stage2-proc-$a.img" < "$SRC" > "$BUILD/stage3-user-$a.ll.tagged"; then
+        echo "FAIL: stage2 failed as a process of the L0 kernel on $a" >&2
         exit 1
     fi
     took=$(( $(date +%s) - start ))
-    case "$(head -n 1 "$BUILD/stage3-user.ll.tagged")" in
-        O) tail -n +2 "$BUILD/stage3-user.ll.tagged" > "$BUILD/stage3-user.ll" ;;
-        *)
-            echo "FAIL: stage2 under the L0 kernel did not write IR" >&2
-            head -5 "$BUILD/stage3-user.ll.tagged" | sed 's/^/    /' >&2
-            exit 1
-            ;;
-    esac
-    if ! cmp -s "$BUILD/stage3.ll" "$BUILD/stage3-user.ll"; then
-        echo "FAIL: under the L0 kernel, stage2 compiles compiler.l0 to other bytes"
-        echo "      than on this host. First difference:"
-        diff "$BUILD/stage3.ll" "$BUILD/stage3-user.ll" | head -20 | sed 's/^/    /'
-        exit 1
+    same_bytes "under the L0 kernel on $a" "$BUILD/stage3-user-$a.ll.tagged"
+    echo "UNDER L0: stage2 as the process of a kernel in L0 on $a writes stage3.ll too, in $took s"
+}
+
+if [ "$VIRT" = 1 ]; then
+    archs=${L0_VIRT_ARCHS:-}
+    if [ -z "$archs" ]; then
+        for m in runtime/targets/*.target; do
+            T_KIND=""
+            . "./$m"
+            [ "$T_KIND" = board ] && archs="$archs $T_ARCH"
+        done
     fi
-    echo "UNDER L0: stage2 as the process of a kernel in L0 writes stage3.ll too, in $took s"
+    for a in $archs; do
+        virt_step "$a"
+    done
 fi
 
 # ------------------------------------------------------------ seed handling

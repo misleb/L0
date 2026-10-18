@@ -8,9 +8,9 @@ SECTIONS
 {
   . = 0xC0000000;
   .text : { *(.text.boot) *(.text*) }
-  .rodata : { *(.rodata*) }
-  .data : { *(.data*) }
-  .bss : { *(.bss*) *(COMMON) }
+  .rodata : { *(.rodata*) *(.srodata*) }
+  .data : { *(.data*) *(.sdata*) }
+  .bss : { *(.sbss*) *(.bss*) *(COMMON) }
   __image_end = .;
   __heap_start = 0xC0400000;
   __heap_end = 0xD8000000;

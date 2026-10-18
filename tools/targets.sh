@@ -5,18 +5,24 @@
 # A target is a board, which an image boots on with no operating system
 # beneath it, or a process of a kernel. Its manifest sets:
 #   T_KIND          board or proc
-#   T_ARCH          the CPU, as --arch names it: aarch64
+#   T_ARCH          the CPU, as --arch names it: aarch64 or riscv64
 #   T_TRIPLE        clang's --target for it
 #   T_CFLAGS        what else clang needs for it, for every part and the
 #                   program alike
 #   T_PARTS         the host's parts, under runtime/, linked into every
 #                   program beside runtime/l0rt.ll and runtime/freestanding.ll
 #   T_LAYOUT        its linker script, under runtime/
+#   T_TAIL_WORDS    if set, the most words a tail call may pass: the
+#                   registers the fast calling convention has, where LLVM
+#                   gets a tail call's words on the stack wrong (spec
+#                   section 10.3), so a program with a wider one is refused
 # and a board QEMU emulates, for l0 boot:
 #   T_MAGIC         the four bytes at 0x38 of its images, in hex, which its
 #                   boot protocol's header puts there and l0 boot reads
 #   T_QEMU          the emulator, and T_QEMU_ARGS its machine
-#   T_SERIAL        how the serial line reaches standard output: stdio
+#   T_SERIAL        how the serial line reaches standard output: stdio, or
+#                   fd3, a descriptor of its own, when firmware writes on
+#                   QEMU's standard output, which is then thrown away
 #   T_INPUT_LEN_AT  where standard input's length is loaded, a word, and
 #   T_INPUT_AT      its bytes, at most T_INPUT_MAX of them
 #

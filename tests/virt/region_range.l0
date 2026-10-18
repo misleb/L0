@@ -1,9 +1,10 @@
 ; Spec section 6.12: an access that would end past its region is a runtime
-; error, before anything is read: the last 4 bytes of the PL011's 4096 are
-; at 4092, so a 4-byte read at 4093 is out of range, not misaligned, since
-; range is checked first.
+; error, before anything is read: the last 4 bytes of a virtio-mmio
+; transport's first 512 are at 508, so a 4-byte read at 509 is out of
+; range, not misaligned, since range is checked first. A transport takes
+; 4-byte reads on every board; a 16550 takes only bytes.
 
 (def main () int
-  (let u (region_open 150994944 4096)
-    (let a (region_read32 u 4092)
-      (region_read32 u 4093))))
+  (let u (region_open (board_virtio) 512)
+    (let a (region_read32 u 508)
+      (region_read32 u 509))))

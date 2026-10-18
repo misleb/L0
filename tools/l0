@@ -32,11 +32,12 @@
 #   --target proc   l0 build and link: a process for a kernel (spec
 #                   sections 9.2 and 10.3), which only a kernel runs
 #   --arch ARCH     with --target virt or proc, the CPU: aarch64, the
-#                   default, unless L0_ARCH names another
+#                   default unless L0_ARCH names another, or riscv64
 #
 # With --target virt, l0 build writes a raw image, as the CPU's boot
 # protocol loads it, and l0 run boots it with QEMU, qemu-system-aarch64 for
-# aarch64, with all of standard input loaded as the program's, the
+# aarch64 or qemu-system-riscv64 for riscv64, whose firmware's banner goes
+# nowhere, with all of standard input loaded as the program's, the
 # arguments after -- as its boot arguments, which hold no space, its
 # standard output on the board's serial line, and its standard error and
 # exit status passed back as the program's own. l0 boot IMAGE ARG ... does
@@ -318,9 +319,23 @@ load_target() {
         [ -f "$tdir.err" ] && sed 's/^/    /' "$tdir.err" >&2
         exit 2
     fi
-    T_CFLAGS=""
+    T_CFLAGS="" T_TAIL_WORDS=""
     # shellcheck source=/dev/null
     . "$tdir/target"
+}
+
+# tail_words_ok IR: whether every tail call in IR passes at most
+# T_TAIL_WORDS words, where the target sets that; spec section 10.3 says
+# why a wider one is refused rather than built.
+tail_words_ok() {
+    [ -n "$T_TAIL_WORDS" ] || return 0
+    widest=$(grep 'musttail call' "$1" | sed 's/^[^(]*(//' | awk -F, '{print NF}' |
+        sort -n | tail -n 1)
+    [ -z "$widest" ] && return 0
+    if [ "$widest" -gt "$T_TAIL_WORDS" ]; then
+        echo "l0: a tail call here passes $widest words, and --arch $ARCH takes at most $T_TAIL_WORDS, since LLVM gets more wrong there (spec section 10.3)" >&2
+        return 1
+    fi
 }
 
 # bare_link IR OUT: an image of IR for the target --target and --arch name,
@@ -332,6 +347,7 @@ load_target() {
 # clang's.
 bare_link() {
     load_target
+    tail_words_ok "$1" || exit 1
     parts=""
     for p in $(cat "$tdir/parts"); do
         parts="$parts -Xclang -mlink-bitcode-file -Xclang $tdir/$p"
@@ -424,14 +440,21 @@ virt_boot() {
     fi
     # The board as its manifest gives it, its virtio-mmio transports modern
     # (spec section 10.3), and the devices L0_QEMU_ARGS adds, split at
-    # spaces.
-    board="$T_QEMU_ARGS -display none -monitor none -serial stdio ${L0_QEMU_ARGS:-}"
-    if [ -n "$line" ]; then
-        # shellcheck disable=SC2086
-        "$qemu" $board $load -kernel "$image" -append "$line" < /dev/null
+    # spaces. Where firmware writes on QEMU's standard output, the serial
+    # line is a descriptor of its own, 3, which is ours, and QEMU's
+    # standard output goes nowhere.
+    case $T_SERIAL in
+        fd3) serial="-chardev file,id=l0serial,path=/dev/fd/3,append=on -serial chardev:l0serial" ;;
+        *) serial="-serial stdio" ;;
+    esac
+    board="$T_QEMU_ARGS -display none -monitor none $serial ${L0_QEMU_ARGS:-}"
+    # shellcheck disable=SC2086
+    set -- $board $load -kernel "$image"
+    [ -n "$line" ] && set -- "$@" -append "$line"
+    if [ "$T_SERIAL" = fd3 ]; then
+        "$qemu" "$@" 3>&1 > /dev/null < /dev/null
     else
-        # shellcheck disable=SC2086
-        "$qemu" $board $load -kernel "$image" < /dev/null
+        "$qemu" "$@" < /dev/null
     fi
 }
 

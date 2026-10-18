@@ -49,4 +49,4 @@
           (let p (say_bool "on a page" (and (ge a 0) (eq (mod a 4096) 0)))
             (let q (say_bool "frames apart" (not (eq a (frame_address g))))
               (let m (space_map s 3221225472 f 1)            ; 0xC0000000
-                (dma s 3221225472 a (region_open 151126016 24))))))))))  ; 0x09020000
+                (dma s 3221225472 a (region_open (board_fw_cfg) 24))))))))))

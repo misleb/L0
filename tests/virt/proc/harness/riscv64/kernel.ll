@@ -1,339 +1,392 @@
-; kernel.ll -- a kernel, hand-written in IR, for QEMU's aarch64 virt board,
-; that runs L0 programs built with tools/l0 build --target proc as processes
-; at EL0, each in an address space of its own, and answers the system calls
-; spec section 10.3 fixes for them. It is the harness tools/test.sh --virt
-; and tools/bootstrap.sh --virt test runtime/bare/proc.ll against, as
-; tests/backend holds hand-written IR: not the kernel, which is to be L0,
-; and the virt board's, since it drives the GIC. It began as roadmap 0074's
-; prototype.
+; kernel.ll -- a kernel, hand-written in IR, for QEMU's riscv64 virt board,
+; that runs L0 programs built with tools/l0 build --target proc --arch
+; riscv64 as processes in U-mode, each in an address space of its own, and
+; answers the system calls spec section 10.3 fixes for them. It is the
+; harness tools/test.sh --virt and tools/bootstrap.sh --virt test
+; runtime/bare/proc.ll and runtime/arch/riscv64/proc.ll against, as
+; tests/backend holds hand-written IR, and the riscv64 counterpart of
+; ../aarch64/kernel.ll, shaped as that one is: one loop (k_main) that picks
+; a process, returns to it with k_user_run, and handles the trap it comes
+; back with, with interrupts masked throughout. OpenSBI, QEMU's firmware,
+; enters it in S-mode.
 ;
-; It is shaped as an L0 kernel would be: one loop (k_main) that picks a
-; process, returns to it with k_user_run, and handles the trap it comes back
-; with, with interrupts masked throughout. k_user_run takes a context, a
-; thread's registers as 102 words, and returns when the thread next traps,
-; with the context updated and the reason in its result.
-;
-; Physical memory, with QEMU's -m 2G:
-;   0x40080000  this image, its page tables and contexts in bss
-;   0x4FF00000  the kernel's stack, 1 MB, growing down
-;   0x4FFFFFF8  standard input's length, then its bytes at 0x50000000
-;   0x58000000  process images, 4 MB apart, put there by QEMU's loader as
-;               raw bytes: slot 0 at 0x58000000, 1 at 0x58400000, 2 at
-;               0x58800000. A slot is a process when its first word is not
+; Physical memory, with QEMU's -m 1G:
+;   0x80200000  this image, its page tables and contexts in bss
+;   0x8FF00000  the kernel's stack, 1 MB, growing down
+;   0x8FFFFFF8  standard input's length, then its bytes at 0x90000000
+;   0x98000000  process images, 4 MB apart, put there by QEMU's loader as
+;               raw bytes: slot 0 at 0x98000000, 1 at 0x98400000, 2 at
+;               0x98800000. A slot is a process when its first word is not
 ;               0. QEMU's RAM starts zero, so an image's bss is.
-;   0x5EFFFFF8  the length of slot 0's arguments, then their bytes at
-;               0x5F000000, each ending in a NUL; the other slots have none
-;   0x60000000  frames, 2 MB each, to 0xC0000000, given out as touched
+;   0x9EFFFFF8  the length of slot 0's arguments, then their bytes at
+;               0x9F000000, each ending in a NUL; the other slots have none
+;   0xA0000000  frames, 2 MB each, to 0xBC000000, given out as touched
 ;
 ; Every process sees (runtime/proc.ld, spec section 10.3):
-;   0x00000000  to 0xBFFFFFFF, the kernel's identity map, EL1 only, never
-;               executable at EL0
+;   0x00000000  to 0xBFFFFFFF, the kernel's identity map, S-mode only
 ;   0xC0000000  its image, 4 MB, mapped when it is made
-;   0xC0400000  to 0xE8000000, its heap and stack, a 2 MB block mapped the
-;               first time it is touched, by a fault or a system call
+;   0xC0400000  to 0xE8000000, its heap and stack, a 2 MB megapage mapped
+;               the first time it is touched, by a fault or a system call
 ;   0xE8000000  to 0xE8200000, its regions: 4 KB pages of device memory,
 ;               mapped in order by the region system call
-; The level 2 and 3 entries are not global, and are tagged with the
-; process's ASID, slot + 1, so switching is a write of TTBR0 and no flush.
+; Its pages are not global, and are tagged with its ASID, slot + 1, so
+; switching is a write of satp and no flush; a page made valid is flushed,
+; since a hart may cache that it was not.
 ;
-; System calls (svc #0, the number in x8, arguments in x0 to x3, result in
-; x0), as section 10.3 numbers them. Standard output is the serial port and
-; standard error semihosting, as on the board; standard input is the bytes
-; QEMU loaded, shared. There are no files, and slot 0 alone has arguments.
+; System calls (ecall, the number in a7, arguments in a0 to a3, result in
+; a0), as section 10.3 numbers them, call 11 the clock among them.
+; Standard output is the serial port and standard error semihosting, as on
+; the board; standard input is the bytes QEMU loaded, shared. There are no
+; files, and slot 0 alone has arguments.
 ;
-; Preemption: before each return to a process the virtual timer is set for
-; a slice; its interrupt, PPI 27 through the GICv2, brings the process back
-; to the kernel, which moves to the next. The run ends when slot 0's
-; process ends, with its status, or 99 if it was killed. The kernel writes
-; nothing of its own but a line on standard error for each process it
-; kills, so a program run as slot 0 meets the board's expectations.
+; Preemption: before each return to a process the SBI's timer is set for a
+; slice; its interrupt brings the process back to the kernel, which moves
+; to the next. The run ends when slot 0's process ends, with its status, or
+; 99 if it was killed. The kernel writes nothing of its own but a line on
+; standard error for each process it kills, so a program run as slot 0
+; meets the board's expectations.
 
-target triple = "aarch64-unknown-none-elf"
+target triple = "riscv64-unknown-unknown-elf"
 
 ; ------------------------------------------------------------------- boot
 
+; The stack, the trap vector, sscratch 0 for the kernel's own traps,
+; floating point on, S-mode allowed to reach user pages (SUM), user mode
+; allowed to read the time, the timer's interrupt enabled in sie (it comes
+; only in U-mode, since sstatus.SIE stays clear), and the boot map.
 module asm ".section .text.boot,\22ax\22"
 module asm ".global _start"
 module asm "_start:"
-module asm "  mov x0, #(3 << 20)"
-module asm "  msr cpacr_el1, x0"
-module asm "  isb"
-module asm "  ldr x0, =__stack_top"
-module asm "  mov sp, x0"
-module asm "  ldr x0, =k_vectors"
-module asm "  msr vbar_el1, x0"
-module asm "  mov x0, #3"
-module asm "  msr cntkctl_el1, x0"
-module asm "  mov x0, #0xff00"
-module asm "  msr mair_el1, x0"
-module asm "  ldr x0, =0x803520"
-module asm "  msr tcr_el1, x0"
-module asm "  ldr x0, =k_boot_pt"
-module asm "  msr ttbr0_el1, x0"
-module asm "  isb"
-module asm "  tlbi vmalle1"
-module asm "  dsb nsh"
-module asm "  isb"
-module asm "  mrs x0, sctlr_el1"
-module asm "  ldr x1, =0x400D005"
-module asm "  orr x0, x0, x1"
-module asm "  bic x0, x0, #2"
-module asm "  msr sctlr_el1, x0"
-module asm "  isb"
-module asm "  bl k_main"
-module asm "1: b 1b"
+module asm "  la sp, __stack_top"
+module asm "  csrw sscratch, zero"
+module asm "  la t0, k_trap"
+module asm "  csrw stvec, t0"
+module asm "  li t0, 0x42000"
+module asm "  csrs sstatus, t0"
+module asm "  li t0, 2"
+module asm "  csrs scounteren, t0"
+module asm "  li t0, 32"
+module asm "  csrw sie, t0"
+module asm "  la t0, k_boot_pt"
+module asm "  srli t0, t0, 12"
+module asm "  li t1, 1"
+module asm "  slli t1, t1, 63"
+module asm "  or t0, t0, t1"
+module asm "  csrw satp, t0"
+module asm "  sfence.vma"
+module asm "  call k_main"
+module asm "1: j 1b"
 
-; Exceptions from EL1 are the kernel's own bugs; from EL0 at 0x400 (a
-; synchronous exception: a system call or a fault) and 0x480 (an IRQ) they
-; are a process's trap, and end its k_user_run.
-module asm ".balign 2048"
-module asm "k_vectors:"
-module asm ".rept 8"
-module asm ".balign 128"
-module asm "  b k_panic_entry"
-module asm ".endr"
-module asm ".balign 128"
-module asm "  b k_el0_sync"
-module asm ".balign 128"
-module asm "  b k_el0_irq"
-module asm ".rept 6"
-module asm ".balign 128"
-module asm "  b k_panic_entry"
-module asm ".endr"
-module asm "k_panic_entry:"
-module asm "  mrs x0, esr_el1"
-module asm "  mrs x1, elr_el1"
-module asm "  mrs x2, far_el1"
-module asm "  bl k_panic"
-module asm "2: b 2b"
-
-; k_user_run(ctx): saves what the kernel's caller expects kept (x19 to x30,
-; d8 to d15) on the kernel stack, records that stack and ctx, loads the
-; thread's address space and registers from ctx, and erets to EL0.
+; Every trap: sscratch is 0 while the kernel runs and the context while a
+; process does. A process's trap saves its registers into the context and
+; returns from k_user_run, with scause for an exception, or -1 for an
+; interrupt; the kernel's own is a bug.
 ;
-; ctx, in 8-byte words: 0 to 30 x0 to x30, 31 sp, 32 pc, 33 pstate, 34
-; ttbr0, 35 unused, 36 to 99 q0 to q31, 100 fpcr, 101 fpsr.
+; ctx, in 8-byte words: 1 to 31 x1 to x31, 32 pc, 33 satp, 34 to 65 f0 to
+; f31, 66 fcsr.
 module asm ".text"
+module asm ".option arch, +d"
+module asm ".balign 4"
+module asm "k_trap:"
+module asm "  csrrw t6, sscratch, t6"
+module asm "  beqz t6, 7f"
+module asm "  sd x1, 8(t6)"
+module asm "  sd x2, 16(t6)"
+module asm "  sd x3, 24(t6)"
+module asm "  sd x4, 32(t6)"
+module asm "  sd x5, 40(t6)"
+module asm "  sd x6, 48(t6)"
+module asm "  sd x7, 56(t6)"
+module asm "  sd x8, 64(t6)"
+module asm "  sd x9, 72(t6)"
+module asm "  sd x10, 80(t6)"
+module asm "  sd x11, 88(t6)"
+module asm "  sd x12, 96(t6)"
+module asm "  sd x13, 104(t6)"
+module asm "  sd x14, 112(t6)"
+module asm "  sd x15, 120(t6)"
+module asm "  sd x16, 128(t6)"
+module asm "  sd x17, 136(t6)"
+module asm "  sd x18, 144(t6)"
+module asm "  sd x19, 152(t6)"
+module asm "  sd x20, 160(t6)"
+module asm "  sd x21, 168(t6)"
+module asm "  sd x22, 176(t6)"
+module asm "  sd x23, 184(t6)"
+module asm "  sd x24, 192(t6)"
+module asm "  sd x25, 200(t6)"
+module asm "  sd x26, 208(t6)"
+module asm "  sd x27, 216(t6)"
+module asm "  sd x28, 224(t6)"
+module asm "  sd x29, 232(t6)"
+module asm "  sd x30, 240(t6)"
+module asm "  csrr t5, sscratch"
+module asm "  sd t5, 248(t6)"
+module asm "  csrw sscratch, zero"
+module asm "  csrr t5, sepc"
+module asm "  sd t5, 256(t6)"
+module asm "  fsd f0, 272(t6)"
+module asm "  fsd f1, 280(t6)"
+module asm "  fsd f2, 288(t6)"
+module asm "  fsd f3, 296(t6)"
+module asm "  fsd f4, 304(t6)"
+module asm "  fsd f5, 312(t6)"
+module asm "  fsd f6, 320(t6)"
+module asm "  fsd f7, 328(t6)"
+module asm "  fsd f8, 336(t6)"
+module asm "  fsd f9, 344(t6)"
+module asm "  fsd f10, 352(t6)"
+module asm "  fsd f11, 360(t6)"
+module asm "  fsd f12, 368(t6)"
+module asm "  fsd f13, 376(t6)"
+module asm "  fsd f14, 384(t6)"
+module asm "  fsd f15, 392(t6)"
+module asm "  fsd f16, 400(t6)"
+module asm "  fsd f17, 408(t6)"
+module asm "  fsd f18, 416(t6)"
+module asm "  fsd f19, 424(t6)"
+module asm "  fsd f20, 432(t6)"
+module asm "  fsd f21, 440(t6)"
+module asm "  fsd f22, 448(t6)"
+module asm "  fsd f23, 456(t6)"
+module asm "  fsd f24, 464(t6)"
+module asm "  fsd f25, 472(t6)"
+module asm "  fsd f26, 480(t6)"
+module asm "  fsd f27, 488(t6)"
+module asm "  fsd f28, 496(t6)"
+module asm "  fsd f29, 504(t6)"
+module asm "  fsd f30, 512(t6)"
+module asm "  fsd f31, 520(t6)"
+module asm "  frcsr t5"
+module asm "  sd t5, 528(t6)"
+module asm "  csrr t5, scause"
+module asm "  mv a0, t5"
+module asm "  bgez t5, 3f"
+module asm "  li a0, -1"
+module asm "3:"
+module asm "  la t5, k_saved_sp"
+module asm "  ld sp, 0(t5)"
+module asm "  ld ra, 0(sp)"
+module asm "  ld gp, 8(sp)"
+module asm "  ld tp, 16(sp)"
+module asm "  ld s0, 24(sp)"
+module asm "  ld s1, 32(sp)"
+module asm "  ld s2, 40(sp)"
+module asm "  ld s3, 48(sp)"
+module asm "  ld s4, 56(sp)"
+module asm "  ld s5, 64(sp)"
+module asm "  ld s6, 72(sp)"
+module asm "  ld s7, 80(sp)"
+module asm "  ld s8, 88(sp)"
+module asm "  ld s9, 96(sp)"
+module asm "  ld s10, 104(sp)"
+module asm "  ld s11, 112(sp)"
+module asm "  fld fs0, 120(sp)"
+module asm "  fld fs1, 128(sp)"
+module asm "  fld fs2, 136(sp)"
+module asm "  fld fs3, 144(sp)"
+module asm "  fld fs4, 152(sp)"
+module asm "  fld fs5, 160(sp)"
+module asm "  fld fs6, 168(sp)"
+module asm "  fld fs7, 176(sp)"
+module asm "  fld fs8, 184(sp)"
+module asm "  fld fs9, 192(sp)"
+module asm "  fld fs10, 200(sp)"
+module asm "  fld fs11, 208(sp)"
+module asm "  addi sp, sp, 224"
+module asm "  ret"
+module asm "7:"
+module asm "  csrrw t6, sscratch, t6"
+module asm "  csrr a0, scause"
+module asm "  csrr a1, sepc"
+module asm "  csrr a2, stval"
+module asm "  call k_panic"
+module asm "8: j 8b"
+
+; k_user_run(ctx): saves what the kernel's caller expects kept on the
+; kernel stack, records that stack, loads the process's address space and
+; registers from ctx, and srets to U-mode with interrupts on there.
 module asm ".global k_user_run"
 module asm "k_user_run:"
-module asm "  sub sp, sp, #176"
-module asm "  stp x19, x20, [sp, #0]"
-module asm "  stp x21, x22, [sp, #16]"
-module asm "  stp x23, x24, [sp, #32]"
-module asm "  stp x25, x26, [sp, #48]"
-module asm "  stp x27, x28, [sp, #64]"
-module asm "  stp x29, x30, [sp, #80]"
-module asm "  stp d8, d9, [sp, #96]"
-module asm "  stp d10, d11, [sp, #112]"
-module asm "  stp d12, d13, [sp, #128]"
-module asm "  stp d14, d15, [sp, #144]"
-module asm "  adrp x9, k_saved_sp"
-module asm "  mov x10, sp"
-module asm "  str x10, [x9, :lo12:k_saved_sp]"
-module asm "  adrp x9, k_cur_ctx"
-module asm "  str x0, [x9, :lo12:k_cur_ctx]"
-module asm "  ldr x10, [x0, #272]"
-module asm "  msr ttbr0_el1, x10"
-module asm "  isb"
-module asm "  ldr x10, [x0, #248]"
-module asm "  msr sp_el0, x10"
-module asm "  ldr x10, [x0, #256]"
-module asm "  msr elr_el1, x10"
-module asm "  ldr x10, [x0, #264]"
-module asm "  msr spsr_el1, x10"
-module asm "  ldr x10, [x0, #800]"
-module asm "  msr fpcr, x10"
-module asm "  ldr x10, [x0, #808]"
-module asm "  msr fpsr, x10"
-module asm "  add x1, x0, #288"
-module asm "  ldp q0, q1, [x1, #0]"
-module asm "  ldp q2, q3, [x1, #32]"
-module asm "  ldp q4, q5, [x1, #64]"
-module asm "  ldp q6, q7, [x1, #96]"
-module asm "  ldp q8, q9, [x1, #128]"
-module asm "  ldp q10, q11, [x1, #160]"
-module asm "  ldp q12, q13, [x1, #192]"
-module asm "  ldp q14, q15, [x1, #224]"
-module asm "  ldp q16, q17, [x1, #256]"
-module asm "  ldp q18, q19, [x1, #288]"
-module asm "  ldp q20, q21, [x1, #320]"
-module asm "  ldp q22, q23, [x1, #352]"
-module asm "  ldp q24, q25, [x1, #384]"
-module asm "  ldp q26, q27, [x1, #416]"
-module asm "  ldp q28, q29, [x1, #448]"
-module asm "  ldp q30, q31, [x1, #480]"
-module asm "  ldp x2, x3, [x0, #16]"
-module asm "  ldp x4, x5, [x0, #32]"
-module asm "  ldp x6, x7, [x0, #48]"
-module asm "  ldp x8, x9, [x0, #64]"
-module asm "  ldp x10, x11, [x0, #80]"
-module asm "  ldp x12, x13, [x0, #96]"
-module asm "  ldp x14, x15, [x0, #112]"
-module asm "  ldp x16, x17, [x0, #128]"
-module asm "  ldp x18, x19, [x0, #144]"
-module asm "  ldp x20, x21, [x0, #160]"
-module asm "  ldp x22, x23, [x0, #176]"
-module asm "  ldp x24, x25, [x0, #192]"
-module asm "  ldp x26, x27, [x0, #208]"
-module asm "  ldp x28, x29, [x0, #224]"
-module asm "  ldr x30, [x0, #240]"
-module asm "  ldp x0, x1, [x0, #0]"
-module asm "  eret"
+module asm "  addi sp, sp, -224"
+module asm "  sd ra, 0(sp)"
+module asm "  sd gp, 8(sp)"
+module asm "  sd tp, 16(sp)"
+module asm "  sd s0, 24(sp)"
+module asm "  sd s1, 32(sp)"
+module asm "  sd s2, 40(sp)"
+module asm "  sd s3, 48(sp)"
+module asm "  sd s4, 56(sp)"
+module asm "  sd s5, 64(sp)"
+module asm "  sd s6, 72(sp)"
+module asm "  sd s7, 80(sp)"
+module asm "  sd s8, 88(sp)"
+module asm "  sd s9, 96(sp)"
+module asm "  sd s10, 104(sp)"
+module asm "  sd s11, 112(sp)"
+module asm "  fsd fs0, 120(sp)"
+module asm "  fsd fs1, 128(sp)"
+module asm "  fsd fs2, 136(sp)"
+module asm "  fsd fs3, 144(sp)"
+module asm "  fsd fs4, 152(sp)"
+module asm "  fsd fs5, 160(sp)"
+module asm "  fsd fs6, 168(sp)"
+module asm "  fsd fs7, 176(sp)"
+module asm "  fsd fs8, 184(sp)"
+module asm "  fsd fs9, 192(sp)"
+module asm "  fsd fs10, 200(sp)"
+module asm "  fsd fs11, 208(sp)"
+module asm "  la t0, k_saved_sp"
+module asm "  sd sp, 0(t0)"
+module asm "  ld t0, 264(a0)"
+module asm "  csrw satp, t0"
+module asm "  ld t0, 256(a0)"
+module asm "  csrw sepc, t0"
+module asm "  li t0, 0x100"
+module asm "  csrc sstatus, t0"
+module asm "  li t0, 0x20"
+module asm "  csrs sstatus, t0"
+module asm "  ld t0, 528(a0)"
+module asm "  fscsr t0"
+module asm "  fld f0, 272(a0)"
+module asm "  fld f1, 280(a0)"
+module asm "  fld f2, 288(a0)"
+module asm "  fld f3, 296(a0)"
+module asm "  fld f4, 304(a0)"
+module asm "  fld f5, 312(a0)"
+module asm "  fld f6, 320(a0)"
+module asm "  fld f7, 328(a0)"
+module asm "  fld f8, 336(a0)"
+module asm "  fld f9, 344(a0)"
+module asm "  fld f10, 352(a0)"
+module asm "  fld f11, 360(a0)"
+module asm "  fld f12, 368(a0)"
+module asm "  fld f13, 376(a0)"
+module asm "  fld f14, 384(a0)"
+module asm "  fld f15, 392(a0)"
+module asm "  fld f16, 400(a0)"
+module asm "  fld f17, 408(a0)"
+module asm "  fld f18, 416(a0)"
+module asm "  fld f19, 424(a0)"
+module asm "  fld f20, 432(a0)"
+module asm "  fld f21, 440(a0)"
+module asm "  fld f22, 448(a0)"
+module asm "  fld f23, 456(a0)"
+module asm "  fld f24, 464(a0)"
+module asm "  fld f25, 472(a0)"
+module asm "  fld f26, 480(a0)"
+module asm "  fld f27, 488(a0)"
+module asm "  fld f28, 496(a0)"
+module asm "  fld f29, 504(a0)"
+module asm "  fld f30, 512(a0)"
+module asm "  fld f31, 520(a0)"
+module asm "  csrw sscratch, a0"
+module asm "  ld x1, 8(a0)"
+module asm "  ld x2, 16(a0)"
+module asm "  ld x3, 24(a0)"
+module asm "  ld x4, 32(a0)"
+module asm "  ld x5, 40(a0)"
+module asm "  ld x6, 48(a0)"
+module asm "  ld x7, 56(a0)"
+module asm "  ld x8, 64(a0)"
+module asm "  ld x9, 72(a0)"
+module asm "  ld x11, 88(a0)"
+module asm "  ld x12, 96(a0)"
+module asm "  ld x13, 104(a0)"
+module asm "  ld x14, 112(a0)"
+module asm "  ld x15, 120(a0)"
+module asm "  ld x16, 128(a0)"
+module asm "  ld x17, 136(a0)"
+module asm "  ld x18, 144(a0)"
+module asm "  ld x19, 152(a0)"
+module asm "  ld x20, 160(a0)"
+module asm "  ld x21, 168(a0)"
+module asm "  ld x22, 176(a0)"
+module asm "  ld x23, 184(a0)"
+module asm "  ld x24, 192(a0)"
+module asm "  ld x25, 200(a0)"
+module asm "  ld x26, 208(a0)"
+module asm "  ld x27, 216(a0)"
+module asm "  ld x28, 224(a0)"
+module asm "  ld x29, 232(a0)"
+module asm "  ld x30, 240(a0)"
+module asm "  ld x31, 248(a0)"
+module asm "  ld x10, 80(a0)"
+module asm "  sret"
 
-; A trap from EL0: x0 and x1 go below the kernel stack, x1 says which kind,
-; everything is saved into the current ctx, and k_user_run returns, to its
-; caller, the ESR for a synchronous exception or -1 for an IRQ.
-module asm "k_el0_sync:"
-module asm "  stp x0, x1, [sp, #-16]!"
-module asm "  mov x1, #0"
-module asm "  b k_save"
-module asm "k_el0_irq:"
-module asm "  stp x0, x1, [sp, #-16]!"
-module asm "  mov x1, #1"
-module asm "k_save:"
-module asm "  adrp x0, k_cur_ctx"
-module asm "  ldr x0, [x0, :lo12:k_cur_ctx]"
-module asm "  stp x2, x3, [x0, #16]"
-module asm "  stp x4, x5, [x0, #32]"
-module asm "  stp x6, x7, [x0, #48]"
-module asm "  stp x8, x9, [x0, #64]"
-module asm "  stp x10, x11, [x0, #80]"
-module asm "  stp x12, x13, [x0, #96]"
-module asm "  stp x14, x15, [x0, #112]"
-module asm "  stp x16, x17, [x0, #128]"
-module asm "  stp x18, x19, [x0, #144]"
-module asm "  stp x20, x21, [x0, #160]"
-module asm "  stp x22, x23, [x0, #176]"
-module asm "  stp x24, x25, [x0, #192]"
-module asm "  stp x26, x27, [x0, #208]"
-module asm "  stp x28, x29, [x0, #224]"
-module asm "  str x30, [x0, #240]"
-module asm "  ldp x2, x3, [sp], #16"
-module asm "  stp x2, x3, [x0, #0]"
-module asm "  mrs x2, sp_el0"
-module asm "  str x2, [x0, #248]"
-module asm "  mrs x2, elr_el1"
-module asm "  str x2, [x0, #256]"
-module asm "  mrs x2, spsr_el1"
-module asm "  str x2, [x0, #264]"
-module asm "  mrs x2, fpcr"
-module asm "  str x2, [x0, #800]"
-module asm "  mrs x2, fpsr"
-module asm "  str x2, [x0, #808]"
-module asm "  add x3, x0, #288"
-module asm "  stp q0, q1, [x3, #0]"
-module asm "  stp q2, q3, [x3, #32]"
-module asm "  stp q4, q5, [x3, #64]"
-module asm "  stp q6, q7, [x3, #96]"
-module asm "  stp q8, q9, [x3, #128]"
-module asm "  stp q10, q11, [x3, #160]"
-module asm "  stp q12, q13, [x3, #192]"
-module asm "  stp q14, q15, [x3, #224]"
-module asm "  stp q16, q17, [x3, #256]"
-module asm "  stp q18, q19, [x3, #288]"
-module asm "  stp q20, q21, [x3, #320]"
-module asm "  stp q22, q23, [x3, #352]"
-module asm "  stp q24, q25, [x3, #384]"
-module asm "  stp q26, q27, [x3, #416]"
-module asm "  stp q28, q29, [x3, #448]"
-module asm "  stp q30, q31, [x3, #480]"
-module asm "  cbnz x1, 3f"
-module asm "  mrs x0, esr_el1"
-module asm "  b 4f"
-module asm "3:"
-module asm "  mov x0, #-1"
-module asm "4:"
-module asm "  adrp x9, k_saved_sp"
-module asm "  ldr x9, [x9, :lo12:k_saved_sp]"
-module asm "  mov sp, x9"
-module asm "  ldp x19, x20, [sp, #0]"
-module asm "  ldp x21, x22, [sp, #16]"
-module asm "  ldp x23, x24, [sp, #32]"
-module asm "  ldp x25, x26, [sp, #48]"
-module asm "  ldp x27, x28, [sp, #64]"
-module asm "  ldp x29, x30, [sp, #80]"
-module asm "  ldp d8, d9, [sp, #96]"
-module asm "  ldp d10, d11, [sp, #112]"
-module asm "  ldp d12, d13, [sp, #128]"
-module asm "  ldp d14, d15, [sp, #144]"
-module asm "  add sp, sp, #176"
+; QEMU's semihosting call on RISC-V: these three uncompressed instructions,
+; on one page, the operation in a0 and its block in a1.
+module asm ".balign 16"
+module asm "k_semi:"
+module asm ".option push"
+module asm ".option norvc"
+module asm "  slli zero, zero, 0x1f"
+module asm "  ebreak"
+module asm "  srai zero, zero, 7"
+module asm ".option pop"
 module asm "  ret"
 
-@k_cur_ctx = global i64 0
 @k_saved_sp = global i64 0
 
-; The kernel's own map, as runtime/board/virt-aarch64.ll's: devices, then RAM.
-@k_boot_pt = global [4 x i64] [i64 1025, i64 1073743621, i64 2147485445, i64 0], align 4096
+; The kernel's own map, as runtime/board/virt-riscv64.ll's: devices, then RAM.
+@k_boot_pt = global <{ i64, i64, i64, [509 x i64] }> <{ i64 231, i64 0, i64 536871151, [509 x i64] zeroinitializer }>, align 4096
 
+@root = global [3 x [512 x i64]] zeroinitializer, align 4096
 @l1 = global [3 x [512 x i64]] zeroinitializer, align 4096
-@l2 = global [3 x [512 x i64]] zeroinitializer, align 4096
-@l3 = global [3 x [512 x i64]] zeroinitializer, align 4096
-@ctx = global [3 x [102 x i64]] zeroinitializer, align 16
+@l0 = global [3 x [512 x i64]] zeroinitializer, align 4096
+@ctx = global [3 x [68 x i64]] zeroinitializer, align 16
 @state = global [3 x i64] zeroinitializer       ; 0 none, 1 runnable, 2 ended
 @status = global [3 x i64] zeroinitializer
 @killed = global [3 x i64] zeroinitializer
 @pages = global [3 x i64] zeroinitializer       ; region pages mapped
-@next_frame = global i64 1610612736              ; 0x60000000
+@next_frame = global i64 2684354560              ; 0xA0000000
 @in_pos = global i64 0
 
 @__stack_top = external global i8
 
 declare i64 @k_user_run(ptr)
+declare i64 @k_semi(i64, ptr)
 
 ; ------------------------------------------------------- the machine, small
 
+; A page made valid, or a table changed, seen by every walk after.
 define internal void @k_sync() {
-  call void asm sideeffect "dsb ish\0Aisb", "~{memory}"()
+  call void asm sideeffect "sfence.vma", "~{memory}"()
   ret void
 }
 
-define internal i64 @k_far() {
-  %r = call i64 asm sideeffect "mrs $0, far_el1", "=r"()
-  ret i64 %r
+; The time CSR, at the board's 10,000,000 counts a second.
+define internal i64 @k_time() {
+  %t = call i64 asm sideeffect "rdtime $0", "=r"()
+  ret i64 %t
 }
 
 define internal i64 @k_frq() {
-  %r = call i64 asm "mrs $0, cntfrq_el0", "=r"()
-  ret i64 %r
+  ret i64 10000000
+}
+
+; SBI's TIME extension: the supervisor timer's interrupt at time t.
+define internal void @set_timer(i64 %t) {
+  %r = call i64 asm sideeffect "ecall", "={x10},{x10},{x16},{x17},~{x11},~{memory}"(i64 %t, i64 0, i64 1414090053)
+  ret void
 }
 
 define internal void @timer_arm(i64 %ticks) {
-  call void asm sideeffect "msr cntv_tval_el0, $0", "r"(i64 %ticks)
-  call void asm sideeffect "msr cntv_ctl_el0, $0\0Aisb", "r"(i64 1)
+  %now = call i64 @k_time()
+  %t = add i64 %now, %ticks
+  call void @set_timer(i64 %t)
   ret void
 }
 
 define internal void @timer_off() {
-  call void asm sideeffect "msr cntv_ctl_el0, $0\0Aisb", "r"(i64 0)
-  ret void
-}
-
-define internal void @mmio_w32(i64 %a, i32 %v) {
-  %p = inttoptr i64 %a to ptr
-  store volatile i32 %v, ptr %p
-  ret void
-}
-
-define internal i32 @mmio_r32(i64 %a) {
-  %p = inttoptr i64 %a to ptr
-  %v = load volatile i32, ptr %p
-  ret i32 %v
-}
-
-; GICv2: the distributor at 0x08000000, the CPU interface at 0x08010000.
-; Only PPI 27, the virtual timer, is enabled.
-define internal void @gic_init() {
-  call void @mmio_w32(i64 134217728, i32 1)                 ; GICD_CTLR
-  call void @mmio_w32(i64 134217984, i32 134217728)         ; GICD_ISENABLER0, bit 27
-  call void @mmio_w32(i64 134283268, i32 240)               ; GICC_PMR
-  call void @mmio_w32(i64 134283264, i32 1)                 ; GICC_CTLR
+  call void @set_timer(i64 -1)
   ret void
 }
 
 ; ------------------------------------------------------------ semihosting
 
 define internal i64 @semi(i64 %op, ptr %blk) {
-  %r = call i64 asm sideeffect "hlt #0xf000", "={x0},{x0},{x1},~{memory}"(i64 %op, ptr %blk)
+  %r = call i64 @k_semi(i64 %op, ptr %blk)
   ret i64 %r
 }
 
@@ -456,34 +509,36 @@ done:
 }
 
 @m_panic = private constant [32 x i8] c"kernel: exception in the kernel\00"
-@m_esr = private constant [8 x i8] c" esr = \00"
-@m_elr = private constant [8 x i8] c" elr = \00"
-@m_far = private constant [8 x i8] c" far = \00"
+@m_cause = private constant [11 x i8] c" scause = \00"
+@m_epc = private constant [9 x i8] c" sepc = \00"
+@m_tval = private constant [10 x i8] c" stval = \00"
 @m_nl = private constant [2 x i8] c"\0A\00"
 
-define void @k_panic(i64 %esr, i64 %elr, i64 %far) noreturn {
+define void @k_panic(i64 %cause, i64 %epc, i64 %tval) noreturn {
   call void @say(ptr @m_panic)
-  call void @say(ptr @m_esr)
-  call void @say_hex(i64 %esr)
-  call void @say(ptr @m_elr)
-  call void @say_hex(i64 %elr)
-  call void @say(ptr @m_far)
-  call void @say_hex(i64 %far)
+  call void @say(ptr @m_cause)
+  call void @say_hex(i64 %cause)
+  call void @say(ptr @m_epc)
+  call void @say_hex(i64 %epc)
+  call void @say(ptr @m_tval)
+  call void @say_hex(i64 %tval)
   call void @say(ptr @m_nl)
   call void @k_exit(i64 99)
   unreachable
 }
 
+; The 16550 at 0x10000000: its line status register, at 5, has bit 5 set
+; when the transmit holding register, at 0, is empty.
 define internal void @uart_put(i8 %c) {
 entry:
   br label %wait
 wait:
-  %fr = load volatile i32, ptr inttoptr (i64 150994968 to ptr)
-  %full = and i32 %fr, 32
-  %busy = icmp ne i32 %full, 0
-  br i1 %busy, label %wait, label %send
+  %lsr = load volatile i8, ptr inttoptr (i64 268435461 to ptr)
+  %e = and i8 %lsr, 32
+  %full = icmp eq i8 %e, 0
+  br i1 %full, label %wait, label %send
 send:
-  store volatile i8 %c, ptr inttoptr (i64 150994944 to ptr)
+  store volatile i8 %c, ptr inttoptr (i64 268435456 to ptr)
   ret void
 }
 
@@ -495,19 +550,27 @@ define internal ptr @slot_word(ptr %table, i64 %i) {
 }
 
 define internal ptr @ctx_of(i64 %i) {
-  %p = getelementptr [3 x [102 x i64]], ptr @ctx, i64 0, i64 %i, i64 0
+  %p = getelementptr [3 x [68 x i64]], ptr @ctx, i64 0, i64 %i, i64 0
   ret ptr %p
 }
 
 define internal ptr @reg(i64 %i, i64 %r) {
-  %p = getelementptr [3 x [102 x i64]], ptr @ctx, i64 0, i64 %i, i64 %r
+  %p = getelementptr [3 x [68 x i64]], ptr @ctx, i64 0, i64 %i, i64 %r
   ret ptr %p
 }
 
 define internal i64 @image_pa(i64 %i) {
   %o = mul i64 %i, 4194304
-  %a = add i64 1476395008, %o
+  %a = add i64 2550136832, %o                               ; 0x98000000
   ret i64 %a
+}
+
+; Sv39's descriptor of the page or table at pa, with these bits.
+define internal i64 @pte(i64 %pa, i64 %bits) {
+  %ppn = lshr i64 %pa, 12
+  %f = shl i64 %ppn, 10
+  %d = or i64 %f, %bits
+  ret i64 %d
 }
 
 ; ------------------------------------------------------------ memory
@@ -531,7 +594,7 @@ done:
 define internal i64 @alloc_frame() {
 entry:
   %f = load i64, ptr @next_frame
-  %out = icmp uge i64 %f, 3221225472
+  %out = icmp uge i64 %f, 3154116608                        ; 0xBC000000
   br i1 %out, label %none, label %take
 none:
   ret i64 0
@@ -542,8 +605,27 @@ take:
   ret i64 %f
 }
 
-; Maps the 2 MB block holding va, in slot i's heap and stack, if it is not
-; mapped yet. False when va is not in them, or no frame is left.
+; Whether the 2 MB megapage holding va, in slot i's heap and stack, is
+; mapped already.
+define internal i1 @block_mapped(i64 %i, i64 %va) {
+entry:
+  %lo = icmp ult i64 %va, 3225419776
+  %hi = icmp uge i64 %va, 3892314112
+  %out = or i1 %lo, %hi
+  br i1 %out, label %no, label %look
+look:
+  %off = sub i64 %va, 3221225472
+  %idx = lshr i64 %off, 21
+  %ep = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 %idx
+  %e = load i64, ptr %ep
+  %have = icmp ne i64 %e, 0
+  ret i1 %have
+no:
+  ret i1 false
+}
+
+; Maps the 2 MB megapage holding va, in slot i's heap and stack, if it is
+; not mapped yet. False when va is not in them, or no frame is left.
 define internal i1 @map_block(i64 %i, i64 %va) {
 entry:
   %lo = icmp ult i64 %va, 3225419776
@@ -553,7 +635,7 @@ entry:
 look:
   %off = sub i64 %va, 3221225472
   %idx = lshr i64 %off, 21
-  %ep = getelementptr [3 x [512 x i64]], ptr @l2, i64 0, i64 %i, i64 %idx
+  %ep = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 %idx
   %e = load i64, ptr %ep
   %have = icmp ne i64 %e, 0
   br i1 %have, label %yes, label %new
@@ -562,7 +644,7 @@ new:
   %none = icmp eq i64 %f, 0
   br i1 %none, label %no, label %put
 put:
-  %d = or i64 %f, 27021597764226885                         ; user data
+  %d = call i64 @pte(i64 %f, i64 215)                       ; V R W U A D
   store i64 %d, ptr %ep
   call void @k_sync()
   br label %yes
@@ -574,9 +656,8 @@ no:
 
 ; Whether [va, va + n) is in slot i's image, heap, or stack, mapping what is
 ; not yet; the check a kernel must make before it touches a process's
-; buffer, which in L0 would be a copy into or out of a space handle rather
-; than an address. An empty range touches nothing, and is always in. va is
-; bounded before va + n is formed, so the sum cannot wrap.
+; buffer. An empty range touches nothing, and is always in. va is bounded
+; before va + n is formed, so the sum cannot wrap.
 define internal i1 @user_range(i64 %i, i64 %va, i64 %n) {
 entry:
   %neg = icmp slt i64 %n, 0
@@ -619,42 +700,40 @@ no:
 
 define internal void @make_proc(i64 %i) {
 entry:
-  %e0 = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 0
-  store i64 27021597764224001, ptr %e0                      ; devices
-  %e1 = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 1
-  store i64 18014399583225605, ptr %e1                      ; RAM, EL1 only
-  %e2 = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 2
-  store i64 18014400656967429, ptr %e2
-  %t = getelementptr [3 x [512 x i64]], ptr @l2, i64 0, i64 %i, i64 0
+  %e0 = getelementptr [3 x [512 x i64]], ptr @root, i64 0, i64 %i, i64 0
+  store i64 231, ptr %e0                                    ; devices
+  %e2 = getelementptr [3 x [512 x i64]], ptr @root, i64 0, i64 %i, i64 2
+  store i64 536871151, ptr %e2                              ; RAM, S-mode only
+  %t = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 0
   %tpa = ptrtoint ptr %t to i64
-  %td = or i64 %tpa, 3
-  %e3 = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 3
+  %td = call i64 @pte(i64 %tpa, i64 1)
+  %e3 = getelementptr [3 x [512 x i64]], ptr @root, i64 0, i64 %i, i64 3
   store i64 %td, ptr %e3
   %img = call i64 @image_pa(i64 %i)
-  %c0 = or i64 %img, 9007199254744901                       ; user code
+  %c0 = call i64 @pte(i64 %img, i64 223)                    ; V R W X U A D
   store i64 %c0, ptr %t
   %img1 = add i64 %img, 2097152
-  %c1 = or i64 %img1, 9007199254744901
-  %t1 = getelementptr [3 x [512 x i64]], ptr @l2, i64 0, i64 %i, i64 1
+  %c1 = call i64 @pte(i64 %img1, i64 223)
+  %t1 = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 1
   store i64 %c1, ptr %t1
-  ; 0xE8000000, level 2 entry 320: the table of this process's regions
-  %r = getelementptr [3 x [512 x i64]], ptr @l3, i64 0, i64 %i, i64 0
+  ; 0xE8000000, level 1 entry 320: the table of this process's regions
+  %r = getelementptr [3 x [512 x i64]], ptr @l0, i64 0, i64 %i, i64 0
   %rpa = ptrtoint ptr %r to i64
-  %rd = or i64 %rpa, 3
-  %t320 = getelementptr [3 x [512 x i64]], ptr @l2, i64 0, i64 %i, i64 320
+  %rd = call i64 @pte(i64 %rpa, i64 1)
+  %t320 = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 320
   store i64 %rd, ptr %t320
-  %l1p = ptrtoint ptr %e0 to i64
+  %rootpa = ptrtoint ptr %e0 to i64
+  %ppn = lshr i64 %rootpa, 12
   %asid = add i64 %i, 1
-  %tag = shl i64 %asid, 48
-  %ttbr = or i64 %l1p, %tag
-  %r34 = call ptr @reg(i64 %i, i64 34)
-  store i64 %ttbr, ptr %r34
-  %r31 = call ptr @reg(i64 %i, i64 31)
-  store i64 3892314112, ptr %r31                            ; sp, 0xE8000000
+  %tag = shl i64 %asid, 44
+  %s0 = or i64 %ppn, %tag
+  %satp = or i64 %s0, -9223372036854775808                  ; Sv39
+  %r33 = call ptr @reg(i64 %i, i64 33)
+  store i64 %satp, ptr %r33
+  %r2 = call ptr @reg(i64 %i, i64 2)
+  store i64 3892314112, ptr %r2                             ; sp, 0xE8000000
   %r32 = call ptr @reg(i64 %i, i64 32)
   store i64 3221225472, ptr %r32                            ; pc, 0xC0000000
-  %r33 = call ptr @reg(i64 %i, i64 33)
-  store i64 0, ptr %r33                                     ; EL0t, unmasked
   %sp = call ptr @slot_word(ptr @state, i64 %i)
   store i64 1, ptr %sp
   call void @k_sync()
@@ -676,20 +755,20 @@ define internal void @end_proc(i64 %i, i64 %st, i64 %kill) {
 @m_fault = private constant [6 x i8] c"fault\00"
 @m_oom = private constant [14 x i8] c"out of memory\00"
 
-define internal void @kill(i64 %i, i64 %esr) {
-  %far = call i64 @k_far()
+define internal void @kill(i64 %i, i64 %cause) {
+  %tval = call i64 asm sideeffect "csrr $0, stval", "=r"()
   %ep = call ptr @reg(i64 %i, i64 32)
   %pc = load i64, ptr %ep
   call void @say(ptr @m_proc)
   call void @say_dec(i64 %i)
   call void @say(ptr @m_killed)
   call void @say(ptr @m_fault)
-  call void @say(ptr @m_esr)
-  call void @say_hex(i64 %esr)
-  call void @say(ptr @m_elr)
+  call void @say(ptr @m_cause)
+  call void @say_hex(i64 %cause)
+  call void @say(ptr @m_epc)
   call void @say_hex(i64 %pc)
-  call void @say(ptr @m_far)
-  call void @say_hex(i64 %far)
+  call void @say(ptr @m_tval)
+  call void @say_hex(i64 %tval)
   call void @say(ptr @m_nl)
   call void @end_proc(i64 %i, i64 99, i64 1)
   ret void
@@ -716,7 +795,7 @@ check:
   %ok = call i1 @user_range(i64 %i, i64 %buf, i64 %n)
   br i1 %ok, label %copy0, label %bad
 copy0:
-  %len = load i64, ptr inttoptr (i64 1342177272 to ptr)
+  %len = load i64, ptr inttoptr (i64 2415919096 to ptr)     ; 0x8FFFFFF8
   %pos = load i64, ptr @in_pos
   %left = sub i64 %len, %pos
   %less = icmp ult i64 %left, %n
@@ -727,7 +806,7 @@ loop:
   %more = icmp ult i64 %j, %k
   br i1 %more, label %body, label %done
 body:
-  %sa0 = add i64 1342177280, %pos
+  %sa0 = add i64 2415919104, %pos                           ; 0x90000000
   %sa = add i64 %sa0, %j
   %sp = inttoptr i64 %sa to ptr
   %c = load i8, ptr %sp
@@ -807,10 +886,10 @@ entry:
 
 ; ------------------------------------------------------------ arguments
 
-; Slot 0's arguments are the bytes at 0x5F000000, each ending in a NUL,
+; Slot 0's arguments are the bytes at 0x9F000000, each ending in a NUL,
 ; and as many as the word below them says.
 define internal i64 @args_len() {
-  %n = load i64, ptr inttoptr (i64 1593835512 to ptr)
+  %n = load i64, ptr inttoptr (i64 2667577336 to ptr)       ; 0x9EFFFFF8
   ret i64 %n
 }
 
@@ -825,7 +904,7 @@ loop:
   %in = icmp ult i64 %j, %len
   br i1 %in, label %look, label %done
 look:
-  %a = add i64 1593835520, %j
+  %a = add i64 2667577344, %j                               ; 0x9F000000
   %p = inttoptr i64 %a to ptr
   %c = load i8, ptr %p
   %nul = icmp eq i8 %c, 0
@@ -908,7 +987,7 @@ loop:
   %more = icmp ult i64 %j, %m
   br i1 %more, label %body, label %done
 body:
-  %sa0 = add i64 1593835520, %o
+  %sa0 = add i64 2667577344, %o
   %sa = add i64 %sa0, %j
   %sp = inttoptr i64 %sa to ptr
   %c = load i8, ptr %sp
@@ -923,17 +1002,32 @@ bad:
   ret i64 -5
 }
 
+; ------------------------------------------------------------ the clock
+
+; Call 11: the time CSR, in seconds and then nanoseconds, so that the
+; product cannot overflow, which a process cannot read alone, since it does
+; not know the board's timebase.
+define internal i64 @sys_clock() {
+  %cnt = call i64 @k_time()
+  %frq = call i64 @k_frq()
+  %sec = udiv i64 %cnt, %frq
+  %rem = urem i64 %cnt, %frq
+  %remns = mul i64 %rem, 1000000000
+  %ns = udiv i64 %remns, %frq
+  %sns = mul i64 %sec, 1000000000
+  %t = add i64 %sns, %ns
+  ret i64 %t
+}
+
 ; ------------------------------------------------------------ regions
 
-; The board's devices, as runtime/board/virt-aarch64.ll gives them, spec section
-; 10.3's table: a base and a length each. Not the GIC, which this kernel
-; drives itself.
-@devices = private constant [10 x i64] [
-  i64 150994944, i64 4096,        ; 0x09000000, the PL011
-  i64 151060480, i64 4096,        ; 0x09010000, the PL031
-  i64 151126016, i64 24,          ; 0x09020000, firmware configuration
-  i64 151191552, i64 4096,        ; 0x09030000, the PL061
-  i64 167772160, i64 16384 ]      ; 0x0A000000, 32 virtio-mmio transports
+; The board's devices, as runtime/board/virt-riscv64.ll gives them, spec
+; section 10.3's table: a base and a length each. Not the PLIC.
+@devices = private constant [8 x i64] [
+  i64 268435456, i64 256,         ; 0x10000000, the 16550
+  i64 1052672, i64 4096,          ; 0x00101000, the goldfish RTC
+  i64 269484032, i64 24,          ; 0x10100000, firmware configuration
+  i64 268439552, i64 32768 ]      ; 0x10001000, 8 virtio-mmio transports
 
 ; Whether [base, base + len) lies wholly within one device. The process is
 ; not trusted to have checked base and len, so they are checked here.
@@ -948,14 +1042,14 @@ scan:
   br label %loop
 loop:
   %j = phi i64 [ 0, %scan ], [ %j1, %next ]
-  %more = icmp ult i64 %j, 5
+  %more = icmp ult i64 %j, 4
   br i1 %more, label %look, label %no
 look:
   %k = mul i64 %j, 2
-  %bp = getelementptr [10 x i64], ptr @devices, i64 0, i64 %k
+  %bp = getelementptr [8 x i64], ptr @devices, i64 0, i64 %k
   %db = load i64, ptr %bp
   %k1 = add i64 %k, 1
-  %lp = getelementptr [10 x i64], ptr @devices, i64 0, i64 %k1
+  %lp = getelementptr [8 x i64], ptr @devices, i64 0, i64 %k1
   %dl = load i64, ptr %lp
   %de = add i64 %db, %dl
   %from = icmp uge i64 %base, %db
@@ -972,9 +1066,9 @@ no:
 }
 
 ; Maps the pages holding [base, base + len) at the next free pages of slot
-; i's region window, 0xE8000000 up, as Device-nGnRnE, readable and writable
-; at EL0 and never executable, and returns where base is mapped: -3 if it
-; is no device, -5 if the window's 512 pages are used up.
+; i's region window, 0xE8000000 up, readable and writable in U-mode and
+; never executable, and returns where base is mapped: -3 if it is no
+; device, -5 if the window's 512 pages are used up.
 define internal i64 @sys_region(i64 %i, i64 %base, i64 %len) {
 entry:
   %dev = call i1 @is_device(i64 %base, i64 %len)
@@ -1003,9 +1097,9 @@ loop:
 body:
   %off = shl i64 %k, 12
   %pa = add i64 %first, %off
-  %d = or i64 %pa, 27021597764226115                        ; user device page
+  %d = call i64 @pte(i64 %pa, i64 215)                      ; V R W U A D
   %idx = add i64 %w, %k
-  %ep = getelementptr [3 x [512 x i64]], ptr @l3, i64 0, i64 %i, i64 %idx
+  %ep = getelementptr [3 x [512 x i64]], ptr @l0, i64 0, i64 %i, i64 %idx
   store i64 %d, ptr %ep
   %k1 = add i64 %k, 1
   br label %loop
@@ -1021,20 +1115,21 @@ done:
 
 ; ------------------------------------------------------------ system calls
 
-; Answers slot i's system call, its number in x8, spec section 10.3's.
-; Returns 0 to resume the process, 1 when it has ended.
+; Answers slot i's system call, its number in a7, word 17, its arguments in
+; a0 to a3, words 10 to 13, spec section 10.3's. Returns 0 to resume the
+; process, 1 when it has ended.
 define internal i64 @syscall(i64 %i) {
 entry:
-  %p8 = call ptr @reg(i64 %i, i64 8)
-  %nr = load i64, ptr %p8
-  %p0 = call ptr @reg(i64 %i, i64 0)
-  %a = load i64, ptr %p0
-  %p1 = call ptr @reg(i64 %i, i64 1)
-  %b = load i64, ptr %p1
-  %p2 = call ptr @reg(i64 %i, i64 2)
-  %c = load i64, ptr %p2
-  %p3 = call ptr @reg(i64 %i, i64 3)
-  %d = load i64, ptr %p3
+  %p17 = call ptr @reg(i64 %i, i64 17)
+  %nr = load i64, ptr %p17
+  %p10 = call ptr @reg(i64 %i, i64 10)
+  %a = load i64, ptr %p10
+  %p11 = call ptr @reg(i64 %i, i64 11)
+  %b = load i64, ptr %p11
+  %p12 = call ptr @reg(i64 %i, i64 12)
+  %c = load i64, ptr %p12
+  %p13 = call ptr @reg(i64 %i, i64 13)
+  %d = load i64, ptr %p13
   switch i64 %nr, label %unknown [ i64 1, label %read
                                    i64 2, label %write
                                    i64 3, label %exit
@@ -1044,7 +1139,8 @@ entry:
                                    i64 7, label %remove
                                    i64 8, label %arg_count
                                    i64 9, label %arg
-                                   i64 10, label %region ]
+                                   i64 10, label %region
+                                   i64 11, label %clock ]
 read:
   %r1 = call i64 @sys_read(i64 %i, i64 %a, i64 %b, i64 %c)
   br label %answer
@@ -1075,39 +1171,21 @@ arg:
 region:
   %r10 = call i64 @sys_region(i64 %i, i64 %a, i64 %b)
   br label %answer
+clock:
+  %r11 = call i64 @sys_clock()
+  br label %answer
 unknown:
   br label %answer
 answer:
   %r = phi i64 [ %r1, %read ], [ %r2, %write ], [ %r4, %open ],
                [ -5, %close ], [ %r6, %rename ], [ %r7, %remove ],
                [ %r8, %arg_count ], [ %r9, %arg ], [ %r10, %region ],
-               [ -5, %unknown ]
-  store i64 %r, ptr %p0
+               [ %r11, %clock ], [ -5, %unknown ]
+  store i64 %r, ptr %p10
   ret i64 0
 }
 
 ; ------------------------------------------------------------ the loop
-
-; The interrupt that ended a process's run: acknowledged, and if it is the
-; timer's, the timer is stopped until the next slice.
-define internal void @irq() {
-entry:
-  %iar = call i32 @mmio_r32(i64 134283276)                  ; GICC_IAR
-  %id = and i32 %iar, 1023
-  %spurious = icmp eq i32 %id, 1023
-  br i1 %spurious, label %done, label %ack
-ack:
-  %timer = icmp eq i32 %id, 27
-  br i1 %timer, label %tick, label %eoi
-tick:
-  call void @timer_off()
-  br label %eoi
-eoi:
-  call void @mmio_w32(i64 134283280, i32 %iar)              ; GICC_EOIR
-  br label %done
-done:
-  ret void
-}
 
 ; The next runnable slot after cur, or -1.
 define internal i64 @pick(i64 %cur) {
@@ -1133,7 +1211,7 @@ none:
 
 define void @k_main() noreturn {
 entry:
-  call void @gic_init()
+  call void @timer_off()
   br label %scan
 scan:
   %i = phi i64 [ 0, %entry ], [ %i1, %scanned ]
@@ -1172,33 +1250,36 @@ run:
   %isirq = icmp eq i64 %r, -1
   br i1 %isirq, label %interrupt, label %sync
 interrupt:
-  call void @irq()
+  call void @timer_off()
   br label %moveon
 sync:
-  %ec0 = lshr i64 %r, 26
-  %ec = and i64 %ec0, 63
-  %svc = icmp eq i64 %ec, 21
-  br i1 %svc, label %call, label %notsvc
+  %ecall = icmp eq i64 %r, 8
+  br i1 %ecall, label %call, label %notcall
 call:
+  %pcp = call ptr @reg(i64 %s, i64 32)
+  %pc = load i64, ptr %pcp
+  %pc4 = add i64 %pc, 4
+  store i64 %pc4, ptr %pcp
   %ended = call i64 @syscall(i64 %s)
   %done = icmp ne i64 %ended, 0
   br i1 %done, label %moveon, label %run
-notsvc:
-  %dabt = icmp eq i64 %ec, 36
-  %iabt = icmp eq i64 %ec, 32
-  %abt = or i1 %dabt, %iabt
-  br i1 %abt, label %abort, label %killit
-abort:
-  %dfsc = and i64 %r, 60                                    ; 0b1111xx
-  %trans = icmp eq i64 %dfsc, 4                             ; translation fault
-  br i1 %trans, label %demand, label %killit
+notcall:
+  %f12 = icmp eq i64 %r, 12
+  %f13 = icmp eq i64 %r, 13
+  %f15 = icmp eq i64 %r, 15
+  %f0 = or i1 %f12, %f13
+  %pf = or i1 %f0, %f15
+  br i1 %pf, label %page, label %killit
+page:
+  %tval = call i64 asm sideeffect "csrr $0, stval", "=r"()
+  %there2 = call i1 @block_mapped(i64 %s, i64 %tval)
+  br i1 %there2, label %killit, label %demand
 demand:
-  %far = call i64 @k_far()
-  %ok = call i1 @map_block(i64 %s, i64 %far)
+  %ok = call i1 @map_block(i64 %s, i64 %tval)
   br i1 %ok, label %run, label %why
 why:
-  %lo = icmp ult i64 %far, 3225419776
-  %hi = icmp uge i64 %far, 3892314112
+  %lo = icmp ult i64 %tval, 3225419776
+  %hi = icmp uge i64 %tval, 3892314112
   %outside = or i1 %lo, %hi
   br i1 %outside, label %killit, label %oom
 oom:

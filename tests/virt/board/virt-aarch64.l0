@@ -1,0 +1,43 @@
+; QEMU's aarch64 virt board, for the tests that drive its devices: what
+; spec section 10.3 says it has and where, and what its CPU's code is.
+; tools/test.sh --virt adds the file for the board under test to every
+; tests/virt program it builds, on the board and as a process, so that a
+; test names a device by what it is rather than by where.
+
+; The serial port, a PL011: its base, its length, a part of it, and its
+; interrupt.
+(def board_uart () int 150994944)                 ; 0x09000000
+(def board_uart_len () int 4096)
+(def board_uart_part () int 150995968)            ; 0x09000400
+(def board_uart_irq () int 33)
+
+; The PL011's transmit interrupt: unmasked, its cause cleared, masked.
+(def board_uart_tx_on ((u int)) int (region_write32 u 56 32))   ; UARTIMSC
+(def board_uart_tx_clear ((u int)) int (region_write32 u 68 32)) ; UARTICR
+(def board_uart_tx_off ((u int)) int (region_write32 u 56 0))
+
+(def board_rtc () int 151060480)                  ; 0x09010000, the PL031
+(def board_fw_cfg () int 151126016)               ; 0x09020000
+(def board_virtio () int 167772160)               ; 0x0A000000, transport 0
+
+; What is no region: an address between devices, RAM, and the interrupt
+; controller, which the host drives (spec section 6.14).
+(def board_no_device () int 151257088)            ; 0x09040000
+(def board_ram () int 1073741824)                 ; 0x40000000
+(def board_intc () int 134217728)                 ; 0x08000000, the GIC
+
+; An interrupt number the host gives no interrupt.
+(def board_no_irq () int 5)
+
+; A system call, svc #0, as the CPU encodes it, and a load of the word at
+; the address in the register a context's word board_load_word holds into
+; the call number's register, then a system call: ldr x8, [x1]; svc #0.
+(def board_call_code () bytes
+  (bytes_from_list (cons 1 (cons 0 (cons 0 (cons 212 (nil int)))))))
+
+(def board_load_call_code () bytes
+  (bytes_from_list (append (cons 40 (cons 0 (cons 64 (cons 249 (nil int)))))
+                           (cons 1 (cons 0 (cons 0 (cons 212 (nil int))))))))
+
+(def board_load_word () int 1)                    ; x1
+(def board_call_word () int 8)                    ; x8

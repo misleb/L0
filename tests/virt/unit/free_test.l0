@@ -5,10 +5,6 @@
 (def lo () int 3221225472)                          ; 0xC0000000
 (def page2 () int 3221229568)                       ; 0xC0001000
 
-(def code () bytes                                  ; ldr x8, [x1]; svc #0
-  (bytes_from_list (append (cons 40 (cons 0 (cons 64 (cons 249 (nil int)))))
-                           (cons 1 (cons 0 (cons 0 (cons 212 (nil int))))))))
-
 (def word ((v int)) bytes
   (bytes_from_list (cons v (zeros 7))))
 
@@ -23,15 +19,16 @@
     ((TrapFault esr far) -2)
     ((TrapInterrupt n) -3)))
 
-; Runs the code at lo, its x1 the data page, and says what it read.
+; Runs the board's code at lo, which loads the word at the address in its
+; board_load_word register, there the data page, and says what it read.
 (def run_load ((s int)) int
-  (called (trap_of (user_run s (array_set (user_context (lo) 0) 1 (page2))))))
+  (called (trap_of (user_run s (array_set (user_context (lo) 0) (board_load_word) (page2))))))
 
 ; Maps code at lo in s, from a new frame.
 (def with_code ((s int)) int
   (let c (frame_new)
     (let m (space_map s (lo) c 2)
-      (space_write s (lo) (code) 0 8))))
+      (space_write s (lo) (board_load_call_code) 0 8))))
 
 ; Maps a new frame holding v at the data page of s, and returns it.
 (def with_data ((s int) (v int)) int
@@ -106,7 +103,7 @@
 
 (def test_device_page_unmapped () int
   (let s (space_new)
-    (let m (space_map_device s (lo) 150994944 4096)  ; the PL011
+    (let m (space_map_device s (lo) (board_uart) (board_uart_len))  ; the serial port
       (let u (space_unmap s (lo))
         (let f (frame_new)
           (add (check_int "unmapped" u 0)

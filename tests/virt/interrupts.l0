@@ -1,22 +1,23 @@
 ; Spec sections 6.14 and 10.3 on the board: waiting with nothing enabled,
 ; an interrupt the host has not, the timer's interrupt at its deadline and
-; never before, and the PL011's, taken as a driver takes it: its transmit
-; interrupt unmasked, a byte written, which raises it, and the cause
-; cleared before it is ended. Ending the timer's twice is the error.
+; never before, and the serial port's, taken as a driver takes it: its
+; transmit interrupt on, a byte written, which raises it, and the cause
+; cleared before it is ended. Ending the timer's twice is the error. The
+; board's devices and their registers are tests/virt/board's.
 (def show ((n int)) int
   (write_line (digits n)))
 
 (def uart ((i int)) int
-  (let u (region_open 150994944 4096)                ; the PL011
-    (let e (show (interrupt_enable 33))
+  (let u (region_open (board_uart) (board_uart_len))
+    (let e (show (interrupt_enable (board_uart_irq)))
       (let w (flush 1)
-        (let m (region_write32 u 56 32)               ; UARTIMSC: transmit
+        (let m (board_uart_tx_on u)
           (let x (region_write8 u 0 120)              ; "x"
             (let y (region_write8 u 0 10)             ; and a newline
-              (let n (show (interrupt_wait))          ; 33
-                (let c (region_write32 u 68 32)       ; UARTICR: cleared
-                  (let z (region_write32 u 56 0)
-                    (show (interrupt_done 33))))))))))))
+              (let n (show (interrupt_wait))          ; the serial port's
+                (let c (board_uart_tx_clear u)
+                  (let z (board_uart_tx_off u)
+                    (show (interrupt_done (board_uart_irq)))))))))))))
 
 (def timer ((i int)) int
   (let c (show (interrupt_enable 0))
@@ -29,7 +30,7 @@
 
 (def main () int
   (let a (show (interrupt_wait))                      ; -5: none enabled
-    (let b (show (interrupt_enable 5))                ; -3: no such interrupt
+    (let b (show (interrupt_enable (board_no_irq)))   ; -3: no such interrupt
       (let t (timer 0)
         (let u (uart 0)
           (interrupt_done 0))))))                     ; ended already

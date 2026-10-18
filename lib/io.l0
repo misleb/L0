@@ -468,15 +468,17 @@
   (match d ((IoDevice r) (region_write64 r off v))))
 
 ; A thread's trap, over the user-mode builtins of spec section 6.13, read
-; from its context as section 10.3 lays one out for aarch64: the trap's
-; kind in word 35, the syndrome in 36, and the address in 37.
+; from its context as section 10.3 lays one out for the CPU machine names
+; (6.16): on every CPU the trap's kind is word 35, what the CPU said of it
+; word 36, and the address word 37, and the rest are its registers.
 
 ;; Why a thread came back from user_run: (TrapCall n), a system call with
-;; number n, which aarch64 puts in x8; (TrapMissing va), a fault at the user
+;; number n, which call_number reads; (TrapMissing va), a fault at the user
 ;; address va where nothing is mapped, which a kernel answers by mapping a
-;; page there or ending the thread; (TrapFault esr far), any other fault,
-;; with the machine's syndrome and the address; or (TrapInterrupt n),
-;; interrupt n, taken, which interrupt_done ends (spec section 6.14).
+;; page there or ending the thread; (TrapFault why va), any other fault,
+;; with what the CPU said of it, its syndrome or cause, and the address; or
+;; (TrapInterrupt n), interrupt n, taken, which interrupt_done ends (spec
+;; section 6.14).
 (data Trap
   (TrapCall int)
   (TrapMissing int)
@@ -485,24 +487,61 @@
 
 ;; The trap the context c records, as a Trap, for the context user_run
 ;; returned. On aarch64 a system call is an svc, and a missing page is a
-;; data or instruction abort from EL0 for a translation fault.
+;; data or instruction abort from EL0 for a translation fault; on riscv64
+;; a system call is an ecall from U-mode, and a missing page is a page
+;; fault at an address the host says nothing is mapped at.
 (def trap_of ((c (array int))) Trap
   (if (eq (array_get c 35) 1)
       (TrapInterrupt (array_get c 36))
-      (trap_of_exception (array_get c 36) (array_get c 37) (array_get c 8))))
+      (if (eq (machine) 2)
+          (trap_of_riscv64 (array_get c 36) (array_get c 37) (array_get c 34) (call_number c))
+          (trap_of_aarch64 (array_get c 36) (array_get c 37) (call_number c)))))
 
-(def trap_of_exception ((esr int) (far int) (x8 int)) Trap
+(def trap_of_riscv64 ((cause int) (va int) (missing int) (n int)) Trap
+  (if (eq cause 8)                                    ; an ecall from U-mode
+      (TrapCall n)
+      (if (if (any_eq cause (cons 12 (cons 13 (cons 15 (nil int))))) (eq missing 1) false)
+          (TrapMissing va)                            ; a page fault, nothing there
+          (TrapFault cause va))))
+
+(def trap_of_aarch64 ((esr int) (far int) (n int)) Trap
   (let ec (bit_and (bit_shr esr 26) 63)
     (if (eq ec 21)                                    ; svc from aarch64
-        (TrapCall x8)
+        (TrapCall n)
         (if (if (eq ec 36) true (eq ec 32))            ; a data or instruction abort
             (if (eq (bit_and esr 60) 4)                ; a translation fault
                 (TrapMissing far)
                 (TrapFault esr far))
             (TrapFault esr far)))))
 
+;; The number of the system call the thread whose context is c made, from
+;; the register its CPU keeps it in: x8 on aarch64, a7 on riscv64. What the
+;; call asks is in its arguments, call_arg, and it is answered by
+;; call_result.
+(def call_number ((c (array int))) int
+  (array_get c (call_number_word (machine))))
+
+;; Argument k, 0 to 3, of the system call the thread whose context is c
+;; made, from the register its CPU passes it in: x0 to x3 on aarch64, a0
+;; to a3 on riscv64.
+(def call_arg ((c (array int)) (k int)) int
+  (array_get c (add (call_result_word (machine)) k)))
+
+;; The context c with v as its system call's result, in the register its
+;; CPU returns one in, x0 on aarch64 and a0 on riscv64, so that the thread,
+;; run again with it, resumes after its call with that result.
+(def call_result ((c (array int)) (v int)) (array int)
+  (array_set c (call_result_word (machine)) v))
+
 ;; A context for user_run that starts a thread at pc with its stack pointer
 ;; at sp, every other register 0: an (array int) of the 104 words spec
-;; section 10.3 gives for aarch64.
+;; section 10.3 gives for each CPU.
 (def user_context ((pc int) (sp int)) (array int)
-  (array_set (array_set (array_new 104 0) 32 pc) 31 sp))
+  (array_set (array_set (array_new 104 0) 32 pc) (sp_word (machine)) sp))
+
+; Where each CPU keeps what the context helpers above read, by its number
+; (spec sections 6.16 and 10.3): aarch64's x8, x0, and sp, words 8, 0, and
+; 31, and riscv64's a7, a0, and sp, which are x17, x10, and x2.
+(def call_number_word ((m int)) int (if (eq m 2) 17 8))
+(def call_result_word ((m int)) int (if (eq m 2) 10 0))
+(def sp_word ((m int)) int (if (eq m 2) 2 31))

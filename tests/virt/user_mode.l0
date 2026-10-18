@@ -17,24 +17,21 @@
 
 (def lo () int 3221225472)                          ; 0xC0000000
 
-(def code () bytes                                  ; svc #0, 0xd4000001
-  (bytes_from_list (cons 1 (cons 0 (cons 0 (cons 212 (nil int)))))))
-
 (def maps ((i int)) int
   (let a (show (space_map 0 (lo) 0 2))              ; code: read, execute
     (let b (show (space_map 0 (add (lo) 4096) 1 1)) ; data: read, write
-      (let w (show (space_write 0 (lo) (code) 0 4))
+      (let w (show (space_write 0 (lo) (board_call_code) 0 4))   ; a system call
         (let r (show (bytes_get (space_read 0 (lo) 8) 3))
           (show (bytes_len (space_read 0 (add (lo) 4092) 8))))))))   ; both pages
 
 (def devices ((i int)) int
-  (let a (show (space_map_device 1 (lo) 150994944 4096))          ; the PL011
-    (let b (show (space_map_device 1 (add (lo) 4096) 1073741824 8)) ; RAM
-      (show (space_map_device 1 (add (lo) 8192) 150995968 8)))))  ; part of it
+  (let a (show (space_map_device 1 (lo) (board_uart) (board_uart_len)))   ; the serial port
+    (let b (show (space_map_device 1 (add (lo) 4096) (board_ram) 8))     ; RAM
+      (show (space_map_device 1 (add (lo) 8192) (board_uart_part) 8)))))  ; part of it
 
 (def traps ((i int)) int
-  (let c (user_run 0 (array_set (user_context (lo) (add (lo) 8192)) 8 42))
-    (let a (say (trap_of c))                        ; the svc, x8 still 42
+  (let c (user_run 0 (array_set (user_context (lo) (add (lo) 8192)) (board_call_word) 42))
+    (let a (say (trap_of c))                        ; the call, its number still 42
       (let b (hex (array_get c 32))                 ; and after it
         (let d (say (trap_of (user_run 0 c)))       ; then 0, no instruction
           (let e (say (trap_of (user_run 0 (user_context (add (lo) 16384) 0))))

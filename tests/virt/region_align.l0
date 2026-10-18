@@ -1,8 +1,9 @@
 ; Spec section 6.12: an access whose address is not a multiple of its width
-; is a runtime error, before the device sees it: a region from 0x09000001
-; puts every 2-byte access at an odd address, though offset 0 is in range.
+; is a runtime error, before the device sees it: a region from one byte
+; past the serial port's base puts every 2-byte access at an odd address,
+; though offset 0 is in range.
 
 (def main () int
-  (let u (region_open 150994945 16)
+  (let u (region_open (add (board_uart) 1) 16)
     (let a (region_read8 u 0)
       (region_write16 u 0 0))))

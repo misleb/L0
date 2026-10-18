@@ -1,0 +1,46 @@
+; Spec section 6.12 on the riscv64 board: the 16550 driven through its
+; registers, then reads of every width from a virtio-mmio transport's
+; identification registers, whose values the device fixes, and writes to
+; the 16550's scratch register, each read back. The 16550's registers are
+; a byte wide, so only its bytes are read and written. The PLIC is no
+; region, since spec section 6.14: the host drives it.
+;
+; "hi" goes straight to the serial port, while what write_line writes is
+; held back until the program ends, so it comes after on standard output.
+
+(def put ((u IoDevice) (b int)) int
+  (if (eq (bit_and (device_read8 u 5) 32) 0)        ; transmit holding register full
+      (put u b)
+      (device_write8 u 0 b)))                       ; the transmit holding register
+
+(def put_all ((u IoDevice) (s (list int))) int
+  (if (is_empty s)
+      0
+      (let w (put u (head s)) (put_all u (tail s)))))
+
+(def hex ((v int)) int
+  (write_line (hex_digits v 1)))
+
+(def reads ((v IoDevice)) int
+  (let c (hex (device_read32 v 0))                  ; virtio magic, "virt"
+    (let d (hex (device_read16 v 0))
+      (hex (device_read64 v 0)))))                  ; magic, then version 2, modern
+
+(def writes ((u IoDevice)) int
+  (let a (device_write8 u 7 161)                    ; the scratch register, 0xa1
+    (let b (hex (device_read8 u 7))
+      (let c (device_write8 u 7 178)                ; 0xb2
+        (let i (barrier)
+          (hex (device_read8 u 7)))))))
+
+(def opened ((r DeviceOpened)) IoDevice
+  (match r
+    ((DeviceOpened d) d)
+    ((DeviceFailed fault why) (IoDevice -1))))
+
+(def main () int
+  (let u (opened (open_device (board_uart) (board_uart_len)))
+    (let v (opened (open_device (board_virtio) 512))
+      (let w (put_all u "hi\n")
+        (let r (reads v)
+          (writes u))))))

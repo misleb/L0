@@ -746,7 +746,7 @@
 (def emit_def_call ((sym (list int)) (ops (list (list int))) (env Env)
                     (tl bool) (st Emit)) EmitVal
   (emit_assign
-    (append (if tl "musttail call i64 @" "call i64 @")
+    (append (if tl "musttail call fastcc i64 @" "call fastcc i64 @")
       (append sym
         (append "("
           (append (fmt_ops (pad_ops ops (pad_of sym (env_pads env)))) ")"))))
@@ -1657,7 +1657,7 @@
       (let sym (def_sym n (sc_is_prelude sc))
         (let k (pad_of sym (sc_pads sc))
           (let st1 (emit_line
-                     (append "define internal i64 @"
+                     (append "define internal fastcc i64 @"
                        (append sym
                          (append "(" (append (fmt_params 0 k) ") {"))))
                      (emit_entry n ps k sc st))
@@ -1689,7 +1689,7 @@
         (emit_line ""
           (emit_line "}"
             (emit_line "  ret i64 %r"
-              (emit_line (append "  %r = call i64 @l0_f_main.body("
+              (emit_line (append "  %r = call fastcc i64 @l0_f_main.body("
                            (append (fmt_ops ops) ")"))
                 (emit_line "entry:"
                   (emit_line "define i64 @l0_f_main(i64 %a0) {" st)))))))))
