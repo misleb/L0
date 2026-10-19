@@ -7,8 +7,9 @@
 #   WORK    a directory for the kernel's image and the processes' raw bytes,
 #           inside the repository, where the linker container can see it
 #   ARGS    a file of slot 0's arguments, one per line, or - for none
-#   SLOTn   a process image, built by tools/l0 build --target proc, raw;
-#           fault, for fault.ll beside the kernel; or - for an empty slot
+#   SLOTn   a process image, built by tools/l0 build --target proc, an ELF
+#           or raw, its file at most 4 MB; fault, for fault.ll beside the
+#           kernel; or - for an empty slot
 #
 # The CPU is L0_ARCH's, aarch64 unless it names another, and its kernel,
 # fault.ll, and board.sh, which says where the kernel reads what is loaded
@@ -17,8 +18,9 @@
 # board's serial line; standard error and the exit status come back by
 # semihosting. The kernel and fault.ll are linked once into WORK, by
 # L0_VIRT_LD if it names an ld.lld, or else in the l0-virt-link container,
-# as tools/l0 links --target virt: the kernel as an ELF, which QEMU boots
-# as it is, needing no boot arguments, and fault.ll raw, as a process.
+# as tools/l0 links --target virt: the kernel as an ELF, with elf.ll, its
+# loader for processes, beside it, which QEMU boots as it is, needing no
+# boot arguments, and fault.ll raw, as a process.
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -59,20 +61,26 @@ lld() {
     fi
 }
 
-# image LL LD OUT [FLAG ...] links LL by LD into OUT, unless OUT is newer
-# than both.
+# image LL LD OUT [ARG ...] links LL by LD into OUT, with each ARG, a flag
+# or an object, unless OUT is newer than LL, LD, and the loader's object.
 image() {
     ll=$1
     ld=$2
     out=$3
     shift 3
-    if [ ! -f "$out" ] || [ "$ll" -nt "$out" ] || [ "$ld" -nt "$out" ]; then
+    if [ ! -f "$out" ] || [ "$ll" -nt "$out" ] || [ "$ld" -nt "$out" ] ||
+        [ "$work/elf.o" -nt "$out" ]; then
         # shellcheck disable=SC2086
         "$CC" --target="$T_TRIPLE" $T_CFLAGS -O2 -c "$ll" -o "$out.o"
         lld -T "$ld" "$@" "$out.o" -o "$out"
     fi
 }
-image "$H/kernel.ll" "$H/kernel.ld" "$work/kernel.elf"
+if [ ! -f "$work/elf.o" ] || [ "$HERE/elf.ll" -nt "$work/elf.o" ]; then
+    # shellcheck disable=SC2086
+    "$CC" --target="$T_TRIPLE" $T_CFLAGS -O2 -Wno-override-module -c "$HERE/elf.ll" \
+        -o "$work/elf.o"
+fi
+image "$H/kernel.ll" "$H/kernel.ld" "$work/kernel.elf" "$work/elf.o"
 image "$H/fault.ll" "$ROOT/runtime/proc.ld" "$work/fault.img" --oformat binary
 
 cat > "$work/stdin"
@@ -97,8 +105,9 @@ if [ "$alen" -gt 0 ]; then
     dev="$dev -device loader,file=$work/args,addr=$H_ARGS_AT,force-raw=on"
 fi
 
-# Each process's image, its raw bytes from 0xC0000000, at its slot's
-# physical address, 4 MB apart; its bss is RAM that QEMU starts zero.
+# Each process's image, its file as it is, at its slot's physical address,
+# 4 MB apart, where the kernel puts an ELF's segments in place; a raw
+# image's bss is RAM that QEMU starts zero.
 slot=0
 for p in "$@"; do
     case $p in
@@ -107,6 +116,10 @@ for p in "$@"; do
         *) img=$p ;;
     esac
     if [ "$p" != - ]; then
+        if [ "$(wc -c < "$img" | tr -d ' ')" -gt 4194304 ]; then
+            echo "boot.sh: $img is over a slot's 4 MB" >&2
+            exit 2
+        fi
         addr=$(printf '0x%X' $((H_SLOT_BASE + slot * 0x400000)))
         dev="$dev -device loader,file=$img,addr=$addr,force-raw=on"
     fi

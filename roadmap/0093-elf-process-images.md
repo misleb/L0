@@ -160,3 +160,30 @@ reach.
   by their permissions". The harness's 4 MB slots are left for its own
   comments, not the spec. Until step 3 the spec says what the toolchain
   does not yet do. Next: step 2, the three kernels taking both formats.
+- 2026-10-19: step 2. The request's `PHDRS` sketch links as it says, with
+  `-z max-page-size=4096`, on both CPUs (`tmp/0093/proc.ld` and an
+  `L0_VIRT_LD` wrapper, `tmp/0093/elf-ld`): three `PT_LOAD`s at offsets
+  0x1000, 0x6000, and 0x7000 for `tests/virt/stream.l0`, R E, R, and RW,
+  `.got` in the data on aarch64, and a `PT_RISCV_ATTRIBUTES` on riscv64,
+  which the kernels ignore. The harness kernels share
+  `tests/virt/proc/harness/elf.ll`, which `boot.sh` links beside each:
+  it checks the header and each `PT_LOAD`, moves the segments down into
+  place in the slot, and zeroes their bss and the slot from the image's
+  end, and the kernel starts the process at `e_entry`; a slot whose file
+  is over 4 MB is refused by `boot.sh`, and an ELF it cannot load is not
+  started. `tests/virt/user/kernel.l0` reads an image's first 64 bytes and,
+  for an ELF, its program headers, maps each segment with its flags'
+  `perm`, copies its file bytes in as they stream past, and skips the
+  rest, so a refused image leaves the next in step; it maps demanded
+  pages read and write only, and gives -5 to a read, receive, or arg into
+  a page the process may not write. A raw image loads as before. Checked
+  by hand on both CPUs: `stream` as an ELF matches its expectations under
+  all three kernels; a probe that writes its own code
+  (`tmp/0093/selfwrite-*.ll`) is killed by the L0 kernel with a
+  permission fault, and exits 0 under the harness, which maps its slot
+  writable; an image for the other CPU is not started; and a refused
+  image beside a good one leaves the good one's input right. These become
+  tests in step 5. Suites green: 65, 147, and `--virt` 279 passed, 88
+  skipped, on both CPUs, as before; `tools/bootstrap.sh --virt`'s
+  fixpoint holds on both boards, under both harness kernels, and under the
+  L0 kernel, the compiler still raw. Next: step 3, the switch.

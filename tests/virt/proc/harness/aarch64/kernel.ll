@@ -18,9 +18,11 @@
 ;   0x4FF00000  the kernel's stack, 1 MB, growing down
 ;   0x4FFFFFF8  standard input's length, then its bytes at 0x50000000
 ;   0x58000000  process images, 4 MB apart, put there by QEMU's loader as
-;               raw bytes: slot 0 at 0x58000000, 1 at 0x58400000, 2 at
+;               their files: slot 0 at 0x58000000, 1 at 0x58400000, 2 at
 ;               0x58800000. A slot is a process when its first word is not
-;               0. QEMU's RAM starts zero, so an image's bss is.
+;               0. An ELF's segments are moved into place in its slot, and
+;               the rest zeroed, by ../elf.ll; a raw image is its bytes
+;               from 0xC0000000, and QEMU's RAM starts zero, so its bss is.
 ;   0x5EFFFFF8  the length of slot 0's arguments, then their bytes at
 ;               0x5F000000, each ending in a NUL; the other slots have none
 ;   0x60000000  frames, 2 MB each, to 0xC0000000, given out as touched
@@ -28,7 +30,8 @@
 ; Every process sees (runtime/proc.ld, spec section 10.3):
 ;   0x00000000  to 0xBFFFFFFF, the kernel's identity map, EL1 only, never
 ;               executable at EL0
-;   0xC0000000  its image, 4 MB, mapped when it is made
+;   0xC0000000  its slot, 4 MB, mapped when it is made: its image, and
+;               after an ELF's the start of its heap
 ;   0xC0400000  to 0xE8000000, its heap and stack, a 2 MB block mapped the
 ;               first time it is touched, by a fault or a system call
 ;   0xE8000000  to 0xE8200000, its regions: 4 KB pages of device memory,
@@ -631,6 +634,7 @@ entry:
   %e3 = getelementptr [3 x [512 x i64]], ptr @l1, i64 0, i64 %i, i64 3
   store i64 %td, ptr %e3
   %img = call i64 @image_pa(i64 %i)
+  %pc0 = call i64 @elf_load(i64 %img, i64 183)              ; EM_AARCH64
   %c0 = or i64 %img, 9007199254744901                       ; user code
   store i64 %c0, ptr %t
   %img1 = add i64 %img, 2097152
@@ -652,12 +656,32 @@ entry:
   %r31 = call ptr @reg(i64 %i, i64 31)
   store i64 3892314112, ptr %r31                            ; sp, 0xE8000000
   %r32 = call ptr @reg(i64 %i, i64 32)
-  store i64 3221225472, ptr %r32                            ; pc, 0xC0000000
+  store i64 %pc0, ptr %r32                                  ; pc, the entry
   %r33 = call ptr @reg(i64 %i, i64 33)
   store i64 0, ptr %r33                                     ; EL0t, unmasked
   %sp = call ptr @slot_word(ptr @state, i64 %i)
   store i64 1, ptr %sp
   call void @k_sync()
+  %refused = icmp slt i64 %pc0, 0
+  br i1 %refused, label %refuse, label %made
+refuse:
+  call void @refuse(i64 %i)
+  br label %made
+made:
+  ret void
+}
+
+declare i64 @elf_load(i64, i64)
+
+@m_refused = private constant [36 x i8] c" not started: not an image it loads\00"
+
+; Slot i, whose image elf_load cannot load, ended as if killed.
+define internal void @refuse(i64 %i) {
+  call void @say(ptr @m_proc)
+  call void @say_dec(i64 %i)
+  call void @say(ptr @m_refused)
+  call void @say(ptr @m_nl)
+  call void @end_proc(i64 %i, i64 99, i64 1)
   ret void
 }
 

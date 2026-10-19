@@ -9,15 +9,19 @@
 ;
 ; Its standard input is the number of processes in decimal and a newline;
 ; then for each, its image's length in decimal and a newline, and the
-; image's bytes, as tools/l0 build --target proc writes them, to be mapped from
-; 0xC0000000; then what the processes read as their standard input, which
-; they share. Their standard output and error are the kernel's. It gives
+; image's bytes, as tools/l0 build --target proc writes them; then what the
+; processes read as their standard input, which they share. An image is an
+; ELF, as spec section 10.3 lists it, whose segments the kernel maps each
+; with its flags' permissions, so a process that writes its code or runs
+; its data is killed by the fault; or, until every image is an ELF, raw,
+; its bytes mapped from 0xC0000000 readable, writable, and executable. One
+; that is neither, or is for another CPU, is not started. Their standard output and error are the kernel's. It gives
 ; no files, as the board does, and maps the board's devices for the region
 ; call. Its own arguments, its boot arguments, are the processes': each
 ; "N:VALUE" gives process N the argument VALUE, in their order, so it is
 ; told at boot which process is the serial driver and where its device is.
-; A process's heap and stack, and its image's bss, are mapped a page at a
-; time as they are first touched.
+; A process's heap and stack, and a raw image's bss, are mapped a page at a
+; time as they are first touched, readable and writable.
 ;
 ; A process runs for a slice of 10 ms, the timer's deadline set as its turn
 ; starts (spec section 6.14), or until it exits, faults, or makes one of the
@@ -139,8 +143,9 @@
   (NoFrames (array int)))
 
 ; Maps a fresh frame at each page from p, page-aligned, below end that has
-; none yet, readable, writable, and executable.
-(def ensure ((s int) (m (array int)) (p int) (end int)) Mem
+; none yet, with perm, as space_map takes it. A page's entry in m is 0 while
+; it has no frame, and then its perm plus 1.
+(def ensure ((s int) (m (array int)) (p int) (end int) (perm int)) Mem
   (if (ge p end)
       (Mem m)
       (let i (page_of p)
@@ -148,11 +153,25 @@
             (let f (frame_new)
               (if (lt f 0)
                   (NoFrames m)
-                  (let r (space_map s p f 3)
+                  (let r (space_map s p f perm)
                     (if (lt r 0)
                         (NoFrames m)
-                        (ensure s (array_set m i 1) (add p 4096) end)))))
-            (ensure s m (add p 4096) end)))))
+                        (ensure s (array_set m i (add perm 1)) (add p 4096) end perm)))))
+            (ensure s m (add p 4096) end perm)))))
+
+; Whether a process whose pages m holds may write the n bytes from va,
+; which user_ok has passed: each page has no frame yet, and is mapped
+; writable when touched, or is mapped writable.
+(def writable ((m (array int)) (va int) (n int)) bool
+  (if (le n 0) true (writable_from m (page_floor va) (add va n))))
+
+(def writable_from ((m (array int)) (p int) (end int)) bool
+  (if (ge p end)
+      true
+      (let st (array_get m (page_of p))
+        (if (if (eq st 0) true (eq (bit_and (sub st 1) 1) 1))
+            (writable_from m (add p 4096) end)
+            false))))
 
 ; Whether the n bytes from va are all between user_lo and user_top.
 (def user_ok ((va int) (n int)) bool
@@ -172,7 +191,7 @@
 (def map_range ((i int) (p Proc) (va int) (n int)) Proc
   (match p
     ((Proc s c m w st)
-      (match (ensure s m (page_floor va) (add va n))
+      (match (ensure s m (page_floor va) (add va n) 1)
         ((Mem m1) (Proc s c m1 w st))
         ((NoFrames m1) (Proc s c m1 w (out_of_memory i)))))))
 
@@ -189,7 +208,9 @@
         (read_number (add (mul acc 10) (sub b 48)))
         acc)))
 
-; Copies the next left bytes of standard input into the space from va.
+; Copies the next left bytes of standard input into the space from va,
+; mapping pages readable, writable, and executable as it goes: a raw
+; image's.
 (def load ((s int) (m (array int)) (va int) (left int)) Mem
   (if (le left 0)
       (Mem m)
@@ -197,22 +218,206 @@
         (let n (bytes_len b)
           (if (eq n 0)
               (Mem m)
-              (match (ensure s m (page_floor va) (add va n))
+              (match (ensure s m (page_floor va) (add va n) 3)
                 ((Mem m1)
                   (let w (space_write s va b 0 n)
                     (load s m1 (add va n) (sub left n))))
                 ((NoFrames m1) (NoFrames m1))))))))
 
+; Copies the next left bytes of standard input into the space from va,
+; whose pages are mapped.
+(def copy_in ((s int) (va int) (left int)) int
+  (if (le left 0)
+      0
+      (let b (read_some 0 (if (lt left 65536) left 65536))
+        (let n (bytes_len b)
+          (if (eq n 0)
+              0
+              (let w (space_write s va b 0 n)
+                (copy_in s (add va n) (sub left n))))))))
+
+; Reads and drops the next n bytes of standard input.
+(def skip ((n int)) int
+  (if (le n 0)
+      0
+      (let b (read_some 0 (if (lt n 65536) n 65536))
+        (if (eq (bytes_len b) 0) 0 (skip (sub n (bytes_len b)))))))
+
+; The next n bytes of standard input, or fewer if it ends first.
+(def read_exact ((n int)) bytes
+  (bytes_from_list (rev (read_onto n (nil int)))))
+
+(def read_onto ((n int) (acc (list int))) (list int)
+  (if (le n 0)
+      acc
+      (let b (read_some 0 (if (lt n 65536) n 65536))
+        (if (eq (bytes_len b) 0)
+            acc
+            (read_onto (sub n (bytes_len b)) (push_bytes b 0 acc))))))
+
+(def push_bytes ((b bytes) (i int) (acc (list int))) (list int)
+  (if (ge i (bytes_len b)) acc (push_bytes b (add i 1) (cons (bytes_get b i) acc))))
+
 ; The next process, read from standard input: its length, then its image,
-; in a space of its own. One the kernel cannot give memory to has ended.
+; in a space of its own. One the kernel cannot give memory to has ended,
+; and one it cannot load was not started.
 (def new_proc ((i int)) Proc
   (let size (read_number 0)
-    (let s (space_new)
-      (if (lt s 0)
-          (Proc s (array_new 0 0) (array_new 0 0) 0 (no_user_mode i))
-          (match (load s (array_new (page_count) 0) (user_lo) size)
-            ((Mem m) (Proc s (user_context (user_lo) (user_top)) m 0 -1))
-            ((NoFrames m) (Proc s (array_new 0 0) m 0 (out_of_memory i))))))))
+    (let hd (read_exact (if (lt size 64) size 64))
+      (let s (space_new)
+        (if (lt s 0)
+            (let k (skip (sub size (bytes_len hd)))
+              (Proc s (array_new 0 0) (array_new 0 0) 0 (no_user_mode i)))
+            (if (is_elf hd)
+                (new_elf i s size hd)
+                (new_raw i s size hd)))))))
+
+; A raw image, whose first bytes, hd, are read: its bytes from 0xC0000000,
+; and its entry there.
+(def new_raw ((i int) (s int) (size int) (hd bytes)) Proc
+  (let n (bytes_len hd)
+    (match (ensure s (array_new (page_count) 0) (user_lo) (add (user_lo) n) 3)
+      ((Mem m)
+        (let w (space_write s (user_lo) hd 0 n)
+          (match (load s m (add (user_lo) n) (sub size n))
+            ((Mem m1) (Proc s (user_context (user_lo) (user_top)) m1 0 -1))
+            ((NoFrames m1) (Proc s (array_new 0 0) m1 0 (out_of_memory i))))))
+      ((NoFrames m) (Proc s (array_new 0 0) m 0 (out_of_memory i))))))
+
+; ---------------------------------------------------------------- the ELF
+
+(def image_top () int 3489660928)                 ; 0xD0000000, the image's end
+
+; The n bytes of b from i, as a little-endian number.
+(def le_at ((b bytes) (i int) (n int)) int
+  (if (eq n 0)
+      0
+      (bit_or (bytes_get b i) (bit_shl (le_at b (add i 1) (sub n 1)) 8))))
+
+(def is_elf ((hd bytes)) bool
+  (if (lt (bytes_len hd) 64) false (eq (le_at hd 0 4) 1179403647)))   ; "\x7FELF"
+
+; The ELF machine of the CPU the kernel runs on: EM_RISCV or EM_AARCH64.
+(def elf_machine () int (if (eq (machine) 2) 243 183))
+
+; Whether the ELF header hd is spec section 10.3's, for this CPU, with its
+; program headers, of which there are at most 16, within the image's size.
+(def header_ok ((hd bytes) (size int)) bool
+  (let phoff (le_at hd 32 8)
+    (let phnum (le_at hd 56 2)
+      (let entry (le_at hd 24 8)
+        (if (eq (le_at hd 4 2) 258)                          ; ELFCLASS64, little endian
+            (if (eq (le_at hd 16 4) (bit_or 2 (bit_shl (elf_machine) 16)))  ; ET_EXEC
+                (if (eq (le_at hd 54 4) (bit_or 56 (bit_shl phnum 16)))     ; 56 bytes each
+                    (if (if (le phnum 16) (ge phoff 64) false)
+                        (if (le phoff size)
+                            (if (le (add phoff (mul phnum 56)) size)
+                                (if (ge entry (user_lo)) (lt entry (image_top)) false)
+                                false)
+                            false)
+                        false)
+                    false)
+                false)
+            false)))))
+
+; A PT_LOAD: its offset in the file, its address, its bytes in the file and
+; in memory, and the perm space_map takes for its flags.
+(data Seg
+  (Seg int int int int int))
+
+(data Segs
+  (Segs (list Seg))
+  (BadSegs))
+
+(def seg_at ((ph bytes) (at int)) Seg
+  (let f (le_at ph (add at 4) 4)
+    (Seg (le_at ph (add at 8) 8) (le_at ph (add at 16) 8) (le_at ph (add at 32) 8)
+         (le_at ph (add at 40) 8)
+         (add (if (eq (bit_and f 2) 0) 0 1) (if (eq (bit_and f 1) 0) 0 2)))))  ; PF_W, PF_X
+
+; Whether a number read from the image is one no sum of two overflows.
+(def small ((v int)) bool (if (ge v 0) (lt v 4294967296) false))
+
+; Whether sg may be the image's next segment, after one whose file bytes
+; ended at po and whose memory ended at pe: not writable and executable,
+; page-aligned, after it in both, within the file, and below image_top.
+(def seg_ok ((sg Seg) (po int) (pe int) (size int)) bool
+  (match sg
+    ((Seg off va fsz msz perm)
+      (if (if (small off) (if (small va) (if (small fsz) (small msz) false) false) false)
+          (if (if (lt perm 3) (eq (bit_and (bit_or off va) 4095) 0) false)
+              (if (if (ge off po) (ge va pe) false)
+                  (if (le fsz msz)
+                      (if (le (add off fsz) size) (le (add va msz) (image_top)) false)
+                      false)
+                  false)
+              false)
+          false))))
+
+; The PT_LOADs among the n program headers in ph from header j, checked,
+; in order, at most three: the first after the program headers, which end
+; at po in the file, and at or above user_lo.
+(def segments ((ph bytes) (j int) (n int) (po int) (pe int) (size int) (acc (list Seg))) Segs
+  (if (ge j n)
+      (Segs (rev acc))
+      (let at (mul j 56)
+        (if (eq (le_at ph at 4) 1)                            ; PT_LOAD
+            (let sg (seg_at ph at)
+              (if (if (seg_ok sg po pe size) (lt (length acc) 3) false)
+                  (match sg
+                    ((Seg off va fsz msz perm)
+                      (segments ph (add j 1) n (add off fsz) (add va msz) size (cons sg acc))))
+                  (BadSegs)))
+            (segments ph (add j 1) n po pe size acc)))))
+
+; The pages of the image's segments as mapped, how many of its bytes were
+; read, and whether every segment was mapped.
+(data Load
+  (Load (array int) int bool))
+
+; Maps each of segs with its perm, from the file position pos, reading
+; its file bytes into it; the rest of its pages are a fresh frame's zeros.
+(def load_segs ((s int) (m (array int)) (segs (list Seg)) (pos int)) Load
+  (if (is_empty segs)
+      (Load m pos true)
+      (match (head segs)
+        ((Seg off va fsz msz perm)
+          (let k (skip (sub off pos))
+            (match (ensure s m va (add va msz) perm)
+              ((Mem m1)
+                (let c (copy_in s va fsz)
+                  (load_segs s m1 (tail segs) (add off fsz))))
+              ((NoFrames m1) (Load m1 off false))))))))
+
+; An ELF image, whose first 64 bytes, hd, are read: its segments mapped,
+; and its entry e_entry.
+(def new_elf ((i int) (s int) (size int) (hd bytes)) Proc
+  (if (header_ok hd size)
+      (let phoff (le_at hd 32 8)
+        (let phnum (le_at hd 56 2)
+          (let k (skip (sub phoff 64))
+            (let ph (read_exact (mul phnum 56))
+              (let pos (add phoff (mul phnum 56))
+                (match (segments ph 0 phnum pos (user_lo) size (nil Seg))
+                  ((Segs segs) (new_loaded i s size hd segs pos))
+                  ((BadSegs) (refused i s (skip (sub size pos))))))))))
+      (refused i s (skip (sub size (bytes_len hd))))))
+
+(def new_loaded ((i int) (s int) (size int) (hd bytes) (segs (list Seg)) (pos int)) Proc
+  (match (load_segs s (array_new (page_count) 0) segs pos)
+    ((Load m ended ok)
+      (let k (skip (sub size ended))
+        (if ok
+            (Proc s (user_context (le_at hd 24 8) (user_top)) m 0 -1)
+            (Proc s (array_new 0 0) m 0 (out_of_memory i)))))))
+
+; A process whose image the kernel cannot load, in space s, which nothing
+; is mapped in yet, once its bytes are read.
+(def refused ((i int) (s int) (skipped int)) Proc
+  (let f (space_free s)
+    (let a (say_proc i)
+      (let b (write_err " not started: not an image it loads\n")
+        (Proc -1 (array_new 0 0) (array_new 0 0) 0 99)))))
 
 (def new_procs ((ps (array Proc)) (i int) (n int)) (array Proc)
   (if (ge i n)
@@ -340,7 +545,7 @@
 
 (def demand ((i int) (s int) (m (array int)) (w int) (c (array int)) (va int)) Proc
   (if (if (ge va (user_lo)) (lt va (user_top)) false)
-      (match (ensure s m (page_floor va) (add va 1))
+      (match (ensure s m (page_floor va) (add va 1) 1)
         ((Mem m1) (step i s m1 w c))
         ((NoFrames m1) (Proc s c m1 w (out_of_memory i))))
       (Proc s c m w (killed i c))))
@@ -446,8 +651,16 @@
         (let room (karg k r 2)
           (let buf (karg k r 1)
             (let n (if (lt (kunread k) room) (kunread k) room)
-              (let k1 (kmapped k r buf n)
-                (if (ge (kstate k1 r) 0) k1 (give k1 r buf n)))))))))
+              (if (kwritable k r buf n)
+                  (let k1 (kmapped k r buf n)
+                    (if (ge (kstate k1 r) 0) k1 (give k1 r buf n)))
+                  (kresume k r -5))))))))
+
+; Whether process i may write the n bytes from va, as writable says.
+(def kwritable ((k Kern) (i int) (va int) (n int)) bool
+  (match k
+    ((Kern ps q qo arr held pa)
+      (match (array_get ps i) ((Proc s c m w st) (writable m va n))))))
 
 (def give ((k Kern) (r int) (buf int) (n int)) Kern
   (match k
@@ -543,20 +756,23 @@
                       (answer i s m w c (clock_ns))    ; the clock
                       (answer i s m w c -5)))))))      ; close, and any other
 
-; read(stream, buf, len): standard input, into the process, at most 64 KB.
+; read(stream, buf, len): standard input, into the process, at most 64 KB,
+; and only where it may write.
 (def sys_read ((i int) (s int) (m (array int)) (w int) (c (array int))
                (h int) (buf int) (len int)) Proc
   (if (if (eq h 0) (user_ok buf len) false)
       (if (eq len 0)
           (answer i s m w c 0)
           (let k (if (lt len 65536) len 65536)
-            (match (ensure s m (page_floor buf) (add buf k))
-              ((Mem m1)
-                (let bs (read_some 0 k)
-                  (let got (bytes_len bs)
-                    (let r (space_write s buf bs 0 got)
-                      (answer i s m1 w c got)))))
-              ((NoFrames m1) (Proc s c m1 w (out_of_memory i))))))
+            (if (writable m buf k)
+                (match (ensure s m (page_floor buf) (add buf k) 1)
+                  ((Mem m1)
+                    (let bs (read_some 0 k)
+                      (let got (bytes_len bs)
+                        (let r (space_write s buf bs 0 got)
+                          (answer i s m1 w c got)))))
+                  ((NoFrames m1) (Proc s c m1 w (out_of_memory i))))
+                (answer i s m w c -5))))
       (answer i s m w c -5)))
 
 ; write(stream, buf, len): standard output or error, out of the process.
@@ -565,7 +781,7 @@
   (if (if (if (eq h 1) true (eq h 2)) (user_ok buf len) false)
       (if (eq len 0)
           (answer i s m w c 0)
-          (match (ensure s m (page_floor buf) (add buf len))
+          (match (ensure s m (page_floor buf) (add buf len) 1)
             ((Mem m1)
               (let r (write_bytes h (space_read s buf len) 0 len)
                 (answer i s m1 w c (if (lt r 0) r len))))
@@ -647,7 +863,7 @@
               (let a (bytes_from_list (arg_of as n))
                 (let len (bytes_len a)
                   (let w (if (lt room len) room len)
-                    (if (user_ok buf w)
+                    (if (if (user_ok buf w) (kwritable k i buf w) false)
                         (k_arg_copy (kmapped k i buf w) i buf a w len)
                         (schedule (kresume k i -5) i)))))))))))
 
