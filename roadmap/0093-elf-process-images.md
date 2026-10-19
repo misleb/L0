@@ -1,7 +1,7 @@
 # 0093: a process's image is an ELF, its segments mapped by permission
 
 Kind: language
-Status: queued
+Status: active
 Needs: nothing
 
 ## Why
@@ -153,3 +153,10 @@ reach.
   three kernels and two links above that take raw images and must change
   with it, and that `space_map`'s `perm` already lets the L0 kernel map
   by permission. Next: step 1, the spec.
+- 2026-10-19: started; step 1 done. Spec 10.3 lists the ELF subset, has a
+  kernel give at least each segment's permissions, starts the heap at the
+  page after the image, and keeps 128 MB of heap by ending the image below
+  0xD0000000; changelog "A process's image is an ELF, its segments mapped
+  by their permissions". The harness's 4 MB slots are left for its own
+  comments, not the spec. Until step 3 the spec says what the toolchain
+  does not yet do. Next: step 2, the three kernels taking both formats.

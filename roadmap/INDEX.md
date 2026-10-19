@@ -111,14 +111,14 @@ now they are: the library's map keeps a table its entries alone decide
 map its code, rodata, and data each by its own permissions and size the
 image from its headers, rather than a raw image capped at 4 MB and mapped
 writable and executable throughout; this repository's three kernels take
-raw images too and change with it (0093, queued).
+raw images too and change with it (0093, active: the spec says it).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
 1. [0093](0093-elf-process-images.md) a process's image is an ELF, its
-   segments mapped by permission — queued
+   segments mapped by permission — active
 
 ## Other open items
 

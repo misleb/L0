@@ -7,6 +7,94 @@ New entries go at the top.
 
 ---
 
+## A process's image is an ELF, its segments mapped by their permissions
+
+**No change to what a program means.** What changes is the image `l0
+build --target proc` writes and what a kernel does with it (section
+10.3). The image was a process's bytes from 0xC0000000, raw, at most
+4 MB, which a kernel mapped as one range, and the heap began at
+0xC0400000 whatever the image's size. It is now a static ELF64 with at
+most three `PT_LOAD` segments: code, readable and executable; rodata,
+readable; and data with the bss, readable and writable. The kernel maps
+each segment with at least its permissions and starts the process at
+`e_entry`. The heap starts at the first page after the image, and the
+image must end below 0xD0000000. `--target virt` stays raw, as its boot
+protocols need. Roadmap 0093; the toolchain and this repository's three
+kernels follow it there.
+
+**Why.** L0S, the kernel's own project, asked for it. A raw image tells
+its kernel nothing, and that cost three things. A kernel cannot tell
+where the bss ends, so the layout fixed the heap at 0xC0400000 and capped
+the image at 4 MB. The compiler, the largest program here, is 1.4 MB raw;
+L0S expects an interpreter to approach the cap. A kernel cannot tell code
+from data, so it maps every page writable and executable:
+`tests/virt/user/kernel.l0` maps every page from 0xC0000000 with `perm` 3,
+so a process that writes over its own code is not stopped. And nothing
+in the image says which CPU it is for, or names a function at a fault's
+address. 0082's entry, "A process's image is raw, as its kernel loads
+it", named the reason to bring the ELF back: a kernel that maps code read-only and data never executable. L0S's
+is one, and the L0 kernel here becomes one with this change, since
+`space_map` already takes a `perm` (6.13).
+
+0082's reason for raw does not come back. It wrote raw because flattening
+an ELF took `llvm-objcopy`, which an installed toolchain has no name for.
+`ld.lld` writes the ELF itself, and the driver only stops flattening it.
+What the toolchain writes for a target is still what that target's loader
+loads; a process's loader now wants the segments.
+
+**The decisions.**
+
+- *A strict subset of ELF, listed in 10.3*, so a kernel loads an image
+  knowing only that list. The image is `ET_EXEC` and static: no
+  interpreter, dynamic section, TLS, or relocation. Each segment's offset
+  and address are multiples of 4096, so a kernel copies whole pages. The
+  headers lie in no segment, so no page of the process holds them. The
+  section table and symbols may stay, for a kernel or a person naming a
+  fault's address, and a kernel ignores them.
+- *Three segments, and none both writable and executable,* which is what
+  a kernel needs to map code read and execute, rodata read only, and data
+  read and write. It also lets a kernel later share one copy of a
+  program's read-only pages between every process running it.
+- *A kernel gives at least each segment's permissions, and may give
+  more.* The program's side is the promise: it writes no page of its code
+  or rodata, and executes none of its data, heap, or stack. So a kernel
+  that maps everything writable and executable still runs every program.
+  The IR harness does, mapping each process's slot in 2 MB blocks. A
+  kernel that enforces the flags, as the L0 kernel will, ends a process
+  that breaks them, by the fault it takes.
+- *The heap starts at the first page after the image,* the highest
+  `p_vaddr` plus `p_memsz`. So a kernel learns it from the headers, and
+  nothing new is passed to the process. `proc.ld`'s `__heap_start` is the
+  same page, so the allocator and the kernel agree.
+- *The image ends below 0xD0000000, keeping at least 128 MB of heap.* An
+  image that left the heap a few pages would build, start, and then fail
+  `heap exhausted` on some input. The limit makes it fail at link time,
+  where `l0 build` can say why. The compiler compiling itself peaks at
+  40.7 MB (0085), so 128 MB holds the largest program here three times
+  over. It also leaves images room to grow to 256 MB, where 4 MB was the
+  cap. This was L0S's first open question.
+- *`e_entry` is the entry point,* and a kernel uses it, though `proc.ld`
+  keeps `.text.boot` first and the entry at 0xC0000000. A kernel then
+  depends on the header, not on the layout's choice.
+- *A kernel may refuse an image for another CPU,* by `e_machine`. The
+  spec does not require it to, since an image that runs is the same with
+  or without the check.
+- *No raw option.* L0S will accept both formats while it moves and needs
+  no raw image afterward, and no other kernel takes L0's. One format per
+  target keeps one thing for a kernel to load.
+
+L0S's second question, whether the 4096 alignment before the data
+segment moves riscv64's `.sdata` out of the global pointer's reach, does
+not arise. Both riscv64 targets build with `-mno-relax`, so nothing
+addresses through `__global_pointer$`.
+
+**What it gives up.** A kernel parses the ELF and program headers, where
+it copied bytes before. The L0 kernel does this in L0, and the IR harness
+in IR. An image is larger by its headers, the padding that aligns its
+segments to pages, and its symbols.
+
+---
+
 ## Two maps holding the same entries are the same value
 
 **What changed.** The prelude's `(Map K V)` keeps a table that depends only
