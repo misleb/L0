@@ -31,8 +31,9 @@
 ;               executable at EL0
 ;   0xC0000000  its slot, 4 MB, mapped when it is made: its image, and
 ;               after it the start of its heap
-;   0xC0400000  to 0xE8000000, its heap and stack, a 2 MB block mapped the
-;               first time it is touched, by a fault or a system call
+;   0xC0400000  to 0xE8000000, the rest of its heap, and its stack, a 2 MB
+;               block mapped the first time it is touched, by a fault or a
+;               system call
 ;   0xE8000000  to 0xE8200000, its regions: 4 KB pages of device memory,
 ;               mapped in order by the region system call
 ; The level 2 and 3 entries are not global, and are tagged with the

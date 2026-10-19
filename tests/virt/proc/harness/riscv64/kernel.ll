@@ -27,8 +27,9 @@
 ;   0x00000000  to 0xBFFFFFFF, the kernel's identity map, S-mode only
 ;   0xC0000000  its slot, 4 MB, mapped when it is made: its image, and
 ;               after it the start of its heap
-;   0xC0400000  to 0xE8000000, its heap and stack, a 2 MB megapage mapped
-;               the first time it is touched, by a fault or a system call
+;   0xC0400000  to 0xE8000000, the rest of its heap, and its stack, a 2 MB
+;               megapage mapped the first time it is touched, by a fault or
+;               a system call
 ;   0xE8000000  to 0xE8200000, its regions: 4 KB pages of device memory,
 ;               mapped in order by the region system call
 ; Its pages are not global, and are tagged with its ASID, slot + 1, so

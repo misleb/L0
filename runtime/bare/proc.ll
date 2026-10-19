@@ -23,8 +23,9 @@
 ; on a host with no environment.
 ;
 ; The process's memory, at the virtual addresses proc.ld gives:
-;   0xC0000000  the image: code, data, bss, at most 4 MB
-;   0xC0400000  the heap, to 0xD8000000
+;   0xC0000000  the image's segments: code, rodata, and data with its bss,
+;               ending below 0xD0000000
+;   __heap_start  the heap, from the first page after them, to 0xD8000000
 ;   0xD8000000  the stack, 256 MB, growing down from 0xE8000000
 ;   0xE8000000  and above, the kernel's: where it maps regions
 

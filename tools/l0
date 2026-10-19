@@ -52,10 +52,11 @@
 # puts a display on a transport.
 #
 # With --target proc, l0 build writes a process's image as its kernel loads
-# it: raw, its bytes from 0xC0000000, the virtual address spec section
-# 10.3 fixes, with runtime/bare/proc.ll and the CPU's part as its host,
-# which any kernel that answers that section's system calls runs. It is
-# linked as --target virt's images are.
+# it: a static ELF whose segments, the code, the rodata, and the data, a
+# kernel maps each by its own permissions from 0xC0000000, the virtual
+# address spec section 10.3 fixes, with runtime/bare/proc.ll and the CPU's
+# part as its host, which any kernel that answers that section's system
+# calls runs. It is linked as --target virt's images are.
 #
 # l0 test runs every test with L0_RC_CHECK set, and a test that leaves
 # memory it never freed fails, since that is a compiler or runtime bug.

@@ -231,3 +231,12 @@ reach.
   images on aarch64 runs `foreign`'s `fault`, which dies of an undefined
   instruction. Suites green: 65, 147, `--virt` 285 passed, from 279, 88
   skipped, with its fixpoint on both CPUs. Next: step 6, the words.
+- 2026-10-19: step 6. `tools/l0`'s header says `--target proc` writes a
+  static ELF whose segments a kernel maps by permission; `lib/AGENTS.md`,
+  what `l0 init` copies, says the same and that the heap starts after
+  them; `runtime/bare/proc.ll`'s memory map and the harness kernels' have
+  the heap from `__heap_start`. `tools/install.sh` and the README said
+  nothing raw, and the board's words, which are raw, stay. With step 3's
+  `bare_link` comment and step 4's harness ones, nothing here now calls a
+  process's image raw. Suites green: 65, 147, `--virt` 285 passed, 88
+  skipped. Next: step 7, telling L0S.
