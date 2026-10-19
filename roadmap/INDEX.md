@@ -107,13 +107,18 @@ the VisionFive 2 and the Pi 4: their RAM in the user range, DMA that is not
 cache-coherent, and the Pi 4's boot at EL2 (changelog, 0091's entry).
 L0S then found that two maps holding the same entries were not `eq`, and
 now they are: the library's map keeps a table its entries alone decide
-(0092).
+(0092). L0S then asked for a process's image as an ELF, so a kernel can
+map its code, rodata, and data each by its own permissions and size the
+image from its headers, rather than a raw image capped at 4 MB and mapped
+writable and executable throughout; this repository's three kernels take
+raw images too and change with it (0093, queued).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-None.
+1. [0093](0093-elf-process-images.md) a process's image is an ELF, its
+   segments mapped by permission — queued
 
 ## Other open items
 
