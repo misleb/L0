@@ -124,7 +124,17 @@
   (let cx (push (check_source (m "(space_free)")) cw)
   (let cy (push (check_source (m "(frame_free \"a\")")) cx)
   (let cz (push (check_source (m "(machine 1)")) cy)
-  (let da (push (check_source (m "(head (machine))")) cz)
+  (let da (push (check_source (m "(float_neg 1)"))
+          (push (check_source (m "(float_to_int 1)"))
+          (push (check_source (m "(float_from_int 1.5)"))
+          (push (check_source (m "(float_lt 1.0 1)"))
+          (push (check_source (m "(float_add 1.0)"))
+          (push (check_source (m "(add 1 1.5)"))
+          (push (check_source (m "(float_bits 0.5 0.5)"))
+          (push (check_source (m "3."))
+          (push (check_source (m "0.1000000000000000055"))
+          (push (check_source (m "9007199254740993.0"))
+          (push (check_source (m "(head (machine))")) cz)))))))))))
     (rev da)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.

@@ -212,6 +212,7 @@
 (def fv_onto ((e Expr) (acc (list (list int)))) (list (list int))
   (match e
     ((EInt o v) acc)
+    ((EFloat o m p g) acc)
     ((EBool o v) acc)
     ((EStr o s) acc)
     ((ENil o t) acc)
@@ -271,6 +272,7 @@
                 (st Emit)) EmitVal
   (match e
     ((EInt o v) (finish tl (Val (digits v) (TyInt) st)))
+    ((EFloat o m p g) (finish tl (emit_float_lit m p g st)))
     ((EBool o v) (finish tl (Val (if v "1" "0") (TyBool) st)))
     ((ENil o t) (finish tl (Val "0" (TyList t) st)))
     ((EStr o s) (finish tl (emit_string (rev s) "0" st)))
@@ -389,6 +391,7 @@
   (match e
     ((EVar o n) n)
     ((EInt o v) "")
+    ((EFloat o m p g) "")
     ((EBool o v) "")
     ((EStr o s) "")
     ((ENil o t) "")
@@ -535,6 +538,7 @@
                       (NotRowUpdate))
                   (NotRowUpdate)))
             ((EInt o2 v2) (NotRowUpdate))
+            ((EFloat o2 m2 p2 g2) (NotRowUpdate))
             ((EBool o2 v2) (NotRowUpdate))
             ((EStr o2 s2) (NotRowUpdate))
             ((ENil o2 t2) (NotRowUpdate))
@@ -545,6 +549,7 @@
             ((EMatch o2 s2 a2) (NotRowUpdate)))
           (NotRowUpdate)))
     ((EInt o v) (NotRowUpdate))
+    ((EFloat o m p g) (NotRowUpdate))
     ((EBool o v) (NotRowUpdate))
     ((EStr o s) (NotRowUpdate))
     ((ENil o t) (NotRowUpdate))
@@ -567,6 +572,7 @@
     ((EInt o v)
       (match b
         ((EInt o2 v2) (eq v v2))
+        ((EFloat o2 m2 p2 g2) false)
         ((EBool o2 v2) false)
         ((EStr o2 s2) false)
         ((ENil o2 t2) false)
@@ -576,6 +582,7 @@
         ((ECtor o2 n2 t2 a2) false)
         ((EMatch o2 s2 a2) false)
         ((ECall o2 n2 a2) false)))
+    ((EFloat o m p g) false)
     ((EBool o v) false)
     ((EStr o s) false)
     ((ENil o t) false)
@@ -608,6 +615,7 @@
   (if (is_empty (var_name y))
       (match y
         ((EInt o k) (digits k))
+        ((EFloat o m p g) "0")
         ((EBool o b) "0")
         ((EStr o s) "0")
         ((ENil o t) "0")
@@ -647,6 +655,7 @@
     ((TyBool) false)
     ((TyList e) false)
     ((TyData n ts) false)
+    ((TyFloat) false)
     ((TyBytes) false)))
 
 ; inner with its one argument (array_get g y) made (array.take g y), when it
@@ -658,6 +667,7 @@
           (ECall o f (take_row g y fargs))
           inner))
     ((EInt o v) inner)
+    ((EFloat o m p g) inner)
     ((EBool o v) inner)
     ((EStr o s) inner)
     ((ENil o t) inner)
@@ -692,6 +702,7 @@
           (if (eq (var_name (head a)) g) (same_index y (head (tail a))) false)
           false))
     ((EInt o v) false)
+    ((EFloat o m p g) false)
     ((EBool o v) false)
     ((EStr o s) false)
     ((ENil o t) false)
@@ -713,6 +724,7 @@
     ((TyBool) (emit_rt_call "l0_array_take" (nil (list int)) st))
     ((TyList t) (emit_rt_call "l0_array_take" (nil (list int)) st))
     ((TyData n ts) (emit_rt_call "l0_array_take" (nil (list int)) st))
+    ((TyFloat) (emit_rt_call "l0_array_take" (nil (list int)) st))
     ((TyBytes) (emit_rt_call "l0_array_take" (nil (list int)) st))))
 
 (def emit_call_plain ((n (list int)) (args (list Expr)) (env Env)
@@ -779,7 +791,7 @@
 ; The type a builtin returns: fixed for most, following the argument for
 ; cons, head, tail, and the array builtins. Spec 6.
 (def builtin_type ((n (list int)) (ts (list Ty))) Ty
-  (if (any_eq n (split_spaces "lt le gt ge eq and or not is_empty"))
+  (if (any_eq n (split_spaces "lt le gt ge eq and or not is_empty float_lt float_le float_gt float_ge"))
       (TyBool)
       (if (eq n "cons")
           (head (tail ts))
@@ -792,13 +804,15 @@
 (def builtin_type_rest ((n (list int)) (ts (list Ty))) Ty
   (if (any_eq n (split_spaces "arg buffer_bytes"))
       (TyList (TyInt))
+      (if (any_eq n (split_spaces "float_add float_sub float_mul float_div float_neg float_from_int float_from_bits"))
+          (TyFloat)
       (if (eq n "array_new")
           (TyArray (head (tail ts)))
           (if (any_eq n (split_spaces "read_bytes read_some bytes_from_list space_read supervisor_receive"))
               (TyBytes)
               (if (eq n "bytes_to_list")
                   (TyList (TyInt))
-                  (if (eq n "user_run") (TyArray (TyInt)) (TyInt)))))))
+                  (if (eq n "user_run") (TyArray (TyInt)) (TyInt))))))))
 
 ; The type a function returns, from its signature.
 (def fn_type ((n (list int)) (env Env)) Ty
@@ -1096,7 +1110,115 @@
       (if (ge (index_of n (bit_ops 0)) 0)
           (emit_binop (nth_str (bit_insts 0) (index_of n (bit_ops 0)))
                       (head ops) (head (tail ops)) st)
-          (emit_op_more n ops ts st))))
+          (if (any_eq n (bi_float 0))
+              (emit_float_op n ops st)
+              (emit_op_more n ops ts st)))))
+
+; ------------------------------------------------------------------ floats
+;
+; A float is held as its key (spec 10.1): the IEEE bits with bits 0 to 62
+; flipped when bit 63 is set. The map is its own inverse. An operation
+; decodes to a double, computes, and encodes; every operation that can make
+; a NaN gives 0x7FF8000000000000 instead of the CPU's. Spec 6.17.
+
+; x xor ((x ashr 63) lshr 1)
+(def f_map ((x (list int)) (st Emit)) EmitVal
+  (match (emit_assign (append "ashr i64 " (append x ", 63")) st)
+    ((Val s ts st1)
+      (match (emit_assign (append "lshr i64 " (append s ", 1")) st1)
+        ((Val m tm st2) (emit_binop "xor" x m st2))))))
+
+; A key as a double.
+(def f_decode ((k (list int)) (st Emit)) EmitVal
+  (match (f_map k st)
+    ((Val b tb st1)
+      (emit_assign (append "bitcast i64 " (append b " to double")) st1))))
+
+; A double as a key.
+(def f_encode ((d (list int)) (st Emit)) EmitVal
+  (match (emit_assign (append "bitcast double " (append d " to i64")) st)
+    ((Val b tb st1) (f_map b st1))))
+
+; The key of the double d, or the one NaN's if d is a NaN.
+(def f_encode_canon ((d (list int)) (st Emit)) EmitVal
+  (match (f_encode d st)
+    ((Val e te st1)
+      (match (emit_assign (append "fcmp uno double " (append d (append ", " d))) st1)
+        ((Val u tu st2)
+          (emit_assign (append "select i1 " (append u
+            (append ", i64 9221120237041090560, i64 " e))) st2))))))
+
+(def f_arith ((n (list int))) (list int)
+  (nth_str (split_spaces "fadd fsub fmul fdiv")
+           (index_of n (split_spaces "float_add float_sub float_mul float_div"))))
+
+(def f_pred ((n (list int))) (list int)
+  (nth_str (split_spaces "olt ole ogt oge")
+           (index_of n (split_spaces "float_lt float_le float_gt float_ge"))))
+
+(def emit_float_op ((n (list int)) (ops (list (list int))) (st Emit)) EmitVal
+  (if (any_eq n (split_spaces "float_add float_sub float_mul float_div"))
+      (match (f_decode (head ops) st)
+        ((Val da ta st1)
+          (match (f_decode (head (tail ops)) st1)
+            ((Val db tb st2)
+              (match (emit_assign (append (f_arith n) (append " double "
+                         (append da (append ", " db)))) st2)
+                ((Val r tr st3) (f_encode_canon r st3)))))))
+      (emit_float_op_rest n ops st)))
+
+(def emit_float_op_rest ((n (list int)) (ops (list (list int))) (st Emit))
+    EmitVal
+  (if (any_eq n (split_spaces "float_lt float_le float_gt float_ge"))
+      (match (f_decode (head ops) st)
+        ((Val da ta st1)
+          (match (f_decode (head (tail ops)) st1)
+            ((Val db tb st2)
+              (match (emit_assign (append "fcmp " (append (f_pred n)
+                         (append " double " (append da (append ", " db))))) st2)
+                ((Val c tc st3)
+                  (emit_assign (append "zext i1 " (append c " to i64")) st3)))))))
+      (emit_float_op_conv n (head ops) st)))
+
+(def emit_float_op_conv ((n (list int)) (a (list int)) (st Emit)) EmitVal
+  (if (eq n "float_neg")
+      (match (f_decode a st)
+        ((Val d td st1)
+          (match (emit_assign (append "fneg double " d) st1)
+            ((Val r tr st2) (f_encode r st2)))))
+      (if (eq n "float_from_int")
+          (match (emit_assign (append "sitofp i64 " (append a " to double")) st)
+            ((Val d td st1) (f_encode d st1)))
+          (if (eq n "float_to_int")
+              (match (f_decode a st)
+                ((Val d td st1)
+                  (emit_assign (append "call i64 @llvm.fptosi.sat.i64.f64(double "
+                                 (append d ")")) st1)))
+              (if (eq n "float_bits")
+                  (f_map a st)
+                  (emit_from_bits a st))))))
+
+; float_from_bits: the key of the bits, or the one NaN's for any NaN.
+(def emit_from_bits ((a (list int)) (st Emit)) EmitVal
+  (match (f_map a st)
+    ((Val k tk st1)
+      (match (emit_assign (append "bitcast i64 " (append a " to double")) st1)
+        ((Val d td st2)
+          (match (emit_assign (append "fcmp uno double " (append d (append ", " d))) st2)
+            ((Val u tu st3)
+              (emit_assign (append "select i1 " (append u
+                (append ", i64 9221120237041090560, i64 " k))) st3))))))))
+
+; A float literal: the IEEE bits of m divided by those of 10^k, which is
+; correctly rounded since both are exact (spec 2.1), negated if written so.
+(def emit_float_lit ((m int) (p int) (neg bool) (st Emit)) EmitVal
+  (match (emit_assign (append "fdiv double 0x" (append (hex_digits m 16)
+           (append ", 0x" (hex_digits p 16)))) st)
+    ((Val q tq st1)
+      (if neg
+          (match (emit_assign (append "fneg double " q) st1)
+            ((Val r tr st2) (retype (f_encode r st2) (TyFloat))))
+          (retype (f_encode q st1) (TyFloat))))))
 
 (def emit_op_more ((n (list int)) (ops (list (list int))) (ts (list Ty))
                    (st Emit)) EmitVal
@@ -1145,6 +1267,7 @@
 (def tail_callees ((e Expr) (pn (list (list int))) (bs (list (list int)))
                    (acc (list (list int)))) (list (list int))
   (match e
+    ((EFloat o m p g) acc)
     ((EInt o v) acc)
     ((EBool o v) acc)
     ((EStr o s) acc)
@@ -1395,6 +1518,7 @@
       true
       (match e
         ((EInt o v) true)
+        ((EFloat o m p g) true)
         ((EBool o v) true)
         ((EStr o s) true)
         ((ENil o ty) true)
@@ -1508,6 +1632,7 @@
                      (pn (list (list int))) (x RoCx) (acc (list Demote)))
     (list Demote)
   (match e
+    ((EFloat o m p g) acc)
     ((EInt o v) acc)
     ((EBool o v) acc)
     ((EStr o s) acc)
@@ -1799,9 +1924,10 @@
   (append "declare i64 @l0_bit_shl(i64, i64)\n"
     (append "declare i64 @l0_bit_shr(i64, i64)\n"
       (append "declare i64 @l0_bit_count(i64)\n"
+        (append "declare i64 @llvm.fptosi.sat.i64.f64(double)\n"
         (append "declare i64 @l0_remove(i64)\n"
           (append "declare i64 @l0_compare(i64, i64)\n"
-            (append "declare i64 @l0_read_some(i64, i64)\n" (region_decls 0))))))))
+            (append "declare i64 @l0_read_some(i64, i64)\n" (region_decls 0)))))))))
 
 (def region_decls ((i int)) (list int)
   (append "declare i64 @l0_region_open(i64, i64)\n"

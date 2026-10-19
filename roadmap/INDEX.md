@@ -115,16 +115,14 @@ raw images too and changed with it (0093). Now the toolchain writes the
 ELF, the L0 kernel maps each segment by its flags and kills a process
 that writes its code, and an image's bss may pass 4 MB. L0S's font tool
 turns a circle only by 5 degrees, from a table of sines in fixed point, so
-floating point is next (0094), then sin and cos in the library (0095).
+floating point is in (0094), and sin and cos in the library are next (0095).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0094](0094-floating-point.md) floating point: `float`, its literals,
-   and its builtins — queued
-2. [0095](0095-sin-and-cos.md) tooling: the library's sin and cos — queued,
-   needs 0094 and its seed refresh
+1. [0095](0095-sin-and-cos.md) tooling: the library's sin and cos — queued,
+   0094 and its seed refresh are done
 
 ## Other open items
 
@@ -379,3 +377,5 @@ None.
 - [0093](0093-elf-process-images.md) a process's image is an ELF, its
   segments mapped by permission — done, changelog "A process's image is
   an ELF, its segments mapped by their permissions"
+- [0094](0094-floating-point.md) floating point: `float`, its literals, and
+  its builtins — done, changelog "Floating point"; passed on Linux arm64

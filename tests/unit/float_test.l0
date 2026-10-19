@@ -1,0 +1,109 @@
+; Unit tests for floats, spec 2.1 and 6.17. Stage 0 knows no floats, so these
+; are the only tests of them. Every expected bit pattern was computed outside
+; L0, with Python's struct module, as the IEEE 754 bits of a binary64.
+
+(data Box
+  (Box float int))
+
+(def nan () float (float_div 0.0 0.0))
+(def inf () float (float_div 1.0 0.0))
+
+; The bits a literal or an operation gives.
+(def test_literals () int
+  (add (check_int "0.1" (float_bits 0.1) 4591870180066957722)
+  (add (check_int "pi" (float_bits 3.141592653589793) 4614256656552045848)
+  (add (check_int "-2.5" (float_bits -2.5) -4610560118520545280)
+  (add (check_int "negative zero" (float_bits -0.0) -9223372036854775808)
+  (add (check_int "zero" (float_bits 0.0) 0)
+  (add (check_int "trailing zeros" (float_bits 3.7500) (float_bits 3.75))
+  (add (check_int "m is 2^53" (float_bits 9007199254740992.0) 4845873199050653696)
+       (check_int "k is 22" (float_bits 0.0000000000000000000001) 4277919505920253670)))))))))
+
+(def test_arithmetic () int
+  (add (check_int "add" (float_bits (float_add 1.5 2.25)) 4615626668101337088)
+  (add (check_int "sub" (float_bits (float_sub 1.5 -2.25)) 4615626668101337088)
+  (add (check_int "mul" (float_bits (float_mul 1.5 2.5)) 4615626668101337088)
+  (add (check_int "div" (float_bits (float_div 7.5 2.0)) 4615626668101337088)
+  (add (check_int "rounds" (float_bits (float_add 0.1 0.2)) 4599075939470750516)
+  (add (check_int "third" (float_bits (float_div 1.0 3.0)) 4599676419421066581)
+       (check_int "neg" (float_bits (float_neg 2.5)) -4610560118520545280))))))))
+
+(def test_conversions () int
+  (add (check_int "from_int" (float_bits (float_from_int 3)) 4613937818241073152)
+  (add (check_int "from_int 2^63 - 1" (float_bits (float_from_int 9223372036854775807)) 4890909195324358656)
+  (add (check_int "to_int truncates" (float_to_int 2.9) 2)
+  (add (check_int "to_int toward zero" (float_to_int -2.9) -2)
+  (add (check_int "to_int of nan" (float_to_int (nan)) 0)
+  (add (check_int "to_int past the top" (float_to_int (inf)) 9223372036854775807)
+  (add (check_int "to_int past the bottom" (float_to_int (float_neg (inf))) -9223372036854775808)
+  (add (check_int "to_int of 2^63" (float_to_int (float_from_int 9223372036854775807)) 9223372036854775807)
+       (check_int "round trip" (float_to_int (float_mul (float_from_int 1000) 0.25)) 250))))))))))
+
+(def test_bits () int
+  (add (check_int "from_bits" (float_bits (float_from_bits 4591870180066957722)) 4591870180066957722)
+  (add (check_true "from_bits is a literal" (eq (float_from_bits 4591870180066957722) 0.1))
+  (add (check_int "infinity" (float_bits (inf)) 9218868437227405312)
+       (check_int "negative infinity" (float_bits (float_neg (inf))) -4503599627370496)))))
+
+(def test_comparisons () int
+  (add (check_bool "lt" (float_lt 1.0 2.0) true)
+  (add (check_bool "lt equal" (float_lt 2.0 2.0) false)
+  (add (check_bool "le equal" (float_le 2.0 2.0) true)
+  (add (check_bool "gt" (float_gt -1.0 -2.0) true)
+  (add (check_bool "ge" (float_ge -2.0 -1.0) false)
+  (add (check_bool "le of the zeros" (float_le -0.0 0.0) true)
+  (add (check_bool "lt of the zeros" (float_lt -0.0 0.0) false)
+  (add (check_bool "lt with nan" (float_lt (nan) 1.0) false)
+  (add (check_bool "gt with nan" (float_gt 1.0 (nan)) false)
+  (add (check_bool "ge of nans" (float_ge (nan) (nan)) false)
+       (check_bool "infinity" (float_lt 1000000.0 (inf)) true))))))))))))
+
+; One NaN, whichever operation made it, and the one other with the sign set.
+(def test_one_nan () int
+  (add (check_int "0/0" (float_bits (nan)) 9221120237041090560)
+  (add (check_int "inf - inf" (float_bits (float_sub (inf) (inf))) 9221120237041090560)
+  (add (check_int "0 * inf" (float_bits (float_mul 0.0 (inf))) 9221120237041090560)
+  (add (check_int "nan + 1" (float_bits (float_add (nan) 1.0)) 9221120237041090560)
+  (add (check_int "from_bits of any nan" (float_bits (float_from_bits -1)) 9221120237041090560)
+  (add (check_int "from_bits of a signalling nan" (float_bits (float_from_bits 9218868437227405313)) 9221120237041090560)
+       (check_int "neg nan" (float_bits (float_neg (nan))) -2251799813685248))))))))
+
+(def test_eq () int
+  (add (check_bool "same" (eq 0.5 0.5) true)
+  (add (check_bool "different" (eq 0.5 0.25) false)
+  (add (check_bool "the zeros differ" (eq 0.0 -0.0) false)
+  (add (check_bool "nan is itself" (eq (nan) (nan)) true)
+  (add (check_bool "in data" (eq (Box 1.5 2) (Box 1.5 2)) true)
+       (check_bool "in data, differing" (eq (Box 1.5 2) (Box 1.5 3)) false)))))))
+
+(def test_compare () int
+  (add (check_int "-2 before -1" (compare -2.0 -1.0) -1)
+  (add (check_int "-1 after -2" (compare -1.0 -2.0) 1)
+  (add (check_int "-1 before 1" (compare -1.0 1.0) -1)
+  (add (check_int "0.5 before 2" (compare 0.5 2.0) -1)
+  (add (check_int "-0 before 0" (compare -0.0 0.0) -1)
+  (add (check_int "same" (compare 3.5 3.5) 0)
+  (add (check_int "-inf before -max" (compare (float_neg (inf)) (float_from_bits -4503599627370497)) -1)
+  (add (check_int "inf before nan" (compare (inf) (nan)) -1)
+  (add (check_int "neg nan before -inf" (compare (float_neg (nan)) (float_neg (inf))) -1)
+  (add (check_int "in data" (compare (Box -2.0 0) (Box -1.0 0)) -1)
+       (check_int "in data, second field" (compare (Box 1.0 1) (Box 1.0 2)) -1))))))))))))
+
+(def test_sort () int
+  (let xs (sort (cons 2.5 (cons -1.0 (cons 0.0 (cons -3.5 (cons -0.0 (nil float)))))))
+    (add (check_int "first" (float_bits (head xs)) (float_bits -3.5))
+    (add (check_int "second" (float_bits (head (tail xs))) (float_bits -1.0))
+    (add (check_int "third" (float_bits (head (tail (tail xs)))) (float_bits -0.0))
+    (add (check_int "fourth" (float_bits (head (tail (tail (tail xs))))) 0)
+         (check_int "last" (float_bits (head (tail (tail (tail (tail xs)))))) (float_bits 2.5))))))))
+
+(def test_hash () int
+  (add (check_true "equal floats hash alike" (eq (hash 1.5) (hash 1.5)))
+       (check_true "the zeros hash apart" (not (eq (hash 0.0) (hash -0.0))))))
+
+(def test_map_key () int
+  (let m (map_put (map_put (map_put ((MapEmpty float int)) -2.0 1) 0.5 2) -2.0 3)
+    (add (check_int "size" (map_size m) 2)
+    (add (check_int "replaced" (match (map_get m -2.0) ((Some v) v) ((None) -1)) 3)
+    (add (check_int "found" (match (map_get m 0.5) ((Some v) v) ((None) -1)) 2)
+         (check_int "missing" (match (map_get m 0.25) ((Some v) v) ((None) -1)) -1))))))

@@ -1,7 +1,7 @@
 # 0094: floating point
 
 Kind: language
-Status: queued
+Status: done
 Needs: nothing
 
 ## Why
@@ -167,3 +167,21 @@ prelude use none of it, so this is one bootstrapped step; the library's
   0095, and text conversion later. Checked that both trap frames already
   keep the FPU's registers and which operations lower to instructions on
   both boards and amd64. Queued; next is step 1.
+- 2026-10-19: started. Step 1 done: spec 2.1 (float literals), 2.3, 3, 6
+  table, 6.8, 6.9, 6.11, 6.17 (new), 10.1, and the changelog entry
+  "Floating point". The spec says `float_neg` of the NaN is the one other
+  NaN, 0xFFF8..., a refinement of decision 3. Next is step 2, the
+  compiler: lex.l0, parse.l0, check.l0, emit.l0.
+- 2026-10-19: steps 2 to 6 done. A float literal is a token (the IEEE bits
+  of m and of 10^k, computed in the lexer with integers) and an `EFloat`
+  expression, emitted as `fdiv double` of two hex constants, so the
+  checker has no literal limit to check: the lexer reports it. Passed:
+  `tools/test.sh`, `--compiled`, the bootstrap fixpoint, `--virt` on both
+  CPUs, `tests/unit/float_test.l0` on the host and both boards, and Linux
+  arm64. Linux amd64 was skipped at the user's word (too slow). Step 5: a
+  dependent chain of one `float_mul` and one `float_add` per iteration ran
+  at 9.8 ns, against 1.3 ns for an int `mul` and `add` chain, -O2, 300M
+  iterations, on the host. Most of that is the key's decode and encode and
+  the NaN select, since each operation does both; not measured against raw
+  bits, so the split is not known. Fine for L0S's circles; revisit if a
+  program's hot loop is float arithmetic. Seed refreshed. 0095 is next.

@@ -7,6 +7,74 @@ New entries go at the top.
 
 ---
 
+## Floating point
+
+**New:** the type `float`, float literals such as `0.5`, and the builtins
+`float_add float_sub float_mul float_div float_neg`, `float_lt float_le
+float_gt float_ge`, `float_from_int float_to_int`, and `float_bits
+float_from_bits` (spec 2.1, 3, 6.17, 10.1).
+
+*Why now:* L0S, the kernel's own project, draws its font's circles from a
+table of sines in 1/65536 that holds sin of 5k degrees, so a shape turns
+only by multiples of 5 degrees. `roadmap/0094/why.l0` is the smallest
+program that cannot be written: a point on a circle at any angle. 0028's
+json earned floats earlier for printing numbers, and 0055 named them as not
+yet earned; text conversion is still not this.
+
+**Names carry the type** (`float_add`, as `bit_` and `array_`), because L0
+has no overloading and `add` stays `int`'s. `float` is not reserved, as
+`bytes` is not, so no program loses a name.
+
+**The word holds the float's key, not its bits.** A key is the IEEE bits
+with bits 0 to 62 flipped when the sign is set, so as signed integers keys
+are in IEEE totalOrder, and the map is its own inverse. *Why:* `eq`, `hash`,
+and `compare` read non-pointer words as signed integers, and on raw bits
+-2.0 would sort above -1.0. With keys they need no change in the compiler or
+the runtime, work on any value holding a float, and let a float key the
+library's map. The cost is that `eq` is identity of keys, so `(eq 0.0 -0.0)`
+is false and NaN is `eq` to itself, while `float_lt` and its siblings are
+IEEE's. Rejected: the checker refusing `compare` on any type that mentions
+`float`, which would keep floats out of sorted lists and map keys for
+nothing.
+
+**NaN is one value.** CPUs disagree on the NaN an operation makes (riscv64
+always 0x7FF8000000000000, aarch64 passes a payload on unless FPCR.DN, amd64
+0xFFF8000000000000), and under keys that would show in `eq`, `hash`, and
+`compare`, so one program would differ by CPU. Every operation that can
+make a NaN, and `float_from_bits`, gives 0x7FF8000000000000. `float_neg` of
+it is the one other NaN.
+
+**Literals are the ones a single IEEE division gets exactly right.** LLVM IR
+accepts a decimal double only if exact, so the compiler writes bits, and it
+cannot compute them with floats. Clinger's fast path (m at most 2^53, k at
+most 22, both exact) makes m divided by 10^k correctly rounded by IEEE
+itself. Anything else is a compile error that names the limit, and
+`float_from_bits` writes every other value. No exponent form until a
+program needs one.
+
+**`float_to_int` saturates and `float_div` does not trap.** NaN gives 0 and
+an out-of-range value gives the end of the range, never poison, as `add`
+never traps. Rounding is always to nearest, ties to even.
+
+**A literal is its own expression, not a call.** Desugaring `0.1` to a call
+of `float_div` would let a program's own function of that name take it over
+(0031), so the lexer computes the bits of m and of 10^k with integers and
+the emitter writes `fdiv double` of the two. The 2^53 and 22-digit limits
+are the lexer's errors.
+
+**Cost.** Each operation decodes and encodes the key, and the NaN select
+follows. A dependent chain of one multiply and one add took 9.8 ns an
+iteration at `-O2`, against 1.3 ns for an int chain, on the host. That
+was not measured against raw bits, so how much of it is the key is not
+known; the answer is in roadmap 0094's Log, to be revisited if a program's
+hot loop is float arithmetic.
+
+**Left out:** `float_sqrt`, `float_abs`, `float_floor` (amd64 calls libm for
+it, which the runtime may not), exponent literals, and text conversion.
+`float_sin` and `float_cos` are the library's, roadmap 0095.
+
+---
+
 ## A process's image is an ELF, its segments mapped by their permissions
 
 **No change to what a program means.** What changes is the image `l0

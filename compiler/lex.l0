@@ -13,6 +13,7 @@
   (TLParen int)                ; offset
   (TRParen int)                ; offset
   (TInt int int)               ; offset, value
+  (TFloat int int int bool)    ; offset, IEEE bits of m, of 10^k, negative
   (TStr int (list int))        ; offset, bytes
   (TName int (list int))       ; offset, name
   (TErr int (list int)))       ; offset, message
@@ -30,6 +31,7 @@
     ((TLParen o) o)
     ((TRParen o) o)
     ((TInt o v) o)
+    ((TFloat o m p g) o)
     ((TStr o s) o)
     ((TName o s) o)
     ((TErr o m) o)))
@@ -47,7 +49,8 @@
     ((TInt o v) 2)
     ((TStr o s) 3)
     ((TName o s) 4)
-    ((TErr o m) 5)))
+    ((TErr o m) 5)
+    ((TFloat o m p g) 6)))
 
 (def tok_is_lparen ((t Token)) bool (eq (tok_kind t) 0))
 (def tok_is_rparen ((t Token)) bool (eq (tok_kind t) 1))
@@ -55,10 +58,43 @@
 (def tok_is_str ((t Token)) bool (eq (tok_kind t) 3))
 (def tok_is_name ((t Token)) bool (eq (tok_kind t) 4))
 (def tok_is_err ((t Token)) bool (eq (tok_kind t) 5))
+(def tok_is_float ((t Token)) bool (eq (tok_kind t) 6))
+
+; A float token's bits of m, then of 10^k, and whether it is negative.
+(def tok_float_m ((t Token)) int
+  (match t
+    ((TFloat o m p g) m)
+    ((TInt o v) 0)
+    ((TLParen o) 0)
+    ((TRParen o) 0)
+    ((TStr o s) 0)
+    ((TName o s) 0)
+    ((TErr o e) 0)))
+
+(def tok_float_p ((t Token)) int
+  (match t
+    ((TFloat o m p g) p)
+    ((TInt o v) 0)
+    ((TLParen o) 0)
+    ((TRParen o) 0)
+    ((TStr o s) 0)
+    ((TName o s) 0)
+    ((TErr o e) 0)))
+
+(def tok_float_neg ((t Token)) bool
+  (match t
+    ((TFloat o m p g) g)
+    ((TInt o v) false)
+    ((TLParen o) false)
+    ((TRParen o) false)
+    ((TStr o s) false)
+    ((TName o s) false)
+    ((TErr o e) false)))
 
 (def tok_int ((t Token)) int
   (match t
     ((TInt o v) v)
+    ((TFloat o m p g) 0)
     ((TLParen o) 0)
     ((TRParen o) 0)
     ((TStr o s) 0)
@@ -73,6 +109,7 @@
     ((TErr o m) m)
     ((TLParen o) (nil int))
     ((TRParen o) (nil int))
+    ((TFloat o m p g) (nil int))
     ((TInt o v) (nil int))))
 
 ; Offset of the first token, or the supplied fallback when there is none.
@@ -191,7 +228,90 @@
       (let body_off (if negative (add off 1) off)
         (if (eq (count_digits body 0) 0)
             (Scanned (TErr off "expected digits after '-'") body body_off)
-            (finish_number (scan_digits body body_off 0 0) off negative))))))
+            (if (float_ahead body)
+                (scan_float body body_off off negative)
+                (finish_number (scan_digits body body_off 0 0) off negative)))))))
+
+; ------------------------------------------------------------------- floats
+;
+; Spec 2.1: m divided by 10^k, with m at most 2^53 and k at most 22, so both
+; are exact binary64s and one IEEE division gives the correctly rounded
+; value. The token carries the IEEE bits of m and of 10^k, computed here
+; with integers, since the compiler has no floats.
+
+; Digit values, in reverse, then what is left and its offset.
+(data Run
+  (Run (list int) (list int) int))
+
+(def take_digits ((src (list int)) (off int) (acc (list int))) Run
+  (if (is_empty src)
+      (Run acc src off)
+      (if (is_digit (head src))
+          (take_digits (tail src) (add off 1) (cons (sub (head src) 48) acc))
+          (Run acc src off))))
+
+; Whether src, which starts with a digit, is digits, a point, and a digit.
+(def float_ahead ((src (list int))) bool
+  (match (take_digits src 0 (nil int))
+    ((Run ds rest o)
+      (if (is_empty rest)
+          false
+          (if (eq (head rest) 46)
+              (if (is_empty (tail rest)) false (is_digit (head (tail rest))))
+              false)))))
+
+; Reversed digits without their leading zeros: the trailing zeros of the
+; number they spell.
+(def drop_zeros ((ds (list int))) (list int)
+  (if (is_empty ds)
+      ds
+      (if (eq (head ds) 0) (drop_zeros (tail ds)) ds)))
+
+; Digits, first to last, as an integer held at 2^53 + 1 once it is past 2^53.
+(def fold_digits ((ds (list int)) (m int)) int
+  (if (is_empty ds)
+      m
+      (let v (add (mul m 10) (head ds))
+        (fold_digits (tail ds) (if (gt v 9007199254740993) 9007199254740993 v)))))
+
+(def pow5 ((k int) (acc int)) int
+  (if (eq k 0) acc (pow5 (sub k 1) (mul acc 5))))
+
+; The position of the highest set bit of n, for n at least 1.
+(def high_bit ((n int) (e int)) int
+  (if (eq n 1) e (high_bit (bit_shr n 1) (add e 1))))
+
+; The IEEE bits of n times 2^e2, for n from 0 to 2^53.
+(def double_bits ((n int) (e2 int)) int
+  (if (eq n 0)
+      0
+      (let e (high_bit n 0)
+        (let mant (if (le e 52) (bit_shl n (sub 52 e)) (bit_shr n (sub e 52)))
+          (bit_or (bit_shl (add (add e e2) 1023) 52)
+                  (bit_and mant 4503599627370495))))))
+
+; body starts with digits, a point, and a digit; start is the offset of the
+; token, which has a - first if negative.
+(def scan_float ((body (list int)) (off int) (start int) (negative bool)) Scan
+  (match (take_digits body off (nil int))
+    ((Run ids rest o1)
+      (match (take_digits (tail rest) (add o1 1) (nil int))
+        ((Run fds rest2 o2)
+          (let fr (drop_zeros fds)
+            (let k (length fr)
+              (let m (fold_digits (rev fr) (fold_digits (rev ids) 0))
+                (if (and (not (is_empty rest2)) (is_name_rest (head rest2)))
+                    (Scanned (TErr start "invalid character in float literal")
+                             (skip_name_rest rest2) o2)
+                    (if (gt m 9007199254740992)
+                        (Scanned (TErr start "float literal's digits are more than 2^53; write it with float_from_bits")
+                                 rest2 o2)
+                        (if (gt k 22)
+                            (Scanned (TErr start "float literal has more than 22 digits after the point; write it with float_from_bits")
+                                     rest2 o2)
+                            (Scanned (TFloat start (double_bits m 0)
+                                             (double_bits (pow5 k 1) k) negative)
+                                     rest2 o2))))))))))))
 
 ; scan_digits produced a non-positive magnitude. Fix the sign, reject a
 ; positive literal that only fits as a negative one, and reject a name
@@ -201,6 +321,7 @@
     ((Scanned t rest off)
       (match t
         ((TErr o m) (Scanned (TErr start m) rest off))
+        ((TFloat o m p g) s)
         ((TInt o n)
           (if (and (not (is_empty rest)) (is_name_rest (head rest)))
               (Scanned (TErr start "invalid character in integer literal")
@@ -234,6 +355,7 @@
         ((TLParen o) (Scanned t rest noff))
         ((TRParen o) (Scanned t rest noff))
         ((TInt o v) (Scanned t rest noff))
+        ((TFloat o m p g) (Scanned t rest noff))
         ((TStr o v) (Scanned t rest noff))
         ((TErr o m) (Scanned t rest noff))))))
 
@@ -275,5 +397,6 @@
         ((TLParen o) (first_lex_error (tail ts)))
         ((TRParen o) (first_lex_error (tail ts)))
         ((TInt o v) (first_lex_error (tail ts)))
+        ((TFloat o m p g) (first_lex_error (tail ts)))
         ((TStr o s) (first_lex_error (tail ts)))
         ((TName o s) (first_lex_error (tail ts))))))

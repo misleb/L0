@@ -101,3 +101,13 @@ ok
 35: an argument of frame_free must be int, but this is (list int)
 35: machine takes 0 arguments, but got 1
 35: head must be a list, but this is int
+parse error at offset 35: float literal's digits are more than 2^53; write it with float_from_bits
+parse error at offset 35: float literal's digits are more than 2^53; write it with float_from_bits
+parse error at offset 36: a def is (def name (params...) return-type body)
+35: float_bits takes 1 argument, but got 2
+35: an argument of add must be int, but this is float
+35: float_add takes 2 arguments, but got 1
+35: an argument of float_lt must be float, but this is int
+35: an argument of float_from_int must be int, but this is float
+35: an argument of float_to_int must be float, but this is int
+35: an argument of float_neg must be float, but this is int

@@ -124,6 +124,7 @@
           (TyData n (tys_subst as bs))))
     ((TyInt) t)
     ((TyBool) t)
+    ((TyFloat) t)
     ((TyBytes) t)))
 
 (def tys_subst ((ts (list Ty)) (bs (list Bind))) (list Ty)
@@ -297,7 +298,22 @@
               (names_then (bi_to_list 0)
                 (names_then (bi_array 0)
                   (names_then (bi_bytes 0)
-                    (names_then (bi_user 0) (split_spaces "neg bit_count not eq hash compare"))))))))))))
+                    (names_then (bi_user 0)
+                      (names_then (bi_float 0)
+                        (split_spaces "neg bit_count not eq hash compare")))))))))))))
+
+; The floats of spec 6.17. check_float_builtin checks them.
+(def bi_float ((i int)) (list (list int))
+  (split_spaces "float_add float_sub float_mul float_div float_neg float_lt float_le float_gt float_ge float_from_int float_to_int float_bits float_from_bits"))
+
+(def check_float_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
+  (if (any_eq n (split_spaces "float_add float_sub float_mul float_div float_neg"))
+      (need_all n ats o (TyFloat) (TyFloat))
+      (if (any_eq n (split_spaces "float_lt float_le float_gt float_ge"))
+          (need_all n ats o (TyFloat) (TyBool))
+          (if (any_eq n (split_spaces "float_to_int float_bits"))
+              (need_all n ats o (TyFloat) (TyInt))
+              (need_all n ats o (TyInt) (TyFloat))))))
 
 (def names_then ((xs (list (list int))) (ys (list (list int))))
     (list (list int))
@@ -307,7 +323,7 @@
   (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns barrier space_new frame_new interrupt_wait machine"))
       0
       (if (any_eq n (split_spaces
-            "neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes remove buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list timer_at interrupt_enable interrupt_done frame_address space_free frame_free"))
+            "float_neg float_from_int float_to_int float_bits float_from_bits neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes remove buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list timer_at interrupt_enable interrupt_done frame_address space_free frame_free"))
           1
           (if (any_eq n (split_spaces "array_set region_write8 region_write16 region_write32 region_write64 space_read supervisor_receive"))
               3
@@ -353,7 +369,9 @@
           (COk (TyInt))
           (if (eq n "compare")
               (check_compare ats o)
-              (check_other_builtin_paths n ats o)))))
+              (if (any_eq n (bi_float 0))
+                  (check_float_builtin n ats o)
+                  (check_other_builtin_paths n ats o))))))
 
 (def check_other_builtin_paths ((n (list int)) (ats (list Ty)) (o int))
     (Checked Ty)
@@ -497,6 +515,7 @@
 (def check_expr ((e Expr) (env (list Bind)) (ctx Ctx)) (Checked Ty)
   (match e
     ((EInt o v) (COk (TyInt)))
+    ((EFloat o m p g) (COk (TyFloat)))
     ((EBool o v) (COk (TyBool)))
     ((EStr o s) (COk (TyList (TyInt))))
     ((ENil o elem) (check_nil o elem ctx))
@@ -1299,6 +1318,7 @@
     ((TyData n as)
       (TyData (if (any_eq n tps) n (rn_name n tns)) (rn_tys as tns tps)))
     ((TyArray e) (TyArray (rn_ty e tns tps)))
+    ((TyFloat) (TyFloat))
     ((TyBytes) (TyBytes))))
 
 (def rn_tys ((ts (list Ty)) (tns (list (list int))) (tps (list (list int))))
@@ -1312,6 +1332,7 @@
               (tps (list (list int)))) Expr
   (match e
     ((EInt o v) (EInt o v))
+    ((EFloat o m p g) e)
     ((EBool o v) (EBool o v))
     ((EStr o s) (EStr o s))
     ((EVar o n) (EVar o n))
@@ -1406,6 +1427,7 @@
         ((None) (TyData n (tys_inst as bs)))))
     ((TyInt) t)
     ((TyBool) t)
+    ((TyFloat) t)
     ((TyBytes) t)))
 
 (def tys_inst ((ts (list Ty)) (bs (list Bind))) (list Ty)
@@ -1421,6 +1443,7 @@
 (def expr_inst ((e Expr) (bs (list Bind))) Expr
   (match e
     ((EInt o v) e)
+    ((EFloat o m p g) e)
     ((EBool o v) e)
     ((EStr o s) e)
     ((EVar o n) e)
@@ -1540,6 +1563,7 @@
 (def mono_expr ((e Expr) (env (list Bind)) (ctx Ctx)) Mono
   (match e
     ((EInt o v) (Mo e (TyInt)))
+    ((EFloat o m p g) (Mo e (TyFloat)))
     ((EBool o v) (Mo e (TyBool)))
     ((EStr o s) (Mo e (TyList (TyInt))))
     ((ENil o t) (Mo e (TyList t)))

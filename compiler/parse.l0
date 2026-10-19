@@ -14,10 +14,12 @@
   (TyList Ty)
   (TyData (list int) (list Ty))         ; declared type name, arguments
   (TyArray Ty)
-  (TyBytes))
+  (TyBytes)
+  (TyFloat))
 
 (data Expr
   (EInt int int)                        ; offset, value
+  (EFloat int int int bool)             ; offset, IEEE bits of m, of 10^k, negative
   (EBool int bool)                      ; offset, value
   (EStr int (list int))                 ; offset, bytes
   (EVar int (list int))                 ; offset, name
@@ -57,7 +59,8 @@
     ((TyList e) 2)
     ((TyData n as) 3)
     ((TyArray e) 4)
-    ((TyBytes) 5)))
+    ((TyBytes) 5)
+    ((TyFloat) 6)))
 
 (def ty_is_list ((t Ty)) bool (eq (ty_kind t) 2))
 (def ty_is_data ((t Ty)) bool (eq (ty_kind t) 3))
@@ -73,6 +76,7 @@
     ((TyInt) (TyInt))
     ((TyBool) (TyBool))
     ((TyData n as) (TyInt))
+    ((TyFloat) (TyInt))
     ((TyBytes) (TyInt))))
 
 (def ty_name ((t Ty)) (list int)
@@ -82,6 +86,7 @@
     ((TyBool) "")
     ((TyList e) "")
     ((TyArray e) "")
+    ((TyFloat) "")
     ((TyBytes) "")))
 
 ; A data type's arguments, and none for any other type.
@@ -92,6 +97,7 @@
     ((TyBool) (nil Ty))
     ((TyList e) (nil Ty))
     ((TyArray e) (nil Ty))
+    ((TyFloat) (nil Ty))
     ((TyBytes) (nil Ty))))
 
 ; Renders a type as spec-legal source text, for diagnostics.
@@ -103,6 +109,7 @@
     ((TyArray e) (append "(array " (append (ty_str e) ")")))
     ((TyData n as)
       (if (is_empty as) n (append "(" (append n (append (tys_str as) ")")))))
+    ((TyFloat) "float")
     ((TyBytes) "bytes")))
 
 ; " t1 t2 ...", each type preceded by a space.
@@ -160,7 +167,7 @@
                 (if (tok_is_lparen t)
                     (parse_list_type (tail ts) (tok_offset t))
                     ((PErr Ty) (tok_offset t)
-                      "expected a type: int, bool, bytes, (list T), or (array T)")))))))
+                      "expected a type: int, bool, float, bytes, (list T), or (array T)")))))))
 
 ; An uppercase name is a declared data type. Whether it was actually
 ; declared is the checker's business, not the parser's.
@@ -172,7 +179,9 @@
             (POk (TyBool) rest)
             (if (eq n "bytes")
                 (POk (TyBytes) rest)
-                (parse_type_other t n rest))))))
+                (if (eq n "float")
+                    (POk (TyFloat) rest)
+                    (parse_type_other t n rest)))))))
 
 (def parse_type_other ((t Token) (n (list int)) (rest (list Token))) (Parsed Ty)
   (if (any_eq n (split_spaces "list array"))
@@ -182,7 +191,7 @@
           (POk (TyData n (nil Ty)) rest)
           ((PErr Ty) (tok_offset t)
             (append "unknown type " (append n
-              ": a type is int, bool, bytes, (list T), (array T), or a data type, whose name starts uppercase"))))))
+              ": a type is int, bool, float, bytes, (list T), (array T), or a data type, whose name starts uppercase"))))))
 
 (def parse_list_type ((ts (list Token)) (open int)) (Parsed Ty)
   (if (is_empty ts)
@@ -245,6 +254,10 @@
             ((PErr Expr) (tok_offset t) (tok_bytes t))
             (if (tok_is_int t)
                 (POk (EInt (tok_offset t) (tok_int t)) (tail ts))
+                (if (tok_is_float t)
+                    (POk (EFloat (tok_offset t) (tok_float_m t) (tok_float_p t)
+                                 (tok_float_neg t))
+                         (tail ts))
                 (if (tok_is_str t)
                     (POk (EStr (tok_offset t) (tok_bytes t)) (tail ts))
                     (if (tok_is_name t)
@@ -252,7 +265,7 @@
                         (if (tok_is_lparen t)
                             (parse_form (tail ts) (tok_offset t))
                             ((PErr Expr) (tok_offset t)
-                              "unexpected ) where an expression was expected")))))))))
+                              "unexpected ) where an expression was expected"))))))))))
 
 (def parse_atom_name ((t Token) (rest (list Token))) (Parsed Expr)
   (let n (tok_bytes t)
