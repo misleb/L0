@@ -1,0 +1,53 @@
+# 0095: the library's sin and cos
+
+Kind: tooling
+Status: queued
+Needs: 0094, with the seed refreshed
+
+## Why
+
+`roadmap/0094/why.l0` is L0S's circle at any angle, where its
+`tools/mkfont/shape.l0` turns only by 5 degrees, from a table. 0094 gives
+`float` and its builtins; this gives the `float_sin` and `float_cos` that
+program calls, in the library, written in L0, since no compiled program
+calls C and no board has a libm.
+
+It waits for 0094's seed: `tools/l0` compiles the library with the seed, so
+the library using a builtin the seed lacks breaks every `tools/l0` command
+(`l0-bootstrap`, "Constraints the seed imposes").
+
+## The plan
+
+- **Where:** `lib/prelude.l0`, since the functions are pure, as `sort` is.
+  The prelude is compiler source too, which is why this follows 0094's
+  seed.
+- **How:** fdlibm's method, as musl has it: reduce x by multiples of pi/2
+  held in three parts (Cody-Waite), then `__kernel_sin` and `__kernel_cos`'s
+  polynomials on [-pi/4, pi/4], picked by the quadrant.
+- **Large arguments.** Cody-Waite in three parts is exact for |x| below
+  about 2^20 * pi/2. Lean: do that first, and say in the `;;` documentation
+  what happens past it; add Payne-Hanek, with its table of 2/pi's bits,
+  only when a program passes such an argument.
+- **Coefficients** are 17 or more significant digits, past 0094's literal
+  limit, so they are written `(float_from_bits N)`, with N the decimal of
+  fdlibm's hex bits, since L0 has no hex integer literal either. Record
+  this in the Log as evidence for or against a full literal parser.
+- **Accuracy:** within 1 ulp of the true value over the range above.
+  `tests/unit/` checks it against values computed outside L0 (Python's
+  `math.sin` and `math.cos`, given as bits), at the quadrant edges, at
+  multiples of 5 degrees as L0S's table has them, and at a spread of
+  random arguments; and `float_sin` of -0.0 is -0.0, of an infinity or NaN
+  the one NaN.
+- `tests/io/libdoc/index.txt` regenerated and its diff read.
+
+## Done when
+
+- `roadmap/0094/why.l0` passes `tools/l0check` with the library, and runs
+- the tests pass on the host, both virt boards, and Linux arm64 and amd64
+- L0S is told, so it can drop `shape_sines` (its change to make)
+- `roadmap/0094/` is deleted, since the real thing then exists
+
+## Log
+
+- 2026-10-19: opened with 0094, at the user's request, for L0S. Queued
+  behind 0094 and its seed refresh.
