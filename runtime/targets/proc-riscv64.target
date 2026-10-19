@@ -8,3 +8,4 @@ T_CFLAGS="-march=rv64gc -mabi=lp64d -mcmodel=medany -mno-relax"
 T_TAIL_WORDS=13
 T_PARTS="bare/proc.ll arch/riscv64/proc.ll"
 T_LAYOUT=proc.ld
+T_LDFLAGS="-z max-page-size=4096"

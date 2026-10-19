@@ -7,3 +7,4 @@ T_TRIPLE=aarch64-none-elf
 T_CFLAGS=""
 T_PARTS="bare/proc.ll arch/aarch64/proc.ll"
 T_LAYOUT=proc.ld
+T_LDFLAGS="-z max-page-size=4096"

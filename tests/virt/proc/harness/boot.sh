@@ -20,7 +20,7 @@
 # L0_VIRT_LD if it names an ld.lld, or else in the l0-virt-link container,
 # as tools/l0 links --target virt: the kernel as an ELF, with elf.ll, its
 # loader for processes, beside it, which QEMU boots as it is, needing no
-# boot arguments, and fault.ll raw, as a process.
+# boot arguments, and fault.ll as a process is, an ELF.
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -45,7 +45,7 @@ if [ ! -f "$H/kernel.ll" ]; then
     exit 2
 fi
 . "$H/board.sh"
-T_CFLAGS=""
+T_CFLAGS="" T_LDFLAGS=""
 . "$ROOT/runtime/targets/proc-$arch.target"
 mkdir -p "$work"
 work=$(cd "$work" && pwd)
@@ -81,7 +81,8 @@ if [ ! -f "$work/elf.o" ] || [ "$HERE/elf.ll" -nt "$work/elf.o" ]; then
         -o "$work/elf.o"
 fi
 image "$H/kernel.ll" "$H/kernel.ld" "$work/kernel.elf" "$work/elf.o"
-image "$H/fault.ll" "$ROOT/runtime/proc.ld" "$work/fault.img" --oformat binary
+# shellcheck disable=SC2086
+image "$H/fault.ll" "$ROOT/runtime/proc.ld" "$work/fault.img" $T_LDFLAGS
 
 cat > "$work/stdin"
 len=$(wc -c < "$work/stdin" | tr -d ' ')

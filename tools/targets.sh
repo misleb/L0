@@ -12,6 +12,11 @@
 #   T_PARTS         the host's parts, under runtime/, linked into every
 #                   program beside runtime/l0rt.ll and runtime/freestanding.ll
 #   T_LAYOUT        its linker script, under runtime/
+#   T_LDFLAGS       what else ld.lld needs to write its image as its loader
+#                   loads it (spec section 10.3): --oformat binary for a
+#                   board's raw image, and for a process's ELF
+#                   -z max-page-size=4096, so its segments are page-aligned
+#                   in the file as in memory
 #   T_TAIL_WORDS    if set, the most words a tail call may pass: the
 #                   registers the fast calling convention has, where LLVM
 #                   gets a tail call's words on the stack wrong (spec

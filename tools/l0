@@ -319,7 +319,7 @@ load_target() {
         [ -f "$tdir.err" ] && sed 's/^/    /' "$tdir.err" >&2
         exit 2
     fi
-    T_CFLAGS="" T_TAIL_WORDS=""
+    T_CFLAGS="" T_TAIL_WORDS="" T_LDFLAGS=""
     # shellcheck source=/dev/null
     . "$tdir/target"
 }
@@ -355,13 +355,12 @@ bare_link() {
     # shellcheck disable=SC2086
     "$(find_cc)" --target="$T_TRIPLE" $T_CFLAGS -O2 -Wno-override-module -c "$1" \
         $parts -o "$TMP/bare.o"
-    # Each image is raw, as its loader loads it (spec section 10.3): a
-    # board's by its CPU's boot protocol, and a process's by its kernel,
-    # its bytes from 0xC0000000.
-    oformat="--oformat binary"
+    # Each image is as its loader loads it (spec section 10.3), by the
+    # manifest's T_LDFLAGS: a board's raw, for its CPU's boot protocol, and
+    # a process's an ELF, whose segments its kernel maps.
     if [ -n "${L0_VIRT_LD:-}" ]; then
         # shellcheck disable=SC2086
-        "$L0_VIRT_LD" -T "$tdir/layout.ld" $oformat "$TMP/bare.o" -o "$2"
+        "$L0_VIRT_LD" -T "$tdir/layout.ld" $T_LDFLAGS "$TMP/bare.o" -o "$2"
         return
     fi
     if ! command -v docker > /dev/null 2>&1; then
@@ -375,7 +374,7 @@ bare_link() {
     cp "$tdir/layout.ld" "$TMP/layout.ld"
     # shellcheck disable=SC2086
     docker run --rm -v "$TMP:/w" -w /w l0-virt-link \
-        ld.lld -T layout.ld $oformat bare.o -o bare.out
+        ld.lld -T layout.ld $T_LDFLAGS bare.o -o bare.out
     cp "$TMP/bare.out" "$2"
 }
 

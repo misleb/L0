@@ -187,3 +187,19 @@ reach.
   skipped, on both CPUs, as before; `tools/bootstrap.sh --virt`'s
   fixpoint holds on both boards, under both harness kernels, and under the
   L0 kernel, the compiler still raw. Next: step 3, the switch.
+- 2026-10-19: step 3. `runtime/proc.ld` has the `PHDRS` and the heap after
+  the image, and asserts the image ends below 0xD0000000. Each manifest
+  has `T_LDFLAGS`, `--oformat binary` for the boards and `-z
+  max-page-size=4096` for processes, described in `tools/targets.sh`;
+  `bare_link`, `boot.sh`'s `fault.ll`, and `test.sh`'s `user_ir` link
+  with it, and `load_target` resets it. `tools/l0 build --target proc`
+  now writes, for `stream`, the same bytes step 2's draft did on both
+  CPUs. `lld` leaves an empty segment out: `fault.ll` has one `PT_LOAD`.
+  Board images are byte for byte as before for `stream` and the L0
+  kernel on both CPUs. The compiler's ELF process image is 1.4 MB on
+  aarch64 and 1.6 MB on riscv64, which has a `PT_RISCV_ATTRIBUTES`
+  beside its three `PT_LOAD`s. Suites green: 65, 147, `--virt` 279
+  passed, 88 skipped, with every process an ELF; `tools/bootstrap.sh
+  --virt`'s fixpoint holds on both boards and as an ELF process under all
+  three kernels. Words that still say a process's image is raw wait for
+  step 6. Next: step 4, raw out of the kernels.

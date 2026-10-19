@@ -601,11 +601,11 @@ if [ "$VIRT" = 1 ]; then
         if [ -f "$uwork/$1.img" ]; then
             return 0
         fi
-        T_CFLAGS=""
+        T_CFLAGS="" T_LDFLAGS=""
         . "runtime/targets/proc-$VARCH.target"
         # shellcheck disable=SC2086
         if { "$CC" --target="$T_TRIPLE" $T_CFLAGS -O2 -c "$harness/$VARCH/$1.ll" -o "$uwork/$1.o" &&
-            "$L0_VIRT_LD" -T runtime/proc.ld --oformat binary "$uwork/$1.o" \
+            "$L0_VIRT_LD" -T runtime/proc.ld $T_LDFLAGS "$uwork/$1.o" \
                 -o "$uwork/$1.img"; } \
             > "$uwork/$1.berr" 2>&1; then
             return 0
