@@ -518,20 +518,76 @@ if [ "$VIRT" = 1 ]; then
     pwork="$TMP/proc"
     harness=tests/virt/proc/harness
 
+    # elf_word FILE OFF LEN: the LEN-byte number at OFF in FILE, read in
+    # the host's order, which on every host here is little endian, as the
+    # ELF is.
+    elf_word() {
+        od -An -tu"$3" -j "$2" -N "$3" "$1" | tr -d ' '
+    }
+
+    # elf_ok IMG: whether IMG is a process's image as spec section 10.3
+    # lists it, for this CPU, saying why not if it is not: an ELF64 ET_EXEC
+    # for the machine, entered at 0xC0000000, whose PT_LOADs, page-aligned,
+    # are the code, the rodata, and the data, in that order, the last two
+    # each left out when empty, so none is writable and executable.
+    elf_ok() {
+        mach=183                                    # EM_AARCH64
+        [ "$VARCH" = riscv64 ] && mach=243          # EM_RISCV
+        if [ "$(od -An -tx1 -N 4 "$1" | tr -d ' ')" != 7f454c46 ]; then
+            echo "not an ELF"
+            return 1
+        fi
+        [ "$(elf_word "$1" 4 2)" = 258 ] || { echo "not ELFCLASS64 and little endian"; return 1; }
+        [ "$(elf_word "$1" 16 2)" = 2 ] || { echo "not ET_EXEC"; return 1; }
+        [ "$(elf_word "$1" 18 2)" = "$mach" ] || { echo "e_machine is not $mach"; return 1; }
+        [ "$(elf_word "$1" 24 8)" = 3221225472 ] || { echo "e_entry is not 0xC0000000"; return 1; }
+        [ "$(elf_word "$1" 54 2)" = 56 ] || { echo "e_phentsize is not 56"; return 1; }
+        phoff=$(elf_word "$1" 32 8)
+        phnum=$(elf_word "$1" 56 2)
+        flags=""
+        k=0
+        while [ "$k" -lt "$phnum" ]; do
+            ph=$((phoff + k * 56))
+            if [ "$(elf_word "$1" "$ph" 4)" = 1 ]; then         # PT_LOAD
+                off=$(elf_word "$1" $((ph + 8)) 8)
+                va=$(elf_word "$1" $((ph + 16)) 8)
+                if [ $((off % 4096)) != 0 ] || [ $((va % 4096)) != 0 ] ||
+                    [ "$(elf_word "$1" $((ph + 48)) 8)" != 4096 ]; then
+                    echo "program header $k is not page-aligned"
+                    return 1
+                fi
+                flags="$flags$(elf_word "$1" $((ph + 4)) 4)"
+            fi
+            k=$((k + 1))
+        done
+        case $flags in
+            5 | 54 | 56 | 546) ;;      # PF_R|PF_X, then PF_R, then PF_R|PF_W
+            *)
+                echo "its PT_LOADs' flags are $flags, not 5, 4, and 6 in order"
+                return 1
+                ;;
+        esac
+    }
+
     # proc_build SUITE NAME SRC STEM builds SRC as a process image, or
-    # fails the test.
+    # fails the test, as it does if the image is not section 10.3's.
     proc_build() {
         # shellcheck disable=SC2046
-        if L0_COMPILER="$vcc" ./tools/l0 build --target proc "$3" \
+        if ! L0_COMPILER="$vcc" ./tools/l0 build --target proc "$3" \
             $(virt_extra "$4") -o "$TMP/$2.proc.img" \
             > "$TMP/$2.proc.berr" 2>&1; then
-            return 0
+            nfail=$((nfail + 1))
+            failures="$failures $VARCH:$1/$2"
+            echo "FAIL $VARCH:$1/$2: did not build as a process"
+            sed 's/^/    /' "$TMP/$2.proc.berr"
+            return 1
         fi
-        nfail=$((nfail + 1))
-        failures="$failures $VARCH:$1/$2"
-        echo "FAIL $VARCH:$1/$2: did not build as a process"
-        sed 's/^/    /' "$TMP/$2.proc.berr"
-        return 1
+        if ! why=$(elf_ok "$TMP/$2.proc.img"); then
+            nfail=$((nfail + 1))
+            failures="$failures $VARCH:$1/$2"
+            echo "FAIL $VARCH:$1/$2: its process image is not spec section 10.3's: $why"
+            return 1
+        fi
     }
 
     if [ "$procs" = 0 ]; then
@@ -588,32 +644,77 @@ if [ "$VIRT" = 1 ]; then
     # tests/virt/user/kernel.l0, against the board's expectations once more;
     # then tests/virt/user's own, each a NAME.procs file naming its
     # processes in order, an L0 program by its path or the harness's IR by
-    # its name, such as fault, which the kernel must kill; then
+    # its name, such as fault, which the kernel must kill, or by
+    # foreign:NAME, another CPU's, which it must not start; then
     # tests/virt/proc's, beside what their .with files name, as under the
     # harness, but for those given arguments, which this kernel gives none.
     user=tests/virt/user
     uwork="$TMP/user"
     mkdir -p "$uwork"
 
+    # user_img NAME: where user_ir links NAME.
+    user_img() {
+        case $1 in
+            foreign:*) echo "$uwork/foreign-${1#foreign:}.img" ;;
+            *) echo "$uwork/$1.img" ;;
+        esac
+    }
+
     # user_ir NAME links this CPU's harness's NAME.ll as a process, into
-    # $uwork/NAME.elf, or fails the test of that name.
+    # $uwork/NAME.img, or fails the test of that name. NAME may be
+    # foreign:NAME, for the NAME.ll of another CPU's harness, built for
+    # that CPU, into $uwork/foreign-NAME.img, which a kernel here must not
+    # start.
     user_ir() {
-        if [ -f "$uwork/$1.img" ]; then
+        img=$(user_img "$1")
+        case $1 in
+            foreign:*)
+                irname=${1#foreign:}
+                irarch=""
+                for m in runtime/targets/proc-*.target; do
+                    T_ARCH=""
+                    . "$m"
+                    if [ "$T_ARCH" != "$VARCH" ] && [ -f "$harness/$T_ARCH/$irname.ll" ]; then
+                        irarch=$T_ARCH
+                        break
+                    fi
+                done
+                if [ -z "$irarch" ]; then
+                    nfail=$((nfail + 1))
+                    failures="$failures $VARCH:user/$1"
+                    echo "FAIL $VARCH:user/$1: no other CPU's harness has $irname.ll"
+                    return 1
+                fi
+                ;;
+            *)
+                irname=$1
+                irarch=$VARCH
+                ;;
+        esac
+        if [ -f "$img" ]; then
             return 0
         fi
         T_CFLAGS="" T_LDFLAGS=""
-        . "runtime/targets/proc-$VARCH.target"
+        . "runtime/targets/proc-$irarch.target"
         # shellcheck disable=SC2086
-        if { "$CC" --target="$T_TRIPLE" $T_CFLAGS -O2 -c "$harness/$VARCH/$1.ll" -o "$uwork/$1.o" &&
-            "$L0_VIRT_LD" -T runtime/proc.ld $T_LDFLAGS "$uwork/$1.o" \
-                -o "$uwork/$1.img"; } \
-            > "$uwork/$1.berr" 2>&1; then
-            return 0
+        if { "$CC" --target="$T_TRIPLE" $T_CFLAGS -O2 -c "$harness/$irarch/$irname.ll" \
+                -o "$img.o" &&
+            "$L0_VIRT_LD" -T runtime/proc.ld $T_LDFLAGS "$img.o" -o "$img"; } \
+            > "$img.berr" 2>&1; then
+            if [ "$irarch" != "$VARCH" ] || why=$(elf_ok "$img"); then
+                return 0
+            fi
+            nfail=$((nfail + 1))
+            failures="$failures $VARCH:user/$1"
+            echo "FAIL $VARCH:user/$1: its process image is not spec section 10.3's: $why"
+            rm -f "$img"
+            return 1
         fi
         nfail=$((nfail + 1))
         failures="$failures $VARCH:user/$1"
         echo "FAIL $VARCH:user/$1: did not build"
-        sed 's/^/    /' "$uwork/$1.berr"
+        sed 's/^/    /' "$img.berr"
+        rm -f "$img"
         return 1
     }
     if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$user/kernel.l0" \
@@ -653,7 +754,7 @@ if [ "$VIRT" = 1 ]; then
                         ;;
                     *)
                         user_ir "$p" || continue 2
-                        images="$images $uwork/$p.img"
+                        images="$images $(user_img "$p")"
                         ;;
                 esac
             done
@@ -677,7 +778,7 @@ if [ "$VIRT" = 1 ]; then
                         spin) beside="$beside $TMP/spin.proc.img" ;;
                         *)
                             user_ir "$w" || continue 2
-                            beside="$beside $uwork/$w.img"
+                            beside="$beside $(user_img "$w")"
                             ;;
                     esac
                 done

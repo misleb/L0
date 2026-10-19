@@ -1,0 +1,2 @@
+selfwrite: writing its own code
+kernel: process 0 killed: fault scause = 0x000000000000000f sepc = 0x00000000c0000020 stval = 0x00000000c0000000

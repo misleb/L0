@@ -213,3 +213,21 @@ reach.
   expectations. Suites green: 65, 147, `--virt` 279 passed, 88 skipped;
   `tools/bootstrap.sh --virt`'s fixpoint holds on both boards and under
   all three kernels. Next: step 5, the tests.
+- 2026-10-19: step 5. `tools/test.sh --virt` checks every process image
+  it builds, by `proc_build` and `user_ir`, against 10.3's list with `od`,
+  since no `llvm-readelf` is named for it: the magic, ELFCLASS64 and
+  little endian, `ET_EXEC`, the CPU's machine, an entry of 0xC0000000, and
+  page-aligned `PT_LOAD`s with flags 5, 4, and 6 in order, the last two
+  each left out when empty. Under the L0 kernel, `tests/virt/user` has
+  `selfwrite`, the harness IR of step 2's probe, killed with a permission
+  fault; `bigbss`, IR with 6 MB of bss, which reads its first, middle,
+  and last bytes as 0, writes the last, and exits 7; and `foreign`,
+  `stream` beside the other CPU's `fault`, which is not started while
+  `stream` still meets its expectations. A `.procs` entry
+  `foreign:NAME` names another CPU's harness IR, built for that CPU. Each
+  test fails without what it tests: `bigbss` linked by the layout before
+  step 3 is refused, "the image is over 4 MB"; a kernel mapping every
+  segment with `perm` 3 lets `selfwrite` exit 0; and one taking riscv64
+  images on aarch64 runs `foreign`'s `fault`, which dies of an undefined
+  instruction. Suites green: 65, 147, `--virt` 285 passed, from 279, 88
+  skipped, with its fixpoint on both CPUs. Next: step 6, the words.
