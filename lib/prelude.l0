@@ -603,3 +603,140 @@
           (if (and (ge c 65) (le c 70))
               (add 10 (sub c 65))
               -1))))
+
+;; The sine of x, x in radians, within 1 ulp for |x| below 1647099, which is
+;; 2^20 times pi/2, and the one NaN past it, for an infinity, and for a NaN.
+;; (float_sin -0.0) is -0.0. Written as fdlibm does it (musl's sin.c): x is
+;; reduced by a multiple of pi/2 held in three parts, then a polynomial on
+;; [-pi/4, pi/4] gives the sine or the cosine of what is left, by the
+;; quadrant. Past 2^20 times pi/2 three parts of pi/2 are not enough, and a
+;; reduction of any argument would need pi's bits to the exponent's size, as
+;; fdlibm's Payne-Hanek does; add it when a program passes one.
+(def float_sin ((x float)) float
+  (let ax (float_abs_of x)
+    (if (float_lt ax 0.00000001)
+        x
+        (if (float_lt ax 0.7853981633974483)
+            (float_sin_kernel x 0.0)
+            (if (float_lt ax 1647099.0)
+                (match (float_reduce x)
+                  ((FloatReduced n y0 y1) (float_sin_quadrant (bit_and n 3) y0 y1)))
+                (float_div 0.0 0.0))))))
+
+;; The cosine of x, x in radians, within 1 ulp for |x| below 1647099 and the
+;; one NaN past it, for an infinity, and for a NaN; see float_sin.
+(def float_cos ((x float)) float
+  (let ax (float_abs_of x)
+    (if (float_lt ax 0.7853981633974483)
+        (float_cos_kernel x 0.0)
+        (if (float_lt ax 1647099.0)
+            (match (float_reduce x)
+              ((FloatReduced n y0 y1) (float_cos_quadrant (bit_and n 3) y0 y1)))
+            (float_div 0.0 0.0)))))
+
+; x after a reduction by n times pi/2: n, and the rest as a sum y0 + y1.
+(data FloatReduced
+  (FloatReduced int float float))
+
+(def float_abs_of ((x float)) float
+  (if (float_lt x 0.0) (float_neg x) x))
+
+(def float_sin_quadrant ((q int) (y0 float) (y1 float)) float
+  (if (eq q 0)
+      (float_sin_kernel y0 y1)
+      (if (eq q 1)
+          (float_cos_kernel y0 y1)
+          (if (eq q 2)
+              (float_neg (float_sin_kernel y0 y1))
+              (float_neg (float_cos_kernel y0 y1))))))
+
+(def float_cos_quadrant ((q int) (y0 float) (y1 float)) float
+  (if (eq q 0)
+      (float_cos_kernel y0 y1)
+      (if (eq q 1)
+          (float_neg (float_sin_kernel y0 y1))
+          (if (eq q 2)
+              (float_neg (float_cos_kernel y0 y1))
+              (float_sin_kernel y0 y1)))))
+
+; The biased exponent of x's IEEE bits, as fdlibm compares them.
+(def float_exponent ((x float)) int
+  (bit_and (bit_shr (float_bits x) 52) 2047))
+
+; The sine of x + y, for x in [-pi/4, pi/4] and y the tail of x, from fdlibm's
+; __sin. The polynomial's coefficients S1 to S6 are written as the bits of
+; fdlibm's doubles, whose decimal is past a literal's 22 digits.
+(def float_sin_kernel ((x float) (y float)) float
+  (let z (float_mul x x)
+    (let w (float_mul z z)
+      (let r (float_add
+               (float_add (float_from_bits 4575957461383575718)            ; S2
+                 (float_mul z (float_add (float_from_bits -4671919876304969259)   ; S3
+                                         (float_mul z (float_from_bits 4523617212983017085)))))   ; S4
+               (float_mul (float_mul z w)
+                 (float_add (float_from_bits -4730215680275931925)         ; S5
+                            (float_mul z (float_from_bits 4460209850635244924)))))   ; S6
+        (let v (float_mul z x)
+          (let s1 (float_from_bits -4628199217061079735)                   ; S1
+            (if (eq y 0.0)
+                (float_add x (float_mul v (float_add s1 (float_mul z r))))
+                (float_sub x
+                  (float_sub
+                    (float_sub (float_mul z (float_sub (float_mul 0.5 y) (float_mul v r))) y)
+                    (float_mul v s1))))))))))
+
+; The cosine of x + y, from fdlibm's __cos, C1 to C6 as bits.
+(def float_cos_kernel ((x float) (y float)) float
+  (let z (float_mul x x)
+    (let w (float_mul z z)
+      (let r (float_add
+               (float_mul z
+                 (float_add (float_from_bits 4586165620538955084)          ; C1
+                   (float_mul z
+                     (float_add (float_from_bits -4659324094485802633)     ; C2
+                                (float_mul z (float_from_bits 4537941361668330896))))))   ; C3
+               (float_mul (float_mul w w)
+                 (float_add (float_from_bits -4714566979978243411)         ; C4
+                   (float_mul z
+                     (float_add (float_from_bits 4477121870137962948)      ; C5
+                                (float_mul z (float_from_bits -4780295122622859052)))))))   ; C6
+        (let hz (float_mul 0.5 z)
+          (let w1 (float_sub 1.0 hz)
+            (float_add w1
+              (float_add (float_sub (float_sub 1.0 w1) hz)
+                         (float_sub (float_mul z r) (float_mul x y))))))))))
+
+; x, with |x| from pi/4 to 2^20 times pi/2, reduced by the multiple n of
+; pi/2 nearest it. pi/2 is held as pio2_1 (33 bits) with pio2_1t its tail, and
+; when the cancellation leaves too few bits, as pio2_2 and pio2_2t, and then
+; pio2_3 and pio2_3t, the steps of fdlibm's __rem_pio2.
+(def float_reduce ((x float)) FloatReduced
+  (let n (float_to_int (float_add (float_mul x (float_from_bits 4603909380684499075))   ; 2/pi
+                                  (if (float_lt x 0.0) -0.5 0.5)))
+    (let fn (float_from_int n)
+      (let r (float_sub x (float_mul fn (float_from_bits 4609753056924401664)))   ; pio2_1
+        (let w (float_mul fn (float_from_bits 4454258360616903473))               ; pio2_1t
+          (float_reduce_2 n (float_exponent x) fn r w (float_sub r w)))))))
+
+(def float_reduce_2 ((n int) (ex int) (fn float) (r float) (w float) (y0 float))
+    FloatReduced
+  (if (gt (sub ex (float_exponent y0)) 16)
+      (let w2 (float_mul fn (float_from_bits 4454258360616747008))                 ; pio2_2
+        (let r2 (float_sub r w2)
+          (let w3 (float_sub (float_mul fn (float_from_bits 4297306550709743731))  ; pio2_2t
+                             (float_sub (float_sub r r2) w2))
+            (float_reduce_3 n ex fn r2 w3 (float_sub r2 w3)))))
+      (float_reduced n r w y0)))
+
+(def float_reduce_3 ((n int) (ex int) (fn float) (r float) (w float) (y0 float))
+    FloatReduced
+  (if (gt (sub ex (float_exponent y0)) 49)
+      (let w2 (float_mul fn (float_from_bits 4297306550709518336))                 ; pio2_3
+        (let r2 (float_sub r w2)
+          (let w3 (float_sub (float_mul fn (float_from_bits 4142048980368378305))  ; pio2_3t
+                             (float_sub (float_sub r r2) w2))
+            (float_reduced n r2 w3 (float_sub r2 w3)))))
+      (float_reduced n r w y0)))
+
+(def float_reduced ((n int) (r float) (w float) (y0 float)) FloatReduced
+  (FloatReduced n y0 (float_sub (float_sub r y0) w)))

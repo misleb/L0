@@ -7,6 +7,31 @@ New entries go at the top.
 
 ---
 
+## The library has sine and cosine, and no language change for it
+
+`float_sin` and `float_cos` are in `lib/prelude.l0`, in L0, since no compiled
+program calls C and no board has a libm. L0S's font tool turned a shape only
+by 5 degrees from a table of sines in fixed point; it can now turn by any
+angle (`roadmap/0094/why.l0` was the program).
+
+They are fdlibm's, as musl has them: reduce by a multiple of pi/2 held in
+three parts (Cody-Waite, the medium case of `__rem_pio2`), then `__sin` and
+`__cos`'s polynomials on [-pi/4, pi/4], picked by the quadrant. Within 1 ulp
+below 2^20 times pi/2, checked against Python's `math` at 5 degree
+multiples, quadrant edges, and 40 random arguments, and the same on the host,
+both boards, and Linux arm64. Past that, and for an infinity or NaN, the one
+NaN: Payne-Hanek needs a table of 2/pi's bits and waits for a program that
+passes such an argument. `(float_sin -0.0)` is -0.0.
+
+*Evidence on literals:* the 12 polynomial coefficients, 2/pi, and the 6 parts
+of pi/2 each have 18 or 21 significant digits, so their m is past 2^53
+and a literal cannot be them. They are written `(float_from_bits N)`, with
+N from fdlibm's hex, cross-checked against its decimals in Python. A correctly rounding literal parser would let them be
+written as fdlibm prints them; this is one program for it, and not yet
+earning it.
+
+---
+
 ## Floating point
 
 **New:** the type `float`, float literals such as `0.5`, and the builtins
