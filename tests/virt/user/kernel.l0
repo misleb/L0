@@ -13,15 +13,14 @@
 ; processes read as their standard input, which they share. An image is an
 ; ELF, as spec section 10.3 lists it, whose segments the kernel maps each
 ; with its flags' permissions, so a process that writes its code or runs
-; its data is killed by the fault; or, until every image is an ELF, raw,
-; its bytes mapped from 0xC0000000 readable, writable, and executable. One
-; that is neither, or is for another CPU, is not started. Their standard output and error are the kernel's. It gives
+; its data is killed by the fault. One that is not, or is for another CPU,
+; is not started. Their standard output and error are the kernel's. It gives
 ; no files, as the board does, and maps the board's devices for the region
 ; call. Its own arguments, its boot arguments, are the processes': each
 ; "N:VALUE" gives process N the argument VALUE, in their order, so it is
 ; told at boot which process is the serial driver and where its device is.
-; A process's heap and stack, and a raw image's bss, are mapped a page at a
-; time as they are first touched, readable and writable.
+; A process's heap and stack are mapped a page at a time as they are first
+; touched, readable and writable.
 ;
 ; A process runs for a slice of 10 ms, the timer's deadline set as its turn
 ; starts (spec section 6.14), or until it exits, faults, or makes one of the
@@ -209,22 +208,6 @@
         acc)))
 
 ; Copies the next left bytes of standard input into the space from va,
-; mapping pages readable, writable, and executable as it goes: a raw
-; image's.
-(def load ((s int) (m (array int)) (va int) (left int)) Mem
-  (if (le left 0)
-      (Mem m)
-      (let b (read_some 0 (if (lt left 65536) left 65536))
-        (let n (bytes_len b)
-          (if (eq n 0)
-              (Mem m)
-              (match (ensure s m (page_floor va) (add va n) 3)
-                ((Mem m1)
-                  (let w (space_write s va b 0 n)
-                    (load s m1 (add va n) (sub left n))))
-                ((NoFrames m1) (NoFrames m1))))))))
-
-; Copies the next left bytes of standard input into the space from va,
 ; whose pages are mapped.
 (def copy_in ((s int) (va int) (left int)) int
   (if (le left 0)
@@ -270,19 +253,7 @@
               (Proc s (array_new 0 0) (array_new 0 0) 0 (no_user_mode i)))
             (if (is_elf hd)
                 (new_elf i s size hd)
-                (new_raw i s size hd)))))))
-
-; A raw image, whose first bytes, hd, are read: its bytes from 0xC0000000,
-; and its entry there.
-(def new_raw ((i int) (s int) (size int) (hd bytes)) Proc
-  (let n (bytes_len hd)
-    (match (ensure s (array_new (page_count) 0) (user_lo) (add (user_lo) n) 3)
-      ((Mem m)
-        (let w (space_write s (user_lo) hd 0 n)
-          (match (load s m (add (user_lo) n) (sub size n))
-            ((Mem m1) (Proc s (user_context (user_lo) (user_top)) m1 0 -1))
-            ((NoFrames m1) (Proc s (array_new 0 0) m1 0 (out_of_memory i))))))
-      ((NoFrames m) (Proc s (array_new 0 0) m 0 (out_of_memory i))))))
+                (refused i s (skip (sub size (bytes_len hd))))))))))
 
 ; ---------------------------------------------------------------- the ELF
 

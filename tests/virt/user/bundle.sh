@@ -1,8 +1,8 @@
 #!/bin/sh
 # Writes the standard input kernel.l0 reads: the number of processes in
 # decimal and a newline; for each, its image's length in decimal and a
-# newline, and the image, its raw bytes from 0xC0000000 as tools/l0 build
-# --target proc writes it; and then the processes' own standard input,
+# newline, and the image, the ELF tools/l0 build --target proc writes; and
+# then the processes' own standard input,
 # this script's. The layout is kernel.l0's own, not the toolchain's.
 #
 # Usage: tests/virt/user/bundle.sh IMAGE [IMAGE ...] < input > bundle

@@ -203,3 +203,13 @@ reach.
   --virt`'s fixpoint holds on both boards and as an ELF process under all
   three kernels. Words that still say a process's image is raw wait for
   step 6. Next: step 4, raw out of the kernels.
+- 2026-10-19: step 4. `kernel.l0` refuses an image that is not an ELF, as
+  it refuses one it cannot load, and its raw loader is gone; `elf.ll`
+  gives -1 for one, so the harness kernels refuse it too, and the
+  kernels', `boot.sh`'s, and `bundle.sh`'s comments no longer call an
+  image raw. Checked on both CPUs with `stream` flattened by
+  `llvm-objcopy -O binary`: each of the three kernels does not start it,
+  and under the L0 kernel the ELF beside it still meets its
+  expectations. Suites green: 65, 147, `--virt` 279 passed, 88 skipped;
+  `tools/bootstrap.sh --virt`'s fixpoint holds on both boards and under
+  all three kernels. Next: step 5, the tests.

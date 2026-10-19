@@ -137,8 +137,8 @@ entry:
 
 ; The entry point of the image in the slot at pa, once its segments are in
 ; place, if it is an ELF for the machine numbered machine (EM_AARCH64, 183,
-; or EM_RISCV, 243); 0xC0000000, with nothing moved, if it is not an ELF
-; and so is raw; or -1 if it is an ELF this harness cannot load.
+; or EM_RISCV, 243); or -1, with nothing moved, if it is not an ELF this
+; harness can load.
 define i64 @elf_load(i64 %pa, i64 %machine) {
 entry:
   %loads = alloca [3 x [4 x i64]]
@@ -150,9 +150,7 @@ entry:
   %slot = load i64, ptr @slot
   %magic = call i64 @rd32(i64 %pa)
   %elf = icmp eq i64 %magic, 1179403647                     ; "\7FELF"
-  br i1 %elf, label %header, label %raw
-raw:
-  ret i64 %base
+  br i1 %elf, label %header, label %bad
 header:
   %c0 = add i64 %pa, 4
   %class = call i64 @rd8(i64 %c0)

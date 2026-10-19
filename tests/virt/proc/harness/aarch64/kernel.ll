@@ -20,9 +20,8 @@
 ;   0x58000000  process images, 4 MB apart, put there by QEMU's loader as
 ;               their files: slot 0 at 0x58000000, 1 at 0x58400000, 2 at
 ;               0x58800000. A slot is a process when its first word is not
-;               0. An ELF's segments are moved into place in its slot, and
-;               the rest zeroed, by ../elf.ll; a raw image is its bytes
-;               from 0xC0000000, and QEMU's RAM starts zero, so its bss is.
+;               0. Its ELF's segments are moved into place in its slot,
+;               and the rest zeroed, by ../elf.ll.
 ;   0x5EFFFFF8  the length of slot 0's arguments, then their bytes at
 ;               0x5F000000, each ending in a NUL; the other slots have none
 ;   0x60000000  frames, 2 MB each, to 0xC0000000, given out as touched
@@ -31,7 +30,7 @@
 ;   0x00000000  to 0xBFFFFFFF, the kernel's identity map, EL1 only, never
 ;               executable at EL0
 ;   0xC0000000  its slot, 4 MB, mapped when it is made: its image, and
-;               after an ELF's the start of its heap
+;               after it the start of its heap
 ;   0xC0400000  to 0xE8000000, its heap and stack, a 2 MB block mapped the
 ;               first time it is touched, by a fault or a system call
 ;   0xE8000000  to 0xE8200000, its regions: 4 KB pages of device memory,

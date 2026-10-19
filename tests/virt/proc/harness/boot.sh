@@ -4,12 +4,12 @@
 #
 # Usage: tests/virt/proc/harness/boot.sh WORK ARGS SLOT0 [SLOT1 [SLOT2]] < INPUT
 #
-#   WORK    a directory for the kernel's image and the processes' raw bytes,
+#   WORK    a directory for the kernel's image and what QEMU loads for it,
 #           inside the repository, where the linker container can see it
 #   ARGS    a file of slot 0's arguments, one per line, or - for none
-#   SLOTn   a process image, built by tools/l0 build --target proc, an ELF
-#           or raw, its file at most 4 MB; fault, for fault.ll beside the
-#           kernel; or - for an empty slot
+#   SLOTn   a process image, built by tools/l0 build --target proc, its
+#           file at most 4 MB; fault, for fault.ll beside the kernel; or -
+#           for an empty slot
 #
 # The CPU is L0_ARCH's, aarch64 unless it names another, and its kernel,
 # fault.ll, and board.sh, which says where the kernel reads what is loaded
@@ -107,8 +107,7 @@ if [ "$alen" -gt 0 ]; then
 fi
 
 # Each process's image, its file as it is, at its slot's physical address,
-# 4 MB apart, where the kernel puts an ELF's segments in place; a raw
-# image's bss is RAM that QEMU starts zero.
+# 4 MB apart, where the kernel puts its segments in place.
 slot=0
 for p in "$@"; do
     case $p in
