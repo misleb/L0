@@ -247,6 +247,13 @@
 (def (as_set T) ((xs (list T)) (s (Map T bool))) (Map T bool)
   (if (is_empty xs) s (as_set (tail xs) (map_put s (head xs) true))))
 
+; Two maps holding the same entries are the same value however they were
+; built, so eq, hash, and compare see only what a map holds, and a map can
+; be a key or a field of a value compared with eq. Here two lists have the
+; same elements, whatever their order and however often each appears.
+(def (same_elements T) ((xs (list T)) (ys (list T))) bool
+  (eq (as_set xs ((MapEmpty T bool))) (as_set ys ((MapEmpty T bool)))))
+
 ; hash, which the map is built on, gives a value of any type an int, the
 ; same for values eq calls the same, and never negative, so (mod (hash k) n)
 ; is a slot from 0 to n - 1 for a key of any type (spec section 6.9).

@@ -7,6 +7,76 @@ New entries go at the top.
 
 ---
 
+## Two maps holding the same entries are the same value
+
+**What changed.** The prelude's `(Map K V)` keeps a table that depends only
+on its entries (roadmap 0092), so `eq`, `hash`, and `compare`, which see a
+data value's fields (sections 6.8, 6.9, 6.11), see only what a map holds.
+Section 6.9 now says so of the library's map, and 6.8 says that a data
+type is compared by its fields, so one whose fields keep how it was built
+is not compared by what it means. The library gains `map_eq`, which
+compares two maps by looking each key up, and `map_pairs`, every entry as
+a `(MapPair K V)`, sorted by key. `lib/examples.l0` has `same_elements`,
+two sets kept as maps compared with `eq`.
+
+**Why.** L0S compared a volume record holding a `(Map int (array
+VolEntry))` with one read back from disk and found them unequal, and
+reported that two maps with the same entries were not `eq`, hashed apart,
+`compare`d 1, and missed each other as keys, with seven tests that each
+built the same entries two ways; all seven failed here too. L0S wrote
+`vol_same`, comparing the map key by key, to work around it. The table
+leaked its history into its fields five ways: unused slots held copies of
+the first key and value put, or of the put that grew the table; a removed
+entry's key and value stayed in its slot; the table grew and never shrank;
+and linear probing kept colliding keys in the order they arrived. Nothing
+in `l0 doc Map` warned of it, and the `l0-code` skill says `eq` compares
+values by what they hold.
+
+**The decisions.**
+
+- *Make the table canonical, rather than only document it.* Documenting it
+  would have left a value that `eq` gets wrong silently in a record, a
+  list, or another map, which is the mistake an agent writing L0 would
+  make. The user asked for both: the fix, and `map_eq` and `map_pairs`
+  beside it. `map_eq` is now always `(eq a b)`; it stays as the comparison
+  that needs no argument about the table, and `map_pairs` gives the
+  entries in an order every holder of the same entries shares.
+- *Slots hold `(MapFree)` or `(MapUsed k v)`,* in one array beside the
+  marks, where keys and values were two arrays. An empty slot needed a
+  value of the key's and the value's types to fill it, and only an entry
+  could give one; now it holds nothing.
+- *The capacity is a function of the count*: the least of 8, 16, 32, and
+  so on that is at least twice it, as the table grew before, and a remove
+  that takes the count below that halves the table. There is no
+  hysteresis, since any would let two maps of one count have two sizes.
+  So a key put and removed over and over as the count crosses a power of
+  two from 4 up rebuilds the table every time; `map_put`'s doc says so.
+- *Robin Hood probing, with ties broken by mark and then by `compare` on
+  the key,* Blelloch and Golovin's history-independent table (2007): an
+  entry farther from its own slot takes a slot from one nearer its own,
+  and of two as far the first in that order does. The order is total,
+  since `compare` is (6.11), so every run of full slots holds its entries
+  in one order whatever order they arrived in. `compare` runs only when
+  two keys' hashes are equal. Removal shifts the entries after the removed
+  one back a slot each, up to an empty slot or one in its own slot, which
+  keeps the order.
+
+**What it costs.** Timed with `tmp/` builds of one program: a million
+string keys put went from 221 to 291 ms and got in the same 300 ms, and
+a 1,000-key window slid over 200,000 int keys by put and remove from 11 to
+22 ms, from the slot each entry now allocates and the probing's distance
+arithmetic. The compiler, whose pad table is a map, compiles itself in
+0.25 s either way, and emits the same bytes whichever map it was built
+with; its own IR grew from 1,468,219 bytes to 1,504,269. Nothing copies
+that did not: `tests/io/map_remove_in_place` still requires no array copy.
+
+`tests/unit/map_test.l0` adds L0S's cases, maps grown and shrunk, `map_eq`
+of maps that differ, and 60 maps built by random puts and removes, each
+compared with the same entries put in key order and in reverse. With the
+Robin Hood displacement turned off, five of its tests fail.
+
+---
+
 ## The virt board and the process host on riscv64
 
 **What changed.** Section 10.3 has a second virt board, QEMU's riscv64

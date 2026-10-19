@@ -105,6 +105,9 @@ stack words wrong, so every L0 function is now `fastcc`. Both boards run
 everything, the compiler's fixpoint and both kernels included. Left for
 the VisionFive 2 and the Pi 4: their RAM in the user range, DMA that is not
 cache-coherent, and the Pi 4's boot at EL2 (changelog, 0091's entry).
+L0S then found that two maps holding the same entries were not `eq`, and
+now they are: the library's map keeps a table its entries alone decide
+(0092).
 
 ## Language queue
 
@@ -359,3 +362,6 @@ None.
   on both CPUs — done, changelog "The virt board and the process host on
   riscv64" and "Every L0 function has the fast calling convention"; passed
   on Linux arm64 and amd64
+- [0092](0092-map-by-entries.md) two maps holding the same entries are
+  the same value — done, changelog "Two maps holding the same entries are
+  the same value"

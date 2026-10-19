@@ -84,6 +84,12 @@
                                              (cons (Some 1) (nil (Option int))))))
                     2))))
 
+(def test_same_elements () int
+  (add (check_true "reordered and repeated"
+                   (same_elements (split_spaces "a b c b") (split_spaces "c b a")))
+    (add (check_true "one more" (not (same_elements (split_spaces "a b") (split_spaces "a b c"))))
+         (check_true "ints" (same_elements (cons 3 (cons 1 (nil int))) (cons 1 (cons 3 (cons 3 (nil int)))))))))
+
 (def test_by_frequency () int
   (check_true "most frequent first, then by word"
     (eq (by_frequency "b a c b a b") (split_spaces "b a c"))))

@@ -23,7 +23,7 @@
       A value that may be missing: (Some x), or (None).
   (data (Result T E) (Ok T) (Err E))
       The outcome of something that can fail: (Ok x), or (Err e) saying why.
-  (data (Map K V) (MapEmpty) (MapTable (array int) (array K) (array V) int))
+  (data (Map K V) (MapEmpty) (MapTable (array int) (array (MapSlot K V)) int))
       A map from keys of type K to values of type V, written once for every type: keys are compared with eq and placed by hash, so any value can be a key.
   (map_put K V) ((m (Map K V)) (k K) (v V)) (Map K V)
       m with k mapped to v, replacing any value k had.
@@ -39,6 +39,12 @@
       Every key m has, each once.
   (map_values K V) ((m (Map K V))) (list V)
       Every value m has, in the same order as map_keys gives their keys.
+  (data (MapPair K V) (MapPair K V))
+      A key and the value a map gives it, as map_pairs lists them.
+  (map_pairs K V) ((m (Map K V))) (list (MapPair K V))
+      Every key m has, each with its value, sorted by key in compare's order.
+  (map_eq K V) ((a (Map K V)) (b (Map K V))) bool
+      Whether a and b hold the same keys, each mapped to the same value.
   push ((chunk (list int)) (acc (list int))) (list int)
       Pushes chunk onto a reversed accumulator: acc with chunk's bytes in front, last byte first.
   list_eq ((xs (list int)) (ys (list int))) bool
