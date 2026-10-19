@@ -1,7 +1,8 @@
 # 0093: a process's image is an ELF, its segments mapped by permission
 
 Kind: language
-Status: active
+Status: done, changelog "A process's image is an ELF, its segments mapped
+by their permissions"
 Needs: nothing
 
 ## Why
@@ -240,3 +241,11 @@ reach.
   `bare_link` comment and step 4's harness ones, nothing here now calls a
   process's image raw. Suites green: 65, 147, `--virt` 285 passed, 88
   skipped. Next: step 7, telling L0S.
+- 2026-10-19: step 7, and done. L0S's session was sent the format as
+  10.3 states it, what lld writes beyond it (offsets from 0x1000, empty
+  segments left out, `PT_RISCV_ATTRIBUTES` on riscv64), the L0 kernel as
+  an example loader, the commits, and that an installed toolchain needs
+  `tools/install.sh` again for the manifests' `T_LDFLAGS`. L0S's own
+  checks, its demo, `make test-virt`, and `make e2e`, are its to run. No
+  Linux run, since neither the runtime a hosted program links nor the
+  emitter changed; no seed refresh, since the compiler did not change.
