@@ -544,6 +544,35 @@
                     (bit_shr c 1))
                 (sub k 1))))
 
+; ------------------------------------------------------------------- floats
+
+; A float is an IEEE binary64 number. Its builtins are float_add, float_sub,
+; float_mul, float_div, float_neg, float_lt, float_le, float_gt, float_ge,
+; float_from_int, and float_to_int, and the library has float_sin and
+; float_cos. A literal has digits on both sides of its point, so 2.0, never 2.
+; float_to_int truncates toward zero. This is the point at an angle on a
+; circle, with the angle in degrees.
+(def radians ((deg int)) float
+  (float_div (float_mul (float_from_int deg) 3.141592653589793) 180.0))
+
+(def on_circle_x ((cx int) (r int) (deg int)) int
+  (add cx (float_to_int (float_mul (float_from_int r) (float_cos (radians deg))))))
+
+(def on_circle_y ((cy int) (r int) (deg int)) int
+  (add cy (float_to_int (float_mul (float_from_int r) (float_sin (radians deg))))))
+
+; eq, compare, and hash see a float's key: -0.0 is not eq to 0.0, and a NaN is
+; eq to itself. float_lt and the rest are IEEE's, so they are false with a NaN.
+; Two floats are the same number when each is at most the other.
+(def same_number ((a float) (b float)) bool
+  (and (float_le a b) (float_le b a)))
+
+; Floats round as IEEE says, so 0.1 + 0.2 is not 0.3. A literal has at most 22
+; digits after its point and at most 2^53 as its digits; write any other value
+; as its IEEE bits, (float_from_bits 4591870180066957722) being 0.1.
+(def point_three_off () bool
+  (not (same_number (float_add 0.1 0.2) 0.3)))
+
 ; -------------------------------------------------------------------- time
 
 ; clock_ns reads a clock that never goes back, so the difference of two

@@ -47,7 +47,7 @@ tools/l0 run FILE.l0 [MORE.l0 ...] [-- ARGS] < input-bytes
 Not `build/l0i run`: the frozen stage-0 interpreter knows nothing added
 since, so it rejects type parameters, `eq` on anything but `int`, `hash`,
 `compare`, the I/O, file, and argument builtins (`remove` and `read_some`
-among them), arrays, bytes, the clock, and the bit builtins.
+among them), arrays, bytes, the clock, the bit builtins, and floats.
 
 Then `tools/test.sh` before considering any change done.
 

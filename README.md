@@ -333,7 +333,9 @@ V)` serves keys and values of every type. `compare` orders any two values
 of one type by a fixed structural order, so the library's `sort`, `min`,
 and `max` serve every type too; an order that is not structural sorts a key
 built for it, since there are no function values to pass a comparison in.
-Nor are there floats, modules, or mutable state.
+A `float` is an IEEE binary64 number with arithmetic, comparison, and
+conversions as builtins, and the library has `float_sin` and `float_cos`.
+Nor are there modules or mutable state.
 
 None of these was ruled out. Each is absent because self-compilation never
 demanded it, and a general-purpose L0 will. Memory management and I/O came
