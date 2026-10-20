@@ -1,8 +1,8 @@
 /* The image layout for QEMU's riscv64 virt board, run with -m 3G, linked
    to a raw image OpenSBI enters at 0x80200000. runtime/board/
-   virt-riscv64.ll has the memory map, with the pool of frames in the 5th
-   gigabyte, which it gives as numbers, since medany code cannot reach so
-   far by an address; runtime/bare/board.ll, runtime/arch/riscv64/boot.ll,
+   virt-riscv64.ll has the memory map, with the frame windows, the 5th
+   gigabyte among them, which it gives as numbers, since medany code cannot
+   reach so far by an address; runtime/bare/board.ll, runtime/arch/riscv64/boot.ll,
    and runtime/freestanding.ll use every symbol below. RISC-V's small-data
    sections are collected with the others, so the boot code zeroes .sbss
    with .bss. */

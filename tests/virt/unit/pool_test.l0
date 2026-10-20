@@ -1,0 +1,49 @@
+; Spec sections 6.13 and 10.3 on the board: frame_free_count follows every
+; page taken and given back, frames and tables alike, and the pool is the
+; RAM the layout leaves, more than the 98,304 frames it once had.
+(def lo () int 3221225472)                          ; 0xC0000000
+
+(def test_count_follows_a_frame () int
+  (let c0 (frame_free_count)
+    (let f (frame_new)
+      (let c1 (frame_free_count)
+        (let k (frame_free f)
+          (add (check_int "one taken" c1 (sub c0 1))
+            (check_int "one given back" (frame_free_count) c0)))))))
+
+(def test_count_follows_tables () int
+  (let c0 (frame_free_count)
+    (let s (space_new)
+      (let c1 (frame_free_count)
+        (let f (frame_new)
+          (let m (space_map s (lo) f 1)
+            (let c2 (frame_free_count)
+              (let u (space_unmap s (lo))
+                (let a (space_free s)
+                  (let b (frame_free f)
+                    (add (check_int "a space's two tables" c1 (sub c0 2))
+                      (add (check_int "a frame and its table of pages" c2 (sub c1 2))
+                        (check_int "all given back" (frame_free_count) c0)))))))))))))
+
+; Frames taken until none is left, onto acc.
+(def drain ((acc (list int))) (list int)
+  (let f (frame_new)
+    (if (lt f 0) acc (drain (cons f acc)))))
+
+(def free_all ((fs (list int))) int
+  (if (is_empty fs)
+      0
+      (let k (frame_free (head fs)) (free_all (tail fs)))))
+
+(def test_drain_and_fill () int
+  (let c0 (frame_free_count)
+    (let fs (drain (nil int))
+      (let n (length fs)
+        (let c1 (frame_free_count)
+          (let e (frame_new)
+            (let k (free_all fs)
+              (add (check_int "as many frames as counted" n c0)
+                (add (check_true "more than 98,304" (gt n 98304))
+                  (add (check_int "none left" c1 0)
+                    (add (check_int "-5 once none is left" e -5)
+                      (check_int "all given back" (frame_free_count) c0))))))))))))

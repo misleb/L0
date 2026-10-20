@@ -136,7 +136,9 @@
           (push (check_source (m "3."))
           (push (check_source (m "0.1000000000000000055"))
           (push (check_source (m "9007199254740993.0"))
-          (push (check_source (m "(head (machine))")) cz)))))))))))))
+          (push (check_source (m "(head (machine))"))
+          (push (check_source (m "(frame_free_count 1)"))
+          (push (check_source (m "(head (frame_free_count))")) cz)))))))))))))))
     (rev da)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.

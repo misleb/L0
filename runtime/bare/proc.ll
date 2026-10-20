@@ -257,6 +257,11 @@ entry:
   ret i64 2
 }
 
+define i64 @l0_host_frame_free_count() {
+entry:
+  ret i64 -3
+}
+
 define i64 @l0_host_space_unmap(i64 %s, i64 %va) {
 entry:
   ret i64 1

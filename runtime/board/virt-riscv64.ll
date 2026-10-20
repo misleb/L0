@@ -12,14 +12,16 @@
 ;   0x84000000  standard input's bytes, loaded by QEMU's loader
 ;   0x8C000000  the heap, to 0xAC000000
 ;   0xAC000000  the stack, 256 MB, growing down from 0xBC000000
-;   0xBC000000  left for the device tree, which QEMU puts at 0xBFE00000;
-;               the arguments are copied out of it before the program starts
+;   0xBC000000  frames and tables, but for the device tree, which QEMU puts
+;               at 0xBFE00000; the arguments are copied out of it before
+;               the program starts
 ;   0xC0000000  to 0x100000000, the user range, mapped by each space alone:
 ;               the RAM there is never used
-;   0x100000000 the pool of frames and the spaces' page tables, to
-;               0x118000000; the rest of the 5th gigabyte is not used
-; The pool is past what code built for the medany model reaches by its
-; address, so l0_board_pool_start and l0_board_pool_end give it as numbers.
+;   0x100000000 frames and the spaces' page tables, to 0x140000000
+; Frames and tables come too from the image's end to the heap, but for
+; standard input's bytes until a read reaches their end. The 5th gigabyte
+; is past what code built for the medany model reaches by its address, so
+; the windows give it as numbers.
 ;
 ; Standard output is the 16550 at 0x10000000. Standard error and the exit
 ; status reach the host by semihosting, so the three stay apart on a board
@@ -134,15 +136,39 @@ entry:
   ret void
 }
 
-; The pool of frames and page tables, 98,304 pages from 0x100000000.
-define i64 @l0_board_pool_start() {
+; The frame windows, spec section 10.3: what the layout leaves besides the
+; image, the heap, the stack, and the user range, from the image's end to
+; the heap, from the stack's top to the user range, and the 5th gigabyte.
+; Standard input is in the first and the device tree in the second, and
+; runtime/bare/board.ll cuts them out.
+@__image_end = external global i8
+@__heap_start = external global i8
+@__stack_top = external global i8
+
+define i64 @l0_board_window_count() {
 entry:
-  ret i64 4294967296
+  ret i64 3
 }
 
-define i64 @l0_board_pool_end() {
+define i64 @l0_board_window_start(i64 %k) {
 entry:
-  ret i64 4697620480
+  %a = ptrtoint ptr @__image_end to i64
+  %b = ptrtoint ptr @__stack_top to i64
+  %first = icmp eq i64 %k, 0
+  %second = icmp eq i64 %k, 1
+  %r0 = select i1 %second, i64 %b, i64 4294967296          ; 0x100000000
+  %r = select i1 %first, i64 %a, i64 %r0
+  ret i64 %r
+}
+
+define i64 @l0_board_window_end(i64 %k) {
+entry:
+  %a = ptrtoint ptr @__heap_start to i64
+  %first = icmp eq i64 %k, 0
+  %second = icmp eq i64 %k, 1
+  %r0 = select i1 %second, i64 3221225472, i64 5368709120  ; 0xC0000000, 0x140000000
+  %r = select i1 %first, i64 %a, i64 %r0
+  ret i64 %r
 }
 
 ; ------------------------------------------------------------- interrupts

@@ -116,7 +116,11 @@ ELF, the L0 kernel maps each segment by its flags and kills a process
 that writes its code, and an image's bss may pass 4 MB. L0S's font tool
 turns a circle only by 5 degrees, from a table of sines in fixed point, so
 floating point is in (0094), and so are sin and cos in the library (0095). The queue is
-empty; L0S can drop its table of sines.
+empty; L0S can drop its table of sines. L0S then found its processes
+confined to the virt boards' fixed 384 MB of frames, and asked for the
+pool to be all the RAM the layout leaves, the input's pages with it once
+read, and a count of what is left, and has them (0097): about 765 MB of
+frames on aarch64 and 1.2 GB on riscv64, from 384 MB. The queue is empty.
 
 ## Language queue
 
@@ -383,3 +387,7 @@ None.
   changelog "The library has sine and cosine, and no language change for it"
 - [0096](0096-float-sqrt.md) `float_sqrt` — done, changelog "Square root of
   a float"; passed on Linux arm64
+- [0097](0097-board-memory.md) the virt boards' frames come from all the
+  RAM the layout leaves, and `frame_free_count` — done, changelog "The virt
+  boards' frames come from all the RAM the layout leaves"; passed on Linux
+  arm64

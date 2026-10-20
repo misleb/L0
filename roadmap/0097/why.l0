@@ -1,0 +1,4 @@
+; L0S's kernel refuses a spawn the pool cannot hold, rather than finding
+; out at a page fault halfway through loading the image.
+(def can_spawn ((pages int)) bool
+  (ge (frame_free_count) pages))

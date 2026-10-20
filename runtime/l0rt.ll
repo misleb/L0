@@ -37,6 +37,7 @@ declare i64 @l0_host_space_map_device(i64, i64, i64, i64)
 declare i64 @l0_host_space_unmap(i64, i64)
 declare i64 @l0_host_space_free(i64)
 declare i64 @l0_host_frame_free(i64)
+declare i64 @l0_host_frame_free_count()
 declare i64 @l0_host_space_copy(i64, i64, ptr, i64, i64)
 declare i64 @l0_host_user_run(i64, ptr, i64)
 declare i64 @l0_host_timer_at(i64)
@@ -2752,6 +2753,13 @@ entry:
 define i64 @l0_frame_new() {
 entry:
   %r = call i64 @l0_host_frame_new()
+  ret i64 %r
+}
+
+; The pages left, or -3.
+define i64 @l0_frame_free_count() {
+entry:
+  %r = call i64 @l0_host_frame_free_count()
   ret i64 %r
 }
 

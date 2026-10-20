@@ -7,6 +7,52 @@ New entries go at the top.
 
 ---
 
+## The virt boards' frames come from all the RAM the layout leaves
+
+**New:** the builtin `frame_free_count`, `-> int` (spec 6.13): how many
+pages the host has left for frames and tables, -3 on a host with no user
+mode. **Changed:** a virt board's pool of frames is no longer a fixed
+range of 98,304 pages but the RAM the device tree's `/memory` nodes
+describe within the board's frame windows, less the device tree and
+standard input's bytes, which join once a read has reached the last of
+them (spec 10.3). Frame numbers are the host's, no longer the pool's
+`f`-th page from a fixed base. The spec now says where a board's standard
+input is, which it never had.
+
+*Why:* L0S asked (its `l0-request-board-memory.md`, items 1, 3, and 5).
+Every process of its kernel lives in frames, and on the aarch64 board the
+layout gave them 384 MB of 2 GB, while 250 MB around the image and the
+device tree and the 128 MB input window sat idle. The pool now takes those
+too, about 765 MB at 2 GB, and on riscv64 the whole 5th gigabyte and the
+gaps, about 1.2 GB at 3 GB, up from 384 MB on each. The input window held
+L0S's 10.8 MB initramfs, which the program copies into its heap, and no
+read can give those bytes again once one has reached their end, so its
+pages join then, by themselves, with no builtin to ask: `frame_free_count`
+grows by them. Without a count, a kernel learned the pool's size only by
+running it dry, and could not refuse a spawn it could not finish
+(`roadmap/0097/why.l0`).
+
+*How:* the host builds the pool at boot from up to 32 pieces, each window
+cut by `/memory`'s ranges and with the device tree and the input's pages
+cut out, and keeps its 4 bytes a page in the pool's first pages, sized from
+what it found, so no cap is left; frames are numbered through the pieces,
+the input's last, which join on the free list. The input's count is read
+once at boot, since its page is in the pool.
+
+*Left:* the heap and stack keep their fixed 1 GB and 256 MB on aarch64,
+which a kernel needs far less of; a heap that grows from the pool, or sizes
+the program chooses, is L0S's item 2, for an item of its own. RAM past the
+windows is not used: at `-m 4G` on aarch64, the RAM under the user range
+cannot be the host's identity map, and that past 4 GB needs a boot map wider
+than its 4 GB (TCR T0SZ 32), as on riscv64 past 0x140000000. Standard input
+kept as frames, so a kernel maps program images from it without a copy
+(L0S's item 4), waits for a program that needs the sharing. Firmware
+reservations, the device tree's `/memreserve/` and `/reserved-memory`, are
+not read: on both boards they lie below the image, outside every window,
+and a board whose firmware reserves RAM inside one says so in its windows.
+
+---
+
 ## Square root of a float
 
 **New:** the builtin `float_sqrt`, `float -> float` (spec 6.17), IEEE 754's

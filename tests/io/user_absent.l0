@@ -1,7 +1,8 @@
 ; Spec sections 6.13 and 9.2: under an operating system there is no user
-; mode, so no space or frame is made, and anything given one is not a
-; space, the first of section 6.13's checks.
+; mode, so no space or frame is made, none is counted, and anything given
+; one is not a space, the first of section 6.13's checks.
 (def main () int
   (let s (write_line (digits (space_new)))
     (let f (write_line (digits (frame_new)))
-      (space_map 0 3221225472 0 0))))
+      (let c (write_line (digits (frame_free_count)))
+        (space_map 0 3221225472 0 0)))))

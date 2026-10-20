@@ -1,0 +1,12 @@
+; Spec section 10.3 on the board: the pages holding standard input's bytes
+; join the pool once a read has reached the last of them. The input is
+; 9,000 bytes, on 3 pages.
+(def read_all ((n int)) int
+  (if (lt (read_from 0) 0) n (read_all (add n 1))))
+
+(def main () int
+  (let c0 (frame_free_count)
+    (let n (read_all 0)
+      (let c1 (frame_free_count)
+        (let a (write_line (append "read " (digits n)))
+          (write_line (append "joined " (digits (sub c1 c0)))))))))

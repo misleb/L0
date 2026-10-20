@@ -12,15 +12,16 @@
 ;
 ; What it gives:
 ;   - standard input, the bytes a loader put at __input_start, their count
-;     in the word at __input_len, since a serial line has no end of input;
+;     in the word at __input_len, read once at boot, since a serial line
+;     has no end of input;
 ;     standard output, the board's console; standard error and the exit
 ;     status, the board's to deliver
 ;   - no files and no environment, as section 9.2 says
 ;   - the arguments, the device tree's /chosen/bootargs, split at runs of
 ;     spaces
 ;   - regions over the board's table of devices, and the barrier the CPU's
-;   - user mode: the pool of frames the board's part says it has,
-;     the spaces, and the tables mapping their user range, written through
+;   - user mode: the pool of frames, the RAM the device tree describes in
+;     the windows the board's part gives, the spaces, and the tables mapping their user range, written through
 ;     the CPU's descriptors: three levels of 4 KB tables with 9-bit
 ;     indices, which arm64's 4 KB granule and RISC-V's Sv39 both are
 ;   - the interrupts' bookkeeping, over the board's controller, and the
@@ -41,6 +42,7 @@ declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 @__stack_bottom = external global i8
 @__input_len = external global i64
 @__input_start = external global i8
+@__heap_start = external global i8
 
 ; The architecture's part, runtime/arch/ARCH/boot.ll.
 declare i64 @l0_arch_counter()
@@ -69,8 +71,9 @@ declare i64 @l0_board_device_count()
 declare i64 @l0_board_device_base(i64)
 declare i64 @l0_board_device_len(i64)
 declare void @l0_board_space_init(i64, i64)
-declare i64 @l0_board_pool_start()
-declare i64 @l0_board_pool_end()
+declare i64 @l0_board_window_count()
+declare i64 @l0_board_window_start(i64)
+declare i64 @l0_board_window_end(i64)
 declare i1 @l0_board_irq_exists(i64)
 declare void @l0_board_irq_enable(i64)
 declare i64 @l0_board_irq_take()
@@ -81,11 +84,14 @@ declare void @l0_board_irq_end(i64)
 ; Called by the architecture's boot code, on the boot stack, with the
 ; device tree's address and the booting CPU's number. The arguments are
 ; copied out of the tree before anything else, since the tree is wherever
-; the firmware put it. l0_rt_run's frame is a little below the top, so the
-; size it is given leaves 64 KB for what lies above it.
+; the firmware put it, and the pool is built from it and from standard
+; input's count. l0_rt_run's frame is a little below the top, so the size
+; it is given leaves 64 KB for what lies above it.
 define void @l0_bare_main(i64 %dtb, i64 %hart) noreturn {
 entry:
   call void @boot_args(i64 %dtb)
+  call void @input_init()
+  call void @pool_init(i64 %dtb)
   call void @l0_board_init(i64 %dtb, i64 %hart)
   %top = ptrtoint ptr @__stack_top to i64
   %bottom = ptrtoint ptr @__stack_bottom to i64
@@ -135,7 +141,25 @@ done:
 ; ----------------------------------------------------------------- streams
 
 @in_pos = internal global i64 0
+@in_len = internal global i64 0
 
+; Reads standard input's count once, before the program starts, since the
+; page holding it is the pool's from then on: at most what the window up to
+; the heap holds.
+define internal void @input_init() {
+entry:
+  %len = load i64, ptr @__input_len
+  %is = ptrtoint ptr @__input_start to i64
+  %hs = ptrtoint ptr @__heap_start to i64
+  %room = sub i64 %hs, %is
+  %big = icmp ugt i64 %len, %room
+  %n = select i1 %big, i64 %room, i64 %len
+  store i64 %n, ptr @in_len
+  ret void
+}
+
+; Once a read reaches the input's last byte, no read can give its bytes
+; again, and their pages join the pool.
 define i64 @l0_host_read(i64 %s, ptr %buf, i64 %n) {
 entry:
   %is0 = icmp eq i64 %s, 0
@@ -143,7 +167,7 @@ entry:
 bad:
   ret i64 -5
 input:
-  %len = load i64, ptr @__input_len
+  %len = load i64, ptr @in_len
   %pos = load i64, ptr @in_pos
   %left = sub i64 %len, %pos
   %less = icmp ult i64 %left, %n
@@ -152,6 +176,12 @@ input:
   %x = call ptr @memcpy(ptr %buf, ptr %src, i64 %k)
   %np = add i64 %pos, %k
   store i64 %np, ptr @in_pos
+  %end = icmp eq i64 %np, %len
+  br i1 %end, label %join, label %out
+join:
+  call void @input_join()
+  br label %out
+out:
   ret i64 %k
 }
 
@@ -522,14 +552,25 @@ entry:
 
 ; --------------------------------------------------------------- user mode
 ;
-; Spec sections 6.13 and 10.3. Pages come from the pool the board's part
-; gives, l0_board_pool_start up to l0_board_pool_end, at most 98,304 of 4
-; KB, mapped where they are by the boot map, and frame k is
-; the k-th page. Untouched pages go to frames from the bottom and to the
-; host's own page tables from the top, until the two meet; a page given
-; back, frame or table, goes on one free list, threaded through the pages'
-; first words, which both take from first. page_state says what each page
-; is: 0 free or a table, and k from 1 a frame mapped k - 1 times. A space is
+; Spec sections 6.13 and 10.3. Pages come from the pool, built at boot by
+; pool_init in at most 32 pieces of whole pages, mapped where they are by
+; the boot map: each of the windows the board's part gives, cut by the RAM
+; the device tree's /memory nodes describe, with the device tree and the
+; pages holding standard input's bytes cut out, those pages then pieces of
+; their own after the others. Firmware reservations are not read, since a
+; board's windows leave them out. Pages are numbered through the pieces in
+; order, and frame k is the k-th page; page_state, at the start of the first
+; piece large enough, holds 4 bytes for every page, so the pool has no bound
+; but the RAM.
+;
+; Untouched pages of the pieces before the input's go to frames from the
+; bottom and to the host's own page tables from the top, until the two
+; meet; a page given back, frame or table, goes on one free list, threaded
+; through the pages' first words, which both take from first, and the
+; input's pages join it once a read of standard input has reached its end.
+; pool_left counts the pages either can still take. page_state says what
+; each page is: 0 free or a table, and k from 1 a frame mapped k - 1 times.
+; A space is
 ; an index into sp_l1, its root table, or 0 once freed, and its ASID is the
 ; index plus 1, so the 255 spaces have 255 ASIDs and moving between them
 ; flushes nothing; a slot freed is given again, its ASID with it, so
@@ -545,43 +586,535 @@ entry:
 @pool_lo = internal global i64 0
 @pool_hi = internal global i64 0
 @pool_free = internal global i64 0
-@page_state = internal global [98304 x i32] zeroinitializer
+@pool_boot = internal global i64 0                  ; pages before the input's
+@pool_all = internal global i64 0                   ; every page, the input's too
+@pool_left = internal global i64 0
+@page_state = internal global i64 0                 ; its address
+@pc_start = internal global [32 x i64] zeroinitializer
+@pc_pages = internal global [32 x i64] zeroinitializer
+@pc_first = internal global [32 x i64] zeroinitializer
+@pc_n = internal global i64 0
+@pc_boot_n = internal global i64 0                  ; pieces before the input's
+@ram_lo = internal global [8 x i64] zeroinitializer
+@ram_hi = internal global [8 x i64] zeroinitializer
+@ram_n = internal global i64 0
+@hole_lo = internal global [2 x i64] zeroinitializer
+@hole_hi = internal global [2 x i64] zeroinitializer
+@in_joined = internal global i1 false
 @sp_l1 = internal global [255 x i64] zeroinitializer
 @sp_count = internal global i64 0
+@s_memory = private constant [7 x i8] c"memory\00"
+@s_reg = private constant [4 x i8] c"reg\00"
+@s_acells = private constant [15 x i8] c"#address-cells\00"
+@s_scells = private constant [12 x i8] c"#size-cells\00"
 
-; How many pages the pool has, at most 98,304.
+define internal i64 @page_up(i64 %a) {
+entry:
+  %b = add i64 %a, 4095
+  %r = and i64 %b, -4096
+  ret i64 %r
+}
+
+; The device tree's size, or 0 if there is none at dtb.
+define internal i64 @dt_size(i64 %dtb) {
+entry:
+  %null = icmp eq i64 %dtb, 0
+  br i1 %null, label %none, label %magic
+magic:
+  %m = call i64 @be32(i64 %dtb)
+  %ok = icmp eq i64 %m, 3490578157                          ; 0xd00dfeed
+  br i1 %ok, label %size, label %none
+size:
+  %ta = add i64 %dtb, 4
+  %total = call i64 @be32(i64 %ta)
+  ret i64 %total
+none:
+  ret i64 0
+}
+
+; Whether the NUL-terminated name at a is memory, or memory@ and a unit
+; address.
+define internal i1 @dt_is_memory(i64 %a) {
+entry:
+  br label %loop
+loop:
+  %k = phi i64 [ 0, %entry ], [ %k1, %same ]
+  %sp = getelementptr i8, ptr @s_memory, i64 %k
+  %t8 = load i8, ptr %sp
+  %t = zext i8 %t8 to i64
+  %ak = add i64 %a, %k
+  %c = call i64 @dt_byte(i64 %ak)
+  %last = icmp eq i64 %t, 0
+  br i1 %last, label %term, label %cmp
+cmp:
+  %eq = icmp eq i64 %c, %t
+  br i1 %eq, label %same, label %no
+same:
+  %k1 = add i64 %k, 1
+  br label %loop
+term:
+  %nul = icmp eq i64 %c, 0
+  %at = icmp eq i64 %c, 64
+  %r = or i1 %nul, %at
+  ret i1 %r
+no:
+  ret i1 false
+}
+
+; The number in n cells at a, n 1 or 2, or the last two of more.
+define internal i64 @dt_cells(i64 %a, i64 %n) {
+entry:
+  %one = icmp eq i64 %n, 1
+  br i1 %one, label %w1, label %w2
+w1:
+  %v1 = call i64 @be32(i64 %a)
+  ret i64 %v1
+w2:
+  %n2 = sub i64 %n, 2
+  %o = shl i64 %n2, 2
+  %hi_a = add i64 %a, %o
+  %lo_a = add i64 %hi_a, 4
+  %hi = call i64 @be32(i64 %hi_a)
+  %lo = call i64 @be32(i64 %lo_a)
+  %hs = shl i64 %hi, 32
+  %v2 = or i64 %hs, %lo
+  ret i64 %v2
+}
+
+; Records the ranges of a memory node's reg, len bytes at val, each an
+; address of ac cells and a size of sc cells, at most 8 in all.
+define internal void @take_ram(i64 %val, i64 %len, i64 %ac, i64 %sc) {
+entry:
+  %cells = add i64 %ac, %sc
+  %stride = shl i64 %cells, 2
+  %none = icmp eq i64 %stride, 0
+  %noaddr = icmp eq i64 %ac, 0
+  %nosize = icmp eq i64 %sc, 0
+  %bad0 = or i1 %none, %noaddr
+  %bad = or i1 %bad0, %nosize
+  br i1 %bad, label %done, label %loop
+loop:
+  %off = phi i64 [ 0, %entry ], [ %next, %step ]
+  %next = add i64 %off, %stride
+  %fits = icmp ule i64 %next, %len
+  br i1 %fits, label %one, label %done
+one:
+  %a = add i64 %val, %off
+  %base = call i64 @dt_cells(i64 %a, i64 %ac)
+  %ao = shl i64 %ac, 2
+  %sa = add i64 %a, %ao
+  %size = call i64 @dt_cells(i64 %sa, i64 %sc)
+  %n = load i64, ptr @ram_n
+  %room = icmp ult i64 %n, 8
+  br i1 %room, label %keep, label %step
+keep:
+  %lp = getelementptr [8 x i64], ptr @ram_lo, i64 0, i64 %n
+  store i64 %base, ptr %lp
+  %end = add i64 %base, %size
+  %hp = getelementptr [8 x i64], ptr @ram_hi, i64 0, i64 %n
+  store i64 %end, ptr %hp
+  %n1 = add i64 %n, 1
+  store i64 %n1, ptr @ram_n
+  br label %step
+step:
+  br label %loop
+done:
+  ret void
+}
+
+; Finds the RAM the device tree at dtb describes: the reg of each node
+; under the root named memory, its cells as the root's #address-cells and
+; #size-cells say, 2 and 1 if it does not. The tree is read as boot_args
+; reads it.
+define internal void @boot_memory(i64 %dtb) {
+entry:
+  %total = call i64 @dt_size(i64 %dtb)
+  %null = icmp eq i64 %total, 0
+  br i1 %null, label %done, label %head
+head:
+  %sa = add i64 %dtb, 8
+  %ostruct = call i64 @be32(i64 %sa)
+  %na = add i64 %dtb, 12
+  %ostr = call i64 @be32(i64 %na)
+  %p0 = add i64 %dtb, %ostruct
+  %end = add i64 %dtb, %total
+  %strings = add i64 %dtb, %ostr
+  br label %loop
+loop:
+  %p = phi i64 [ %p0, %head ], [ %bp, %begin ], [ %ep, %endnode ], [ %pp, %next ], [ %np, %nop ]
+  %depth = phi i64 [ 0, %head ], [ %bd, %begin ], [ %ed, %endnode ], [ %depth, %next ], [ %depth, %nop ]
+  %in = phi i1 [ false, %head ], [ %bin, %begin ], [ %ein, %endnode ], [ %in, %next ], [ %in, %nop ]
+  %ac = phi i64 [ 2, %head ], [ %ac, %begin ], [ %ac, %endnode ], [ %ac2, %next ], [ %ac, %nop ]
+  %sc = phi i64 [ 1, %head ], [ %sc, %begin ], [ %sc, %endnode ], [ %sc2, %next ], [ %sc, %nop ]
+  %over = icmp uge i64 %p, %end
+  br i1 %over, label %done, label %token
+token:
+  %tok = call i64 @be32(i64 %p)
+  switch i64 %tok, label %done [ i64 1, label %begin
+                                 i64 2, label %endnode
+                                 i64 3, label %prop
+                                 i64 4, label %nop ]
+begin:
+  %name = add i64 %p, 4
+  %top = icmp eq i64 %depth, 1
+  %np8 = inttoptr i64 %name to ptr
+  %nlen = call i64 @strlen(ptr %np8)
+  %ismem = call i1 @dt_is_memory(i64 %name)
+  %mem = and i1 %top, %ismem
+  %bin = or i1 %in, %mem
+  %nl1 = add i64 %nlen, 1
+  %npad = call i64 @pad4(i64 %nl1)
+  %bp0 = add i64 %p, 4
+  %bp = add i64 %bp0, %npad
+  %bd = add i64 %depth, 1
+  br label %loop
+endnode:
+  %leaving = icmp eq i64 %depth, 2
+  %ein = select i1 %leaving, i1 false, i1 %in
+  %ep = add i64 %p, 4
+  %ed = sub i64 %depth, 1
+  br label %loop
+prop:
+  %la = add i64 %p, 4
+  %len = call i64 @be32(i64 %la)
+  %oa = add i64 %p, 8
+  %noff = call i64 @be32(i64 %oa)
+  %val = add i64 %p, 12
+  %pname = add i64 %strings, %noff
+  %root = icmp eq i64 %depth, 1
+  br i1 %root, label %rootprop, label %notroot
+rootprop:
+  %isac = call i1 @dt_name_is(i64 %pname, ptr @s_acells)
+  %issc = call i1 @dt_name_is(i64 %pname, ptr @s_scells)
+  %v = call i64 @be32(i64 %val)
+  %ac1 = select i1 %isac, i64 %v, i64 %ac
+  %sc1 = select i1 %issc, i64 %v, i64 %sc
+  br label %next
+notroot:
+  %d2 = icmp eq i64 %depth, 2
+  %ours = and i1 %in, %d2
+  br i1 %ours, label %memprop, label %next
+memprop:
+  %isreg = call i1 @dt_name_is(i64 %pname, ptr @s_reg)
+  br i1 %isreg, label %takereg, label %next
+takereg:
+  call void @take_ram(i64 %val, i64 %len, i64 %ac, i64 %sc)
+  br label %next
+next:
+  %ac2 = phi i64 [ %ac1, %rootprop ], [ %ac, %notroot ], [ %ac, %memprop ], [ %ac, %takereg ]
+  %sc2 = phi i64 [ %sc1, %rootprop ], [ %sc, %notroot ], [ %sc, %memprop ], [ %sc, %takereg ]
+  %lpad = call i64 @pad4(i64 %len)
+  %pp0 = add i64 %p, 12
+  %pp = add i64 %pp0, %lpad
+  br label %loop
+nop:
+  %np = add i64 %p, 4
+  br label %loop
+done:
+  ret void
+}
+
+; Adds the pages a to b as a piece, if fewer than 32 are made.
+define internal void @add_piece(i64 %a, i64 %b) {
+entry:
+  %n = load i64, ptr @pc_n
+  %room = icmp ult i64 %n, 32
+  br i1 %room, label %put, label %done
+put:
+  %sp = getelementptr [32 x i64], ptr @pc_start, i64 0, i64 %n
+  store i64 %a, ptr %sp
+  %bytes = sub i64 %b, %a
+  %pages = lshr i64 %bytes, 12
+  %pp = getelementptr [32 x i64], ptr @pc_pages, i64 0, i64 %n
+  store i64 %pages, ptr %pp
+  %n1 = add i64 %n, 1
+  store i64 %n1, ptr @pc_n
+  br label %done
+done:
+  ret void
+}
+
+; Adds the pages a to b as pieces, with holes h and after cut out.
+define internal void @cut(i64 %a, i64 %b, i64 %h) {
+entry:
+  %empty = icmp uge i64 %a, %b
+  br i1 %empty, label %done, label %which
+which:
+  %last = icmp eq i64 %h, 2
+  br i1 %last, label %add, label %hole
+add:
+  call void @add_piece(i64 %a, i64 %b)
+  ret void
+hole:
+  %lp = getelementptr [2 x i64], ptr @hole_lo, i64 0, i64 %h
+  %lo = load i64, ptr %lp
+  %hp = getelementptr [2 x i64], ptr @hole_hi, i64 0, i64 %h
+  %hi = load i64, ptr %hp
+  %h1 = add i64 %h, 1
+  %nothing = icmp uge i64 %lo, %hi
+  %before = icmp ule i64 %hi, %a
+  %after = icmp uge i64 %lo, %b
+  %c0 = or i1 %nothing, %before
+  %clear = or i1 %c0, %after
+  br i1 %clear, label %whole, label %split
+whole:
+  call void @cut(i64 %a, i64 %b, i64 %h1)
+  ret void
+split:
+  call void @cut(i64 %a, i64 %lo, i64 %h1)
+  call void @cut(i64 %hi, i64 %b, i64 %h1)
+  ret void
+done:
+  ret void
+}
+
+; Adds the whole pages of a to b that are RAM, as pieces, with the holes
+; cut out if cut is true.
+define internal void @ram_add(i64 %a, i64 %b, i1 %cut) {
+entry:
+  %n = load i64, ptr @ram_n
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i1, %next ]
+  %more = icmp ult i64 %i, %n
+  br i1 %more, label %look, label %done
+look:
+  %lp = getelementptr [8 x i64], ptr @ram_lo, i64 0, i64 %i
+  %rl = load i64, ptr %lp
+  %hp = getelementptr [8 x i64], ptr @ram_hi, i64 0, i64 %i
+  %rh = load i64, ptr %hp
+  %up = icmp ugt i64 %a, %rl
+  %lo0 = select i1 %up, i64 %a, i64 %rl
+  %down = icmp ult i64 %b, %rh
+  %hi0 = select i1 %down, i64 %b, i64 %rh
+  %lo = call i64 @page_up(i64 %lo0)
+  %hi = and i64 %hi0, -4096
+  %some = icmp ult i64 %lo, %hi
+  br i1 %some, label %add, label %next
+add:
+  br i1 %cut, label %c, label %p
+c:
+  call void @cut(i64 %lo, i64 %hi, i64 0)
+  br label %next
+p:
+  call void @add_piece(i64 %lo, i64 %hi)
+  br label %next
+next:
+  %i1 = add i64 %i, 1
+  br label %loop
+done:
+  ret void
+}
+
+; Builds the pool: the windows' RAM with the device tree and the input's
+; pages cut out, then the input's pages, which lie in the first window on
+; every board, then the numbering.
+define internal void @pool_init(i64 %dtb) {
+entry:
+  call void @boot_memory(i64 %dtb)
+  %dsize = call i64 @dt_size(i64 %dtb)
+  %dlo = and i64 %dtb, -4096
+  %de = add i64 %dtb, %dsize
+  %dhi = call i64 @page_up(i64 %de)
+  store i64 %dlo, ptr @hole_lo
+  store i64 %dhi, ptr @hole_hi
+  %is = ptrtoint ptr @__input_start to i64
+  %len = load i64, ptr @in_len
+  %ie0 = add i64 %is, %len
+  %ie = call i64 @page_up(i64 %ie0)
+  %h1l = getelementptr [2 x i64], ptr @hole_lo, i64 0, i64 1
+  store i64 %is, ptr %h1l
+  %h1h = getelementptr [2 x i64], ptr @hole_hi, i64 0, i64 1
+  store i64 %ie, ptr %h1h
+  %wn = call i64 @l0_board_window_count()
+  br label %wloop
+wloop:
+  %w = phi i64 [ 0, %entry ], [ %w1, %wbody ]
+  %wmore = icmp ult i64 %w, %wn
+  br i1 %wmore, label %wbody, label %input
+wbody:
+  %ws = call i64 @l0_board_window_start(i64 %w)
+  %we = call i64 @l0_board_window_end(i64 %w)
+  call void @ram_add(i64 %ws, i64 %we, i1 true)
+  %w1 = add i64 %w, 1
+  br label %wloop
+input:
+  %nb = load i64, ptr @pc_n
+  store i64 %nb, ptr @pc_boot_n
+  call void @ram_add(i64 %is, i64 %ie, i1 false)
+  call void @pool_number()
+  ret void
+}
+
+; Takes page_state's pages from the front of the first piece before the
+; input's that holds them, numbers the pages, and zeroes page_state. With
+; no such piece, the pool is empty.
+define internal void @pool_number() {
+entry:
+  %n = load i64, ptr @pc_n
+  br label %sum
+sum:
+  %i = phi i64 [ 0, %entry ], [ %i1, %sbody ]
+  %t = phi i64 [ 0, %entry ], [ %t1, %sbody ]
+  %more = icmp ult i64 %i, %n
+  br i1 %more, label %sbody, label %need
+sbody:
+  %pgp = getelementptr [32 x i64], ptr @pc_pages, i64 0, i64 %i
+  %pg = load i64, ptr %pgp
+  %t1 = add i64 %t, %pg
+  %i1 = add i64 %i, 1
+  br label %sum
+need:
+  %b4 = shl i64 %t, 2
+  %b4u = add i64 %b4, 4095
+  %s = lshr i64 %b4u, 12
+  %nb = load i64, ptr @pc_boot_n
+  br label %find
+find:
+  %j = phi i64 [ 0, %need ], [ %j1, %fnext ]
+  %fmore = icmp ult i64 %j, %nb
+  br i1 %fmore, label %flook, label %none
+flook:
+  %pjp = getelementptr [32 x i64], ptr @pc_pages, i64 0, i64 %j
+  %pj = load i64, ptr %pjp
+  %big = icmp uge i64 %pj, %s
+  br i1 %big, label %take, label %fnext
+fnext:
+  %j1 = add i64 %j, 1
+  br label %find
+none:
+  store i64 0, ptr @pc_n
+  store i64 0, ptr @pc_boot_n
+  ret void
+take:
+  %sjp = getelementptr [32 x i64], ptr @pc_start, i64 0, i64 %j
+  %sj = load i64, ptr %sjp
+  store i64 %sj, ptr @page_state
+  %so = shl i64 %s, 12
+  %sj1 = add i64 %sj, %so
+  store i64 %sj1, ptr %sjp
+  %pj1 = sub i64 %pj, %s
+  store i64 %pj1, ptr %pjp
+  br label %number
+number:
+  %k = phi i64 [ 0, %take ], [ %k1, %nbody ]
+  %acc = phi i64 [ 0, %take ], [ %acc1, %nbody ]
+  %boot = phi i64 [ 0, %take ], [ %boot1, %nbody ]
+  %nmore = icmp ult i64 %k, %n
+  br i1 %nmore, label %nbody, label %finish
+nbody:
+  %fp = getelementptr [32 x i64], ptr @pc_first, i64 0, i64 %k
+  store i64 %acc, ptr %fp
+  %isb = icmp eq i64 %k, %nb
+  %boot1 = select i1 %isb, i64 %acc, i64 %boot
+  %pkp = getelementptr [32 x i64], ptr @pc_pages, i64 0, i64 %k
+  %pk = load i64, ptr %pkp
+  %acc1 = add i64 %acc, %pk
+  %k1 = add i64 %k, 1
+  br label %number
+finish:
+  %hasin = icmp ult i64 %nb, %n
+  %bootv = select i1 %hasin, i64 %boot, i64 %acc
+  store i64 %acc, ptr @pool_all
+  store i64 %bootv, ptr @pool_boot
+  store i64 %bootv, ptr @pool_left
+  %bytes = shl i64 %acc, 2
+  %st = inttoptr i64 %sj to ptr
+  call void @llvm.memset.p0.i64(ptr %st, i8 0, i64 %bytes, i1 false)
+  ret void
+}
+
+; Gives the input's pages to the free list, once, from the last, so the
+; first is taken first.
+define internal void @input_join() {
+entry:
+  %j = load i1, ptr @in_joined
+  br i1 %j, label %done, label %go
+go:
+  store i1 true, ptr @in_joined
+  %all = load i64, ptr @pool_all
+  %boot = load i64, ptr @pool_boot
+  br label %loop
+loop:
+  %k = phi i64 [ %all, %go ], [ %k0, %give ]
+  %more = icmp ugt i64 %k, %boot
+  br i1 %more, label %give, label %done
+give:
+  %k0 = sub i64 %k, 1
+  call void @page_give(i64 %k0)
+  br label %loop
+done:
+  ret void
+}
+
+; How many pages the pieces before the input's have.
 define internal i64 @pool_pages() {
 entry:
-  %fs = call i64 @l0_board_pool_start()
-  %fe = call i64 @l0_board_pool_end()
-  %b = sub i64 %fe, %fs
-  %n0 = lshr i64 %b, 12
-  %big = icmp ugt i64 %n0, 98304
-  %n = select i1 %big, i64 98304, i64 %n0
+  %n = load i64, ptr @pool_boot
   ret i64 %n
 }
 
+; The address of page k, below pool_all.
 define internal i64 @page_addr(i64 %k) {
 entry:
-  %fs = call i64 @l0_board_pool_start()
-  %o = shl i64 %k, 12
-  %pa = add i64 %fs, %o
+  %n = load i64, ptr @pc_n
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i1, %next ]
+  %more = icmp ult i64 %i, %n
+  br i1 %more, label %look, label %none
+look:
+  %fp = getelementptr [32 x i64], ptr @pc_first, i64 0, i64 %i
+  %f = load i64, ptr %fp
+  %pp = getelementptr [32 x i64], ptr @pc_pages, i64 0, i64 %i
+  %pg = load i64, ptr %pp
+  %e = add i64 %f, %pg
+  %in = icmp ult i64 %k, %e
+  br i1 %in, label %found, label %next
+found:
+  %sp = getelementptr [32 x i64], ptr @pc_start, i64 0, i64 %i
+  %s = load i64, ptr %sp
+  %d = sub i64 %k, %f
+  %o = shl i64 %d, 12
+  %pa = add i64 %s, %o
   ret i64 %pa
+next:
+  %i1 = add i64 %i, 1
+  br label %loop
+none:
+  ret i64 0
 }
 
 ; The pool's index of the page at pa, or -1 if pa is not in the pool.
 define internal i64 @page_of(i64 %pa) {
 entry:
-  %fs = call i64 @l0_board_pool_start()
-  %fe = call i64 @l0_board_pool_end()
-  %lo = icmp uge i64 %pa, %fs
-  %hi = icmp ult i64 %pa, %fe
+  %n = load i64, ptr @pc_n
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i1, %next ]
+  %more = icmp ult i64 %i, %n
+  br i1 %more, label %look, label %no
+look:
+  %sp = getelementptr [32 x i64], ptr @pc_start, i64 0, i64 %i
+  %s = load i64, ptr %sp
+  %pp = getelementptr [32 x i64], ptr @pc_pages, i64 0, i64 %i
+  %pg = load i64, ptr %pp
+  %len = shl i64 %pg, 12
+  %e = add i64 %s, %len
+  %lo = icmp uge i64 %pa, %s
+  %hi = icmp ult i64 %pa, %e
   %in = and i1 %lo, %hi
-  br i1 %in, label %yes, label %no
+  br i1 %in, label %yes, label %next
 yes:
-  %o = sub i64 %pa, %fs
-  %k = lshr i64 %o, 12
+  %fp = getelementptr [32 x i64], ptr @pc_first, i64 0, i64 %i
+  %f = load i64, ptr %fp
+  %o = sub i64 %pa, %s
+  %d = lshr i64 %o, 12
+  %k = add i64 %f, %d
   ret i64 %k
+next:
+  %i1 = add i64 %i, 1
+  br label %loop
 no:
   ret i64 -1
 }
@@ -590,6 +1123,20 @@ no:
 ; else an untouched one from the top if top, from the bottom if not; or -1
 ; when none is left.
 define internal i64 @page_take(i1 %top) {
+entry:
+  %k = call i64 @page_find(i1 %top)
+  %got = icmp sge i64 %k, 0
+  br i1 %got, label %count, label %done
+count:
+  %l = load i64, ptr @pool_left
+  %l1 = sub i64 %l, 1
+  store i64 %l1, ptr @pool_left
+  br label %done
+done:
+  ret i64 %k
+}
+
+define internal i64 @page_find(i1 %top) {
 entry:
   %f = load i64, ptr @pool_free
   %have = icmp ne i64 %f, 0
@@ -632,6 +1179,9 @@ entry:
   store i64 %f, ptr %pq
   %k1 = add i64 %k, 1
   store i64 %k1, ptr @pool_free
+  %l = load i64, ptr @pool_left
+  %l1 = add i64 %l, 1
+  store i64 %l1, ptr @pool_left
   ret void
 }
 
@@ -645,7 +1195,10 @@ entry:
 
 define internal ptr @state_of(i64 %k) {
 entry:
-  %p = getelementptr [98304 x i32], ptr @page_state, i64 0, i64 %k
+  %b = load i64, ptr @page_state
+  %o = shl i64 %k, 2
+  %a = add i64 %b, %o
+  %p = inttoptr i64 %a to ptr
   ret ptr %p
 }
 
@@ -734,10 +1287,16 @@ entry:
   ret i64 %r
 }
 
+define i64 @l0_host_frame_free_count() {
+entry:
+  %n = load i64, ptr @pool_left
+  ret i64 %n
+}
+
 ; The physical address of frame f, or 0 if f is not a frame.
 define internal i64 @frame_pa(i64 %f) {
 entry:
-  %all = call i64 @pool_pages()
+  %all = load i64, ptr @pool_all
   %in = icmp ult i64 %f, %all
   br i1 %in, label %look, label %no
 look:

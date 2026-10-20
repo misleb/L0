@@ -21,11 +21,8 @@ SECTIONS
   __input_start = 0x50000000;
   __heap_start = 0x58000000;
   __heap_end = 0x98000000;
-  __frames_start = 0x98000000;
-  __frames_end = 0xB0000000;
   __stack_bottom = 0xB0000000;
   __stack_top = 0xC0000000;
   /DISCARD/ : { *(.eh_frame*) }
 }
 ASSERT(__image_end <= 0x48000000, "the image overlaps QEMU's device tree")
-ASSERT(__frames_end - __frames_start <= 98304 * 4096, "the pool is over 98,304 frames")

@@ -13,9 +13,11 @@
 ;   0x4FFFFFF8  standard input's length, a word, written by QEMU's loader
 ;   0x50000000  standard input's bytes, loaded by QEMU's loader
 ;   0x58000000  the heap, to 0x98000000
-;   0x98000000  the pool of frames and the spaces' page tables, to 0xB0000000
+;   0x98000000  frames and the spaces' page tables, to 0xB0000000
 ;   0xB0000000  the stack, 256 MB, growing down from 0xC0000000
 ;   0xC0000000  to 0x100000000, the user range, mapped by each space alone
+; Frames and tables come too from the image's end to the heap, but for the
+; device tree and, until a read reaches their end, standard input's bytes.
 ;
 ; Standard output is the PL011 at 0x09000000. Standard error and the exit
 ; status reach the host by semihosting, so the three stay apart on a board
@@ -115,20 +117,36 @@ entry:
   ret void
 }
 
-; The pool of frames and page tables, as the layout gives it.
-@__frames_start = external global i8
-@__frames_end = external global i8
+; The frame windows, spec section 10.3: what the layout leaves besides the
+; image, the heap, and the stack, from the image's end to the heap and from
+; the heap's end to the stack. The device tree and standard input are in the
+; first, and runtime/bare/board.ll cuts them out.
+@__image_end = external global i8
+@__heap_start = external global i8
+@__heap_end = external global i8
+@__stack_bottom = external global i8
 
-define i64 @l0_board_pool_start() {
+define i64 @l0_board_window_count() {
 entry:
-  %a = ptrtoint ptr @__frames_start to i64
-  ret i64 %a
+  ret i64 2
 }
 
-define i64 @l0_board_pool_end() {
+define i64 @l0_board_window_start(i64 %k) {
 entry:
-  %a = ptrtoint ptr @__frames_end to i64
-  ret i64 %a
+  %a = ptrtoint ptr @__image_end to i64
+  %b = ptrtoint ptr @__heap_end to i64
+  %first = icmp eq i64 %k, 0
+  %r = select i1 %first, i64 %a, i64 %b
+  ret i64 %r
+}
+
+define i64 @l0_board_window_end(i64 %k) {
+entry:
+  %a = ptrtoint ptr @__heap_start to i64
+  %b = ptrtoint ptr @__stack_bottom to i64
+  %first = icmp eq i64 %k, 0
+  %r = select i1 %first, i64 %a, i64 %b
+  ret i64 %r
 }
 
 ; ------------------------------------------------------------- interrupts
