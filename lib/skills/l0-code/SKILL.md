@@ -196,7 +196,7 @@ spec, the same on every machine and run, so a test can pin one.
 
 **`float` is a binary64 number with its own builtins** (spec 6.17), because
 `add` and `lt` take only `int`: `float_add`, `float_sub`, `float_mul`,
-`float_div`, `float_neg`, `float_lt`, `float_le`, `float_gt`, `float_ge`,
+`float_div`, `float_sqrt`, `float_neg`, `float_lt`, `float_le`, `float_gt`, `float_ge`,
 `float_from_int`, and `float_to_int`, and the library's `float_sin` and
 `float_cos`. There is no conversion from an `int` literal, so write `2.0`,
 not `2`, and `(float_from_int n)` for a variable.

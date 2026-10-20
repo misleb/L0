@@ -7,6 +7,26 @@ New entries go at the top.
 
 ---
 
+## Square root of a float
+
+**New:** the builtin `float_sqrt`, `float -> float` (spec 6.17), IEEE 754's
+squareRoot to nearest.
+
+*Why now:* 0094 left it out until a program needed it, and L0S's 4K face
+does: curves are flattened into n >= sqrt(bend / 8 tol) lines, a stroke's
+unit normal divides by sqrt(dx^2 + dy^2), and an arc's step is about
+sqrt(8 tol / r), all over an integer `isqrt` that truncates.
+
+*Why a builtin, not the library:* square root is correctly rounded by IEEE
+754 and one instruction on aarch64 (`fsqrt`), riscv64 (`fsqrt.d`), and amd64
+(`sqrtsd`), through `llvm.sqrt.f64`, which calls no libm. Newton's method in
+L0 is neither correctly rounded without a correction step nor as fast, and
+only a correctly rounded one keeps 6.17's promise that every host gives the
+same bits. The NaN a negative argument makes is the one NaN, like every
+operation's. Absolute value is still left out: one comparison writes it.
+
+---
+
 ## The library has sine and cosine, and no language change for it
 
 `float_sin` and `float_cos` are in `lib/prelude.l0`, in L0, since no compiled

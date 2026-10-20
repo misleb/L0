@@ -101,6 +101,21 @@
   (add (check_true "equal floats hash alike" (eq (hash 1.5) (hash 1.5)))
        (check_true "the zeros hash apart" (not (eq (hash 0.0) (hash -0.0))))))
 
+(def test_sqrt () int
+  (add (check_int "sqrt 2" (float_bits (float_sqrt 2.0)) 4609047870845172685)
+  (add (check_int "sqrt 0.1" (float_bits (float_sqrt 0.1)) 4599368272914696463)
+  (add (check_int "sqrt 3" (float_bits (float_sqrt 3.0)) 4610479282544200874)
+  (add (check_int "sqrt 4" (float_bits (float_sqrt 4.0)) 4611686018427387904)
+  (add (check_int "sqrt 1e22" (float_bits (float_sqrt (float_from_bits 4936209963552724370))) 4771362005757984768)
+  (add (check_int "sqrt of the smallest" (float_bits (float_sqrt (float_from_bits 1))) 2188749418902061056)
+  (add (check_int "sqrt 0" (float_bits (float_sqrt 0.0)) 0)
+  (add (check_int "sqrt -0" (float_bits (float_sqrt -0.0)) -9223372036854775808)
+  (add (check_int "sqrt inf" (float_bits (float_sqrt (inf))) 9218868437227405312)
+  (add (check_int "sqrt -1" (float_bits (float_sqrt -1.0)) 9221120237041090560)
+  (add (check_int "sqrt -inf" (float_bits (float_sqrt (float_neg (inf)))) 9221120237041090560)
+  (add (check_int "sqrt nan" (float_bits (float_sqrt (nan))) 9221120237041090560)
+       (check_int "sqrt of a negative nan" (float_bits (float_sqrt (float_neg (nan)))) 9221120237041090560))))))))))))))
+
 (def test_map_key () int
   (let m (map_put (map_put (map_put ((MapEmpty float int)) -2.0 1) 0.5 2) -2.0 3)
     (add (check_int "size" (map_size m) 2)

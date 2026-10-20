@@ -47,6 +47,7 @@ declare i64 @l0_bit_shl(i64, i64)
 declare i64 @l0_bit_shr(i64, i64)
 declare i64 @l0_bit_count(i64)
 declare i64 @llvm.fptosi.sat.i64.f64(double)
+declare double @llvm.sqrt.f64(double)
 declare i64 @l0_remove(i64)
 declare i64 @l0_compare(i64, i64)
 declare i64 @l0_read_some(i64, i64)
@@ -4488,6 +4489,1642 @@ Le13:
   ret i64 -1
 }
 
+define internal fastcc i64 @l0_f_float_sin(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call fastcc i64 @l0_f_float_abs_of(i64 %a0)
+  %t2 = fdiv double 0x3ff0000000000000, 0x4197d78400000000
+  %t3 = bitcast double %t2 to i64
+  %t4 = ashr i64 %t3, 63
+  %t5 = lshr i64 %t4, 1
+  %t6 = xor i64 %t3, %t5
+  %t7 = ashr i64 %t0, 63
+  %t8 = lshr i64 %t7, 1
+  %t9 = xor i64 %t0, %t8
+  %t10 = bitcast i64 %t9 to double
+  %t11 = ashr i64 %t6, 63
+  %t12 = lshr i64 %t11, 1
+  %t13 = xor i64 %t6, %t12
+  %t14 = bitcast i64 %t13 to double
+  %t15 = fcmp olt double %t10, %t14
+  %t16 = zext i1 %t15 to i64
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt1, label %Le1
+Lt1:
+  ret i64 %a0
+Le1:
+  %t19 = fdiv double 0x433be727995d90d3, 0x4341c37937e08000
+  %t20 = bitcast double %t19 to i64
+  %t21 = ashr i64 %t20, 63
+  %t22 = lshr i64 %t21, 1
+  %t23 = xor i64 %t20, %t22
+  %t24 = ashr i64 %t0, 63
+  %t25 = lshr i64 %t24, 1
+  %t26 = xor i64 %t0, %t25
+  %t27 = bitcast i64 %t26 to double
+  %t28 = ashr i64 %t23, 63
+  %t29 = lshr i64 %t28, 1
+  %t30 = xor i64 %t23, %t29
+  %t31 = bitcast i64 %t30 to double
+  %t32 = fcmp olt double %t27, %t31
+  %t33 = zext i1 %t32 to i64
+  %t34 = icmp ne i64 %t33, 0
+  br i1 %t34, label %Lt18, label %Le18
+Lt18:
+  %t35 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t36 = bitcast double %t35 to i64
+  %t37 = ashr i64 %t36, 63
+  %t38 = lshr i64 %t37, 1
+  %t39 = xor i64 %t36, %t38
+  %t40 = musttail call fastcc i64 @l0_f_float_sin_kernel(i64 %a0, i64 %t39, i64 0)
+  ret i64 %t40
+Le18:
+  %t42 = fdiv double 0x413921fb00000000, 0x3ff0000000000000
+  %t43 = bitcast double %t42 to i64
+  %t44 = ashr i64 %t43, 63
+  %t45 = lshr i64 %t44, 1
+  %t46 = xor i64 %t43, %t45
+  %t47 = ashr i64 %t0, 63
+  %t48 = lshr i64 %t47, 1
+  %t49 = xor i64 %t0, %t48
+  %t50 = bitcast i64 %t49 to double
+  %t51 = ashr i64 %t46, 63
+  %t52 = lshr i64 %t51, 1
+  %t53 = xor i64 %t46, %t52
+  %t54 = bitcast i64 %t53 to double
+  %t55 = fcmp olt double %t50, %t54
+  %t56 = zext i1 %t55 to i64
+  %t57 = icmp ne i64 %t56, 0
+  br i1 %t57, label %Lt41, label %Le41
+Lt41:
+  %t59 = call fastcc i64 @l0_f_float_reduce(i64 %a0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t60 = call i64 @l0_data_tag(i64 %t59)
+  switch i64 %t60, label %Ln58 [ i64 0, label %A58_0 ]
+A58_0:
+  %t61 = call i64 @l0_data_get(i64 %t59, i64 0)
+  %t62 = call i64 @l0_data_get(i64 %t59, i64 1)
+  %t63 = call i64 @l0_data_get(i64 %t59, i64 2)
+  call void @l0_dec(i64 %t59)
+  %t64 = and i64 %t61, 3
+  %t65 = musttail call fastcc i64 @l0_f_float_sin_quadrant(i64 %t64, i64 %t62, i64 %t63)
+  ret i64 %t65
+Ln58:
+  unreachable
+Le41:
+  %t66 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t67 = bitcast double %t66 to i64
+  %t68 = ashr i64 %t67, 63
+  %t69 = lshr i64 %t68, 1
+  %t70 = xor i64 %t67, %t69
+  %t71 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t72 = bitcast double %t71 to i64
+  %t73 = ashr i64 %t72, 63
+  %t74 = lshr i64 %t73, 1
+  %t75 = xor i64 %t72, %t74
+  %t76 = ashr i64 %t70, 63
+  %t77 = lshr i64 %t76, 1
+  %t78 = xor i64 %t70, %t77
+  %t79 = bitcast i64 %t78 to double
+  %t80 = ashr i64 %t75, 63
+  %t81 = lshr i64 %t80, 1
+  %t82 = xor i64 %t75, %t81
+  %t83 = bitcast i64 %t82 to double
+  %t84 = fdiv double %t79, %t83
+  %t85 = bitcast double %t84 to i64
+  %t86 = ashr i64 %t85, 63
+  %t87 = lshr i64 %t86, 1
+  %t88 = xor i64 %t85, %t87
+  %t89 = fcmp uno double %t84, %t84
+  %t90 = select i1 %t89, i64 9221120237041090560, i64 %t88
+  ret i64 %t90
+}
+
+define internal fastcc i64 @l0_f_float_cos(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %t0 = call fastcc i64 @l0_f_float_abs_of(i64 %a0)
+  %t2 = fdiv double 0x433be727995d90d3, 0x4341c37937e08000
+  %t3 = bitcast double %t2 to i64
+  %t4 = ashr i64 %t3, 63
+  %t5 = lshr i64 %t4, 1
+  %t6 = xor i64 %t3, %t5
+  %t7 = ashr i64 %t0, 63
+  %t8 = lshr i64 %t7, 1
+  %t9 = xor i64 %t0, %t8
+  %t10 = bitcast i64 %t9 to double
+  %t11 = ashr i64 %t6, 63
+  %t12 = lshr i64 %t11, 1
+  %t13 = xor i64 %t6, %t12
+  %t14 = bitcast i64 %t13 to double
+  %t15 = fcmp olt double %t10, %t14
+  %t16 = zext i1 %t15 to i64
+  %t17 = icmp ne i64 %t16, 0
+  br i1 %t17, label %Lt1, label %Le1
+Lt1:
+  %t18 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t19 = bitcast double %t18 to i64
+  %t20 = ashr i64 %t19, 63
+  %t21 = lshr i64 %t20, 1
+  %t22 = xor i64 %t19, %t21
+  %t23 = musttail call fastcc i64 @l0_f_float_cos_kernel(i64 %a0, i64 %t22, i64 0)
+  ret i64 %t23
+Le1:
+  %t25 = fdiv double 0x413921fb00000000, 0x3ff0000000000000
+  %t26 = bitcast double %t25 to i64
+  %t27 = ashr i64 %t26, 63
+  %t28 = lshr i64 %t27, 1
+  %t29 = xor i64 %t26, %t28
+  %t30 = ashr i64 %t0, 63
+  %t31 = lshr i64 %t30, 1
+  %t32 = xor i64 %t0, %t31
+  %t33 = bitcast i64 %t32 to double
+  %t34 = ashr i64 %t29, 63
+  %t35 = lshr i64 %t34, 1
+  %t36 = xor i64 %t29, %t35
+  %t37 = bitcast i64 %t36 to double
+  %t38 = fcmp olt double %t33, %t37
+  %t39 = zext i1 %t38 to i64
+  %t40 = icmp ne i64 %t39, 0
+  br i1 %t40, label %Lt24, label %Le24
+Lt24:
+  %t42 = call fastcc i64 @l0_f_float_reduce(i64 %a0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t43 = call i64 @l0_data_tag(i64 %t42)
+  switch i64 %t43, label %Ln41 [ i64 0, label %A41_0 ]
+A41_0:
+  %t44 = call i64 @l0_data_get(i64 %t42, i64 0)
+  %t45 = call i64 @l0_data_get(i64 %t42, i64 1)
+  %t46 = call i64 @l0_data_get(i64 %t42, i64 2)
+  call void @l0_dec(i64 %t42)
+  %t47 = and i64 %t44, 3
+  %t48 = musttail call fastcc i64 @l0_f_float_cos_quadrant(i64 %t47, i64 %t45, i64 %t46)
+  ret i64 %t48
+Ln41:
+  unreachable
+Le24:
+  %t49 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t50 = bitcast double %t49 to i64
+  %t51 = ashr i64 %t50, 63
+  %t52 = lshr i64 %t51, 1
+  %t53 = xor i64 %t50, %t52
+  %t54 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t55 = bitcast double %t54 to i64
+  %t56 = ashr i64 %t55, 63
+  %t57 = lshr i64 %t56, 1
+  %t58 = xor i64 %t55, %t57
+  %t59 = ashr i64 %t53, 63
+  %t60 = lshr i64 %t59, 1
+  %t61 = xor i64 %t53, %t60
+  %t62 = bitcast i64 %t61 to double
+  %t63 = ashr i64 %t58, 63
+  %t64 = lshr i64 %t63, 1
+  %t65 = xor i64 %t58, %t64
+  %t66 = bitcast i64 %t65 to double
+  %t67 = fdiv double %t62, %t66
+  %t68 = bitcast double %t67 to i64
+  %t69 = ashr i64 %t68, 63
+  %t70 = lshr i64 %t69, 1
+  %t71 = xor i64 %t68, %t70
+  %t72 = fcmp uno double %t67, %t67
+  %t73 = select i1 %t72, i64 9221120237041090560, i64 %t71
+  ret i64 %t73
+}
+
+define internal fastcc i64 @l0_f_float_abs_of(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t1 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t2 = bitcast double %t1 to i64
+  %t3 = ashr i64 %t2, 63
+  %t4 = lshr i64 %t3, 1
+  %t5 = xor i64 %t2, %t4
+  %t6 = ashr i64 %a0, 63
+  %t7 = lshr i64 %t6, 1
+  %t8 = xor i64 %a0, %t7
+  %t9 = bitcast i64 %t8 to double
+  %t10 = ashr i64 %t5, 63
+  %t11 = lshr i64 %t10, 1
+  %t12 = xor i64 %t5, %t11
+  %t13 = bitcast i64 %t12 to double
+  %t14 = fcmp olt double %t9, %t13
+  %t15 = zext i1 %t14 to i64
+  %t16 = icmp ne i64 %t15, 0
+  br i1 %t16, label %Lt0, label %Le0
+Lt0:
+  %t17 = ashr i64 %a0, 63
+  %t18 = lshr i64 %t17, 1
+  %t19 = xor i64 %a0, %t18
+  %t20 = bitcast i64 %t19 to double
+  %t21 = fneg double %t20
+  %t22 = bitcast double %t21 to i64
+  %t23 = ashr i64 %t22, 63
+  %t24 = lshr i64 %t23, 1
+  %t25 = xor i64 %t22, %t24
+  ret i64 %t25
+Le0:
+  ret i64 %a0
+}
+
+define internal fastcc i64 @l0_f_float_sin_quadrant(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %t1 = icmp eq i64 %a0, 0
+  %t2 = zext i1 %t1 to i64
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  %t4 = musttail call fastcc i64 @l0_f_float_sin_kernel(i64 %a1, i64 %a2, i64 0)
+  ret i64 %t4
+Le0:
+  %t6 = icmp eq i64 %a0, 1
+  %t7 = zext i1 %t6 to i64
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt5, label %Le5
+Lt5:
+  %t9 = musttail call fastcc i64 @l0_f_float_cos_kernel(i64 %a1, i64 %a2, i64 0)
+  ret i64 %t9
+Le5:
+  %t11 = icmp eq i64 %a0, 2
+  %t12 = zext i1 %t11 to i64
+  %t13 = icmp ne i64 %t12, 0
+  br i1 %t13, label %Lt10, label %Le10
+Lt10:
+  %t14 = call fastcc i64 @l0_f_float_sin_kernel(i64 %a1, i64 %a2, i64 0)
+  %t15 = ashr i64 %t14, 63
+  %t16 = lshr i64 %t15, 1
+  %t17 = xor i64 %t14, %t16
+  %t18 = bitcast i64 %t17 to double
+  %t19 = fneg double %t18
+  %t20 = bitcast double %t19 to i64
+  %t21 = ashr i64 %t20, 63
+  %t22 = lshr i64 %t21, 1
+  %t23 = xor i64 %t20, %t22
+  ret i64 %t23
+Le10:
+  %t24 = call fastcc i64 @l0_f_float_cos_kernel(i64 %a1, i64 %a2, i64 0)
+  %t25 = ashr i64 %t24, 63
+  %t26 = lshr i64 %t25, 1
+  %t27 = xor i64 %t24, %t26
+  %t28 = bitcast i64 %t27 to double
+  %t29 = fneg double %t28
+  %t30 = bitcast double %t29 to i64
+  %t31 = ashr i64 %t30, 63
+  %t32 = lshr i64 %t31, 1
+  %t33 = xor i64 %t30, %t32
+  ret i64 %t33
+}
+
+define internal fastcc i64 @l0_f_float_cos_quadrant(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %t1 = icmp eq i64 %a0, 0
+  %t2 = zext i1 %t1 to i64
+  %t3 = icmp ne i64 %t2, 0
+  br i1 %t3, label %Lt0, label %Le0
+Lt0:
+  %t4 = musttail call fastcc i64 @l0_f_float_cos_kernel(i64 %a1, i64 %a2, i64 0)
+  ret i64 %t4
+Le0:
+  %t6 = icmp eq i64 %a0, 1
+  %t7 = zext i1 %t6 to i64
+  %t8 = icmp ne i64 %t7, 0
+  br i1 %t8, label %Lt5, label %Le5
+Lt5:
+  %t9 = call fastcc i64 @l0_f_float_sin_kernel(i64 %a1, i64 %a2, i64 0)
+  %t10 = ashr i64 %t9, 63
+  %t11 = lshr i64 %t10, 1
+  %t12 = xor i64 %t9, %t11
+  %t13 = bitcast i64 %t12 to double
+  %t14 = fneg double %t13
+  %t15 = bitcast double %t14 to i64
+  %t16 = ashr i64 %t15, 63
+  %t17 = lshr i64 %t16, 1
+  %t18 = xor i64 %t15, %t17
+  ret i64 %t18
+Le5:
+  %t20 = icmp eq i64 %a0, 2
+  %t21 = zext i1 %t20 to i64
+  %t22 = icmp ne i64 %t21, 0
+  br i1 %t22, label %Lt19, label %Le19
+Lt19:
+  %t23 = call fastcc i64 @l0_f_float_cos_kernel(i64 %a1, i64 %a2, i64 0)
+  %t24 = ashr i64 %t23, 63
+  %t25 = lshr i64 %t24, 1
+  %t26 = xor i64 %t23, %t25
+  %t27 = bitcast i64 %t26 to double
+  %t28 = fneg double %t27
+  %t29 = bitcast double %t28 to i64
+  %t30 = ashr i64 %t29, 63
+  %t31 = lshr i64 %t30, 1
+  %t32 = xor i64 %t29, %t31
+  ret i64 %t32
+Le19:
+  %t33 = musttail call fastcc i64 @l0_f_float_sin_kernel(i64 %a1, i64 %a2, i64 0)
+  ret i64 %t33
+}
+
+define internal fastcc i64 @l0_f_float_exponent(i64 %a0) {
+entry:
+  call void @l0_stack_check()
+  %t0 = ashr i64 %a0, 63
+  %t1 = lshr i64 %t0, 1
+  %t2 = xor i64 %a0, %t1
+  %t3 = call i64 @l0_bit_shr(i64 %t2, i64 52)
+  %t4 = and i64 %t3, 2047
+  ret i64 %t4
+}
+
+define internal fastcc i64 @l0_f_float_sin_kernel(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %t0 = ashr i64 %a0, 63
+  %t1 = lshr i64 %t0, 1
+  %t2 = xor i64 %a0, %t1
+  %t3 = bitcast i64 %t2 to double
+  %t4 = ashr i64 %a0, 63
+  %t5 = lshr i64 %t4, 1
+  %t6 = xor i64 %a0, %t5
+  %t7 = bitcast i64 %t6 to double
+  %t8 = fmul double %t3, %t7
+  %t9 = bitcast double %t8 to i64
+  %t10 = ashr i64 %t9, 63
+  %t11 = lshr i64 %t10, 1
+  %t12 = xor i64 %t9, %t11
+  %t13 = fcmp uno double %t8, %t8
+  %t14 = select i1 %t13, i64 9221120237041090560, i64 %t12
+  %t15 = ashr i64 %t14, 63
+  %t16 = lshr i64 %t15, 1
+  %t17 = xor i64 %t14, %t16
+  %t18 = bitcast i64 %t17 to double
+  %t19 = ashr i64 %t14, 63
+  %t20 = lshr i64 %t19, 1
+  %t21 = xor i64 %t14, %t20
+  %t22 = bitcast i64 %t21 to double
+  %t23 = fmul double %t18, %t22
+  %t24 = bitcast double %t23 to i64
+  %t25 = ashr i64 %t24, 63
+  %t26 = lshr i64 %t25, 1
+  %t27 = xor i64 %t24, %t26
+  %t28 = fcmp uno double %t23, %t23
+  %t29 = select i1 %t28, i64 9221120237041090560, i64 %t27
+  %t30 = ashr i64 4575957461383575718, 63
+  %t31 = lshr i64 %t30, 1
+  %t32 = xor i64 4575957461383575718, %t31
+  %t33 = bitcast i64 4575957461383575718 to double
+  %t34 = fcmp uno double %t33, %t33
+  %t35 = select i1 %t34, i64 9221120237041090560, i64 %t32
+  %t36 = ashr i64 -4671919876304969259, 63
+  %t37 = lshr i64 %t36, 1
+  %t38 = xor i64 -4671919876304969259, %t37
+  %t39 = bitcast i64 -4671919876304969259 to double
+  %t40 = fcmp uno double %t39, %t39
+  %t41 = select i1 %t40, i64 9221120237041090560, i64 %t38
+  %t42 = ashr i64 4523617212983017085, 63
+  %t43 = lshr i64 %t42, 1
+  %t44 = xor i64 4523617212983017085, %t43
+  %t45 = bitcast i64 4523617212983017085 to double
+  %t46 = fcmp uno double %t45, %t45
+  %t47 = select i1 %t46, i64 9221120237041090560, i64 %t44
+  %t48 = ashr i64 %t14, 63
+  %t49 = lshr i64 %t48, 1
+  %t50 = xor i64 %t14, %t49
+  %t51 = bitcast i64 %t50 to double
+  %t52 = ashr i64 %t47, 63
+  %t53 = lshr i64 %t52, 1
+  %t54 = xor i64 %t47, %t53
+  %t55 = bitcast i64 %t54 to double
+  %t56 = fmul double %t51, %t55
+  %t57 = bitcast double %t56 to i64
+  %t58 = ashr i64 %t57, 63
+  %t59 = lshr i64 %t58, 1
+  %t60 = xor i64 %t57, %t59
+  %t61 = fcmp uno double %t56, %t56
+  %t62 = select i1 %t61, i64 9221120237041090560, i64 %t60
+  %t63 = ashr i64 %t41, 63
+  %t64 = lshr i64 %t63, 1
+  %t65 = xor i64 %t41, %t64
+  %t66 = bitcast i64 %t65 to double
+  %t67 = ashr i64 %t62, 63
+  %t68 = lshr i64 %t67, 1
+  %t69 = xor i64 %t62, %t68
+  %t70 = bitcast i64 %t69 to double
+  %t71 = fadd double %t66, %t70
+  %t72 = bitcast double %t71 to i64
+  %t73 = ashr i64 %t72, 63
+  %t74 = lshr i64 %t73, 1
+  %t75 = xor i64 %t72, %t74
+  %t76 = fcmp uno double %t71, %t71
+  %t77 = select i1 %t76, i64 9221120237041090560, i64 %t75
+  %t78 = ashr i64 %t14, 63
+  %t79 = lshr i64 %t78, 1
+  %t80 = xor i64 %t14, %t79
+  %t81 = bitcast i64 %t80 to double
+  %t82 = ashr i64 %t77, 63
+  %t83 = lshr i64 %t82, 1
+  %t84 = xor i64 %t77, %t83
+  %t85 = bitcast i64 %t84 to double
+  %t86 = fmul double %t81, %t85
+  %t87 = bitcast double %t86 to i64
+  %t88 = ashr i64 %t87, 63
+  %t89 = lshr i64 %t88, 1
+  %t90 = xor i64 %t87, %t89
+  %t91 = fcmp uno double %t86, %t86
+  %t92 = select i1 %t91, i64 9221120237041090560, i64 %t90
+  %t93 = ashr i64 %t35, 63
+  %t94 = lshr i64 %t93, 1
+  %t95 = xor i64 %t35, %t94
+  %t96 = bitcast i64 %t95 to double
+  %t97 = ashr i64 %t92, 63
+  %t98 = lshr i64 %t97, 1
+  %t99 = xor i64 %t92, %t98
+  %t100 = bitcast i64 %t99 to double
+  %t101 = fadd double %t96, %t100
+  %t102 = bitcast double %t101 to i64
+  %t103 = ashr i64 %t102, 63
+  %t104 = lshr i64 %t103, 1
+  %t105 = xor i64 %t102, %t104
+  %t106 = fcmp uno double %t101, %t101
+  %t107 = select i1 %t106, i64 9221120237041090560, i64 %t105
+  %t108 = ashr i64 %t14, 63
+  %t109 = lshr i64 %t108, 1
+  %t110 = xor i64 %t14, %t109
+  %t111 = bitcast i64 %t110 to double
+  %t112 = ashr i64 %t29, 63
+  %t113 = lshr i64 %t112, 1
+  %t114 = xor i64 %t29, %t113
+  %t115 = bitcast i64 %t114 to double
+  %t116 = fmul double %t111, %t115
+  %t117 = bitcast double %t116 to i64
+  %t118 = ashr i64 %t117, 63
+  %t119 = lshr i64 %t118, 1
+  %t120 = xor i64 %t117, %t119
+  %t121 = fcmp uno double %t116, %t116
+  %t122 = select i1 %t121, i64 9221120237041090560, i64 %t120
+  %t123 = ashr i64 -4730215680275931925, 63
+  %t124 = lshr i64 %t123, 1
+  %t125 = xor i64 -4730215680275931925, %t124
+  %t126 = bitcast i64 -4730215680275931925 to double
+  %t127 = fcmp uno double %t126, %t126
+  %t128 = select i1 %t127, i64 9221120237041090560, i64 %t125
+  %t129 = ashr i64 4460209850635244924, 63
+  %t130 = lshr i64 %t129, 1
+  %t131 = xor i64 4460209850635244924, %t130
+  %t132 = bitcast i64 4460209850635244924 to double
+  %t133 = fcmp uno double %t132, %t132
+  %t134 = select i1 %t133, i64 9221120237041090560, i64 %t131
+  %t135 = ashr i64 %t14, 63
+  %t136 = lshr i64 %t135, 1
+  %t137 = xor i64 %t14, %t136
+  %t138 = bitcast i64 %t137 to double
+  %t139 = ashr i64 %t134, 63
+  %t140 = lshr i64 %t139, 1
+  %t141 = xor i64 %t134, %t140
+  %t142 = bitcast i64 %t141 to double
+  %t143 = fmul double %t138, %t142
+  %t144 = bitcast double %t143 to i64
+  %t145 = ashr i64 %t144, 63
+  %t146 = lshr i64 %t145, 1
+  %t147 = xor i64 %t144, %t146
+  %t148 = fcmp uno double %t143, %t143
+  %t149 = select i1 %t148, i64 9221120237041090560, i64 %t147
+  %t150 = ashr i64 %t128, 63
+  %t151 = lshr i64 %t150, 1
+  %t152 = xor i64 %t128, %t151
+  %t153 = bitcast i64 %t152 to double
+  %t154 = ashr i64 %t149, 63
+  %t155 = lshr i64 %t154, 1
+  %t156 = xor i64 %t149, %t155
+  %t157 = bitcast i64 %t156 to double
+  %t158 = fadd double %t153, %t157
+  %t159 = bitcast double %t158 to i64
+  %t160 = ashr i64 %t159, 63
+  %t161 = lshr i64 %t160, 1
+  %t162 = xor i64 %t159, %t161
+  %t163 = fcmp uno double %t158, %t158
+  %t164 = select i1 %t163, i64 9221120237041090560, i64 %t162
+  %t165 = ashr i64 %t122, 63
+  %t166 = lshr i64 %t165, 1
+  %t167 = xor i64 %t122, %t166
+  %t168 = bitcast i64 %t167 to double
+  %t169 = ashr i64 %t164, 63
+  %t170 = lshr i64 %t169, 1
+  %t171 = xor i64 %t164, %t170
+  %t172 = bitcast i64 %t171 to double
+  %t173 = fmul double %t168, %t172
+  %t174 = bitcast double %t173 to i64
+  %t175 = ashr i64 %t174, 63
+  %t176 = lshr i64 %t175, 1
+  %t177 = xor i64 %t174, %t176
+  %t178 = fcmp uno double %t173, %t173
+  %t179 = select i1 %t178, i64 9221120237041090560, i64 %t177
+  %t180 = ashr i64 %t107, 63
+  %t181 = lshr i64 %t180, 1
+  %t182 = xor i64 %t107, %t181
+  %t183 = bitcast i64 %t182 to double
+  %t184 = ashr i64 %t179, 63
+  %t185 = lshr i64 %t184, 1
+  %t186 = xor i64 %t179, %t185
+  %t187 = bitcast i64 %t186 to double
+  %t188 = fadd double %t183, %t187
+  %t189 = bitcast double %t188 to i64
+  %t190 = ashr i64 %t189, 63
+  %t191 = lshr i64 %t190, 1
+  %t192 = xor i64 %t189, %t191
+  %t193 = fcmp uno double %t188, %t188
+  %t194 = select i1 %t193, i64 9221120237041090560, i64 %t192
+  %t195 = ashr i64 %t14, 63
+  %t196 = lshr i64 %t195, 1
+  %t197 = xor i64 %t14, %t196
+  %t198 = bitcast i64 %t197 to double
+  %t199 = ashr i64 %a0, 63
+  %t200 = lshr i64 %t199, 1
+  %t201 = xor i64 %a0, %t200
+  %t202 = bitcast i64 %t201 to double
+  %t203 = fmul double %t198, %t202
+  %t204 = bitcast double %t203 to i64
+  %t205 = ashr i64 %t204, 63
+  %t206 = lshr i64 %t205, 1
+  %t207 = xor i64 %t204, %t206
+  %t208 = fcmp uno double %t203, %t203
+  %t209 = select i1 %t208, i64 9221120237041090560, i64 %t207
+  %t210 = ashr i64 -4628199217061079735, 63
+  %t211 = lshr i64 %t210, 1
+  %t212 = xor i64 -4628199217061079735, %t211
+  %t213 = bitcast i64 -4628199217061079735 to double
+  %t214 = fcmp uno double %t213, %t213
+  %t215 = select i1 %t214, i64 9221120237041090560, i64 %t212
+  %t217 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t218 = bitcast double %t217 to i64
+  %t219 = ashr i64 %t218, 63
+  %t220 = lshr i64 %t219, 1
+  %t221 = xor i64 %t218, %t220
+  %t222 = icmp eq i64 %a1, %t221
+  %t223 = zext i1 %t222 to i64
+  %t224 = icmp ne i64 %t223, 0
+  br i1 %t224, label %Lt216, label %Le216
+Lt216:
+  %t225 = ashr i64 %t14, 63
+  %t226 = lshr i64 %t225, 1
+  %t227 = xor i64 %t14, %t226
+  %t228 = bitcast i64 %t227 to double
+  %t229 = ashr i64 %t194, 63
+  %t230 = lshr i64 %t229, 1
+  %t231 = xor i64 %t194, %t230
+  %t232 = bitcast i64 %t231 to double
+  %t233 = fmul double %t228, %t232
+  %t234 = bitcast double %t233 to i64
+  %t235 = ashr i64 %t234, 63
+  %t236 = lshr i64 %t235, 1
+  %t237 = xor i64 %t234, %t236
+  %t238 = fcmp uno double %t233, %t233
+  %t239 = select i1 %t238, i64 9221120237041090560, i64 %t237
+  %t240 = ashr i64 %t215, 63
+  %t241 = lshr i64 %t240, 1
+  %t242 = xor i64 %t215, %t241
+  %t243 = bitcast i64 %t242 to double
+  %t244 = ashr i64 %t239, 63
+  %t245 = lshr i64 %t244, 1
+  %t246 = xor i64 %t239, %t245
+  %t247 = bitcast i64 %t246 to double
+  %t248 = fadd double %t243, %t247
+  %t249 = bitcast double %t248 to i64
+  %t250 = ashr i64 %t249, 63
+  %t251 = lshr i64 %t250, 1
+  %t252 = xor i64 %t249, %t251
+  %t253 = fcmp uno double %t248, %t248
+  %t254 = select i1 %t253, i64 9221120237041090560, i64 %t252
+  %t255 = ashr i64 %t209, 63
+  %t256 = lshr i64 %t255, 1
+  %t257 = xor i64 %t209, %t256
+  %t258 = bitcast i64 %t257 to double
+  %t259 = ashr i64 %t254, 63
+  %t260 = lshr i64 %t259, 1
+  %t261 = xor i64 %t254, %t260
+  %t262 = bitcast i64 %t261 to double
+  %t263 = fmul double %t258, %t262
+  %t264 = bitcast double %t263 to i64
+  %t265 = ashr i64 %t264, 63
+  %t266 = lshr i64 %t265, 1
+  %t267 = xor i64 %t264, %t266
+  %t268 = fcmp uno double %t263, %t263
+  %t269 = select i1 %t268, i64 9221120237041090560, i64 %t267
+  %t270 = ashr i64 %a0, 63
+  %t271 = lshr i64 %t270, 1
+  %t272 = xor i64 %a0, %t271
+  %t273 = bitcast i64 %t272 to double
+  %t274 = ashr i64 %t269, 63
+  %t275 = lshr i64 %t274, 1
+  %t276 = xor i64 %t269, %t275
+  %t277 = bitcast i64 %t276 to double
+  %t278 = fadd double %t273, %t277
+  %t279 = bitcast double %t278 to i64
+  %t280 = ashr i64 %t279, 63
+  %t281 = lshr i64 %t280, 1
+  %t282 = xor i64 %t279, %t281
+  %t283 = fcmp uno double %t278, %t278
+  %t284 = select i1 %t283, i64 9221120237041090560, i64 %t282
+  ret i64 %t284
+Le216:
+  %t285 = fdiv double 0x4014000000000000, 0x4024000000000000
+  %t286 = bitcast double %t285 to i64
+  %t287 = ashr i64 %t286, 63
+  %t288 = lshr i64 %t287, 1
+  %t289 = xor i64 %t286, %t288
+  %t290 = ashr i64 %t289, 63
+  %t291 = lshr i64 %t290, 1
+  %t292 = xor i64 %t289, %t291
+  %t293 = bitcast i64 %t292 to double
+  %t294 = ashr i64 %a1, 63
+  %t295 = lshr i64 %t294, 1
+  %t296 = xor i64 %a1, %t295
+  %t297 = bitcast i64 %t296 to double
+  %t298 = fmul double %t293, %t297
+  %t299 = bitcast double %t298 to i64
+  %t300 = ashr i64 %t299, 63
+  %t301 = lshr i64 %t300, 1
+  %t302 = xor i64 %t299, %t301
+  %t303 = fcmp uno double %t298, %t298
+  %t304 = select i1 %t303, i64 9221120237041090560, i64 %t302
+  %t305 = ashr i64 %t209, 63
+  %t306 = lshr i64 %t305, 1
+  %t307 = xor i64 %t209, %t306
+  %t308 = bitcast i64 %t307 to double
+  %t309 = ashr i64 %t194, 63
+  %t310 = lshr i64 %t309, 1
+  %t311 = xor i64 %t194, %t310
+  %t312 = bitcast i64 %t311 to double
+  %t313 = fmul double %t308, %t312
+  %t314 = bitcast double %t313 to i64
+  %t315 = ashr i64 %t314, 63
+  %t316 = lshr i64 %t315, 1
+  %t317 = xor i64 %t314, %t316
+  %t318 = fcmp uno double %t313, %t313
+  %t319 = select i1 %t318, i64 9221120237041090560, i64 %t317
+  %t320 = ashr i64 %t304, 63
+  %t321 = lshr i64 %t320, 1
+  %t322 = xor i64 %t304, %t321
+  %t323 = bitcast i64 %t322 to double
+  %t324 = ashr i64 %t319, 63
+  %t325 = lshr i64 %t324, 1
+  %t326 = xor i64 %t319, %t325
+  %t327 = bitcast i64 %t326 to double
+  %t328 = fsub double %t323, %t327
+  %t329 = bitcast double %t328 to i64
+  %t330 = ashr i64 %t329, 63
+  %t331 = lshr i64 %t330, 1
+  %t332 = xor i64 %t329, %t331
+  %t333 = fcmp uno double %t328, %t328
+  %t334 = select i1 %t333, i64 9221120237041090560, i64 %t332
+  %t335 = ashr i64 %t14, 63
+  %t336 = lshr i64 %t335, 1
+  %t337 = xor i64 %t14, %t336
+  %t338 = bitcast i64 %t337 to double
+  %t339 = ashr i64 %t334, 63
+  %t340 = lshr i64 %t339, 1
+  %t341 = xor i64 %t334, %t340
+  %t342 = bitcast i64 %t341 to double
+  %t343 = fmul double %t338, %t342
+  %t344 = bitcast double %t343 to i64
+  %t345 = ashr i64 %t344, 63
+  %t346 = lshr i64 %t345, 1
+  %t347 = xor i64 %t344, %t346
+  %t348 = fcmp uno double %t343, %t343
+  %t349 = select i1 %t348, i64 9221120237041090560, i64 %t347
+  %t350 = ashr i64 %t349, 63
+  %t351 = lshr i64 %t350, 1
+  %t352 = xor i64 %t349, %t351
+  %t353 = bitcast i64 %t352 to double
+  %t354 = ashr i64 %a1, 63
+  %t355 = lshr i64 %t354, 1
+  %t356 = xor i64 %a1, %t355
+  %t357 = bitcast i64 %t356 to double
+  %t358 = fsub double %t353, %t357
+  %t359 = bitcast double %t358 to i64
+  %t360 = ashr i64 %t359, 63
+  %t361 = lshr i64 %t360, 1
+  %t362 = xor i64 %t359, %t361
+  %t363 = fcmp uno double %t358, %t358
+  %t364 = select i1 %t363, i64 9221120237041090560, i64 %t362
+  %t365 = ashr i64 %t209, 63
+  %t366 = lshr i64 %t365, 1
+  %t367 = xor i64 %t209, %t366
+  %t368 = bitcast i64 %t367 to double
+  %t369 = ashr i64 %t215, 63
+  %t370 = lshr i64 %t369, 1
+  %t371 = xor i64 %t215, %t370
+  %t372 = bitcast i64 %t371 to double
+  %t373 = fmul double %t368, %t372
+  %t374 = bitcast double %t373 to i64
+  %t375 = ashr i64 %t374, 63
+  %t376 = lshr i64 %t375, 1
+  %t377 = xor i64 %t374, %t376
+  %t378 = fcmp uno double %t373, %t373
+  %t379 = select i1 %t378, i64 9221120237041090560, i64 %t377
+  %t380 = ashr i64 %t364, 63
+  %t381 = lshr i64 %t380, 1
+  %t382 = xor i64 %t364, %t381
+  %t383 = bitcast i64 %t382 to double
+  %t384 = ashr i64 %t379, 63
+  %t385 = lshr i64 %t384, 1
+  %t386 = xor i64 %t379, %t385
+  %t387 = bitcast i64 %t386 to double
+  %t388 = fsub double %t383, %t387
+  %t389 = bitcast double %t388 to i64
+  %t390 = ashr i64 %t389, 63
+  %t391 = lshr i64 %t390, 1
+  %t392 = xor i64 %t389, %t391
+  %t393 = fcmp uno double %t388, %t388
+  %t394 = select i1 %t393, i64 9221120237041090560, i64 %t392
+  %t395 = ashr i64 %a0, 63
+  %t396 = lshr i64 %t395, 1
+  %t397 = xor i64 %a0, %t396
+  %t398 = bitcast i64 %t397 to double
+  %t399 = ashr i64 %t394, 63
+  %t400 = lshr i64 %t399, 1
+  %t401 = xor i64 %t394, %t400
+  %t402 = bitcast i64 %t401 to double
+  %t403 = fsub double %t398, %t402
+  %t404 = bitcast double %t403 to i64
+  %t405 = ashr i64 %t404, 63
+  %t406 = lshr i64 %t405, 1
+  %t407 = xor i64 %t404, %t406
+  %t408 = fcmp uno double %t403, %t403
+  %t409 = select i1 %t408, i64 9221120237041090560, i64 %t407
+  ret i64 %t409
+}
+
+define internal fastcc i64 @l0_f_float_cos_kernel(i64 %a0, i64 %a1, i64 %a2) {
+entry:
+  call void @l0_stack_check()
+  %t0 = ashr i64 %a0, 63
+  %t1 = lshr i64 %t0, 1
+  %t2 = xor i64 %a0, %t1
+  %t3 = bitcast i64 %t2 to double
+  %t4 = ashr i64 %a0, 63
+  %t5 = lshr i64 %t4, 1
+  %t6 = xor i64 %a0, %t5
+  %t7 = bitcast i64 %t6 to double
+  %t8 = fmul double %t3, %t7
+  %t9 = bitcast double %t8 to i64
+  %t10 = ashr i64 %t9, 63
+  %t11 = lshr i64 %t10, 1
+  %t12 = xor i64 %t9, %t11
+  %t13 = fcmp uno double %t8, %t8
+  %t14 = select i1 %t13, i64 9221120237041090560, i64 %t12
+  %t15 = ashr i64 %t14, 63
+  %t16 = lshr i64 %t15, 1
+  %t17 = xor i64 %t14, %t16
+  %t18 = bitcast i64 %t17 to double
+  %t19 = ashr i64 %t14, 63
+  %t20 = lshr i64 %t19, 1
+  %t21 = xor i64 %t14, %t20
+  %t22 = bitcast i64 %t21 to double
+  %t23 = fmul double %t18, %t22
+  %t24 = bitcast double %t23 to i64
+  %t25 = ashr i64 %t24, 63
+  %t26 = lshr i64 %t25, 1
+  %t27 = xor i64 %t24, %t26
+  %t28 = fcmp uno double %t23, %t23
+  %t29 = select i1 %t28, i64 9221120237041090560, i64 %t27
+  %t30 = ashr i64 4586165620538955084, 63
+  %t31 = lshr i64 %t30, 1
+  %t32 = xor i64 4586165620538955084, %t31
+  %t33 = bitcast i64 4586165620538955084 to double
+  %t34 = fcmp uno double %t33, %t33
+  %t35 = select i1 %t34, i64 9221120237041090560, i64 %t32
+  %t36 = ashr i64 -4659324094485802633, 63
+  %t37 = lshr i64 %t36, 1
+  %t38 = xor i64 -4659324094485802633, %t37
+  %t39 = bitcast i64 -4659324094485802633 to double
+  %t40 = fcmp uno double %t39, %t39
+  %t41 = select i1 %t40, i64 9221120237041090560, i64 %t38
+  %t42 = ashr i64 4537941361668330896, 63
+  %t43 = lshr i64 %t42, 1
+  %t44 = xor i64 4537941361668330896, %t43
+  %t45 = bitcast i64 4537941361668330896 to double
+  %t46 = fcmp uno double %t45, %t45
+  %t47 = select i1 %t46, i64 9221120237041090560, i64 %t44
+  %t48 = ashr i64 %t14, 63
+  %t49 = lshr i64 %t48, 1
+  %t50 = xor i64 %t14, %t49
+  %t51 = bitcast i64 %t50 to double
+  %t52 = ashr i64 %t47, 63
+  %t53 = lshr i64 %t52, 1
+  %t54 = xor i64 %t47, %t53
+  %t55 = bitcast i64 %t54 to double
+  %t56 = fmul double %t51, %t55
+  %t57 = bitcast double %t56 to i64
+  %t58 = ashr i64 %t57, 63
+  %t59 = lshr i64 %t58, 1
+  %t60 = xor i64 %t57, %t59
+  %t61 = fcmp uno double %t56, %t56
+  %t62 = select i1 %t61, i64 9221120237041090560, i64 %t60
+  %t63 = ashr i64 %t41, 63
+  %t64 = lshr i64 %t63, 1
+  %t65 = xor i64 %t41, %t64
+  %t66 = bitcast i64 %t65 to double
+  %t67 = ashr i64 %t62, 63
+  %t68 = lshr i64 %t67, 1
+  %t69 = xor i64 %t62, %t68
+  %t70 = bitcast i64 %t69 to double
+  %t71 = fadd double %t66, %t70
+  %t72 = bitcast double %t71 to i64
+  %t73 = ashr i64 %t72, 63
+  %t74 = lshr i64 %t73, 1
+  %t75 = xor i64 %t72, %t74
+  %t76 = fcmp uno double %t71, %t71
+  %t77 = select i1 %t76, i64 9221120237041090560, i64 %t75
+  %t78 = ashr i64 %t14, 63
+  %t79 = lshr i64 %t78, 1
+  %t80 = xor i64 %t14, %t79
+  %t81 = bitcast i64 %t80 to double
+  %t82 = ashr i64 %t77, 63
+  %t83 = lshr i64 %t82, 1
+  %t84 = xor i64 %t77, %t83
+  %t85 = bitcast i64 %t84 to double
+  %t86 = fmul double %t81, %t85
+  %t87 = bitcast double %t86 to i64
+  %t88 = ashr i64 %t87, 63
+  %t89 = lshr i64 %t88, 1
+  %t90 = xor i64 %t87, %t89
+  %t91 = fcmp uno double %t86, %t86
+  %t92 = select i1 %t91, i64 9221120237041090560, i64 %t90
+  %t93 = ashr i64 %t35, 63
+  %t94 = lshr i64 %t93, 1
+  %t95 = xor i64 %t35, %t94
+  %t96 = bitcast i64 %t95 to double
+  %t97 = ashr i64 %t92, 63
+  %t98 = lshr i64 %t97, 1
+  %t99 = xor i64 %t92, %t98
+  %t100 = bitcast i64 %t99 to double
+  %t101 = fadd double %t96, %t100
+  %t102 = bitcast double %t101 to i64
+  %t103 = ashr i64 %t102, 63
+  %t104 = lshr i64 %t103, 1
+  %t105 = xor i64 %t102, %t104
+  %t106 = fcmp uno double %t101, %t101
+  %t107 = select i1 %t106, i64 9221120237041090560, i64 %t105
+  %t108 = ashr i64 %t14, 63
+  %t109 = lshr i64 %t108, 1
+  %t110 = xor i64 %t14, %t109
+  %t111 = bitcast i64 %t110 to double
+  %t112 = ashr i64 %t107, 63
+  %t113 = lshr i64 %t112, 1
+  %t114 = xor i64 %t107, %t113
+  %t115 = bitcast i64 %t114 to double
+  %t116 = fmul double %t111, %t115
+  %t117 = bitcast double %t116 to i64
+  %t118 = ashr i64 %t117, 63
+  %t119 = lshr i64 %t118, 1
+  %t120 = xor i64 %t117, %t119
+  %t121 = fcmp uno double %t116, %t116
+  %t122 = select i1 %t121, i64 9221120237041090560, i64 %t120
+  %t123 = ashr i64 %t29, 63
+  %t124 = lshr i64 %t123, 1
+  %t125 = xor i64 %t29, %t124
+  %t126 = bitcast i64 %t125 to double
+  %t127 = ashr i64 %t29, 63
+  %t128 = lshr i64 %t127, 1
+  %t129 = xor i64 %t29, %t128
+  %t130 = bitcast i64 %t129 to double
+  %t131 = fmul double %t126, %t130
+  %t132 = bitcast double %t131 to i64
+  %t133 = ashr i64 %t132, 63
+  %t134 = lshr i64 %t133, 1
+  %t135 = xor i64 %t132, %t134
+  %t136 = fcmp uno double %t131, %t131
+  %t137 = select i1 %t136, i64 9221120237041090560, i64 %t135
+  %t138 = ashr i64 -4714566979978243411, 63
+  %t139 = lshr i64 %t138, 1
+  %t140 = xor i64 -4714566979978243411, %t139
+  %t141 = bitcast i64 -4714566979978243411 to double
+  %t142 = fcmp uno double %t141, %t141
+  %t143 = select i1 %t142, i64 9221120237041090560, i64 %t140
+  %t144 = ashr i64 4477121870137962948, 63
+  %t145 = lshr i64 %t144, 1
+  %t146 = xor i64 4477121870137962948, %t145
+  %t147 = bitcast i64 4477121870137962948 to double
+  %t148 = fcmp uno double %t147, %t147
+  %t149 = select i1 %t148, i64 9221120237041090560, i64 %t146
+  %t150 = ashr i64 -4780295122622859052, 63
+  %t151 = lshr i64 %t150, 1
+  %t152 = xor i64 -4780295122622859052, %t151
+  %t153 = bitcast i64 -4780295122622859052 to double
+  %t154 = fcmp uno double %t153, %t153
+  %t155 = select i1 %t154, i64 9221120237041090560, i64 %t152
+  %t156 = ashr i64 %t14, 63
+  %t157 = lshr i64 %t156, 1
+  %t158 = xor i64 %t14, %t157
+  %t159 = bitcast i64 %t158 to double
+  %t160 = ashr i64 %t155, 63
+  %t161 = lshr i64 %t160, 1
+  %t162 = xor i64 %t155, %t161
+  %t163 = bitcast i64 %t162 to double
+  %t164 = fmul double %t159, %t163
+  %t165 = bitcast double %t164 to i64
+  %t166 = ashr i64 %t165, 63
+  %t167 = lshr i64 %t166, 1
+  %t168 = xor i64 %t165, %t167
+  %t169 = fcmp uno double %t164, %t164
+  %t170 = select i1 %t169, i64 9221120237041090560, i64 %t168
+  %t171 = ashr i64 %t149, 63
+  %t172 = lshr i64 %t171, 1
+  %t173 = xor i64 %t149, %t172
+  %t174 = bitcast i64 %t173 to double
+  %t175 = ashr i64 %t170, 63
+  %t176 = lshr i64 %t175, 1
+  %t177 = xor i64 %t170, %t176
+  %t178 = bitcast i64 %t177 to double
+  %t179 = fadd double %t174, %t178
+  %t180 = bitcast double %t179 to i64
+  %t181 = ashr i64 %t180, 63
+  %t182 = lshr i64 %t181, 1
+  %t183 = xor i64 %t180, %t182
+  %t184 = fcmp uno double %t179, %t179
+  %t185 = select i1 %t184, i64 9221120237041090560, i64 %t183
+  %t186 = ashr i64 %t14, 63
+  %t187 = lshr i64 %t186, 1
+  %t188 = xor i64 %t14, %t187
+  %t189 = bitcast i64 %t188 to double
+  %t190 = ashr i64 %t185, 63
+  %t191 = lshr i64 %t190, 1
+  %t192 = xor i64 %t185, %t191
+  %t193 = bitcast i64 %t192 to double
+  %t194 = fmul double %t189, %t193
+  %t195 = bitcast double %t194 to i64
+  %t196 = ashr i64 %t195, 63
+  %t197 = lshr i64 %t196, 1
+  %t198 = xor i64 %t195, %t197
+  %t199 = fcmp uno double %t194, %t194
+  %t200 = select i1 %t199, i64 9221120237041090560, i64 %t198
+  %t201 = ashr i64 %t143, 63
+  %t202 = lshr i64 %t201, 1
+  %t203 = xor i64 %t143, %t202
+  %t204 = bitcast i64 %t203 to double
+  %t205 = ashr i64 %t200, 63
+  %t206 = lshr i64 %t205, 1
+  %t207 = xor i64 %t200, %t206
+  %t208 = bitcast i64 %t207 to double
+  %t209 = fadd double %t204, %t208
+  %t210 = bitcast double %t209 to i64
+  %t211 = ashr i64 %t210, 63
+  %t212 = lshr i64 %t211, 1
+  %t213 = xor i64 %t210, %t212
+  %t214 = fcmp uno double %t209, %t209
+  %t215 = select i1 %t214, i64 9221120237041090560, i64 %t213
+  %t216 = ashr i64 %t137, 63
+  %t217 = lshr i64 %t216, 1
+  %t218 = xor i64 %t137, %t217
+  %t219 = bitcast i64 %t218 to double
+  %t220 = ashr i64 %t215, 63
+  %t221 = lshr i64 %t220, 1
+  %t222 = xor i64 %t215, %t221
+  %t223 = bitcast i64 %t222 to double
+  %t224 = fmul double %t219, %t223
+  %t225 = bitcast double %t224 to i64
+  %t226 = ashr i64 %t225, 63
+  %t227 = lshr i64 %t226, 1
+  %t228 = xor i64 %t225, %t227
+  %t229 = fcmp uno double %t224, %t224
+  %t230 = select i1 %t229, i64 9221120237041090560, i64 %t228
+  %t231 = ashr i64 %t122, 63
+  %t232 = lshr i64 %t231, 1
+  %t233 = xor i64 %t122, %t232
+  %t234 = bitcast i64 %t233 to double
+  %t235 = ashr i64 %t230, 63
+  %t236 = lshr i64 %t235, 1
+  %t237 = xor i64 %t230, %t236
+  %t238 = bitcast i64 %t237 to double
+  %t239 = fadd double %t234, %t238
+  %t240 = bitcast double %t239 to i64
+  %t241 = ashr i64 %t240, 63
+  %t242 = lshr i64 %t241, 1
+  %t243 = xor i64 %t240, %t242
+  %t244 = fcmp uno double %t239, %t239
+  %t245 = select i1 %t244, i64 9221120237041090560, i64 %t243
+  %t246 = fdiv double 0x4014000000000000, 0x4024000000000000
+  %t247 = bitcast double %t246 to i64
+  %t248 = ashr i64 %t247, 63
+  %t249 = lshr i64 %t248, 1
+  %t250 = xor i64 %t247, %t249
+  %t251 = ashr i64 %t250, 63
+  %t252 = lshr i64 %t251, 1
+  %t253 = xor i64 %t250, %t252
+  %t254 = bitcast i64 %t253 to double
+  %t255 = ashr i64 %t14, 63
+  %t256 = lshr i64 %t255, 1
+  %t257 = xor i64 %t14, %t256
+  %t258 = bitcast i64 %t257 to double
+  %t259 = fmul double %t254, %t258
+  %t260 = bitcast double %t259 to i64
+  %t261 = ashr i64 %t260, 63
+  %t262 = lshr i64 %t261, 1
+  %t263 = xor i64 %t260, %t262
+  %t264 = fcmp uno double %t259, %t259
+  %t265 = select i1 %t264, i64 9221120237041090560, i64 %t263
+  %t266 = fdiv double 0x3ff0000000000000, 0x3ff0000000000000
+  %t267 = bitcast double %t266 to i64
+  %t268 = ashr i64 %t267, 63
+  %t269 = lshr i64 %t268, 1
+  %t270 = xor i64 %t267, %t269
+  %t271 = ashr i64 %t270, 63
+  %t272 = lshr i64 %t271, 1
+  %t273 = xor i64 %t270, %t272
+  %t274 = bitcast i64 %t273 to double
+  %t275 = ashr i64 %t265, 63
+  %t276 = lshr i64 %t275, 1
+  %t277 = xor i64 %t265, %t276
+  %t278 = bitcast i64 %t277 to double
+  %t279 = fsub double %t274, %t278
+  %t280 = bitcast double %t279 to i64
+  %t281 = ashr i64 %t280, 63
+  %t282 = lshr i64 %t281, 1
+  %t283 = xor i64 %t280, %t282
+  %t284 = fcmp uno double %t279, %t279
+  %t285 = select i1 %t284, i64 9221120237041090560, i64 %t283
+  %t286 = fdiv double 0x3ff0000000000000, 0x3ff0000000000000
+  %t287 = bitcast double %t286 to i64
+  %t288 = ashr i64 %t287, 63
+  %t289 = lshr i64 %t288, 1
+  %t290 = xor i64 %t287, %t289
+  %t291 = ashr i64 %t290, 63
+  %t292 = lshr i64 %t291, 1
+  %t293 = xor i64 %t290, %t292
+  %t294 = bitcast i64 %t293 to double
+  %t295 = ashr i64 %t285, 63
+  %t296 = lshr i64 %t295, 1
+  %t297 = xor i64 %t285, %t296
+  %t298 = bitcast i64 %t297 to double
+  %t299 = fsub double %t294, %t298
+  %t300 = bitcast double %t299 to i64
+  %t301 = ashr i64 %t300, 63
+  %t302 = lshr i64 %t301, 1
+  %t303 = xor i64 %t300, %t302
+  %t304 = fcmp uno double %t299, %t299
+  %t305 = select i1 %t304, i64 9221120237041090560, i64 %t303
+  %t306 = ashr i64 %t305, 63
+  %t307 = lshr i64 %t306, 1
+  %t308 = xor i64 %t305, %t307
+  %t309 = bitcast i64 %t308 to double
+  %t310 = ashr i64 %t265, 63
+  %t311 = lshr i64 %t310, 1
+  %t312 = xor i64 %t265, %t311
+  %t313 = bitcast i64 %t312 to double
+  %t314 = fsub double %t309, %t313
+  %t315 = bitcast double %t314 to i64
+  %t316 = ashr i64 %t315, 63
+  %t317 = lshr i64 %t316, 1
+  %t318 = xor i64 %t315, %t317
+  %t319 = fcmp uno double %t314, %t314
+  %t320 = select i1 %t319, i64 9221120237041090560, i64 %t318
+  %t321 = ashr i64 %t14, 63
+  %t322 = lshr i64 %t321, 1
+  %t323 = xor i64 %t14, %t322
+  %t324 = bitcast i64 %t323 to double
+  %t325 = ashr i64 %t245, 63
+  %t326 = lshr i64 %t325, 1
+  %t327 = xor i64 %t245, %t326
+  %t328 = bitcast i64 %t327 to double
+  %t329 = fmul double %t324, %t328
+  %t330 = bitcast double %t329 to i64
+  %t331 = ashr i64 %t330, 63
+  %t332 = lshr i64 %t331, 1
+  %t333 = xor i64 %t330, %t332
+  %t334 = fcmp uno double %t329, %t329
+  %t335 = select i1 %t334, i64 9221120237041090560, i64 %t333
+  %t336 = ashr i64 %a0, 63
+  %t337 = lshr i64 %t336, 1
+  %t338 = xor i64 %a0, %t337
+  %t339 = bitcast i64 %t338 to double
+  %t340 = ashr i64 %a1, 63
+  %t341 = lshr i64 %t340, 1
+  %t342 = xor i64 %a1, %t341
+  %t343 = bitcast i64 %t342 to double
+  %t344 = fmul double %t339, %t343
+  %t345 = bitcast double %t344 to i64
+  %t346 = ashr i64 %t345, 63
+  %t347 = lshr i64 %t346, 1
+  %t348 = xor i64 %t345, %t347
+  %t349 = fcmp uno double %t344, %t344
+  %t350 = select i1 %t349, i64 9221120237041090560, i64 %t348
+  %t351 = ashr i64 %t335, 63
+  %t352 = lshr i64 %t351, 1
+  %t353 = xor i64 %t335, %t352
+  %t354 = bitcast i64 %t353 to double
+  %t355 = ashr i64 %t350, 63
+  %t356 = lshr i64 %t355, 1
+  %t357 = xor i64 %t350, %t356
+  %t358 = bitcast i64 %t357 to double
+  %t359 = fsub double %t354, %t358
+  %t360 = bitcast double %t359 to i64
+  %t361 = ashr i64 %t360, 63
+  %t362 = lshr i64 %t361, 1
+  %t363 = xor i64 %t360, %t362
+  %t364 = fcmp uno double %t359, %t359
+  %t365 = select i1 %t364, i64 9221120237041090560, i64 %t363
+  %t366 = ashr i64 %t320, 63
+  %t367 = lshr i64 %t366, 1
+  %t368 = xor i64 %t320, %t367
+  %t369 = bitcast i64 %t368 to double
+  %t370 = ashr i64 %t365, 63
+  %t371 = lshr i64 %t370, 1
+  %t372 = xor i64 %t365, %t371
+  %t373 = bitcast i64 %t372 to double
+  %t374 = fadd double %t369, %t373
+  %t375 = bitcast double %t374 to i64
+  %t376 = ashr i64 %t375, 63
+  %t377 = lshr i64 %t376, 1
+  %t378 = xor i64 %t375, %t377
+  %t379 = fcmp uno double %t374, %t374
+  %t380 = select i1 %t379, i64 9221120237041090560, i64 %t378
+  %t381 = ashr i64 %t285, 63
+  %t382 = lshr i64 %t381, 1
+  %t383 = xor i64 %t285, %t382
+  %t384 = bitcast i64 %t383 to double
+  %t385 = ashr i64 %t380, 63
+  %t386 = lshr i64 %t385, 1
+  %t387 = xor i64 %t380, %t386
+  %t388 = bitcast i64 %t387 to double
+  %t389 = fadd double %t384, %t388
+  %t390 = bitcast double %t389 to i64
+  %t391 = ashr i64 %t390, 63
+  %t392 = lshr i64 %t391, 1
+  %t393 = xor i64 %t390, %t392
+  %t394 = fcmp uno double %t389, %t389
+  %t395 = select i1 %t394, i64 9221120237041090560, i64 %t393
+  ret i64 %t395
+}
+
+define internal fastcc i64 @l0_f_float_reduce(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t0 = ashr i64 4603909380684499075, 63
+  %t1 = lshr i64 %t0, 1
+  %t2 = xor i64 4603909380684499075, %t1
+  %t3 = bitcast i64 4603909380684499075 to double
+  %t4 = fcmp uno double %t3, %t3
+  %t5 = select i1 %t4, i64 9221120237041090560, i64 %t2
+  %t6 = ashr i64 %a0, 63
+  %t7 = lshr i64 %t6, 1
+  %t8 = xor i64 %a0, %t7
+  %t9 = bitcast i64 %t8 to double
+  %t10 = ashr i64 %t5, 63
+  %t11 = lshr i64 %t10, 1
+  %t12 = xor i64 %t5, %t11
+  %t13 = bitcast i64 %t12 to double
+  %t14 = fmul double %t9, %t13
+  %t15 = bitcast double %t14 to i64
+  %t16 = ashr i64 %t15, 63
+  %t17 = lshr i64 %t16, 1
+  %t18 = xor i64 %t15, %t17
+  %t19 = fcmp uno double %t14, %t14
+  %t20 = select i1 %t19, i64 9221120237041090560, i64 %t18
+  %r21 = alloca i64
+  %t22 = fdiv double 0x0000000000000000, 0x3ff0000000000000
+  %t23 = bitcast double %t22 to i64
+  %t24 = ashr i64 %t23, 63
+  %t25 = lshr i64 %t24, 1
+  %t26 = xor i64 %t23, %t25
+  %t27 = ashr i64 %a0, 63
+  %t28 = lshr i64 %t27, 1
+  %t29 = xor i64 %a0, %t28
+  %t30 = bitcast i64 %t29 to double
+  %t31 = ashr i64 %t26, 63
+  %t32 = lshr i64 %t31, 1
+  %t33 = xor i64 %t26, %t32
+  %t34 = bitcast i64 %t33 to double
+  %t35 = fcmp olt double %t30, %t34
+  %t36 = zext i1 %t35 to i64
+  %t37 = icmp ne i64 %t36, 0
+  br i1 %t37, label %Lt21, label %Le21
+Lt21:
+  %t38 = fdiv double 0x4014000000000000, 0x4024000000000000
+  %t39 = fneg double %t38
+  %t40 = bitcast double %t39 to i64
+  %t41 = ashr i64 %t40, 63
+  %t42 = lshr i64 %t41, 1
+  %t43 = xor i64 %t40, %t42
+  store i64 %t43, ptr %r21
+  br label %Lx21
+Le21:
+  %t44 = fdiv double 0x4014000000000000, 0x4024000000000000
+  %t45 = bitcast double %t44 to i64
+  %t46 = ashr i64 %t45, 63
+  %t47 = lshr i64 %t46, 1
+  %t48 = xor i64 %t45, %t47
+  store i64 %t48, ptr %r21
+  br label %Lx21
+Lx21:
+  %t49 = load i64, ptr %r21
+  %t50 = ashr i64 %t20, 63
+  %t51 = lshr i64 %t50, 1
+  %t52 = xor i64 %t20, %t51
+  %t53 = bitcast i64 %t52 to double
+  %t54 = ashr i64 %t49, 63
+  %t55 = lshr i64 %t54, 1
+  %t56 = xor i64 %t49, %t55
+  %t57 = bitcast i64 %t56 to double
+  %t58 = fadd double %t53, %t57
+  %t59 = bitcast double %t58 to i64
+  %t60 = ashr i64 %t59, 63
+  %t61 = lshr i64 %t60, 1
+  %t62 = xor i64 %t59, %t61
+  %t63 = fcmp uno double %t58, %t58
+  %t64 = select i1 %t63, i64 9221120237041090560, i64 %t62
+  %t65 = ashr i64 %t64, 63
+  %t66 = lshr i64 %t65, 1
+  %t67 = xor i64 %t64, %t66
+  %t68 = bitcast i64 %t67 to double
+  %t69 = call i64 @llvm.fptosi.sat.i64.f64(double %t68)
+  %t70 = sitofp i64 %t69 to double
+  %t71 = bitcast double %t70 to i64
+  %t72 = ashr i64 %t71, 63
+  %t73 = lshr i64 %t72, 1
+  %t74 = xor i64 %t71, %t73
+  %t75 = ashr i64 4609753056924401664, 63
+  %t76 = lshr i64 %t75, 1
+  %t77 = xor i64 4609753056924401664, %t76
+  %t78 = bitcast i64 4609753056924401664 to double
+  %t79 = fcmp uno double %t78, %t78
+  %t80 = select i1 %t79, i64 9221120237041090560, i64 %t77
+  %t81 = ashr i64 %t74, 63
+  %t82 = lshr i64 %t81, 1
+  %t83 = xor i64 %t74, %t82
+  %t84 = bitcast i64 %t83 to double
+  %t85 = ashr i64 %t80, 63
+  %t86 = lshr i64 %t85, 1
+  %t87 = xor i64 %t80, %t86
+  %t88 = bitcast i64 %t87 to double
+  %t89 = fmul double %t84, %t88
+  %t90 = bitcast double %t89 to i64
+  %t91 = ashr i64 %t90, 63
+  %t92 = lshr i64 %t91, 1
+  %t93 = xor i64 %t90, %t92
+  %t94 = fcmp uno double %t89, %t89
+  %t95 = select i1 %t94, i64 9221120237041090560, i64 %t93
+  %t96 = ashr i64 %a0, 63
+  %t97 = lshr i64 %t96, 1
+  %t98 = xor i64 %a0, %t97
+  %t99 = bitcast i64 %t98 to double
+  %t100 = ashr i64 %t95, 63
+  %t101 = lshr i64 %t100, 1
+  %t102 = xor i64 %t95, %t101
+  %t103 = bitcast i64 %t102 to double
+  %t104 = fsub double %t99, %t103
+  %t105 = bitcast double %t104 to i64
+  %t106 = ashr i64 %t105, 63
+  %t107 = lshr i64 %t106, 1
+  %t108 = xor i64 %t105, %t107
+  %t109 = fcmp uno double %t104, %t104
+  %t110 = select i1 %t109, i64 9221120237041090560, i64 %t108
+  %t111 = ashr i64 4454258360616903473, 63
+  %t112 = lshr i64 %t111, 1
+  %t113 = xor i64 4454258360616903473, %t112
+  %t114 = bitcast i64 4454258360616903473 to double
+  %t115 = fcmp uno double %t114, %t114
+  %t116 = select i1 %t115, i64 9221120237041090560, i64 %t113
+  %t117 = ashr i64 %t74, 63
+  %t118 = lshr i64 %t117, 1
+  %t119 = xor i64 %t74, %t118
+  %t120 = bitcast i64 %t119 to double
+  %t121 = ashr i64 %t116, 63
+  %t122 = lshr i64 %t121, 1
+  %t123 = xor i64 %t116, %t122
+  %t124 = bitcast i64 %t123 to double
+  %t125 = fmul double %t120, %t124
+  %t126 = bitcast double %t125 to i64
+  %t127 = ashr i64 %t126, 63
+  %t128 = lshr i64 %t127, 1
+  %t129 = xor i64 %t126, %t128
+  %t130 = fcmp uno double %t125, %t125
+  %t131 = select i1 %t130, i64 9221120237041090560, i64 %t129
+  %t132 = call fastcc i64 @l0_f_float_exponent(i64 %a0)
+  %t133 = ashr i64 %t110, 63
+  %t134 = lshr i64 %t133, 1
+  %t135 = xor i64 %t110, %t134
+  %t136 = bitcast i64 %t135 to double
+  %t137 = ashr i64 %t131, 63
+  %t138 = lshr i64 %t137, 1
+  %t139 = xor i64 %t131, %t138
+  %t140 = bitcast i64 %t139 to double
+  %t141 = fsub double %t136, %t140
+  %t142 = bitcast double %t141 to i64
+  %t143 = ashr i64 %t142, 63
+  %t144 = lshr i64 %t143, 1
+  %t145 = xor i64 %t142, %t144
+  %t146 = fcmp uno double %t141, %t141
+  %t147 = select i1 %t146, i64 9221120237041090560, i64 %t145
+  %t148 = musttail call fastcc i64 @l0_f_float_reduce_2(i64 %t69, i64 %t132, i64 %t74, i64 %t110, i64 %t131, i64 %t147)
+  ret i64 %t148
+}
+
+define internal fastcc i64 @l0_f_float_reduce_2(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call fastcc i64 @l0_f_float_exponent(i64 %a5)
+  %t2 = sub i64 %a1, %t1
+  %t3 = icmp sgt i64 %t2, 16
+  %t4 = zext i1 %t3 to i64
+  %t5 = icmp ne i64 %t4, 0
+  br i1 %t5, label %Lt0, label %Le0
+Lt0:
+  %t6 = ashr i64 4454258360616747008, 63
+  %t7 = lshr i64 %t6, 1
+  %t8 = xor i64 4454258360616747008, %t7
+  %t9 = bitcast i64 4454258360616747008 to double
+  %t10 = fcmp uno double %t9, %t9
+  %t11 = select i1 %t10, i64 9221120237041090560, i64 %t8
+  %t12 = ashr i64 %a2, 63
+  %t13 = lshr i64 %t12, 1
+  %t14 = xor i64 %a2, %t13
+  %t15 = bitcast i64 %t14 to double
+  %t16 = ashr i64 %t11, 63
+  %t17 = lshr i64 %t16, 1
+  %t18 = xor i64 %t11, %t17
+  %t19 = bitcast i64 %t18 to double
+  %t20 = fmul double %t15, %t19
+  %t21 = bitcast double %t20 to i64
+  %t22 = ashr i64 %t21, 63
+  %t23 = lshr i64 %t22, 1
+  %t24 = xor i64 %t21, %t23
+  %t25 = fcmp uno double %t20, %t20
+  %t26 = select i1 %t25, i64 9221120237041090560, i64 %t24
+  %t27 = ashr i64 %a3, 63
+  %t28 = lshr i64 %t27, 1
+  %t29 = xor i64 %a3, %t28
+  %t30 = bitcast i64 %t29 to double
+  %t31 = ashr i64 %t26, 63
+  %t32 = lshr i64 %t31, 1
+  %t33 = xor i64 %t26, %t32
+  %t34 = bitcast i64 %t33 to double
+  %t35 = fsub double %t30, %t34
+  %t36 = bitcast double %t35 to i64
+  %t37 = ashr i64 %t36, 63
+  %t38 = lshr i64 %t37, 1
+  %t39 = xor i64 %t36, %t38
+  %t40 = fcmp uno double %t35, %t35
+  %t41 = select i1 %t40, i64 9221120237041090560, i64 %t39
+  %t42 = ashr i64 4297306550709743731, 63
+  %t43 = lshr i64 %t42, 1
+  %t44 = xor i64 4297306550709743731, %t43
+  %t45 = bitcast i64 4297306550709743731 to double
+  %t46 = fcmp uno double %t45, %t45
+  %t47 = select i1 %t46, i64 9221120237041090560, i64 %t44
+  %t48 = ashr i64 %a2, 63
+  %t49 = lshr i64 %t48, 1
+  %t50 = xor i64 %a2, %t49
+  %t51 = bitcast i64 %t50 to double
+  %t52 = ashr i64 %t47, 63
+  %t53 = lshr i64 %t52, 1
+  %t54 = xor i64 %t47, %t53
+  %t55 = bitcast i64 %t54 to double
+  %t56 = fmul double %t51, %t55
+  %t57 = bitcast double %t56 to i64
+  %t58 = ashr i64 %t57, 63
+  %t59 = lshr i64 %t58, 1
+  %t60 = xor i64 %t57, %t59
+  %t61 = fcmp uno double %t56, %t56
+  %t62 = select i1 %t61, i64 9221120237041090560, i64 %t60
+  %t63 = ashr i64 %a3, 63
+  %t64 = lshr i64 %t63, 1
+  %t65 = xor i64 %a3, %t64
+  %t66 = bitcast i64 %t65 to double
+  %t67 = ashr i64 %t41, 63
+  %t68 = lshr i64 %t67, 1
+  %t69 = xor i64 %t41, %t68
+  %t70 = bitcast i64 %t69 to double
+  %t71 = fsub double %t66, %t70
+  %t72 = bitcast double %t71 to i64
+  %t73 = ashr i64 %t72, 63
+  %t74 = lshr i64 %t73, 1
+  %t75 = xor i64 %t72, %t74
+  %t76 = fcmp uno double %t71, %t71
+  %t77 = select i1 %t76, i64 9221120237041090560, i64 %t75
+  %t78 = ashr i64 %t77, 63
+  %t79 = lshr i64 %t78, 1
+  %t80 = xor i64 %t77, %t79
+  %t81 = bitcast i64 %t80 to double
+  %t82 = ashr i64 %t26, 63
+  %t83 = lshr i64 %t82, 1
+  %t84 = xor i64 %t26, %t83
+  %t85 = bitcast i64 %t84 to double
+  %t86 = fsub double %t81, %t85
+  %t87 = bitcast double %t86 to i64
+  %t88 = ashr i64 %t87, 63
+  %t89 = lshr i64 %t88, 1
+  %t90 = xor i64 %t87, %t89
+  %t91 = fcmp uno double %t86, %t86
+  %t92 = select i1 %t91, i64 9221120237041090560, i64 %t90
+  %t93 = ashr i64 %t62, 63
+  %t94 = lshr i64 %t93, 1
+  %t95 = xor i64 %t62, %t94
+  %t96 = bitcast i64 %t95 to double
+  %t97 = ashr i64 %t92, 63
+  %t98 = lshr i64 %t97, 1
+  %t99 = xor i64 %t92, %t98
+  %t100 = bitcast i64 %t99 to double
+  %t101 = fsub double %t96, %t100
+  %t102 = bitcast double %t101 to i64
+  %t103 = ashr i64 %t102, 63
+  %t104 = lshr i64 %t103, 1
+  %t105 = xor i64 %t102, %t104
+  %t106 = fcmp uno double %t101, %t101
+  %t107 = select i1 %t106, i64 9221120237041090560, i64 %t105
+  %t108 = ashr i64 %t41, 63
+  %t109 = lshr i64 %t108, 1
+  %t110 = xor i64 %t41, %t109
+  %t111 = bitcast i64 %t110 to double
+  %t112 = ashr i64 %t107, 63
+  %t113 = lshr i64 %t112, 1
+  %t114 = xor i64 %t107, %t113
+  %t115 = bitcast i64 %t114 to double
+  %t116 = fsub double %t111, %t115
+  %t117 = bitcast double %t116 to i64
+  %t118 = ashr i64 %t117, 63
+  %t119 = lshr i64 %t118, 1
+  %t120 = xor i64 %t117, %t119
+  %t121 = fcmp uno double %t116, %t116
+  %t122 = select i1 %t121, i64 9221120237041090560, i64 %t120
+  %t123 = musttail call fastcc i64 @l0_f_float_reduce_3(i64 %a0, i64 %a1, i64 %a2, i64 %t41, i64 %t107, i64 %t122)
+  ret i64 %t123
+Le0:
+  %t124 = musttail call fastcc i64 @l0_f_float_reduced(i64 %a0, i64 %a3, i64 %a4, i64 %a5, i64 0, i64 0)
+  ret i64 %t124
+}
+
+define internal fastcc i64 @l0_f_float_reduce_3(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call fastcc i64 @l0_f_float_exponent(i64 %a5)
+  %t2 = sub i64 %a1, %t1
+  %t3 = icmp sgt i64 %t2, 49
+  %t4 = zext i1 %t3 to i64
+  %t5 = icmp ne i64 %t4, 0
+  br i1 %t5, label %Lt0, label %Le0
+Lt0:
+  %t6 = ashr i64 4297306550709518336, 63
+  %t7 = lshr i64 %t6, 1
+  %t8 = xor i64 4297306550709518336, %t7
+  %t9 = bitcast i64 4297306550709518336 to double
+  %t10 = fcmp uno double %t9, %t9
+  %t11 = select i1 %t10, i64 9221120237041090560, i64 %t8
+  %t12 = ashr i64 %a2, 63
+  %t13 = lshr i64 %t12, 1
+  %t14 = xor i64 %a2, %t13
+  %t15 = bitcast i64 %t14 to double
+  %t16 = ashr i64 %t11, 63
+  %t17 = lshr i64 %t16, 1
+  %t18 = xor i64 %t11, %t17
+  %t19 = bitcast i64 %t18 to double
+  %t20 = fmul double %t15, %t19
+  %t21 = bitcast double %t20 to i64
+  %t22 = ashr i64 %t21, 63
+  %t23 = lshr i64 %t22, 1
+  %t24 = xor i64 %t21, %t23
+  %t25 = fcmp uno double %t20, %t20
+  %t26 = select i1 %t25, i64 9221120237041090560, i64 %t24
+  %t27 = ashr i64 %a3, 63
+  %t28 = lshr i64 %t27, 1
+  %t29 = xor i64 %a3, %t28
+  %t30 = bitcast i64 %t29 to double
+  %t31 = ashr i64 %t26, 63
+  %t32 = lshr i64 %t31, 1
+  %t33 = xor i64 %t26, %t32
+  %t34 = bitcast i64 %t33 to double
+  %t35 = fsub double %t30, %t34
+  %t36 = bitcast double %t35 to i64
+  %t37 = ashr i64 %t36, 63
+  %t38 = lshr i64 %t37, 1
+  %t39 = xor i64 %t36, %t38
+  %t40 = fcmp uno double %t35, %t35
+  %t41 = select i1 %t40, i64 9221120237041090560, i64 %t39
+  %t42 = ashr i64 4142048980368378305, 63
+  %t43 = lshr i64 %t42, 1
+  %t44 = xor i64 4142048980368378305, %t43
+  %t45 = bitcast i64 4142048980368378305 to double
+  %t46 = fcmp uno double %t45, %t45
+  %t47 = select i1 %t46, i64 9221120237041090560, i64 %t44
+  %t48 = ashr i64 %a2, 63
+  %t49 = lshr i64 %t48, 1
+  %t50 = xor i64 %a2, %t49
+  %t51 = bitcast i64 %t50 to double
+  %t52 = ashr i64 %t47, 63
+  %t53 = lshr i64 %t52, 1
+  %t54 = xor i64 %t47, %t53
+  %t55 = bitcast i64 %t54 to double
+  %t56 = fmul double %t51, %t55
+  %t57 = bitcast double %t56 to i64
+  %t58 = ashr i64 %t57, 63
+  %t59 = lshr i64 %t58, 1
+  %t60 = xor i64 %t57, %t59
+  %t61 = fcmp uno double %t56, %t56
+  %t62 = select i1 %t61, i64 9221120237041090560, i64 %t60
+  %t63 = ashr i64 %a3, 63
+  %t64 = lshr i64 %t63, 1
+  %t65 = xor i64 %a3, %t64
+  %t66 = bitcast i64 %t65 to double
+  %t67 = ashr i64 %t41, 63
+  %t68 = lshr i64 %t67, 1
+  %t69 = xor i64 %t41, %t68
+  %t70 = bitcast i64 %t69 to double
+  %t71 = fsub double %t66, %t70
+  %t72 = bitcast double %t71 to i64
+  %t73 = ashr i64 %t72, 63
+  %t74 = lshr i64 %t73, 1
+  %t75 = xor i64 %t72, %t74
+  %t76 = fcmp uno double %t71, %t71
+  %t77 = select i1 %t76, i64 9221120237041090560, i64 %t75
+  %t78 = ashr i64 %t77, 63
+  %t79 = lshr i64 %t78, 1
+  %t80 = xor i64 %t77, %t79
+  %t81 = bitcast i64 %t80 to double
+  %t82 = ashr i64 %t26, 63
+  %t83 = lshr i64 %t82, 1
+  %t84 = xor i64 %t26, %t83
+  %t85 = bitcast i64 %t84 to double
+  %t86 = fsub double %t81, %t85
+  %t87 = bitcast double %t86 to i64
+  %t88 = ashr i64 %t87, 63
+  %t89 = lshr i64 %t88, 1
+  %t90 = xor i64 %t87, %t89
+  %t91 = fcmp uno double %t86, %t86
+  %t92 = select i1 %t91, i64 9221120237041090560, i64 %t90
+  %t93 = ashr i64 %t62, 63
+  %t94 = lshr i64 %t93, 1
+  %t95 = xor i64 %t62, %t94
+  %t96 = bitcast i64 %t95 to double
+  %t97 = ashr i64 %t92, 63
+  %t98 = lshr i64 %t97, 1
+  %t99 = xor i64 %t92, %t98
+  %t100 = bitcast i64 %t99 to double
+  %t101 = fsub double %t96, %t100
+  %t102 = bitcast double %t101 to i64
+  %t103 = ashr i64 %t102, 63
+  %t104 = lshr i64 %t103, 1
+  %t105 = xor i64 %t102, %t104
+  %t106 = fcmp uno double %t101, %t101
+  %t107 = select i1 %t106, i64 9221120237041090560, i64 %t105
+  %t108 = ashr i64 %t41, 63
+  %t109 = lshr i64 %t108, 1
+  %t110 = xor i64 %t41, %t109
+  %t111 = bitcast i64 %t110 to double
+  %t112 = ashr i64 %t107, 63
+  %t113 = lshr i64 %t112, 1
+  %t114 = xor i64 %t107, %t113
+  %t115 = bitcast i64 %t114 to double
+  %t116 = fsub double %t111, %t115
+  %t117 = bitcast double %t116 to i64
+  %t118 = ashr i64 %t117, 63
+  %t119 = lshr i64 %t118, 1
+  %t120 = xor i64 %t117, %t119
+  %t121 = fcmp uno double %t116, %t116
+  %t122 = select i1 %t121, i64 9221120237041090560, i64 %t120
+  %t123 = musttail call fastcc i64 @l0_f_float_reduced(i64 %a0, i64 %t41, i64 %t107, i64 %t122, i64 0, i64 0)
+  ret i64 %t123
+Le0:
+  %t124 = musttail call fastcc i64 @l0_f_float_reduced(i64 %a0, i64 %a3, i64 %a4, i64 %a5, i64 0, i64 0)
+  ret i64 %t124
+}
+
+define internal fastcc i64 @l0_f_float_reduced(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
+entry:
+  call void @l0_stack_check()
+  %t0 = ashr i64 %a1, 63
+  %t1 = lshr i64 %t0, 1
+  %t2 = xor i64 %a1, %t1
+  %t3 = bitcast i64 %t2 to double
+  %t4 = ashr i64 %a3, 63
+  %t5 = lshr i64 %t4, 1
+  %t6 = xor i64 %a3, %t5
+  %t7 = bitcast i64 %t6 to double
+  %t8 = fsub double %t3, %t7
+  %t9 = bitcast double %t8 to i64
+  %t10 = ashr i64 %t9, 63
+  %t11 = lshr i64 %t10, 1
+  %t12 = xor i64 %t9, %t11
+  %t13 = fcmp uno double %t8, %t8
+  %t14 = select i1 %t13, i64 9221120237041090560, i64 %t12
+  %t15 = ashr i64 %t14, 63
+  %t16 = lshr i64 %t15, 1
+  %t17 = xor i64 %t14, %t16
+  %t18 = bitcast i64 %t17 to double
+  %t19 = ashr i64 %a2, 63
+  %t20 = lshr i64 %t19, 1
+  %t21 = xor i64 %a2, %t20
+  %t22 = bitcast i64 %t21 to double
+  %t23 = fsub double %t18, %t22
+  %t24 = bitcast double %t23 to i64
+  %t25 = ashr i64 %t24, 63
+  %t26 = lshr i64 %t25, 1
+  %t27 = xor i64 %t24, %t26
+  %t28 = fcmp uno double %t23, %t23
+  %t29 = select i1 %t28, i64 9221120237041090560, i64 %t27
+  %t30 = call i64 @l0_new_data(i64 0, i64 3, i64 0)
+  call void @l0_data_set(i64 %t30, i64 0, i64 %a0)
+  call void @l0_data_set(i64 %t30, i64 1, i64 %a3)
+  call void @l0_data_set(i64 %t30, i64 2, i64 %t29)
+  ret i64 %t30
+}
+
 define internal fastcc i64 @l0_f_ctx_sigs(i64 %a0) {
 entry:
   call void @l0_stack_check()
@@ -6662,29 +8299,194 @@ entry:
   %t88 = call i64 @l0_new_cons(i64 108, i64 %t87, i64 2)
   %t89 = call i64 @l0_new_cons(i64 102, i64 %t88, i64 2)
   %t90 = call i64 @l0_new_cons(i64 32, i64 %t89, i64 2)
-  %t91 = call i64 @l0_new_cons(i64 103, i64 %t90, i64 2)
-  %t92 = call i64 @l0_new_cons(i64 101, i64 %t91, i64 2)
-  %t93 = call i64 @l0_new_cons(i64 110, i64 %t92, i64 2)
-  %t94 = call i64 @l0_new_cons(i64 95, i64 %t93, i64 2)
+  %t91 = call i64 @l0_new_cons(i64 116, i64 %t90, i64 2)
+  %t92 = call i64 @l0_new_cons(i64 114, i64 %t91, i64 2)
+  %t93 = call i64 @l0_new_cons(i64 113, i64 %t92, i64 2)
+  %t94 = call i64 @l0_new_cons(i64 115, i64 %t93, i64 2)
+  %t95 = call i64 @l0_new_cons(i64 95, i64 %t94, i64 2)
+  %t96 = call i64 @l0_new_cons(i64 116, i64 %t95, i64 2)
+  %t97 = call i64 @l0_new_cons(i64 97, i64 %t96, i64 2)
+  %t98 = call i64 @l0_new_cons(i64 111, i64 %t97, i64 2)
+  %t99 = call i64 @l0_new_cons(i64 108, i64 %t98, i64 2)
+  %t100 = call i64 @l0_new_cons(i64 102, i64 %t99, i64 2)
+  %t101 = call i64 @l0_new_cons(i64 32, i64 %t100, i64 2)
+  %t102 = call i64 @l0_new_cons(i64 103, i64 %t101, i64 2)
+  %t103 = call i64 @l0_new_cons(i64 101, i64 %t102, i64 2)
+  %t104 = call i64 @l0_new_cons(i64 110, i64 %t103, i64 2)
+  %t105 = call i64 @l0_new_cons(i64 95, i64 %t104, i64 2)
+  %t106 = call i64 @l0_new_cons(i64 116, i64 %t105, i64 2)
+  %t107 = call i64 @l0_new_cons(i64 97, i64 %t106, i64 2)
+  %t108 = call i64 @l0_new_cons(i64 111, i64 %t107, i64 2)
+  %t109 = call i64 @l0_new_cons(i64 108, i64 %t108, i64 2)
+  %t110 = call i64 @l0_new_cons(i64 102, i64 %t109, i64 2)
+  %t111 = call i64 @l0_new_cons(i64 32, i64 %t110, i64 2)
+  %t112 = call i64 @l0_new_cons(i64 118, i64 %t111, i64 2)
+  %t113 = call i64 @l0_new_cons(i64 105, i64 %t112, i64 2)
+  %t114 = call i64 @l0_new_cons(i64 100, i64 %t113, i64 2)
+  %t115 = call i64 @l0_new_cons(i64 95, i64 %t114, i64 2)
+  %t116 = call i64 @l0_new_cons(i64 116, i64 %t115, i64 2)
+  %t117 = call i64 @l0_new_cons(i64 97, i64 %t116, i64 2)
+  %t118 = call i64 @l0_new_cons(i64 111, i64 %t117, i64 2)
+  %t119 = call i64 @l0_new_cons(i64 108, i64 %t118, i64 2)
+  %t120 = call i64 @l0_new_cons(i64 102, i64 %t119, i64 2)
+  %t121 = call i64 @l0_new_cons(i64 32, i64 %t120, i64 2)
+  %t122 = call i64 @l0_new_cons(i64 108, i64 %t121, i64 2)
+  %t123 = call i64 @l0_new_cons(i64 117, i64 %t122, i64 2)
+  %t124 = call i64 @l0_new_cons(i64 109, i64 %t123, i64 2)
+  %t125 = call i64 @l0_new_cons(i64 95, i64 %t124, i64 2)
+  %t126 = call i64 @l0_new_cons(i64 116, i64 %t125, i64 2)
+  %t127 = call i64 @l0_new_cons(i64 97, i64 %t126, i64 2)
+  %t128 = call i64 @l0_new_cons(i64 111, i64 %t127, i64 2)
+  %t129 = call i64 @l0_new_cons(i64 108, i64 %t128, i64 2)
+  %t130 = call i64 @l0_new_cons(i64 102, i64 %t129, i64 2)
+  %t131 = call i64 @l0_new_cons(i64 32, i64 %t130, i64 2)
+  %t132 = call i64 @l0_new_cons(i64 98, i64 %t131, i64 2)
+  %t133 = call i64 @l0_new_cons(i64 117, i64 %t132, i64 2)
+  %t134 = call i64 @l0_new_cons(i64 115, i64 %t133, i64 2)
+  %t135 = call i64 @l0_new_cons(i64 95, i64 %t134, i64 2)
+  %t136 = call i64 @l0_new_cons(i64 116, i64 %t135, i64 2)
+  %t137 = call i64 @l0_new_cons(i64 97, i64 %t136, i64 2)
+  %t138 = call i64 @l0_new_cons(i64 111, i64 %t137, i64 2)
+  %t139 = call i64 @l0_new_cons(i64 108, i64 %t138, i64 2)
+  %t140 = call i64 @l0_new_cons(i64 102, i64 %t139, i64 2)
+  %t141 = call i64 @l0_new_cons(i64 32, i64 %t140, i64 2)
+  %t142 = call i64 @l0_new_cons(i64 100, i64 %t141, i64 2)
+  %t143 = call i64 @l0_new_cons(i64 100, i64 %t142, i64 2)
+  %t144 = call i64 @l0_new_cons(i64 97, i64 %t143, i64 2)
+  %t145 = call i64 @l0_new_cons(i64 95, i64 %t144, i64 2)
+  %t146 = call i64 @l0_new_cons(i64 116, i64 %t145, i64 2)
+  %t147 = call i64 @l0_new_cons(i64 97, i64 %t146, i64 2)
+  %t148 = call i64 @l0_new_cons(i64 111, i64 %t147, i64 2)
+  %t149 = call i64 @l0_new_cons(i64 108, i64 %t148, i64 2)
+  %t150 = call i64 @l0_new_cons(i64 102, i64 %t149, i64 2)
+  %t151 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t150, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t151
+}
+
+define internal fastcc i64 @l0_f_check_float_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
+  %t2 = call i64 @l0_new_cons(i64 114, i64 %t1, i64 2)
+  %t3 = call i64 @l0_new_cons(i64 113, i64 %t2, i64 2)
+  %t4 = call i64 @l0_new_cons(i64 115, i64 %t3, i64 2)
+  %t5 = call i64 @l0_new_cons(i64 95, i64 %t4, i64 2)
+  %t6 = call i64 @l0_new_cons(i64 116, i64 %t5, i64 2)
+  %t7 = call i64 @l0_new_cons(i64 97, i64 %t6, i64 2)
+  %t8 = call i64 @l0_new_cons(i64 111, i64 %t7, i64 2)
+  %t9 = call i64 @l0_new_cons(i64 108, i64 %t8, i64 2)
+  %t10 = call i64 @l0_new_cons(i64 102, i64 %t9, i64 2)
+  %t11 = call i64 @l0_new_cons(i64 32, i64 %t10, i64 2)
+  %t12 = call i64 @l0_new_cons(i64 103, i64 %t11, i64 2)
+  %t13 = call i64 @l0_new_cons(i64 101, i64 %t12, i64 2)
+  %t14 = call i64 @l0_new_cons(i64 110, i64 %t13, i64 2)
+  %t15 = call i64 @l0_new_cons(i64 95, i64 %t14, i64 2)
+  %t16 = call i64 @l0_new_cons(i64 116, i64 %t15, i64 2)
+  %t17 = call i64 @l0_new_cons(i64 97, i64 %t16, i64 2)
+  %t18 = call i64 @l0_new_cons(i64 111, i64 %t17, i64 2)
+  %t19 = call i64 @l0_new_cons(i64 108, i64 %t18, i64 2)
+  %t20 = call i64 @l0_new_cons(i64 102, i64 %t19, i64 2)
+  %t21 = call i64 @l0_new_cons(i64 32, i64 %t20, i64 2)
+  %t22 = call i64 @l0_new_cons(i64 118, i64 %t21, i64 2)
+  %t23 = call i64 @l0_new_cons(i64 105, i64 %t22, i64 2)
+  %t24 = call i64 @l0_new_cons(i64 100, i64 %t23, i64 2)
+  %t25 = call i64 @l0_new_cons(i64 95, i64 %t24, i64 2)
+  %t26 = call i64 @l0_new_cons(i64 116, i64 %t25, i64 2)
+  %t27 = call i64 @l0_new_cons(i64 97, i64 %t26, i64 2)
+  %t28 = call i64 @l0_new_cons(i64 111, i64 %t27, i64 2)
+  %t29 = call i64 @l0_new_cons(i64 108, i64 %t28, i64 2)
+  %t30 = call i64 @l0_new_cons(i64 102, i64 %t29, i64 2)
+  %t31 = call i64 @l0_new_cons(i64 32, i64 %t30, i64 2)
+  %t32 = call i64 @l0_new_cons(i64 108, i64 %t31, i64 2)
+  %t33 = call i64 @l0_new_cons(i64 117, i64 %t32, i64 2)
+  %t34 = call i64 @l0_new_cons(i64 109, i64 %t33, i64 2)
+  %t35 = call i64 @l0_new_cons(i64 95, i64 %t34, i64 2)
+  %t36 = call i64 @l0_new_cons(i64 116, i64 %t35, i64 2)
+  %t37 = call i64 @l0_new_cons(i64 97, i64 %t36, i64 2)
+  %t38 = call i64 @l0_new_cons(i64 111, i64 %t37, i64 2)
+  %t39 = call i64 @l0_new_cons(i64 108, i64 %t38, i64 2)
+  %t40 = call i64 @l0_new_cons(i64 102, i64 %t39, i64 2)
+  %t41 = call i64 @l0_new_cons(i64 32, i64 %t40, i64 2)
+  %t42 = call i64 @l0_new_cons(i64 98, i64 %t41, i64 2)
+  %t43 = call i64 @l0_new_cons(i64 117, i64 %t42, i64 2)
+  %t44 = call i64 @l0_new_cons(i64 115, i64 %t43, i64 2)
+  %t45 = call i64 @l0_new_cons(i64 95, i64 %t44, i64 2)
+  %t46 = call i64 @l0_new_cons(i64 116, i64 %t45, i64 2)
+  %t47 = call i64 @l0_new_cons(i64 97, i64 %t46, i64 2)
+  %t48 = call i64 @l0_new_cons(i64 111, i64 %t47, i64 2)
+  %t49 = call i64 @l0_new_cons(i64 108, i64 %t48, i64 2)
+  %t50 = call i64 @l0_new_cons(i64 102, i64 %t49, i64 2)
+  %t51 = call i64 @l0_new_cons(i64 32, i64 %t50, i64 2)
+  %t52 = call i64 @l0_new_cons(i64 100, i64 %t51, i64 2)
+  %t53 = call i64 @l0_new_cons(i64 100, i64 %t52, i64 2)
+  %t54 = call i64 @l0_new_cons(i64 97, i64 %t53, i64 2)
+  %t55 = call i64 @l0_new_cons(i64 95, i64 %t54, i64 2)
+  %t56 = call i64 @l0_new_cons(i64 116, i64 %t55, i64 2)
+  %t57 = call i64 @l0_new_cons(i64 97, i64 %t56, i64 2)
+  %t58 = call i64 @l0_new_cons(i64 111, i64 %t57, i64 2)
+  %t59 = call i64 @l0_new_cons(i64 108, i64 %t58, i64 2)
+  %t60 = call i64 @l0_new_cons(i64 102, i64 %t59, i64 2)
+  %t61 = call fastcc i64 @l0_f_split_spaces(i64 %t60, i64 0, i64 0, i64 0, i64 0)
+  call void @l0_inc(i64 %a0)
+  %t62 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t61)
+  %t63 = icmp ne i64 %t62, 0
+  br i1 %t63, label %Lt0, label %Le0
+Lt0:
+  %t64 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  %t65 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  %t66 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t64, i64 %t65, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t66
+Le0:
+  %t68 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
+  %t69 = call i64 @l0_new_cons(i64 103, i64 %t68, i64 2)
+  %t70 = call i64 @l0_new_cons(i64 95, i64 %t69, i64 2)
+  %t71 = call i64 @l0_new_cons(i64 116, i64 %t70, i64 2)
+  %t72 = call i64 @l0_new_cons(i64 97, i64 %t71, i64 2)
+  %t73 = call i64 @l0_new_cons(i64 111, i64 %t72, i64 2)
+  %t74 = call i64 @l0_new_cons(i64 108, i64 %t73, i64 2)
+  %t75 = call i64 @l0_new_cons(i64 102, i64 %t74, i64 2)
+  %t76 = call i64 @l0_new_cons(i64 32, i64 %t75, i64 2)
+  %t77 = call i64 @l0_new_cons(i64 116, i64 %t76, i64 2)
+  %t78 = call i64 @l0_new_cons(i64 103, i64 %t77, i64 2)
+  %t79 = call i64 @l0_new_cons(i64 95, i64 %t78, i64 2)
+  %t80 = call i64 @l0_new_cons(i64 116, i64 %t79, i64 2)
+  %t81 = call i64 @l0_new_cons(i64 97, i64 %t80, i64 2)
+  %t82 = call i64 @l0_new_cons(i64 111, i64 %t81, i64 2)
+  %t83 = call i64 @l0_new_cons(i64 108, i64 %t82, i64 2)
+  %t84 = call i64 @l0_new_cons(i64 102, i64 %t83, i64 2)
+  %t85 = call i64 @l0_new_cons(i64 32, i64 %t84, i64 2)
+  %t86 = call i64 @l0_new_cons(i64 101, i64 %t85, i64 2)
+  %t87 = call i64 @l0_new_cons(i64 108, i64 %t86, i64 2)
+  %t88 = call i64 @l0_new_cons(i64 95, i64 %t87, i64 2)
+  %t89 = call i64 @l0_new_cons(i64 116, i64 %t88, i64 2)
+  %t90 = call i64 @l0_new_cons(i64 97, i64 %t89, i64 2)
+  %t91 = call i64 @l0_new_cons(i64 111, i64 %t90, i64 2)
+  %t92 = call i64 @l0_new_cons(i64 108, i64 %t91, i64 2)
+  %t93 = call i64 @l0_new_cons(i64 102, i64 %t92, i64 2)
+  %t94 = call i64 @l0_new_cons(i64 32, i64 %t93, i64 2)
   %t95 = call i64 @l0_new_cons(i64 116, i64 %t94, i64 2)
-  %t96 = call i64 @l0_new_cons(i64 97, i64 %t95, i64 2)
-  %t97 = call i64 @l0_new_cons(i64 111, i64 %t96, i64 2)
-  %t98 = call i64 @l0_new_cons(i64 108, i64 %t97, i64 2)
-  %t99 = call i64 @l0_new_cons(i64 102, i64 %t98, i64 2)
-  %t100 = call i64 @l0_new_cons(i64 32, i64 %t99, i64 2)
-  %t101 = call i64 @l0_new_cons(i64 118, i64 %t100, i64 2)
-  %t102 = call i64 @l0_new_cons(i64 105, i64 %t101, i64 2)
-  %t103 = call i64 @l0_new_cons(i64 100, i64 %t102, i64 2)
-  %t104 = call i64 @l0_new_cons(i64 95, i64 %t103, i64 2)
-  %t105 = call i64 @l0_new_cons(i64 116, i64 %t104, i64 2)
-  %t106 = call i64 @l0_new_cons(i64 97, i64 %t105, i64 2)
-  %t107 = call i64 @l0_new_cons(i64 111, i64 %t106, i64 2)
-  %t108 = call i64 @l0_new_cons(i64 108, i64 %t107, i64 2)
-  %t109 = call i64 @l0_new_cons(i64 102, i64 %t108, i64 2)
-  %t110 = call i64 @l0_new_cons(i64 32, i64 %t109, i64 2)
-  %t111 = call i64 @l0_new_cons(i64 108, i64 %t110, i64 2)
-  %t112 = call i64 @l0_new_cons(i64 117, i64 %t111, i64 2)
-  %t113 = call i64 @l0_new_cons(i64 109, i64 %t112, i64 2)
+  %t96 = call i64 @l0_new_cons(i64 108, i64 %t95, i64 2)
+  %t97 = call i64 @l0_new_cons(i64 95, i64 %t96, i64 2)
+  %t98 = call i64 @l0_new_cons(i64 116, i64 %t97, i64 2)
+  %t99 = call i64 @l0_new_cons(i64 97, i64 %t98, i64 2)
+  %t100 = call i64 @l0_new_cons(i64 111, i64 %t99, i64 2)
+  %t101 = call i64 @l0_new_cons(i64 108, i64 %t100, i64 2)
+  %t102 = call i64 @l0_new_cons(i64 102, i64 %t101, i64 2)
+  %t103 = call fastcc i64 @l0_f_split_spaces(i64 %t102, i64 0, i64 0, i64 0, i64 0)
+  call void @l0_inc(i64 %a0)
+  %t104 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t103)
+  %t105 = icmp ne i64 %t104, 0
+  br i1 %t105, label %Lt67, label %Le67
+Lt67:
+  %t106 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  %t107 = call i64 @l0_new_data(i64 1, i64 2, i64 0)
+  %t108 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t106, i64 %t107, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t108
+Le67:
+  %t110 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
+  %t111 = call i64 @l0_new_cons(i64 116, i64 %t110, i64 2)
+  %t112 = call i64 @l0_new_cons(i64 105, i64 %t111, i64 2)
+  %t113 = call i64 @l0_new_cons(i64 98, i64 %t112, i64 2)
   %t114 = call i64 @l0_new_cons(i64 95, i64 %t113, i64 2)
   %t115 = call i64 @l0_new_cons(i64 116, i64 %t114, i64 2)
   %t116 = call i64 @l0_new_cons(i64 97, i64 %t115, i64 2)
@@ -6692,176 +8494,33 @@ entry:
   %t118 = call i64 @l0_new_cons(i64 108, i64 %t117, i64 2)
   %t119 = call i64 @l0_new_cons(i64 102, i64 %t118, i64 2)
   %t120 = call i64 @l0_new_cons(i64 32, i64 %t119, i64 2)
-  %t121 = call i64 @l0_new_cons(i64 98, i64 %t120, i64 2)
-  %t122 = call i64 @l0_new_cons(i64 117, i64 %t121, i64 2)
-  %t123 = call i64 @l0_new_cons(i64 115, i64 %t122, i64 2)
+  %t121 = call i64 @l0_new_cons(i64 116, i64 %t120, i64 2)
+  %t122 = call i64 @l0_new_cons(i64 110, i64 %t121, i64 2)
+  %t123 = call i64 @l0_new_cons(i64 105, i64 %t122, i64 2)
   %t124 = call i64 @l0_new_cons(i64 95, i64 %t123, i64 2)
-  %t125 = call i64 @l0_new_cons(i64 116, i64 %t124, i64 2)
-  %t126 = call i64 @l0_new_cons(i64 97, i64 %t125, i64 2)
-  %t127 = call i64 @l0_new_cons(i64 111, i64 %t126, i64 2)
-  %t128 = call i64 @l0_new_cons(i64 108, i64 %t127, i64 2)
-  %t129 = call i64 @l0_new_cons(i64 102, i64 %t128, i64 2)
-  %t130 = call i64 @l0_new_cons(i64 32, i64 %t129, i64 2)
-  %t131 = call i64 @l0_new_cons(i64 100, i64 %t130, i64 2)
-  %t132 = call i64 @l0_new_cons(i64 100, i64 %t131, i64 2)
-  %t133 = call i64 @l0_new_cons(i64 97, i64 %t132, i64 2)
-  %t134 = call i64 @l0_new_cons(i64 95, i64 %t133, i64 2)
-  %t135 = call i64 @l0_new_cons(i64 116, i64 %t134, i64 2)
-  %t136 = call i64 @l0_new_cons(i64 97, i64 %t135, i64 2)
-  %t137 = call i64 @l0_new_cons(i64 111, i64 %t136, i64 2)
-  %t138 = call i64 @l0_new_cons(i64 108, i64 %t137, i64 2)
-  %t139 = call i64 @l0_new_cons(i64 102, i64 %t138, i64 2)
-  %t140 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t139, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t140
-}
-
-define internal fastcc i64 @l0_f_check_float_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
-entry:
-  call void @l0_stack_check()
-  %t1 = call i64 @l0_new_cons(i64 103, i64 0, i64 2)
-  %t2 = call i64 @l0_new_cons(i64 101, i64 %t1, i64 2)
-  %t3 = call i64 @l0_new_cons(i64 110, i64 %t2, i64 2)
-  %t4 = call i64 @l0_new_cons(i64 95, i64 %t3, i64 2)
-  %t5 = call i64 @l0_new_cons(i64 116, i64 %t4, i64 2)
-  %t6 = call i64 @l0_new_cons(i64 97, i64 %t5, i64 2)
-  %t7 = call i64 @l0_new_cons(i64 111, i64 %t6, i64 2)
-  %t8 = call i64 @l0_new_cons(i64 108, i64 %t7, i64 2)
-  %t9 = call i64 @l0_new_cons(i64 102, i64 %t8, i64 2)
-  %t10 = call i64 @l0_new_cons(i64 32, i64 %t9, i64 2)
-  %t11 = call i64 @l0_new_cons(i64 118, i64 %t10, i64 2)
-  %t12 = call i64 @l0_new_cons(i64 105, i64 %t11, i64 2)
-  %t13 = call i64 @l0_new_cons(i64 100, i64 %t12, i64 2)
-  %t14 = call i64 @l0_new_cons(i64 95, i64 %t13, i64 2)
-  %t15 = call i64 @l0_new_cons(i64 116, i64 %t14, i64 2)
-  %t16 = call i64 @l0_new_cons(i64 97, i64 %t15, i64 2)
-  %t17 = call i64 @l0_new_cons(i64 111, i64 %t16, i64 2)
-  %t18 = call i64 @l0_new_cons(i64 108, i64 %t17, i64 2)
-  %t19 = call i64 @l0_new_cons(i64 102, i64 %t18, i64 2)
-  %t20 = call i64 @l0_new_cons(i64 32, i64 %t19, i64 2)
-  %t21 = call i64 @l0_new_cons(i64 108, i64 %t20, i64 2)
-  %t22 = call i64 @l0_new_cons(i64 117, i64 %t21, i64 2)
-  %t23 = call i64 @l0_new_cons(i64 109, i64 %t22, i64 2)
-  %t24 = call i64 @l0_new_cons(i64 95, i64 %t23, i64 2)
-  %t25 = call i64 @l0_new_cons(i64 116, i64 %t24, i64 2)
-  %t26 = call i64 @l0_new_cons(i64 97, i64 %t25, i64 2)
-  %t27 = call i64 @l0_new_cons(i64 111, i64 %t26, i64 2)
-  %t28 = call i64 @l0_new_cons(i64 108, i64 %t27, i64 2)
-  %t29 = call i64 @l0_new_cons(i64 102, i64 %t28, i64 2)
-  %t30 = call i64 @l0_new_cons(i64 32, i64 %t29, i64 2)
-  %t31 = call i64 @l0_new_cons(i64 98, i64 %t30, i64 2)
-  %t32 = call i64 @l0_new_cons(i64 117, i64 %t31, i64 2)
-  %t33 = call i64 @l0_new_cons(i64 115, i64 %t32, i64 2)
-  %t34 = call i64 @l0_new_cons(i64 95, i64 %t33, i64 2)
-  %t35 = call i64 @l0_new_cons(i64 116, i64 %t34, i64 2)
-  %t36 = call i64 @l0_new_cons(i64 97, i64 %t35, i64 2)
-  %t37 = call i64 @l0_new_cons(i64 111, i64 %t36, i64 2)
-  %t38 = call i64 @l0_new_cons(i64 108, i64 %t37, i64 2)
-  %t39 = call i64 @l0_new_cons(i64 102, i64 %t38, i64 2)
-  %t40 = call i64 @l0_new_cons(i64 32, i64 %t39, i64 2)
-  %t41 = call i64 @l0_new_cons(i64 100, i64 %t40, i64 2)
-  %t42 = call i64 @l0_new_cons(i64 100, i64 %t41, i64 2)
-  %t43 = call i64 @l0_new_cons(i64 97, i64 %t42, i64 2)
-  %t44 = call i64 @l0_new_cons(i64 95, i64 %t43, i64 2)
-  %t45 = call i64 @l0_new_cons(i64 116, i64 %t44, i64 2)
-  %t46 = call i64 @l0_new_cons(i64 97, i64 %t45, i64 2)
-  %t47 = call i64 @l0_new_cons(i64 111, i64 %t46, i64 2)
-  %t48 = call i64 @l0_new_cons(i64 108, i64 %t47, i64 2)
-  %t49 = call i64 @l0_new_cons(i64 102, i64 %t48, i64 2)
-  %t50 = call fastcc i64 @l0_f_split_spaces(i64 %t49, i64 0, i64 0, i64 0, i64 0)
+  %t125 = call i64 @l0_new_cons(i64 111, i64 %t124, i64 2)
+  %t126 = call i64 @l0_new_cons(i64 116, i64 %t125, i64 2)
+  %t127 = call i64 @l0_new_cons(i64 95, i64 %t126, i64 2)
+  %t128 = call i64 @l0_new_cons(i64 116, i64 %t127, i64 2)
+  %t129 = call i64 @l0_new_cons(i64 97, i64 %t128, i64 2)
+  %t130 = call i64 @l0_new_cons(i64 111, i64 %t129, i64 2)
+  %t131 = call i64 @l0_new_cons(i64 108, i64 %t130, i64 2)
+  %t132 = call i64 @l0_new_cons(i64 102, i64 %t131, i64 2)
+  %t133 = call fastcc i64 @l0_f_split_spaces(i64 %t132, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
-  %t51 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t50)
-  %t52 = icmp ne i64 %t51, 0
-  br i1 %t52, label %Lt0, label %Le0
-Lt0:
-  %t53 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
-  %t54 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
-  %t55 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t53, i64 %t54, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t55
-Le0:
-  %t57 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
-  %t58 = call i64 @l0_new_cons(i64 103, i64 %t57, i64 2)
-  %t59 = call i64 @l0_new_cons(i64 95, i64 %t58, i64 2)
-  %t60 = call i64 @l0_new_cons(i64 116, i64 %t59, i64 2)
-  %t61 = call i64 @l0_new_cons(i64 97, i64 %t60, i64 2)
-  %t62 = call i64 @l0_new_cons(i64 111, i64 %t61, i64 2)
-  %t63 = call i64 @l0_new_cons(i64 108, i64 %t62, i64 2)
-  %t64 = call i64 @l0_new_cons(i64 102, i64 %t63, i64 2)
-  %t65 = call i64 @l0_new_cons(i64 32, i64 %t64, i64 2)
-  %t66 = call i64 @l0_new_cons(i64 116, i64 %t65, i64 2)
-  %t67 = call i64 @l0_new_cons(i64 103, i64 %t66, i64 2)
-  %t68 = call i64 @l0_new_cons(i64 95, i64 %t67, i64 2)
-  %t69 = call i64 @l0_new_cons(i64 116, i64 %t68, i64 2)
-  %t70 = call i64 @l0_new_cons(i64 97, i64 %t69, i64 2)
-  %t71 = call i64 @l0_new_cons(i64 111, i64 %t70, i64 2)
-  %t72 = call i64 @l0_new_cons(i64 108, i64 %t71, i64 2)
-  %t73 = call i64 @l0_new_cons(i64 102, i64 %t72, i64 2)
-  %t74 = call i64 @l0_new_cons(i64 32, i64 %t73, i64 2)
-  %t75 = call i64 @l0_new_cons(i64 101, i64 %t74, i64 2)
-  %t76 = call i64 @l0_new_cons(i64 108, i64 %t75, i64 2)
-  %t77 = call i64 @l0_new_cons(i64 95, i64 %t76, i64 2)
-  %t78 = call i64 @l0_new_cons(i64 116, i64 %t77, i64 2)
-  %t79 = call i64 @l0_new_cons(i64 97, i64 %t78, i64 2)
-  %t80 = call i64 @l0_new_cons(i64 111, i64 %t79, i64 2)
-  %t81 = call i64 @l0_new_cons(i64 108, i64 %t80, i64 2)
-  %t82 = call i64 @l0_new_cons(i64 102, i64 %t81, i64 2)
-  %t83 = call i64 @l0_new_cons(i64 32, i64 %t82, i64 2)
-  %t84 = call i64 @l0_new_cons(i64 116, i64 %t83, i64 2)
-  %t85 = call i64 @l0_new_cons(i64 108, i64 %t84, i64 2)
-  %t86 = call i64 @l0_new_cons(i64 95, i64 %t85, i64 2)
-  %t87 = call i64 @l0_new_cons(i64 116, i64 %t86, i64 2)
-  %t88 = call i64 @l0_new_cons(i64 97, i64 %t87, i64 2)
-  %t89 = call i64 @l0_new_cons(i64 111, i64 %t88, i64 2)
-  %t90 = call i64 @l0_new_cons(i64 108, i64 %t89, i64 2)
-  %t91 = call i64 @l0_new_cons(i64 102, i64 %t90, i64 2)
-  %t92 = call fastcc i64 @l0_f_split_spaces(i64 %t91, i64 0, i64 0, i64 0, i64 0)
-  call void @l0_inc(i64 %a0)
-  %t93 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t92)
-  %t94 = icmp ne i64 %t93, 0
-  br i1 %t94, label %Lt56, label %Le56
-Lt56:
-  %t95 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
-  %t96 = call i64 @l0_new_data(i64 1, i64 2, i64 0)
-  %t97 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t95, i64 %t96, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t97
-Le56:
-  %t99 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
-  %t100 = call i64 @l0_new_cons(i64 116, i64 %t99, i64 2)
-  %t101 = call i64 @l0_new_cons(i64 105, i64 %t100, i64 2)
-  %t102 = call i64 @l0_new_cons(i64 98, i64 %t101, i64 2)
-  %t103 = call i64 @l0_new_cons(i64 95, i64 %t102, i64 2)
-  %t104 = call i64 @l0_new_cons(i64 116, i64 %t103, i64 2)
-  %t105 = call i64 @l0_new_cons(i64 97, i64 %t104, i64 2)
-  %t106 = call i64 @l0_new_cons(i64 111, i64 %t105, i64 2)
-  %t107 = call i64 @l0_new_cons(i64 108, i64 %t106, i64 2)
-  %t108 = call i64 @l0_new_cons(i64 102, i64 %t107, i64 2)
-  %t109 = call i64 @l0_new_cons(i64 32, i64 %t108, i64 2)
-  %t110 = call i64 @l0_new_cons(i64 116, i64 %t109, i64 2)
-  %t111 = call i64 @l0_new_cons(i64 110, i64 %t110, i64 2)
-  %t112 = call i64 @l0_new_cons(i64 105, i64 %t111, i64 2)
-  %t113 = call i64 @l0_new_cons(i64 95, i64 %t112, i64 2)
-  %t114 = call i64 @l0_new_cons(i64 111, i64 %t113, i64 2)
-  %t115 = call i64 @l0_new_cons(i64 116, i64 %t114, i64 2)
-  %t116 = call i64 @l0_new_cons(i64 95, i64 %t115, i64 2)
-  %t117 = call i64 @l0_new_cons(i64 116, i64 %t116, i64 2)
-  %t118 = call i64 @l0_new_cons(i64 97, i64 %t117, i64 2)
-  %t119 = call i64 @l0_new_cons(i64 111, i64 %t118, i64 2)
-  %t120 = call i64 @l0_new_cons(i64 108, i64 %t119, i64 2)
-  %t121 = call i64 @l0_new_cons(i64 102, i64 %t120, i64 2)
-  %t122 = call fastcc i64 @l0_f_split_spaces(i64 %t121, i64 0, i64 0, i64 0, i64 0)
-  call void @l0_inc(i64 %a0)
-  %t123 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t122)
-  %t124 = icmp ne i64 %t123, 0
-  br i1 %t124, label %Lt98, label %Le98
-Lt98:
-  %t125 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
-  %t126 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t127 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t125, i64 %t126, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t127
-Le98:
-  %t128 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t129 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
-  %t130 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t128, i64 %t129, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t130
+  %t134 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t133)
+  %t135 = icmp ne i64 %t134, 0
+  br i1 %t135, label %Lt109, label %Le109
+Lt109:
+  %t136 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  %t137 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t138 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t136, i64 %t137, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t138
+Le109:
+  %t139 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t140 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  %t141 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t139, i64 %t140, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t141
 }
 
 define internal fastcc i64 @l0_f_names_then(i64 %a0, i64 %a1) {
@@ -7323,133 +8982,144 @@ Le0:
   %t429 = call i64 @l0_new_cons(i64 108, i64 %t428, i64 2)
   %t430 = call i64 @l0_new_cons(i64 102, i64 %t429, i64 2)
   %t431 = call i64 @l0_new_cons(i64 32, i64 %t430, i64 2)
-  %t432 = call i64 @l0_new_cons(i64 103, i64 %t431, i64 2)
-  %t433 = call i64 @l0_new_cons(i64 101, i64 %t432, i64 2)
-  %t434 = call i64 @l0_new_cons(i64 110, i64 %t433, i64 2)
-  %t435 = call i64 @l0_new_cons(i64 95, i64 %t434, i64 2)
-  %t436 = call i64 @l0_new_cons(i64 116, i64 %t435, i64 2)
-  %t437 = call i64 @l0_new_cons(i64 97, i64 %t436, i64 2)
-  %t438 = call i64 @l0_new_cons(i64 111, i64 %t437, i64 2)
-  %t439 = call i64 @l0_new_cons(i64 108, i64 %t438, i64 2)
-  %t440 = call i64 @l0_new_cons(i64 102, i64 %t439, i64 2)
-  %t441 = call fastcc i64 @l0_f_split_spaces(i64 %t440, i64 0, i64 0, i64 0, i64 0)
+  %t432 = call i64 @l0_new_cons(i64 116, i64 %t431, i64 2)
+  %t433 = call i64 @l0_new_cons(i64 114, i64 %t432, i64 2)
+  %t434 = call i64 @l0_new_cons(i64 113, i64 %t433, i64 2)
+  %t435 = call i64 @l0_new_cons(i64 115, i64 %t434, i64 2)
+  %t436 = call i64 @l0_new_cons(i64 95, i64 %t435, i64 2)
+  %t437 = call i64 @l0_new_cons(i64 116, i64 %t436, i64 2)
+  %t438 = call i64 @l0_new_cons(i64 97, i64 %t437, i64 2)
+  %t439 = call i64 @l0_new_cons(i64 111, i64 %t438, i64 2)
+  %t440 = call i64 @l0_new_cons(i64 108, i64 %t439, i64 2)
+  %t441 = call i64 @l0_new_cons(i64 102, i64 %t440, i64 2)
+  %t442 = call i64 @l0_new_cons(i64 32, i64 %t441, i64 2)
+  %t443 = call i64 @l0_new_cons(i64 103, i64 %t442, i64 2)
+  %t444 = call i64 @l0_new_cons(i64 101, i64 %t443, i64 2)
+  %t445 = call i64 @l0_new_cons(i64 110, i64 %t444, i64 2)
+  %t446 = call i64 @l0_new_cons(i64 95, i64 %t445, i64 2)
+  %t447 = call i64 @l0_new_cons(i64 116, i64 %t446, i64 2)
+  %t448 = call i64 @l0_new_cons(i64 97, i64 %t447, i64 2)
+  %t449 = call i64 @l0_new_cons(i64 111, i64 %t448, i64 2)
+  %t450 = call i64 @l0_new_cons(i64 108, i64 %t449, i64 2)
+  %t451 = call i64 @l0_new_cons(i64 102, i64 %t450, i64 2)
+  %t452 = call fastcc i64 @l0_f_split_spaces(i64 %t451, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
-  %t442 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t441)
-  %t443 = icmp ne i64 %t442, 0
-  br i1 %t443, label %Lt95, label %Le95
+  %t453 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t452)
+  %t454 = icmp ne i64 %t453, 0
+  br i1 %t454, label %Lt95, label %Le95
 Lt95:
   call void @l0_dec(i64 %a0)
   ret i64 1
 Le95:
-  %t445 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
-  %t446 = call i64 @l0_new_cons(i64 118, i64 %t445, i64 2)
-  %t447 = call i64 @l0_new_cons(i64 105, i64 %t446, i64 2)
-  %t448 = call i64 @l0_new_cons(i64 101, i64 %t447, i64 2)
-  %t449 = call i64 @l0_new_cons(i64 99, i64 %t448, i64 2)
-  %t450 = call i64 @l0_new_cons(i64 101, i64 %t449, i64 2)
-  %t451 = call i64 @l0_new_cons(i64 114, i64 %t450, i64 2)
-  %t452 = call i64 @l0_new_cons(i64 95, i64 %t451, i64 2)
-  %t453 = call i64 @l0_new_cons(i64 114, i64 %t452, i64 2)
-  %t454 = call i64 @l0_new_cons(i64 111, i64 %t453, i64 2)
-  %t455 = call i64 @l0_new_cons(i64 115, i64 %t454, i64 2)
-  %t456 = call i64 @l0_new_cons(i64 105, i64 %t455, i64 2)
+  %t456 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
   %t457 = call i64 @l0_new_cons(i64 118, i64 %t456, i64 2)
-  %t458 = call i64 @l0_new_cons(i64 114, i64 %t457, i64 2)
+  %t458 = call i64 @l0_new_cons(i64 105, i64 %t457, i64 2)
   %t459 = call i64 @l0_new_cons(i64 101, i64 %t458, i64 2)
-  %t460 = call i64 @l0_new_cons(i64 112, i64 %t459, i64 2)
-  %t461 = call i64 @l0_new_cons(i64 117, i64 %t460, i64 2)
-  %t462 = call i64 @l0_new_cons(i64 115, i64 %t461, i64 2)
-  %t463 = call i64 @l0_new_cons(i64 32, i64 %t462, i64 2)
-  %t464 = call i64 @l0_new_cons(i64 100, i64 %t463, i64 2)
-  %t465 = call i64 @l0_new_cons(i64 97, i64 %t464, i64 2)
-  %t466 = call i64 @l0_new_cons(i64 101, i64 %t465, i64 2)
-  %t467 = call i64 @l0_new_cons(i64 114, i64 %t466, i64 2)
-  %t468 = call i64 @l0_new_cons(i64 95, i64 %t467, i64 2)
-  %t469 = call i64 @l0_new_cons(i64 101, i64 %t468, i64 2)
-  %t470 = call i64 @l0_new_cons(i64 99, i64 %t469, i64 2)
-  %t471 = call i64 @l0_new_cons(i64 97, i64 %t470, i64 2)
-  %t472 = call i64 @l0_new_cons(i64 112, i64 %t471, i64 2)
+  %t460 = call i64 @l0_new_cons(i64 99, i64 %t459, i64 2)
+  %t461 = call i64 @l0_new_cons(i64 101, i64 %t460, i64 2)
+  %t462 = call i64 @l0_new_cons(i64 114, i64 %t461, i64 2)
+  %t463 = call i64 @l0_new_cons(i64 95, i64 %t462, i64 2)
+  %t464 = call i64 @l0_new_cons(i64 114, i64 %t463, i64 2)
+  %t465 = call i64 @l0_new_cons(i64 111, i64 %t464, i64 2)
+  %t466 = call i64 @l0_new_cons(i64 115, i64 %t465, i64 2)
+  %t467 = call i64 @l0_new_cons(i64 105, i64 %t466, i64 2)
+  %t468 = call i64 @l0_new_cons(i64 118, i64 %t467, i64 2)
+  %t469 = call i64 @l0_new_cons(i64 114, i64 %t468, i64 2)
+  %t470 = call i64 @l0_new_cons(i64 101, i64 %t469, i64 2)
+  %t471 = call i64 @l0_new_cons(i64 112, i64 %t470, i64 2)
+  %t472 = call i64 @l0_new_cons(i64 117, i64 %t471, i64 2)
   %t473 = call i64 @l0_new_cons(i64 115, i64 %t472, i64 2)
   %t474 = call i64 @l0_new_cons(i64 32, i64 %t473, i64 2)
-  %t475 = call i64 @l0_new_cons(i64 52, i64 %t474, i64 2)
-  %t476 = call i64 @l0_new_cons(i64 54, i64 %t475, i64 2)
+  %t475 = call i64 @l0_new_cons(i64 100, i64 %t474, i64 2)
+  %t476 = call i64 @l0_new_cons(i64 97, i64 %t475, i64 2)
   %t477 = call i64 @l0_new_cons(i64 101, i64 %t476, i64 2)
-  %t478 = call i64 @l0_new_cons(i64 116, i64 %t477, i64 2)
-  %t479 = call i64 @l0_new_cons(i64 105, i64 %t478, i64 2)
-  %t480 = call i64 @l0_new_cons(i64 114, i64 %t479, i64 2)
-  %t481 = call i64 @l0_new_cons(i64 119, i64 %t480, i64 2)
-  %t482 = call i64 @l0_new_cons(i64 95, i64 %t481, i64 2)
-  %t483 = call i64 @l0_new_cons(i64 110, i64 %t482, i64 2)
-  %t484 = call i64 @l0_new_cons(i64 111, i64 %t483, i64 2)
-  %t485 = call i64 @l0_new_cons(i64 105, i64 %t484, i64 2)
-  %t486 = call i64 @l0_new_cons(i64 103, i64 %t485, i64 2)
-  %t487 = call i64 @l0_new_cons(i64 101, i64 %t486, i64 2)
-  %t488 = call i64 @l0_new_cons(i64 114, i64 %t487, i64 2)
-  %t489 = call i64 @l0_new_cons(i64 32, i64 %t488, i64 2)
-  %t490 = call i64 @l0_new_cons(i64 50, i64 %t489, i64 2)
-  %t491 = call i64 @l0_new_cons(i64 51, i64 %t490, i64 2)
-  %t492 = call i64 @l0_new_cons(i64 101, i64 %t491, i64 2)
-  %t493 = call i64 @l0_new_cons(i64 116, i64 %t492, i64 2)
-  %t494 = call i64 @l0_new_cons(i64 105, i64 %t493, i64 2)
-  %t495 = call i64 @l0_new_cons(i64 114, i64 %t494, i64 2)
-  %t496 = call i64 @l0_new_cons(i64 119, i64 %t495, i64 2)
-  %t497 = call i64 @l0_new_cons(i64 95, i64 %t496, i64 2)
-  %t498 = call i64 @l0_new_cons(i64 110, i64 %t497, i64 2)
-  %t499 = call i64 @l0_new_cons(i64 111, i64 %t498, i64 2)
-  %t500 = call i64 @l0_new_cons(i64 105, i64 %t499, i64 2)
-  %t501 = call i64 @l0_new_cons(i64 103, i64 %t500, i64 2)
-  %t502 = call i64 @l0_new_cons(i64 101, i64 %t501, i64 2)
-  %t503 = call i64 @l0_new_cons(i64 114, i64 %t502, i64 2)
-  %t504 = call i64 @l0_new_cons(i64 32, i64 %t503, i64 2)
-  %t505 = call i64 @l0_new_cons(i64 54, i64 %t504, i64 2)
-  %t506 = call i64 @l0_new_cons(i64 49, i64 %t505, i64 2)
-  %t507 = call i64 @l0_new_cons(i64 101, i64 %t506, i64 2)
-  %t508 = call i64 @l0_new_cons(i64 116, i64 %t507, i64 2)
-  %t509 = call i64 @l0_new_cons(i64 105, i64 %t508, i64 2)
-  %t510 = call i64 @l0_new_cons(i64 114, i64 %t509, i64 2)
-  %t511 = call i64 @l0_new_cons(i64 119, i64 %t510, i64 2)
-  %t512 = call i64 @l0_new_cons(i64 95, i64 %t511, i64 2)
-  %t513 = call i64 @l0_new_cons(i64 110, i64 %t512, i64 2)
-  %t514 = call i64 @l0_new_cons(i64 111, i64 %t513, i64 2)
-  %t515 = call i64 @l0_new_cons(i64 105, i64 %t514, i64 2)
-  %t516 = call i64 @l0_new_cons(i64 103, i64 %t515, i64 2)
-  %t517 = call i64 @l0_new_cons(i64 101, i64 %t516, i64 2)
-  %t518 = call i64 @l0_new_cons(i64 114, i64 %t517, i64 2)
-  %t519 = call i64 @l0_new_cons(i64 32, i64 %t518, i64 2)
-  %t520 = call i64 @l0_new_cons(i64 56, i64 %t519, i64 2)
-  %t521 = call i64 @l0_new_cons(i64 101, i64 %t520, i64 2)
-  %t522 = call i64 @l0_new_cons(i64 116, i64 %t521, i64 2)
-  %t523 = call i64 @l0_new_cons(i64 105, i64 %t522, i64 2)
-  %t524 = call i64 @l0_new_cons(i64 114, i64 %t523, i64 2)
-  %t525 = call i64 @l0_new_cons(i64 119, i64 %t524, i64 2)
-  %t526 = call i64 @l0_new_cons(i64 95, i64 %t525, i64 2)
-  %t527 = call i64 @l0_new_cons(i64 110, i64 %t526, i64 2)
-  %t528 = call i64 @l0_new_cons(i64 111, i64 %t527, i64 2)
-  %t529 = call i64 @l0_new_cons(i64 105, i64 %t528, i64 2)
-  %t530 = call i64 @l0_new_cons(i64 103, i64 %t529, i64 2)
-  %t531 = call i64 @l0_new_cons(i64 101, i64 %t530, i64 2)
-  %t532 = call i64 @l0_new_cons(i64 114, i64 %t531, i64 2)
-  %t533 = call i64 @l0_new_cons(i64 32, i64 %t532, i64 2)
-  %t534 = call i64 @l0_new_cons(i64 116, i64 %t533, i64 2)
-  %t535 = call i64 @l0_new_cons(i64 101, i64 %t534, i64 2)
-  %t536 = call i64 @l0_new_cons(i64 115, i64 %t535, i64 2)
+  %t478 = call i64 @l0_new_cons(i64 114, i64 %t477, i64 2)
+  %t479 = call i64 @l0_new_cons(i64 95, i64 %t478, i64 2)
+  %t480 = call i64 @l0_new_cons(i64 101, i64 %t479, i64 2)
+  %t481 = call i64 @l0_new_cons(i64 99, i64 %t480, i64 2)
+  %t482 = call i64 @l0_new_cons(i64 97, i64 %t481, i64 2)
+  %t483 = call i64 @l0_new_cons(i64 112, i64 %t482, i64 2)
+  %t484 = call i64 @l0_new_cons(i64 115, i64 %t483, i64 2)
+  %t485 = call i64 @l0_new_cons(i64 32, i64 %t484, i64 2)
+  %t486 = call i64 @l0_new_cons(i64 52, i64 %t485, i64 2)
+  %t487 = call i64 @l0_new_cons(i64 54, i64 %t486, i64 2)
+  %t488 = call i64 @l0_new_cons(i64 101, i64 %t487, i64 2)
+  %t489 = call i64 @l0_new_cons(i64 116, i64 %t488, i64 2)
+  %t490 = call i64 @l0_new_cons(i64 105, i64 %t489, i64 2)
+  %t491 = call i64 @l0_new_cons(i64 114, i64 %t490, i64 2)
+  %t492 = call i64 @l0_new_cons(i64 119, i64 %t491, i64 2)
+  %t493 = call i64 @l0_new_cons(i64 95, i64 %t492, i64 2)
+  %t494 = call i64 @l0_new_cons(i64 110, i64 %t493, i64 2)
+  %t495 = call i64 @l0_new_cons(i64 111, i64 %t494, i64 2)
+  %t496 = call i64 @l0_new_cons(i64 105, i64 %t495, i64 2)
+  %t497 = call i64 @l0_new_cons(i64 103, i64 %t496, i64 2)
+  %t498 = call i64 @l0_new_cons(i64 101, i64 %t497, i64 2)
+  %t499 = call i64 @l0_new_cons(i64 114, i64 %t498, i64 2)
+  %t500 = call i64 @l0_new_cons(i64 32, i64 %t499, i64 2)
+  %t501 = call i64 @l0_new_cons(i64 50, i64 %t500, i64 2)
+  %t502 = call i64 @l0_new_cons(i64 51, i64 %t501, i64 2)
+  %t503 = call i64 @l0_new_cons(i64 101, i64 %t502, i64 2)
+  %t504 = call i64 @l0_new_cons(i64 116, i64 %t503, i64 2)
+  %t505 = call i64 @l0_new_cons(i64 105, i64 %t504, i64 2)
+  %t506 = call i64 @l0_new_cons(i64 114, i64 %t505, i64 2)
+  %t507 = call i64 @l0_new_cons(i64 119, i64 %t506, i64 2)
+  %t508 = call i64 @l0_new_cons(i64 95, i64 %t507, i64 2)
+  %t509 = call i64 @l0_new_cons(i64 110, i64 %t508, i64 2)
+  %t510 = call i64 @l0_new_cons(i64 111, i64 %t509, i64 2)
+  %t511 = call i64 @l0_new_cons(i64 105, i64 %t510, i64 2)
+  %t512 = call i64 @l0_new_cons(i64 103, i64 %t511, i64 2)
+  %t513 = call i64 @l0_new_cons(i64 101, i64 %t512, i64 2)
+  %t514 = call i64 @l0_new_cons(i64 114, i64 %t513, i64 2)
+  %t515 = call i64 @l0_new_cons(i64 32, i64 %t514, i64 2)
+  %t516 = call i64 @l0_new_cons(i64 54, i64 %t515, i64 2)
+  %t517 = call i64 @l0_new_cons(i64 49, i64 %t516, i64 2)
+  %t518 = call i64 @l0_new_cons(i64 101, i64 %t517, i64 2)
+  %t519 = call i64 @l0_new_cons(i64 116, i64 %t518, i64 2)
+  %t520 = call i64 @l0_new_cons(i64 105, i64 %t519, i64 2)
+  %t521 = call i64 @l0_new_cons(i64 114, i64 %t520, i64 2)
+  %t522 = call i64 @l0_new_cons(i64 119, i64 %t521, i64 2)
+  %t523 = call i64 @l0_new_cons(i64 95, i64 %t522, i64 2)
+  %t524 = call i64 @l0_new_cons(i64 110, i64 %t523, i64 2)
+  %t525 = call i64 @l0_new_cons(i64 111, i64 %t524, i64 2)
+  %t526 = call i64 @l0_new_cons(i64 105, i64 %t525, i64 2)
+  %t527 = call i64 @l0_new_cons(i64 103, i64 %t526, i64 2)
+  %t528 = call i64 @l0_new_cons(i64 101, i64 %t527, i64 2)
+  %t529 = call i64 @l0_new_cons(i64 114, i64 %t528, i64 2)
+  %t530 = call i64 @l0_new_cons(i64 32, i64 %t529, i64 2)
+  %t531 = call i64 @l0_new_cons(i64 56, i64 %t530, i64 2)
+  %t532 = call i64 @l0_new_cons(i64 101, i64 %t531, i64 2)
+  %t533 = call i64 @l0_new_cons(i64 116, i64 %t532, i64 2)
+  %t534 = call i64 @l0_new_cons(i64 105, i64 %t533, i64 2)
+  %t535 = call i64 @l0_new_cons(i64 114, i64 %t534, i64 2)
+  %t536 = call i64 @l0_new_cons(i64 119, i64 %t535, i64 2)
   %t537 = call i64 @l0_new_cons(i64 95, i64 %t536, i64 2)
-  %t538 = call i64 @l0_new_cons(i64 121, i64 %t537, i64 2)
-  %t539 = call i64 @l0_new_cons(i64 97, i64 %t538, i64 2)
-  %t540 = call i64 @l0_new_cons(i64 114, i64 %t539, i64 2)
-  %t541 = call i64 @l0_new_cons(i64 114, i64 %t540, i64 2)
-  %t542 = call i64 @l0_new_cons(i64 97, i64 %t541, i64 2)
-  %t543 = call fastcc i64 @l0_f_split_spaces(i64 %t542, i64 0, i64 0, i64 0, i64 0)
+  %t538 = call i64 @l0_new_cons(i64 110, i64 %t537, i64 2)
+  %t539 = call i64 @l0_new_cons(i64 111, i64 %t538, i64 2)
+  %t540 = call i64 @l0_new_cons(i64 105, i64 %t539, i64 2)
+  %t541 = call i64 @l0_new_cons(i64 103, i64 %t540, i64 2)
+  %t542 = call i64 @l0_new_cons(i64 101, i64 %t541, i64 2)
+  %t543 = call i64 @l0_new_cons(i64 114, i64 %t542, i64 2)
+  %t544 = call i64 @l0_new_cons(i64 32, i64 %t543, i64 2)
+  %t545 = call i64 @l0_new_cons(i64 116, i64 %t544, i64 2)
+  %t546 = call i64 @l0_new_cons(i64 101, i64 %t545, i64 2)
+  %t547 = call i64 @l0_new_cons(i64 115, i64 %t546, i64 2)
+  %t548 = call i64 @l0_new_cons(i64 95, i64 %t547, i64 2)
+  %t549 = call i64 @l0_new_cons(i64 121, i64 %t548, i64 2)
+  %t550 = call i64 @l0_new_cons(i64 97, i64 %t549, i64 2)
+  %t551 = call i64 @l0_new_cons(i64 114, i64 %t550, i64 2)
+  %t552 = call i64 @l0_new_cons(i64 114, i64 %t551, i64 2)
+  %t553 = call i64 @l0_new_cons(i64 97, i64 %t552, i64 2)
+  %t554 = call fastcc i64 @l0_f_split_spaces(i64 %t553, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
-  %t544 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t543)
-  %t545 = icmp ne i64 %t544, 0
-  br i1 %t545, label %Lt444, label %Le444
-Lt444:
+  %t555 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t554)
+  %t556 = icmp ne i64 %t555, 0
+  br i1 %t556, label %Lt455, label %Le455
+Lt455:
   call void @l0_dec(i64 %a0)
   ret i64 3
-Le444:
-  %t546 = musttail call fastcc i64 @l0_f_builtin_arity_wide(i64 %a0)
-  ret i64 %t546
+Le455:
+  %t557 = musttail call fastcc i64 @l0_f_builtin_arity_wide(i64 %a0)
+  ret i64 %t557
 }
 
 define internal fastcc i64 @l0_f_builtin_arity_wide(i64 %a0) {
@@ -19910,213 +21580,224 @@ Le0:
   %t51 = call i64 @l0_new_cons(i64 108, i64 %t50, i64 2)
   %t52 = call i64 @l0_new_cons(i64 102, i64 %t51, i64 2)
   %t53 = call i64 @l0_new_cons(i64 32, i64 %t52, i64 2)
-  %t54 = call i64 @l0_new_cons(i64 103, i64 %t53, i64 2)
-  %t55 = call i64 @l0_new_cons(i64 101, i64 %t54, i64 2)
-  %t56 = call i64 @l0_new_cons(i64 110, i64 %t55, i64 2)
-  %t57 = call i64 @l0_new_cons(i64 95, i64 %t56, i64 2)
-  %t58 = call i64 @l0_new_cons(i64 116, i64 %t57, i64 2)
-  %t59 = call i64 @l0_new_cons(i64 97, i64 %t58, i64 2)
-  %t60 = call i64 @l0_new_cons(i64 111, i64 %t59, i64 2)
-  %t61 = call i64 @l0_new_cons(i64 108, i64 %t60, i64 2)
-  %t62 = call i64 @l0_new_cons(i64 102, i64 %t61, i64 2)
-  %t63 = call i64 @l0_new_cons(i64 32, i64 %t62, i64 2)
-  %t64 = call i64 @l0_new_cons(i64 118, i64 %t63, i64 2)
-  %t65 = call i64 @l0_new_cons(i64 105, i64 %t64, i64 2)
-  %t66 = call i64 @l0_new_cons(i64 100, i64 %t65, i64 2)
-  %t67 = call i64 @l0_new_cons(i64 95, i64 %t66, i64 2)
-  %t68 = call i64 @l0_new_cons(i64 116, i64 %t67, i64 2)
-  %t69 = call i64 @l0_new_cons(i64 97, i64 %t68, i64 2)
-  %t70 = call i64 @l0_new_cons(i64 111, i64 %t69, i64 2)
-  %t71 = call i64 @l0_new_cons(i64 108, i64 %t70, i64 2)
-  %t72 = call i64 @l0_new_cons(i64 102, i64 %t71, i64 2)
-  %t73 = call i64 @l0_new_cons(i64 32, i64 %t72, i64 2)
-  %t74 = call i64 @l0_new_cons(i64 108, i64 %t73, i64 2)
-  %t75 = call i64 @l0_new_cons(i64 117, i64 %t74, i64 2)
-  %t76 = call i64 @l0_new_cons(i64 109, i64 %t75, i64 2)
-  %t77 = call i64 @l0_new_cons(i64 95, i64 %t76, i64 2)
-  %t78 = call i64 @l0_new_cons(i64 116, i64 %t77, i64 2)
-  %t79 = call i64 @l0_new_cons(i64 97, i64 %t78, i64 2)
-  %t80 = call i64 @l0_new_cons(i64 111, i64 %t79, i64 2)
-  %t81 = call i64 @l0_new_cons(i64 108, i64 %t80, i64 2)
-  %t82 = call i64 @l0_new_cons(i64 102, i64 %t81, i64 2)
-  %t83 = call i64 @l0_new_cons(i64 32, i64 %t82, i64 2)
-  %t84 = call i64 @l0_new_cons(i64 98, i64 %t83, i64 2)
-  %t85 = call i64 @l0_new_cons(i64 117, i64 %t84, i64 2)
-  %t86 = call i64 @l0_new_cons(i64 115, i64 %t85, i64 2)
-  %t87 = call i64 @l0_new_cons(i64 95, i64 %t86, i64 2)
-  %t88 = call i64 @l0_new_cons(i64 116, i64 %t87, i64 2)
-  %t89 = call i64 @l0_new_cons(i64 97, i64 %t88, i64 2)
-  %t90 = call i64 @l0_new_cons(i64 111, i64 %t89, i64 2)
-  %t91 = call i64 @l0_new_cons(i64 108, i64 %t90, i64 2)
-  %t92 = call i64 @l0_new_cons(i64 102, i64 %t91, i64 2)
-  %t93 = call i64 @l0_new_cons(i64 32, i64 %t92, i64 2)
-  %t94 = call i64 @l0_new_cons(i64 100, i64 %t93, i64 2)
-  %t95 = call i64 @l0_new_cons(i64 100, i64 %t94, i64 2)
-  %t96 = call i64 @l0_new_cons(i64 97, i64 %t95, i64 2)
-  %t97 = call i64 @l0_new_cons(i64 95, i64 %t96, i64 2)
-  %t98 = call i64 @l0_new_cons(i64 116, i64 %t97, i64 2)
-  %t99 = call i64 @l0_new_cons(i64 97, i64 %t98, i64 2)
-  %t100 = call i64 @l0_new_cons(i64 111, i64 %t99, i64 2)
-  %t101 = call i64 @l0_new_cons(i64 108, i64 %t100, i64 2)
-  %t102 = call i64 @l0_new_cons(i64 102, i64 %t101, i64 2)
-  %t103 = call fastcc i64 @l0_f_split_spaces(i64 %t102, i64 0, i64 0, i64 0, i64 0)
+  %t54 = call i64 @l0_new_cons(i64 116, i64 %t53, i64 2)
+  %t55 = call i64 @l0_new_cons(i64 114, i64 %t54, i64 2)
+  %t56 = call i64 @l0_new_cons(i64 113, i64 %t55, i64 2)
+  %t57 = call i64 @l0_new_cons(i64 115, i64 %t56, i64 2)
+  %t58 = call i64 @l0_new_cons(i64 95, i64 %t57, i64 2)
+  %t59 = call i64 @l0_new_cons(i64 116, i64 %t58, i64 2)
+  %t60 = call i64 @l0_new_cons(i64 97, i64 %t59, i64 2)
+  %t61 = call i64 @l0_new_cons(i64 111, i64 %t60, i64 2)
+  %t62 = call i64 @l0_new_cons(i64 108, i64 %t61, i64 2)
+  %t63 = call i64 @l0_new_cons(i64 102, i64 %t62, i64 2)
+  %t64 = call i64 @l0_new_cons(i64 32, i64 %t63, i64 2)
+  %t65 = call i64 @l0_new_cons(i64 103, i64 %t64, i64 2)
+  %t66 = call i64 @l0_new_cons(i64 101, i64 %t65, i64 2)
+  %t67 = call i64 @l0_new_cons(i64 110, i64 %t66, i64 2)
+  %t68 = call i64 @l0_new_cons(i64 95, i64 %t67, i64 2)
+  %t69 = call i64 @l0_new_cons(i64 116, i64 %t68, i64 2)
+  %t70 = call i64 @l0_new_cons(i64 97, i64 %t69, i64 2)
+  %t71 = call i64 @l0_new_cons(i64 111, i64 %t70, i64 2)
+  %t72 = call i64 @l0_new_cons(i64 108, i64 %t71, i64 2)
+  %t73 = call i64 @l0_new_cons(i64 102, i64 %t72, i64 2)
+  %t74 = call i64 @l0_new_cons(i64 32, i64 %t73, i64 2)
+  %t75 = call i64 @l0_new_cons(i64 118, i64 %t74, i64 2)
+  %t76 = call i64 @l0_new_cons(i64 105, i64 %t75, i64 2)
+  %t77 = call i64 @l0_new_cons(i64 100, i64 %t76, i64 2)
+  %t78 = call i64 @l0_new_cons(i64 95, i64 %t77, i64 2)
+  %t79 = call i64 @l0_new_cons(i64 116, i64 %t78, i64 2)
+  %t80 = call i64 @l0_new_cons(i64 97, i64 %t79, i64 2)
+  %t81 = call i64 @l0_new_cons(i64 111, i64 %t80, i64 2)
+  %t82 = call i64 @l0_new_cons(i64 108, i64 %t81, i64 2)
+  %t83 = call i64 @l0_new_cons(i64 102, i64 %t82, i64 2)
+  %t84 = call i64 @l0_new_cons(i64 32, i64 %t83, i64 2)
+  %t85 = call i64 @l0_new_cons(i64 108, i64 %t84, i64 2)
+  %t86 = call i64 @l0_new_cons(i64 117, i64 %t85, i64 2)
+  %t87 = call i64 @l0_new_cons(i64 109, i64 %t86, i64 2)
+  %t88 = call i64 @l0_new_cons(i64 95, i64 %t87, i64 2)
+  %t89 = call i64 @l0_new_cons(i64 116, i64 %t88, i64 2)
+  %t90 = call i64 @l0_new_cons(i64 97, i64 %t89, i64 2)
+  %t91 = call i64 @l0_new_cons(i64 111, i64 %t90, i64 2)
+  %t92 = call i64 @l0_new_cons(i64 108, i64 %t91, i64 2)
+  %t93 = call i64 @l0_new_cons(i64 102, i64 %t92, i64 2)
+  %t94 = call i64 @l0_new_cons(i64 32, i64 %t93, i64 2)
+  %t95 = call i64 @l0_new_cons(i64 98, i64 %t94, i64 2)
+  %t96 = call i64 @l0_new_cons(i64 117, i64 %t95, i64 2)
+  %t97 = call i64 @l0_new_cons(i64 115, i64 %t96, i64 2)
+  %t98 = call i64 @l0_new_cons(i64 95, i64 %t97, i64 2)
+  %t99 = call i64 @l0_new_cons(i64 116, i64 %t98, i64 2)
+  %t100 = call i64 @l0_new_cons(i64 97, i64 %t99, i64 2)
+  %t101 = call i64 @l0_new_cons(i64 111, i64 %t100, i64 2)
+  %t102 = call i64 @l0_new_cons(i64 108, i64 %t101, i64 2)
+  %t103 = call i64 @l0_new_cons(i64 102, i64 %t102, i64 2)
+  %t104 = call i64 @l0_new_cons(i64 32, i64 %t103, i64 2)
+  %t105 = call i64 @l0_new_cons(i64 100, i64 %t104, i64 2)
+  %t106 = call i64 @l0_new_cons(i64 100, i64 %t105, i64 2)
+  %t107 = call i64 @l0_new_cons(i64 97, i64 %t106, i64 2)
+  %t108 = call i64 @l0_new_cons(i64 95, i64 %t107, i64 2)
+  %t109 = call i64 @l0_new_cons(i64 116, i64 %t108, i64 2)
+  %t110 = call i64 @l0_new_cons(i64 97, i64 %t109, i64 2)
+  %t111 = call i64 @l0_new_cons(i64 111, i64 %t110, i64 2)
+  %t112 = call i64 @l0_new_cons(i64 108, i64 %t111, i64 2)
+  %t113 = call i64 @l0_new_cons(i64 102, i64 %t112, i64 2)
+  %t114 = call fastcc i64 @l0_f_split_spaces(i64 %t113, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
-  %t104 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t103)
-  %t105 = icmp ne i64 %t104, 0
-  br i1 %t105, label %Lt22, label %Le22
+  %t115 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t114)
+  %t116 = icmp ne i64 %t115, 0
+  br i1 %t116, label %Lt22, label %Le22
 Lt22:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t106 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
-  ret i64 %t106
+  %t117 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  ret i64 %t117
 Le22:
-  %t108 = call i64 @l0_new_cons(i64 119, i64 0, i64 2)
-  %t109 = call i64 @l0_new_cons(i64 101, i64 %t108, i64 2)
-  %t110 = call i64 @l0_new_cons(i64 110, i64 %t109, i64 2)
-  %t111 = call i64 @l0_new_cons(i64 95, i64 %t110, i64 2)
-  %t112 = call i64 @l0_new_cons(i64 121, i64 %t111, i64 2)
-  %t113 = call i64 @l0_new_cons(i64 97, i64 %t112, i64 2)
-  %t114 = call i64 @l0_new_cons(i64 114, i64 %t113, i64 2)
-  %t115 = call i64 @l0_new_cons(i64 114, i64 %t114, i64 2)
-  %t116 = call i64 @l0_new_cons(i64 97, i64 %t115, i64 2)
-  %t117 = call i64 @l0_equal(i64 %a0, i64 %t116)
-  call void @l0_dec(i64 %t116)
-  %t118 = icmp ne i64 %t117, 0
-  br i1 %t118, label %Lt107, label %Le107
-Lt107:
+  %t119 = call i64 @l0_new_cons(i64 119, i64 0, i64 2)
+  %t120 = call i64 @l0_new_cons(i64 101, i64 %t119, i64 2)
+  %t121 = call i64 @l0_new_cons(i64 110, i64 %t120, i64 2)
+  %t122 = call i64 @l0_new_cons(i64 95, i64 %t121, i64 2)
+  %t123 = call i64 @l0_new_cons(i64 121, i64 %t122, i64 2)
+  %t124 = call i64 @l0_new_cons(i64 97, i64 %t123, i64 2)
+  %t125 = call i64 @l0_new_cons(i64 114, i64 %t124, i64 2)
+  %t126 = call i64 @l0_new_cons(i64 114, i64 %t125, i64 2)
+  %t127 = call i64 @l0_new_cons(i64 97, i64 %t126, i64 2)
+  %t128 = call i64 @l0_equal(i64 %a0, i64 %t127)
+  call void @l0_dec(i64 %t127)
+  %t129 = icmp ne i64 %t128, 0
+  br i1 %t129, label %Lt118, label %Le118
+Lt118:
   call void @l0_dec(i64 %a0)
-  %t119 = call i64 @l0_tail(i64 %a1)
-  call void @l0_inc(i64 %t119)
+  %t130 = call i64 @l0_tail(i64 %a1)
+  call void @l0_inc(i64 %t130)
   call void @l0_dec(i64 %a1)
-  %t120 = call i64 @l0_head(i64 %t119)
-  call void @l0_inc(i64 %t120)
-  call void @l0_dec(i64 %t119)
-  %t121 = call i64 @l0_new_data(i64 4, i64 2, i64 2)
-  call void @l0_data_set(i64 %t121, i64 0, i64 %t120)
-  ret i64 %t121
-Le107:
+  %t131 = call i64 @l0_head(i64 %t130)
+  call void @l0_inc(i64 %t131)
+  call void @l0_dec(i64 %t130)
+  %t132 = call i64 @l0_new_data(i64 4, i64 2, i64 2)
+  call void @l0_data_set(i64 %t132, i64 0, i64 %t131)
+  ret i64 %t132
+Le118:
   call void @l0_dec(i64 %a1)
-  %t123 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
-  %t124 = call i64 @l0_new_cons(i64 118, i64 %t123, i64 2)
-  %t125 = call i64 @l0_new_cons(i64 105, i64 %t124, i64 2)
-  %t126 = call i64 @l0_new_cons(i64 101, i64 %t125, i64 2)
-  %t127 = call i64 @l0_new_cons(i64 99, i64 %t126, i64 2)
-  %t128 = call i64 @l0_new_cons(i64 101, i64 %t127, i64 2)
-  %t129 = call i64 @l0_new_cons(i64 114, i64 %t128, i64 2)
-  %t130 = call i64 @l0_new_cons(i64 95, i64 %t129, i64 2)
-  %t131 = call i64 @l0_new_cons(i64 114, i64 %t130, i64 2)
-  %t132 = call i64 @l0_new_cons(i64 111, i64 %t131, i64 2)
-  %t133 = call i64 @l0_new_cons(i64 115, i64 %t132, i64 2)
-  %t134 = call i64 @l0_new_cons(i64 105, i64 %t133, i64 2)
+  %t134 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
   %t135 = call i64 @l0_new_cons(i64 118, i64 %t134, i64 2)
-  %t136 = call i64 @l0_new_cons(i64 114, i64 %t135, i64 2)
+  %t136 = call i64 @l0_new_cons(i64 105, i64 %t135, i64 2)
   %t137 = call i64 @l0_new_cons(i64 101, i64 %t136, i64 2)
-  %t138 = call i64 @l0_new_cons(i64 112, i64 %t137, i64 2)
-  %t139 = call i64 @l0_new_cons(i64 117, i64 %t138, i64 2)
-  %t140 = call i64 @l0_new_cons(i64 115, i64 %t139, i64 2)
-  %t141 = call i64 @l0_new_cons(i64 32, i64 %t140, i64 2)
-  %t142 = call i64 @l0_new_cons(i64 100, i64 %t141, i64 2)
-  %t143 = call i64 @l0_new_cons(i64 97, i64 %t142, i64 2)
-  %t144 = call i64 @l0_new_cons(i64 101, i64 %t143, i64 2)
-  %t145 = call i64 @l0_new_cons(i64 114, i64 %t144, i64 2)
-  %t146 = call i64 @l0_new_cons(i64 95, i64 %t145, i64 2)
-  %t147 = call i64 @l0_new_cons(i64 101, i64 %t146, i64 2)
-  %t148 = call i64 @l0_new_cons(i64 99, i64 %t147, i64 2)
-  %t149 = call i64 @l0_new_cons(i64 97, i64 %t148, i64 2)
-  %t150 = call i64 @l0_new_cons(i64 112, i64 %t149, i64 2)
+  %t138 = call i64 @l0_new_cons(i64 99, i64 %t137, i64 2)
+  %t139 = call i64 @l0_new_cons(i64 101, i64 %t138, i64 2)
+  %t140 = call i64 @l0_new_cons(i64 114, i64 %t139, i64 2)
+  %t141 = call i64 @l0_new_cons(i64 95, i64 %t140, i64 2)
+  %t142 = call i64 @l0_new_cons(i64 114, i64 %t141, i64 2)
+  %t143 = call i64 @l0_new_cons(i64 111, i64 %t142, i64 2)
+  %t144 = call i64 @l0_new_cons(i64 115, i64 %t143, i64 2)
+  %t145 = call i64 @l0_new_cons(i64 105, i64 %t144, i64 2)
+  %t146 = call i64 @l0_new_cons(i64 118, i64 %t145, i64 2)
+  %t147 = call i64 @l0_new_cons(i64 114, i64 %t146, i64 2)
+  %t148 = call i64 @l0_new_cons(i64 101, i64 %t147, i64 2)
+  %t149 = call i64 @l0_new_cons(i64 112, i64 %t148, i64 2)
+  %t150 = call i64 @l0_new_cons(i64 117, i64 %t149, i64 2)
   %t151 = call i64 @l0_new_cons(i64 115, i64 %t150, i64 2)
   %t152 = call i64 @l0_new_cons(i64 32, i64 %t151, i64 2)
-  %t153 = call i64 @l0_new_cons(i64 116, i64 %t152, i64 2)
-  %t154 = call i64 @l0_new_cons(i64 115, i64 %t153, i64 2)
-  %t155 = call i64 @l0_new_cons(i64 105, i64 %t154, i64 2)
-  %t156 = call i64 @l0_new_cons(i64 108, i64 %t155, i64 2)
+  %t153 = call i64 @l0_new_cons(i64 100, i64 %t152, i64 2)
+  %t154 = call i64 @l0_new_cons(i64 97, i64 %t153, i64 2)
+  %t155 = call i64 @l0_new_cons(i64 101, i64 %t154, i64 2)
+  %t156 = call i64 @l0_new_cons(i64 114, i64 %t155, i64 2)
   %t157 = call i64 @l0_new_cons(i64 95, i64 %t156, i64 2)
-  %t158 = call i64 @l0_new_cons(i64 109, i64 %t157, i64 2)
-  %t159 = call i64 @l0_new_cons(i64 111, i64 %t158, i64 2)
-  %t160 = call i64 @l0_new_cons(i64 114, i64 %t159, i64 2)
-  %t161 = call i64 @l0_new_cons(i64 102, i64 %t160, i64 2)
-  %t162 = call i64 @l0_new_cons(i64 95, i64 %t161, i64 2)
-  %t163 = call i64 @l0_new_cons(i64 115, i64 %t162, i64 2)
-  %t164 = call i64 @l0_new_cons(i64 101, i64 %t163, i64 2)
-  %t165 = call i64 @l0_new_cons(i64 116, i64 %t164, i64 2)
-  %t166 = call i64 @l0_new_cons(i64 121, i64 %t165, i64 2)
-  %t167 = call i64 @l0_new_cons(i64 98, i64 %t166, i64 2)
-  %t168 = call i64 @l0_new_cons(i64 32, i64 %t167, i64 2)
-  %t169 = call i64 @l0_new_cons(i64 101, i64 %t168, i64 2)
-  %t170 = call i64 @l0_new_cons(i64 109, i64 %t169, i64 2)
-  %t171 = call i64 @l0_new_cons(i64 111, i64 %t170, i64 2)
-  %t172 = call i64 @l0_new_cons(i64 115, i64 %t171, i64 2)
+  %t158 = call i64 @l0_new_cons(i64 101, i64 %t157, i64 2)
+  %t159 = call i64 @l0_new_cons(i64 99, i64 %t158, i64 2)
+  %t160 = call i64 @l0_new_cons(i64 97, i64 %t159, i64 2)
+  %t161 = call i64 @l0_new_cons(i64 112, i64 %t160, i64 2)
+  %t162 = call i64 @l0_new_cons(i64 115, i64 %t161, i64 2)
+  %t163 = call i64 @l0_new_cons(i64 32, i64 %t162, i64 2)
+  %t164 = call i64 @l0_new_cons(i64 116, i64 %t163, i64 2)
+  %t165 = call i64 @l0_new_cons(i64 115, i64 %t164, i64 2)
+  %t166 = call i64 @l0_new_cons(i64 105, i64 %t165, i64 2)
+  %t167 = call i64 @l0_new_cons(i64 108, i64 %t166, i64 2)
+  %t168 = call i64 @l0_new_cons(i64 95, i64 %t167, i64 2)
+  %t169 = call i64 @l0_new_cons(i64 109, i64 %t168, i64 2)
+  %t170 = call i64 @l0_new_cons(i64 111, i64 %t169, i64 2)
+  %t171 = call i64 @l0_new_cons(i64 114, i64 %t170, i64 2)
+  %t172 = call i64 @l0_new_cons(i64 102, i64 %t171, i64 2)
   %t173 = call i64 @l0_new_cons(i64 95, i64 %t172, i64 2)
-  %t174 = call i64 @l0_new_cons(i64 100, i64 %t173, i64 2)
-  %t175 = call i64 @l0_new_cons(i64 97, i64 %t174, i64 2)
-  %t176 = call i64 @l0_new_cons(i64 101, i64 %t175, i64 2)
-  %t177 = call i64 @l0_new_cons(i64 114, i64 %t176, i64 2)
-  %t178 = call i64 @l0_new_cons(i64 32, i64 %t177, i64 2)
-  %t179 = call i64 @l0_new_cons(i64 115, i64 %t178, i64 2)
+  %t174 = call i64 @l0_new_cons(i64 115, i64 %t173, i64 2)
+  %t175 = call i64 @l0_new_cons(i64 101, i64 %t174, i64 2)
+  %t176 = call i64 @l0_new_cons(i64 116, i64 %t175, i64 2)
+  %t177 = call i64 @l0_new_cons(i64 121, i64 %t176, i64 2)
+  %t178 = call i64 @l0_new_cons(i64 98, i64 %t177, i64 2)
+  %t179 = call i64 @l0_new_cons(i64 32, i64 %t178, i64 2)
   %t180 = call i64 @l0_new_cons(i64 101, i64 %t179, i64 2)
-  %t181 = call i64 @l0_new_cons(i64 116, i64 %t180, i64 2)
-  %t182 = call i64 @l0_new_cons(i64 121, i64 %t181, i64 2)
-  %t183 = call i64 @l0_new_cons(i64 98, i64 %t182, i64 2)
+  %t181 = call i64 @l0_new_cons(i64 109, i64 %t180, i64 2)
+  %t182 = call i64 @l0_new_cons(i64 111, i64 %t181, i64 2)
+  %t183 = call i64 @l0_new_cons(i64 115, i64 %t182, i64 2)
   %t184 = call i64 @l0_new_cons(i64 95, i64 %t183, i64 2)
   %t185 = call i64 @l0_new_cons(i64 100, i64 %t184, i64 2)
   %t186 = call i64 @l0_new_cons(i64 97, i64 %t185, i64 2)
   %t187 = call i64 @l0_new_cons(i64 101, i64 %t186, i64 2)
   %t188 = call i64 @l0_new_cons(i64 114, i64 %t187, i64 2)
-  %t189 = call fastcc i64 @l0_f_split_spaces(i64 %t188, i64 0, i64 0, i64 0, i64 0)
+  %t189 = call i64 @l0_new_cons(i64 32, i64 %t188, i64 2)
+  %t190 = call i64 @l0_new_cons(i64 115, i64 %t189, i64 2)
+  %t191 = call i64 @l0_new_cons(i64 101, i64 %t190, i64 2)
+  %t192 = call i64 @l0_new_cons(i64 116, i64 %t191, i64 2)
+  %t193 = call i64 @l0_new_cons(i64 121, i64 %t192, i64 2)
+  %t194 = call i64 @l0_new_cons(i64 98, i64 %t193, i64 2)
+  %t195 = call i64 @l0_new_cons(i64 95, i64 %t194, i64 2)
+  %t196 = call i64 @l0_new_cons(i64 100, i64 %t195, i64 2)
+  %t197 = call i64 @l0_new_cons(i64 97, i64 %t196, i64 2)
+  %t198 = call i64 @l0_new_cons(i64 101, i64 %t197, i64 2)
+  %t199 = call i64 @l0_new_cons(i64 114, i64 %t198, i64 2)
+  %t200 = call fastcc i64 @l0_f_split_spaces(i64 %t199, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
-  %t190 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t189)
-  %t191 = icmp ne i64 %t190, 0
-  br i1 %t191, label %Lt122, label %Le122
-Lt122:
+  %t201 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t200)
+  %t202 = icmp ne i64 %t201, 0
+  br i1 %t202, label %Lt133, label %Le133
+Lt133:
   call void @l0_dec(i64 %a0)
-  %t192 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
-  ret i64 %t192
-Le122:
-  %t194 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
-  %t195 = call i64 @l0_new_cons(i64 115, i64 %t194, i64 2)
-  %t196 = call i64 @l0_new_cons(i64 105, i64 %t195, i64 2)
-  %t197 = call i64 @l0_new_cons(i64 108, i64 %t196, i64 2)
-  %t198 = call i64 @l0_new_cons(i64 95, i64 %t197, i64 2)
-  %t199 = call i64 @l0_new_cons(i64 111, i64 %t198, i64 2)
-  %t200 = call i64 @l0_new_cons(i64 116, i64 %t199, i64 2)
-  %t201 = call i64 @l0_new_cons(i64 95, i64 %t200, i64 2)
-  %t202 = call i64 @l0_new_cons(i64 115, i64 %t201, i64 2)
-  %t203 = call i64 @l0_new_cons(i64 101, i64 %t202, i64 2)
-  %t204 = call i64 @l0_new_cons(i64 116, i64 %t203, i64 2)
-  %t205 = call i64 @l0_new_cons(i64 121, i64 %t204, i64 2)
-  %t206 = call i64 @l0_new_cons(i64 98, i64 %t205, i64 2)
-  %t207 = call i64 @l0_equal(i64 %a0, i64 %t206)
-  call void @l0_dec(i64 %t206)
-  %t208 = icmp ne i64 %t207, 0
-  br i1 %t208, label %Lt193, label %Le193
-Lt193:
+  %t203 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  ret i64 %t203
+Le133:
+  %t205 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
+  %t206 = call i64 @l0_new_cons(i64 115, i64 %t205, i64 2)
+  %t207 = call i64 @l0_new_cons(i64 105, i64 %t206, i64 2)
+  %t208 = call i64 @l0_new_cons(i64 108, i64 %t207, i64 2)
+  %t209 = call i64 @l0_new_cons(i64 95, i64 %t208, i64 2)
+  %t210 = call i64 @l0_new_cons(i64 111, i64 %t209, i64 2)
+  %t211 = call i64 @l0_new_cons(i64 116, i64 %t210, i64 2)
+  %t212 = call i64 @l0_new_cons(i64 95, i64 %t211, i64 2)
+  %t213 = call i64 @l0_new_cons(i64 115, i64 %t212, i64 2)
+  %t214 = call i64 @l0_new_cons(i64 101, i64 %t213, i64 2)
+  %t215 = call i64 @l0_new_cons(i64 116, i64 %t214, i64 2)
+  %t216 = call i64 @l0_new_cons(i64 121, i64 %t215, i64 2)
+  %t217 = call i64 @l0_new_cons(i64 98, i64 %t216, i64 2)
+  %t218 = call i64 @l0_equal(i64 %a0, i64 %t217)
+  call void @l0_dec(i64 %t217)
+  %t219 = icmp ne i64 %t218, 0
+  br i1 %t219, label %Lt204, label %Le204
+Lt204:
   call void @l0_dec(i64 %a0)
-  %t209 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t210 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
-  call void @l0_data_set(i64 %t210, i64 0, i64 %t209)
-  ret i64 %t210
-Le193:
-  %t212 = call i64 @l0_new_cons(i64 110, i64 0, i64 2)
-  %t213 = call i64 @l0_new_cons(i64 117, i64 %t212, i64 2)
-  %t214 = call i64 @l0_new_cons(i64 114, i64 %t213, i64 2)
-  %t215 = call i64 @l0_new_cons(i64 95, i64 %t214, i64 2)
-  %t216 = call i64 @l0_new_cons(i64 114, i64 %t215, i64 2)
-  %t217 = call i64 @l0_new_cons(i64 101, i64 %t216, i64 2)
-  %t218 = call i64 @l0_new_cons(i64 115, i64 %t217, i64 2)
-  %t219 = call i64 @l0_new_cons(i64 117, i64 %t218, i64 2)
-  %t220 = call i64 @l0_equal(i64 %a0, i64 %t219)
+  %t220 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t221 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
+  call void @l0_data_set(i64 %t221, i64 0, i64 %t220)
+  ret i64 %t221
+Le204:
+  %t223 = call i64 @l0_new_cons(i64 110, i64 0, i64 2)
+  %t224 = call i64 @l0_new_cons(i64 117, i64 %t223, i64 2)
+  %t225 = call i64 @l0_new_cons(i64 114, i64 %t224, i64 2)
+  %t226 = call i64 @l0_new_cons(i64 95, i64 %t225, i64 2)
+  %t227 = call i64 @l0_new_cons(i64 114, i64 %t226, i64 2)
+  %t228 = call i64 @l0_new_cons(i64 101, i64 %t227, i64 2)
+  %t229 = call i64 @l0_new_cons(i64 115, i64 %t228, i64 2)
+  %t230 = call i64 @l0_new_cons(i64 117, i64 %t229, i64 2)
+  %t231 = call i64 @l0_equal(i64 %a0, i64 %t230)
   call void @l0_dec(i64 %a0)
-  call void @l0_dec(i64 %t219)
-  %t221 = icmp ne i64 %t220, 0
-  br i1 %t221, label %Lt211, label %Le211
-Lt211:
-  %t222 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t223 = call i64 @l0_new_data(i64 4, i64 2, i64 2)
-  call void @l0_data_set(i64 %t223, i64 0, i64 %t222)
-  ret i64 %t223
-Le211:
-  %t224 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  ret i64 %t224
+  call void @l0_dec(i64 %t230)
+  %t232 = icmp ne i64 %t231, 0
+  br i1 %t232, label %Lt222, label %Le222
+Lt222:
+  %t233 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t234 = call i64 @l0_new_data(i64 4, i64 2, i64 2)
+  call void @l0_data_set(i64 %t234, i64 0, i64 %t233)
+  ret i64 %t234
+Le222:
+  %t235 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  ret i64 %t235
 }
 
 define internal fastcc i64 @l0_f_fn_type(i64 %a0, i64 %a1) {
@@ -23223,161 +24904,241 @@ Ln12:
   unreachable
 Le0:
   %t39 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
-  %t40 = call i64 @l0_new_cons(i64 110, i64 %t39, i64 2)
-  %t41 = call i64 @l0_new_cons(i64 105, i64 %t40, i64 2)
-  %t42 = call i64 @l0_new_cons(i64 95, i64 %t41, i64 2)
-  %t43 = call i64 @l0_new_cons(i64 109, i64 %t42, i64 2)
-  %t44 = call i64 @l0_new_cons(i64 111, i64 %t43, i64 2)
-  %t45 = call i64 @l0_new_cons(i64 114, i64 %t44, i64 2)
-  %t46 = call i64 @l0_new_cons(i64 102, i64 %t45, i64 2)
-  %t47 = call i64 @l0_new_cons(i64 95, i64 %t46, i64 2)
-  %t48 = call i64 @l0_new_cons(i64 116, i64 %t47, i64 2)
-  %t49 = call i64 @l0_new_cons(i64 97, i64 %t48, i64 2)
-  %t50 = call i64 @l0_new_cons(i64 111, i64 %t49, i64 2)
-  %t51 = call i64 @l0_new_cons(i64 108, i64 %t50, i64 2)
-  %t52 = call i64 @l0_new_cons(i64 102, i64 %t51, i64 2)
-  %t53 = call i64 @l0_equal(i64 %a0, i64 %t52)
-  call void @l0_dec(i64 %t52)
-  %t54 = icmp ne i64 %t53, 0
-  br i1 %t54, label %Lt38, label %Le38
+  %t40 = call i64 @l0_new_cons(i64 114, i64 %t39, i64 2)
+  %t41 = call i64 @l0_new_cons(i64 113, i64 %t40, i64 2)
+  %t42 = call i64 @l0_new_cons(i64 115, i64 %t41, i64 2)
+  %t43 = call i64 @l0_new_cons(i64 95, i64 %t42, i64 2)
+  %t44 = call i64 @l0_new_cons(i64 116, i64 %t43, i64 2)
+  %t45 = call i64 @l0_new_cons(i64 97, i64 %t44, i64 2)
+  %t46 = call i64 @l0_new_cons(i64 111, i64 %t45, i64 2)
+  %t47 = call i64 @l0_new_cons(i64 108, i64 %t46, i64 2)
+  %t48 = call i64 @l0_new_cons(i64 102, i64 %t47, i64 2)
+  %t49 = call i64 @l0_equal(i64 %a0, i64 %t48)
+  call void @l0_dec(i64 %t48)
+  %t50 = icmp ne i64 %t49, 0
+  br i1 %t50, label %Lt38, label %Le38
 Lt38:
   call void @l0_dec(i64 %a0)
-  %t56 = call i64 @l0_new_cons(i64 32, i64 0, i64 2)
-  %t57 = call i64 @l0_new_cons(i64 52, i64 %t56, i64 2)
-  %t58 = call i64 @l0_new_cons(i64 54, i64 %t57, i64 2)
-  %t59 = call i64 @l0_new_cons(i64 105, i64 %t58, i64 2)
-  %t60 = call i64 @l0_new_cons(i64 32, i64 %t59, i64 2)
-  %t61 = call i64 @l0_new_cons(i64 112, i64 %t60, i64 2)
-  %t62 = call i64 @l0_new_cons(i64 102, i64 %t61, i64 2)
+  %t52 = call fastcc i64 @l0_f_f_decode(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t53 = call i64 @l0_data_tag(i64 %t52)
+  switch i64 %t53, label %Ln51 [ i64 0, label %A51_0 ]
+A51_0:
+  %t54 = call i64 @l0_data_get(i64 %t52, i64 0)
+  call void @l0_inc(i64 %t54)
+  %t55 = call i64 @l0_data_get(i64 %t52, i64 1)
+  %t56 = call i64 @l0_data_get(i64 %t52, i64 2)
+  call void @l0_inc(i64 %t56)
+  call void @l0_dec(i64 %t52)
+  %t58 = call i64 @l0_new_cons(i64 32, i64 0, i64 2)
+  %t59 = call i64 @l0_new_cons(i64 101, i64 %t58, i64 2)
+  %t60 = call i64 @l0_new_cons(i64 108, i64 %t59, i64 2)
+  %t61 = call i64 @l0_new_cons(i64 98, i64 %t60, i64 2)
+  %t62 = call i64 @l0_new_cons(i64 117, i64 %t61, i64 2)
   %t63 = call i64 @l0_new_cons(i64 111, i64 %t62, i64 2)
-  %t64 = call i64 @l0_new_cons(i64 116, i64 %t63, i64 2)
-  %t65 = call i64 @l0_new_cons(i64 105, i64 %t64, i64 2)
-  %t66 = call i64 @l0_new_cons(i64 115, i64 %t65, i64 2)
-  %t67 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
-  %t68 = call i64 @l0_new_cons(i64 108, i64 %t67, i64 2)
-  %t69 = call i64 @l0_new_cons(i64 98, i64 %t68, i64 2)
-  %t70 = call i64 @l0_new_cons(i64 117, i64 %t69, i64 2)
-  %t71 = call i64 @l0_new_cons(i64 111, i64 %t70, i64 2)
-  %t72 = call i64 @l0_new_cons(i64 100, i64 %t71, i64 2)
-  %t73 = call i64 @l0_new_cons(i64 32, i64 %t72, i64 2)
-  %t74 = call i64 @l0_new_cons(i64 111, i64 %t73, i64 2)
-  %t75 = call i64 @l0_new_cons(i64 116, i64 %t74, i64 2)
-  %t76 = call i64 @l0_new_cons(i64 32, i64 %t75, i64 2)
-  %t77 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t76, i64 0, i64 0, i64 0)
-  %t78 = call fastcc i64 @l0_f_append.0(i64 %t66, i64 %t77, i64 0, i64 0, i64 0)
-  %t79 = call fastcc i64 @l0_f_emit_assign(i64 %t78, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t80 = call i64 @l0_data_tag(i64 %t79)
-  switch i64 %t80, label %Ln55 [ i64 0, label %A55_0 ]
-A55_0:
-  %t81 = call i64 @l0_data_get(i64 %t79, i64 0)
-  call void @l0_inc(i64 %t81)
-  %t82 = call i64 @l0_data_get(i64 %t79, i64 1)
-  %t83 = call i64 @l0_data_get(i64 %t79, i64 2)
-  call void @l0_inc(i64 %t83)
-  call void @l0_dec(i64 %t79)
-  %t84 = musttail call fastcc i64 @l0_f_f_encode(i64 %t81, i64 %t83, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t84
-Ln55:
+  %t64 = call i64 @l0_new_cons(i64 100, i64 %t63, i64 2)
+  %t65 = call i64 @l0_new_cons(i64 40, i64 %t64, i64 2)
+  %t66 = call i64 @l0_new_cons(i64 52, i64 %t65, i64 2)
+  %t67 = call i64 @l0_new_cons(i64 54, i64 %t66, i64 2)
+  %t68 = call i64 @l0_new_cons(i64 102, i64 %t67, i64 2)
+  %t69 = call i64 @l0_new_cons(i64 46, i64 %t68, i64 2)
+  %t70 = call i64 @l0_new_cons(i64 116, i64 %t69, i64 2)
+  %t71 = call i64 @l0_new_cons(i64 114, i64 %t70, i64 2)
+  %t72 = call i64 @l0_new_cons(i64 113, i64 %t71, i64 2)
+  %t73 = call i64 @l0_new_cons(i64 115, i64 %t72, i64 2)
+  %t74 = call i64 @l0_new_cons(i64 46, i64 %t73, i64 2)
+  %t75 = call i64 @l0_new_cons(i64 109, i64 %t74, i64 2)
+  %t76 = call i64 @l0_new_cons(i64 118, i64 %t75, i64 2)
+  %t77 = call i64 @l0_new_cons(i64 108, i64 %t76, i64 2)
+  %t78 = call i64 @l0_new_cons(i64 108, i64 %t77, i64 2)
+  %t79 = call i64 @l0_new_cons(i64 64, i64 %t78, i64 2)
+  %t80 = call i64 @l0_new_cons(i64 32, i64 %t79, i64 2)
+  %t81 = call i64 @l0_new_cons(i64 101, i64 %t80, i64 2)
+  %t82 = call i64 @l0_new_cons(i64 108, i64 %t81, i64 2)
+  %t83 = call i64 @l0_new_cons(i64 98, i64 %t82, i64 2)
+  %t84 = call i64 @l0_new_cons(i64 117, i64 %t83, i64 2)
+  %t85 = call i64 @l0_new_cons(i64 111, i64 %t84, i64 2)
+  %t86 = call i64 @l0_new_cons(i64 100, i64 %t85, i64 2)
+  %t87 = call i64 @l0_new_cons(i64 32, i64 %t86, i64 2)
+  %t88 = call i64 @l0_new_cons(i64 108, i64 %t87, i64 2)
+  %t89 = call i64 @l0_new_cons(i64 108, i64 %t88, i64 2)
+  %t90 = call i64 @l0_new_cons(i64 97, i64 %t89, i64 2)
+  %t91 = call i64 @l0_new_cons(i64 99, i64 %t90, i64 2)
+  %t92 = call i64 @l0_new_cons(i64 41, i64 0, i64 2)
+  %t93 = call fastcc i64 @l0_f_append.0(i64 %t54, i64 %t92, i64 0, i64 0, i64 0)
+  %t94 = call fastcc i64 @l0_f_append.0(i64 %t91, i64 %t93, i64 0, i64 0, i64 0)
+  %t95 = call fastcc i64 @l0_f_emit_assign(i64 %t94, i64 %t56, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t96 = call i64 @l0_data_tag(i64 %t95)
+  switch i64 %t96, label %Ln57 [ i64 0, label %A57_0 ]
+A57_0:
+  %t97 = call i64 @l0_data_get(i64 %t95, i64 0)
+  call void @l0_inc(i64 %t97)
+  %t98 = call i64 @l0_data_get(i64 %t95, i64 1)
+  %t99 = call i64 @l0_data_get(i64 %t95, i64 2)
+  call void @l0_inc(i64 %t99)
+  call void @l0_dec(i64 %t95)
+  %t100 = musttail call fastcc i64 @l0_f_f_encode_canon(i64 %t97, i64 %t99, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t100
+Ln57:
+  unreachable
+Ln51:
   unreachable
 Le38:
-  %t86 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
-  %t87 = call i64 @l0_new_cons(i64 110, i64 %t86, i64 2)
-  %t88 = call i64 @l0_new_cons(i64 105, i64 %t87, i64 2)
-  %t89 = call i64 @l0_new_cons(i64 95, i64 %t88, i64 2)
-  %t90 = call i64 @l0_new_cons(i64 111, i64 %t89, i64 2)
-  %t91 = call i64 @l0_new_cons(i64 116, i64 %t90, i64 2)
-  %t92 = call i64 @l0_new_cons(i64 95, i64 %t91, i64 2)
-  %t93 = call i64 @l0_new_cons(i64 116, i64 %t92, i64 2)
-  %t94 = call i64 @l0_new_cons(i64 97, i64 %t93, i64 2)
-  %t95 = call i64 @l0_new_cons(i64 111, i64 %t94, i64 2)
-  %t96 = call i64 @l0_new_cons(i64 108, i64 %t95, i64 2)
-  %t97 = call i64 @l0_new_cons(i64 102, i64 %t96, i64 2)
-  %t98 = call i64 @l0_equal(i64 %a0, i64 %t97)
-  call void @l0_dec(i64 %t97)
-  %t99 = icmp ne i64 %t98, 0
-  br i1 %t99, label %Lt85, label %Le85
-Lt85:
+  %t102 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
+  %t103 = call i64 @l0_new_cons(i64 110, i64 %t102, i64 2)
+  %t104 = call i64 @l0_new_cons(i64 105, i64 %t103, i64 2)
+  %t105 = call i64 @l0_new_cons(i64 95, i64 %t104, i64 2)
+  %t106 = call i64 @l0_new_cons(i64 109, i64 %t105, i64 2)
+  %t107 = call i64 @l0_new_cons(i64 111, i64 %t106, i64 2)
+  %t108 = call i64 @l0_new_cons(i64 114, i64 %t107, i64 2)
+  %t109 = call i64 @l0_new_cons(i64 102, i64 %t108, i64 2)
+  %t110 = call i64 @l0_new_cons(i64 95, i64 %t109, i64 2)
+  %t111 = call i64 @l0_new_cons(i64 116, i64 %t110, i64 2)
+  %t112 = call i64 @l0_new_cons(i64 97, i64 %t111, i64 2)
+  %t113 = call i64 @l0_new_cons(i64 111, i64 %t112, i64 2)
+  %t114 = call i64 @l0_new_cons(i64 108, i64 %t113, i64 2)
+  %t115 = call i64 @l0_new_cons(i64 102, i64 %t114, i64 2)
+  %t116 = call i64 @l0_equal(i64 %a0, i64 %t115)
+  call void @l0_dec(i64 %t115)
+  %t117 = icmp ne i64 %t116, 0
+  br i1 %t117, label %Lt101, label %Le101
+Lt101:
   call void @l0_dec(i64 %a0)
-  %t101 = call fastcc i64 @l0_f_f_decode(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t102 = call i64 @l0_data_tag(i64 %t101)
-  switch i64 %t102, label %Ln100 [ i64 0, label %A100_0 ]
-A100_0:
-  %t103 = call i64 @l0_data_get(i64 %t101, i64 0)
-  call void @l0_inc(i64 %t103)
-  %t104 = call i64 @l0_data_get(i64 %t101, i64 1)
-  %t105 = call i64 @l0_data_get(i64 %t101, i64 2)
-  call void @l0_inc(i64 %t105)
-  call void @l0_dec(i64 %t101)
-  %t106 = call i64 @l0_new_cons(i64 32, i64 0, i64 2)
-  %t107 = call i64 @l0_new_cons(i64 101, i64 %t106, i64 2)
-  %t108 = call i64 @l0_new_cons(i64 108, i64 %t107, i64 2)
-  %t109 = call i64 @l0_new_cons(i64 98, i64 %t108, i64 2)
-  %t110 = call i64 @l0_new_cons(i64 117, i64 %t109, i64 2)
-  %t111 = call i64 @l0_new_cons(i64 111, i64 %t110, i64 2)
-  %t112 = call i64 @l0_new_cons(i64 100, i64 %t111, i64 2)
-  %t113 = call i64 @l0_new_cons(i64 40, i64 %t112, i64 2)
-  %t114 = call i64 @l0_new_cons(i64 52, i64 %t113, i64 2)
-  %t115 = call i64 @l0_new_cons(i64 54, i64 %t114, i64 2)
-  %t116 = call i64 @l0_new_cons(i64 102, i64 %t115, i64 2)
-  %t117 = call i64 @l0_new_cons(i64 46, i64 %t116, i64 2)
-  %t118 = call i64 @l0_new_cons(i64 52, i64 %t117, i64 2)
-  %t119 = call i64 @l0_new_cons(i64 54, i64 %t118, i64 2)
-  %t120 = call i64 @l0_new_cons(i64 105, i64 %t119, i64 2)
-  %t121 = call i64 @l0_new_cons(i64 46, i64 %t120, i64 2)
-  %t122 = call i64 @l0_new_cons(i64 116, i64 %t121, i64 2)
-  %t123 = call i64 @l0_new_cons(i64 97, i64 %t122, i64 2)
-  %t124 = call i64 @l0_new_cons(i64 115, i64 %t123, i64 2)
-  %t125 = call i64 @l0_new_cons(i64 46, i64 %t124, i64 2)
-  %t126 = call i64 @l0_new_cons(i64 105, i64 %t125, i64 2)
-  %t127 = call i64 @l0_new_cons(i64 115, i64 %t126, i64 2)
-  %t128 = call i64 @l0_new_cons(i64 111, i64 %t127, i64 2)
-  %t129 = call i64 @l0_new_cons(i64 116, i64 %t128, i64 2)
-  %t130 = call i64 @l0_new_cons(i64 112, i64 %t129, i64 2)
-  %t131 = call i64 @l0_new_cons(i64 102, i64 %t130, i64 2)
-  %t132 = call i64 @l0_new_cons(i64 46, i64 %t131, i64 2)
-  %t133 = call i64 @l0_new_cons(i64 109, i64 %t132, i64 2)
-  %t134 = call i64 @l0_new_cons(i64 118, i64 %t133, i64 2)
-  %t135 = call i64 @l0_new_cons(i64 108, i64 %t134, i64 2)
-  %t136 = call i64 @l0_new_cons(i64 108, i64 %t135, i64 2)
-  %t137 = call i64 @l0_new_cons(i64 64, i64 %t136, i64 2)
-  %t138 = call i64 @l0_new_cons(i64 32, i64 %t137, i64 2)
-  %t139 = call i64 @l0_new_cons(i64 52, i64 %t138, i64 2)
-  %t140 = call i64 @l0_new_cons(i64 54, i64 %t139, i64 2)
-  %t141 = call i64 @l0_new_cons(i64 105, i64 %t140, i64 2)
-  %t142 = call i64 @l0_new_cons(i64 32, i64 %t141, i64 2)
-  %t143 = call i64 @l0_new_cons(i64 108, i64 %t142, i64 2)
-  %t144 = call i64 @l0_new_cons(i64 108, i64 %t143, i64 2)
-  %t145 = call i64 @l0_new_cons(i64 97, i64 %t144, i64 2)
-  %t146 = call i64 @l0_new_cons(i64 99, i64 %t145, i64 2)
-  %t147 = call i64 @l0_new_cons(i64 41, i64 0, i64 2)
-  %t148 = call fastcc i64 @l0_f_append.0(i64 %t103, i64 %t147, i64 0, i64 0, i64 0)
-  %t149 = call fastcc i64 @l0_f_append.0(i64 %t146, i64 %t148, i64 0, i64 0, i64 0)
-  %t150 = musttail call fastcc i64 @l0_f_emit_assign(i64 %t149, i64 %t105, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t150
-Ln100:
+  %t119 = call i64 @l0_new_cons(i64 32, i64 0, i64 2)
+  %t120 = call i64 @l0_new_cons(i64 52, i64 %t119, i64 2)
+  %t121 = call i64 @l0_new_cons(i64 54, i64 %t120, i64 2)
+  %t122 = call i64 @l0_new_cons(i64 105, i64 %t121, i64 2)
+  %t123 = call i64 @l0_new_cons(i64 32, i64 %t122, i64 2)
+  %t124 = call i64 @l0_new_cons(i64 112, i64 %t123, i64 2)
+  %t125 = call i64 @l0_new_cons(i64 102, i64 %t124, i64 2)
+  %t126 = call i64 @l0_new_cons(i64 111, i64 %t125, i64 2)
+  %t127 = call i64 @l0_new_cons(i64 116, i64 %t126, i64 2)
+  %t128 = call i64 @l0_new_cons(i64 105, i64 %t127, i64 2)
+  %t129 = call i64 @l0_new_cons(i64 115, i64 %t128, i64 2)
+  %t130 = call i64 @l0_new_cons(i64 101, i64 0, i64 2)
+  %t131 = call i64 @l0_new_cons(i64 108, i64 %t130, i64 2)
+  %t132 = call i64 @l0_new_cons(i64 98, i64 %t131, i64 2)
+  %t133 = call i64 @l0_new_cons(i64 117, i64 %t132, i64 2)
+  %t134 = call i64 @l0_new_cons(i64 111, i64 %t133, i64 2)
+  %t135 = call i64 @l0_new_cons(i64 100, i64 %t134, i64 2)
+  %t136 = call i64 @l0_new_cons(i64 32, i64 %t135, i64 2)
+  %t137 = call i64 @l0_new_cons(i64 111, i64 %t136, i64 2)
+  %t138 = call i64 @l0_new_cons(i64 116, i64 %t137, i64 2)
+  %t139 = call i64 @l0_new_cons(i64 32, i64 %t138, i64 2)
+  %t140 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t139, i64 0, i64 0, i64 0)
+  %t141 = call fastcc i64 @l0_f_append.0(i64 %t129, i64 %t140, i64 0, i64 0, i64 0)
+  %t142 = call fastcc i64 @l0_f_emit_assign(i64 %t141, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t143 = call i64 @l0_data_tag(i64 %t142)
+  switch i64 %t143, label %Ln118 [ i64 0, label %A118_0 ]
+A118_0:
+  %t144 = call i64 @l0_data_get(i64 %t142, i64 0)
+  call void @l0_inc(i64 %t144)
+  %t145 = call i64 @l0_data_get(i64 %t142, i64 1)
+  %t146 = call i64 @l0_data_get(i64 %t142, i64 2)
+  call void @l0_inc(i64 %t146)
+  call void @l0_dec(i64 %t142)
+  %t147 = musttail call fastcc i64 @l0_f_f_encode(i64 %t144, i64 %t146, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t147
+Ln118:
   unreachable
-Le85:
-  %t152 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
-  %t153 = call i64 @l0_new_cons(i64 116, i64 %t152, i64 2)
-  %t154 = call i64 @l0_new_cons(i64 105, i64 %t153, i64 2)
-  %t155 = call i64 @l0_new_cons(i64 98, i64 %t154, i64 2)
-  %t156 = call i64 @l0_new_cons(i64 95, i64 %t155, i64 2)
-  %t157 = call i64 @l0_new_cons(i64 116, i64 %t156, i64 2)
-  %t158 = call i64 @l0_new_cons(i64 97, i64 %t157, i64 2)
-  %t159 = call i64 @l0_new_cons(i64 111, i64 %t158, i64 2)
-  %t160 = call i64 @l0_new_cons(i64 108, i64 %t159, i64 2)
-  %t161 = call i64 @l0_new_cons(i64 102, i64 %t160, i64 2)
-  %t162 = call i64 @l0_equal(i64 %a0, i64 %t161)
+Le101:
+  %t149 = call i64 @l0_new_cons(i64 116, i64 0, i64 2)
+  %t150 = call i64 @l0_new_cons(i64 110, i64 %t149, i64 2)
+  %t151 = call i64 @l0_new_cons(i64 105, i64 %t150, i64 2)
+  %t152 = call i64 @l0_new_cons(i64 95, i64 %t151, i64 2)
+  %t153 = call i64 @l0_new_cons(i64 111, i64 %t152, i64 2)
+  %t154 = call i64 @l0_new_cons(i64 116, i64 %t153, i64 2)
+  %t155 = call i64 @l0_new_cons(i64 95, i64 %t154, i64 2)
+  %t156 = call i64 @l0_new_cons(i64 116, i64 %t155, i64 2)
+  %t157 = call i64 @l0_new_cons(i64 97, i64 %t156, i64 2)
+  %t158 = call i64 @l0_new_cons(i64 111, i64 %t157, i64 2)
+  %t159 = call i64 @l0_new_cons(i64 108, i64 %t158, i64 2)
+  %t160 = call i64 @l0_new_cons(i64 102, i64 %t159, i64 2)
+  %t161 = call i64 @l0_equal(i64 %a0, i64 %t160)
+  call void @l0_dec(i64 %t160)
+  %t162 = icmp ne i64 %t161, 0
+  br i1 %t162, label %Lt148, label %Le148
+Lt148:
   call void @l0_dec(i64 %a0)
-  call void @l0_dec(i64 %t161)
-  %t163 = icmp ne i64 %t162, 0
-  br i1 %t163, label %Lt151, label %Le151
-Lt151:
-  %t164 = musttail call fastcc i64 @l0_f_f_map(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t164
-Le151:
-  %t165 = musttail call fastcc i64 @l0_f_emit_from_bits(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t165
+  %t164 = call fastcc i64 @l0_f_f_decode(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t165 = call i64 @l0_data_tag(i64 %t164)
+  switch i64 %t165, label %Ln163 [ i64 0, label %A163_0 ]
+A163_0:
+  %t166 = call i64 @l0_data_get(i64 %t164, i64 0)
+  call void @l0_inc(i64 %t166)
+  %t167 = call i64 @l0_data_get(i64 %t164, i64 1)
+  %t168 = call i64 @l0_data_get(i64 %t164, i64 2)
+  call void @l0_inc(i64 %t168)
+  call void @l0_dec(i64 %t164)
+  %t169 = call i64 @l0_new_cons(i64 32, i64 0, i64 2)
+  %t170 = call i64 @l0_new_cons(i64 101, i64 %t169, i64 2)
+  %t171 = call i64 @l0_new_cons(i64 108, i64 %t170, i64 2)
+  %t172 = call i64 @l0_new_cons(i64 98, i64 %t171, i64 2)
+  %t173 = call i64 @l0_new_cons(i64 117, i64 %t172, i64 2)
+  %t174 = call i64 @l0_new_cons(i64 111, i64 %t173, i64 2)
+  %t175 = call i64 @l0_new_cons(i64 100, i64 %t174, i64 2)
+  %t176 = call i64 @l0_new_cons(i64 40, i64 %t175, i64 2)
+  %t177 = call i64 @l0_new_cons(i64 52, i64 %t176, i64 2)
+  %t178 = call i64 @l0_new_cons(i64 54, i64 %t177, i64 2)
+  %t179 = call i64 @l0_new_cons(i64 102, i64 %t178, i64 2)
+  %t180 = call i64 @l0_new_cons(i64 46, i64 %t179, i64 2)
+  %t181 = call i64 @l0_new_cons(i64 52, i64 %t180, i64 2)
+  %t182 = call i64 @l0_new_cons(i64 54, i64 %t181, i64 2)
+  %t183 = call i64 @l0_new_cons(i64 105, i64 %t182, i64 2)
+  %t184 = call i64 @l0_new_cons(i64 46, i64 %t183, i64 2)
+  %t185 = call i64 @l0_new_cons(i64 116, i64 %t184, i64 2)
+  %t186 = call i64 @l0_new_cons(i64 97, i64 %t185, i64 2)
+  %t187 = call i64 @l0_new_cons(i64 115, i64 %t186, i64 2)
+  %t188 = call i64 @l0_new_cons(i64 46, i64 %t187, i64 2)
+  %t189 = call i64 @l0_new_cons(i64 105, i64 %t188, i64 2)
+  %t190 = call i64 @l0_new_cons(i64 115, i64 %t189, i64 2)
+  %t191 = call i64 @l0_new_cons(i64 111, i64 %t190, i64 2)
+  %t192 = call i64 @l0_new_cons(i64 116, i64 %t191, i64 2)
+  %t193 = call i64 @l0_new_cons(i64 112, i64 %t192, i64 2)
+  %t194 = call i64 @l0_new_cons(i64 102, i64 %t193, i64 2)
+  %t195 = call i64 @l0_new_cons(i64 46, i64 %t194, i64 2)
+  %t196 = call i64 @l0_new_cons(i64 109, i64 %t195, i64 2)
+  %t197 = call i64 @l0_new_cons(i64 118, i64 %t196, i64 2)
+  %t198 = call i64 @l0_new_cons(i64 108, i64 %t197, i64 2)
+  %t199 = call i64 @l0_new_cons(i64 108, i64 %t198, i64 2)
+  %t200 = call i64 @l0_new_cons(i64 64, i64 %t199, i64 2)
+  %t201 = call i64 @l0_new_cons(i64 32, i64 %t200, i64 2)
+  %t202 = call i64 @l0_new_cons(i64 52, i64 %t201, i64 2)
+  %t203 = call i64 @l0_new_cons(i64 54, i64 %t202, i64 2)
+  %t204 = call i64 @l0_new_cons(i64 105, i64 %t203, i64 2)
+  %t205 = call i64 @l0_new_cons(i64 32, i64 %t204, i64 2)
+  %t206 = call i64 @l0_new_cons(i64 108, i64 %t205, i64 2)
+  %t207 = call i64 @l0_new_cons(i64 108, i64 %t206, i64 2)
+  %t208 = call i64 @l0_new_cons(i64 97, i64 %t207, i64 2)
+  %t209 = call i64 @l0_new_cons(i64 99, i64 %t208, i64 2)
+  %t210 = call i64 @l0_new_cons(i64 41, i64 0, i64 2)
+  %t211 = call fastcc i64 @l0_f_append.0(i64 %t166, i64 %t210, i64 0, i64 0, i64 0)
+  %t212 = call fastcc i64 @l0_f_append.0(i64 %t209, i64 %t211, i64 0, i64 0, i64 0)
+  %t213 = musttail call fastcc i64 @l0_f_emit_assign(i64 %t212, i64 %t168, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t213
+Ln163:
+  unreachable
+Le148:
+  %t215 = call i64 @l0_new_cons(i64 115, i64 0, i64 2)
+  %t216 = call i64 @l0_new_cons(i64 116, i64 %t215, i64 2)
+  %t217 = call i64 @l0_new_cons(i64 105, i64 %t216, i64 2)
+  %t218 = call i64 @l0_new_cons(i64 98, i64 %t217, i64 2)
+  %t219 = call i64 @l0_new_cons(i64 95, i64 %t218, i64 2)
+  %t220 = call i64 @l0_new_cons(i64 116, i64 %t219, i64 2)
+  %t221 = call i64 @l0_new_cons(i64 97, i64 %t220, i64 2)
+  %t222 = call i64 @l0_new_cons(i64 111, i64 %t221, i64 2)
+  %t223 = call i64 @l0_new_cons(i64 108, i64 %t222, i64 2)
+  %t224 = call i64 @l0_new_cons(i64 102, i64 %t223, i64 2)
+  %t225 = call i64 @l0_equal(i64 %a0, i64 %t224)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %t224)
+  %t226 = icmp ne i64 %t225, 0
+  br i1 %t226, label %Lt214, label %Le214
+Lt214:
+  %t227 = musttail call fastcc i64 @l0_f_f_map(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t227
+Le214:
+  %t228 = musttail call fastcc i64 @l0_f_emit_from_bits(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t228
 }
 
 define internal fastcc i64 @l0_f_emit_from_bits(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
@@ -28437,111 +30198,150 @@ entry:
   %t143 = call i64 @l0_new_cons(i64 100, i64 %t142, i64 2)
   %t144 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
   %t145 = call i64 @l0_new_cons(i64 41, i64 %t144, i64 2)
-  %t146 = call i64 @l0_new_cons(i64 52, i64 %t145, i64 2)
-  %t147 = call i64 @l0_new_cons(i64 54, i64 %t146, i64 2)
-  %t148 = call i64 @l0_new_cons(i64 105, i64 %t147, i64 2)
-  %t149 = call i64 @l0_new_cons(i64 40, i64 %t148, i64 2)
-  %t150 = call i64 @l0_new_cons(i64 101, i64 %t149, i64 2)
-  %t151 = call i64 @l0_new_cons(i64 118, i64 %t150, i64 2)
-  %t152 = call i64 @l0_new_cons(i64 111, i64 %t151, i64 2)
-  %t153 = call i64 @l0_new_cons(i64 109, i64 %t152, i64 2)
-  %t154 = call i64 @l0_new_cons(i64 101, i64 %t153, i64 2)
-  %t155 = call i64 @l0_new_cons(i64 114, i64 %t154, i64 2)
-  %t156 = call i64 @l0_new_cons(i64 95, i64 %t155, i64 2)
-  %t157 = call i64 @l0_new_cons(i64 48, i64 %t156, i64 2)
-  %t158 = call i64 @l0_new_cons(i64 108, i64 %t157, i64 2)
-  %t159 = call i64 @l0_new_cons(i64 64, i64 %t158, i64 2)
-  %t160 = call i64 @l0_new_cons(i64 32, i64 %t159, i64 2)
-  %t161 = call i64 @l0_new_cons(i64 52, i64 %t160, i64 2)
-  %t162 = call i64 @l0_new_cons(i64 54, i64 %t161, i64 2)
-  %t163 = call i64 @l0_new_cons(i64 105, i64 %t162, i64 2)
-  %t164 = call i64 @l0_new_cons(i64 32, i64 %t163, i64 2)
-  %t165 = call i64 @l0_new_cons(i64 101, i64 %t164, i64 2)
-  %t166 = call i64 @l0_new_cons(i64 114, i64 %t165, i64 2)
-  %t167 = call i64 @l0_new_cons(i64 97, i64 %t166, i64 2)
-  %t168 = call i64 @l0_new_cons(i64 108, i64 %t167, i64 2)
-  %t169 = call i64 @l0_new_cons(i64 99, i64 %t168, i64 2)
-  %t170 = call i64 @l0_new_cons(i64 101, i64 %t169, i64 2)
-  %t171 = call i64 @l0_new_cons(i64 100, i64 %t170, i64 2)
-  %t172 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
-  %t173 = call i64 @l0_new_cons(i64 41, i64 %t172, i64 2)
-  %t174 = call i64 @l0_new_cons(i64 52, i64 %t173, i64 2)
-  %t175 = call i64 @l0_new_cons(i64 54, i64 %t174, i64 2)
-  %t176 = call i64 @l0_new_cons(i64 105, i64 %t175, i64 2)
-  %t177 = call i64 @l0_new_cons(i64 32, i64 %t176, i64 2)
-  %t178 = call i64 @l0_new_cons(i64 44, i64 %t177, i64 2)
-  %t179 = call i64 @l0_new_cons(i64 52, i64 %t178, i64 2)
-  %t180 = call i64 @l0_new_cons(i64 54, i64 %t179, i64 2)
-  %t181 = call i64 @l0_new_cons(i64 105, i64 %t180, i64 2)
-  %t182 = call i64 @l0_new_cons(i64 40, i64 %t181, i64 2)
-  %t183 = call i64 @l0_new_cons(i64 101, i64 %t182, i64 2)
-  %t184 = call i64 @l0_new_cons(i64 114, i64 %t183, i64 2)
-  %t185 = call i64 @l0_new_cons(i64 97, i64 %t184, i64 2)
-  %t186 = call i64 @l0_new_cons(i64 112, i64 %t185, i64 2)
-  %t187 = call i64 @l0_new_cons(i64 109, i64 %t186, i64 2)
-  %t188 = call i64 @l0_new_cons(i64 111, i64 %t187, i64 2)
-  %t189 = call i64 @l0_new_cons(i64 99, i64 %t188, i64 2)
-  %t190 = call i64 @l0_new_cons(i64 95, i64 %t189, i64 2)
-  %t191 = call i64 @l0_new_cons(i64 48, i64 %t190, i64 2)
-  %t192 = call i64 @l0_new_cons(i64 108, i64 %t191, i64 2)
-  %t193 = call i64 @l0_new_cons(i64 64, i64 %t192, i64 2)
-  %t194 = call i64 @l0_new_cons(i64 32, i64 %t193, i64 2)
-  %t195 = call i64 @l0_new_cons(i64 52, i64 %t194, i64 2)
-  %t196 = call i64 @l0_new_cons(i64 54, i64 %t195, i64 2)
-  %t197 = call i64 @l0_new_cons(i64 105, i64 %t196, i64 2)
+  %t146 = call i64 @l0_new_cons(i64 101, i64 %t145, i64 2)
+  %t147 = call i64 @l0_new_cons(i64 108, i64 %t146, i64 2)
+  %t148 = call i64 @l0_new_cons(i64 98, i64 %t147, i64 2)
+  %t149 = call i64 @l0_new_cons(i64 117, i64 %t148, i64 2)
+  %t150 = call i64 @l0_new_cons(i64 111, i64 %t149, i64 2)
+  %t151 = call i64 @l0_new_cons(i64 100, i64 %t150, i64 2)
+  %t152 = call i64 @l0_new_cons(i64 40, i64 %t151, i64 2)
+  %t153 = call i64 @l0_new_cons(i64 52, i64 %t152, i64 2)
+  %t154 = call i64 @l0_new_cons(i64 54, i64 %t153, i64 2)
+  %t155 = call i64 @l0_new_cons(i64 102, i64 %t154, i64 2)
+  %t156 = call i64 @l0_new_cons(i64 46, i64 %t155, i64 2)
+  %t157 = call i64 @l0_new_cons(i64 116, i64 %t156, i64 2)
+  %t158 = call i64 @l0_new_cons(i64 114, i64 %t157, i64 2)
+  %t159 = call i64 @l0_new_cons(i64 113, i64 %t158, i64 2)
+  %t160 = call i64 @l0_new_cons(i64 115, i64 %t159, i64 2)
+  %t161 = call i64 @l0_new_cons(i64 46, i64 %t160, i64 2)
+  %t162 = call i64 @l0_new_cons(i64 109, i64 %t161, i64 2)
+  %t163 = call i64 @l0_new_cons(i64 118, i64 %t162, i64 2)
+  %t164 = call i64 @l0_new_cons(i64 108, i64 %t163, i64 2)
+  %t165 = call i64 @l0_new_cons(i64 108, i64 %t164, i64 2)
+  %t166 = call i64 @l0_new_cons(i64 64, i64 %t165, i64 2)
+  %t167 = call i64 @l0_new_cons(i64 32, i64 %t166, i64 2)
+  %t168 = call i64 @l0_new_cons(i64 101, i64 %t167, i64 2)
+  %t169 = call i64 @l0_new_cons(i64 108, i64 %t168, i64 2)
+  %t170 = call i64 @l0_new_cons(i64 98, i64 %t169, i64 2)
+  %t171 = call i64 @l0_new_cons(i64 117, i64 %t170, i64 2)
+  %t172 = call i64 @l0_new_cons(i64 111, i64 %t171, i64 2)
+  %t173 = call i64 @l0_new_cons(i64 100, i64 %t172, i64 2)
+  %t174 = call i64 @l0_new_cons(i64 32, i64 %t173, i64 2)
+  %t175 = call i64 @l0_new_cons(i64 101, i64 %t174, i64 2)
+  %t176 = call i64 @l0_new_cons(i64 114, i64 %t175, i64 2)
+  %t177 = call i64 @l0_new_cons(i64 97, i64 %t176, i64 2)
+  %t178 = call i64 @l0_new_cons(i64 108, i64 %t177, i64 2)
+  %t179 = call i64 @l0_new_cons(i64 99, i64 %t178, i64 2)
+  %t180 = call i64 @l0_new_cons(i64 101, i64 %t179, i64 2)
+  %t181 = call i64 @l0_new_cons(i64 100, i64 %t180, i64 2)
+  %t182 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
+  %t183 = call i64 @l0_new_cons(i64 41, i64 %t182, i64 2)
+  %t184 = call i64 @l0_new_cons(i64 52, i64 %t183, i64 2)
+  %t185 = call i64 @l0_new_cons(i64 54, i64 %t184, i64 2)
+  %t186 = call i64 @l0_new_cons(i64 105, i64 %t185, i64 2)
+  %t187 = call i64 @l0_new_cons(i64 40, i64 %t186, i64 2)
+  %t188 = call i64 @l0_new_cons(i64 101, i64 %t187, i64 2)
+  %t189 = call i64 @l0_new_cons(i64 118, i64 %t188, i64 2)
+  %t190 = call i64 @l0_new_cons(i64 111, i64 %t189, i64 2)
+  %t191 = call i64 @l0_new_cons(i64 109, i64 %t190, i64 2)
+  %t192 = call i64 @l0_new_cons(i64 101, i64 %t191, i64 2)
+  %t193 = call i64 @l0_new_cons(i64 114, i64 %t192, i64 2)
+  %t194 = call i64 @l0_new_cons(i64 95, i64 %t193, i64 2)
+  %t195 = call i64 @l0_new_cons(i64 48, i64 %t194, i64 2)
+  %t196 = call i64 @l0_new_cons(i64 108, i64 %t195, i64 2)
+  %t197 = call i64 @l0_new_cons(i64 64, i64 %t196, i64 2)
   %t198 = call i64 @l0_new_cons(i64 32, i64 %t197, i64 2)
-  %t199 = call i64 @l0_new_cons(i64 101, i64 %t198, i64 2)
-  %t200 = call i64 @l0_new_cons(i64 114, i64 %t199, i64 2)
-  %t201 = call i64 @l0_new_cons(i64 97, i64 %t200, i64 2)
-  %t202 = call i64 @l0_new_cons(i64 108, i64 %t201, i64 2)
-  %t203 = call i64 @l0_new_cons(i64 99, i64 %t202, i64 2)
-  %t204 = call i64 @l0_new_cons(i64 101, i64 %t203, i64 2)
-  %t205 = call i64 @l0_new_cons(i64 100, i64 %t204, i64 2)
-  %t206 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
-  %t207 = call i64 @l0_new_cons(i64 41, i64 %t206, i64 2)
-  %t208 = call i64 @l0_new_cons(i64 52, i64 %t207, i64 2)
-  %t209 = call i64 @l0_new_cons(i64 54, i64 %t208, i64 2)
-  %t210 = call i64 @l0_new_cons(i64 105, i64 %t209, i64 2)
-  %t211 = call i64 @l0_new_cons(i64 32, i64 %t210, i64 2)
-  %t212 = call i64 @l0_new_cons(i64 44, i64 %t211, i64 2)
-  %t213 = call i64 @l0_new_cons(i64 52, i64 %t212, i64 2)
-  %t214 = call i64 @l0_new_cons(i64 54, i64 %t213, i64 2)
-  %t215 = call i64 @l0_new_cons(i64 105, i64 %t214, i64 2)
-  %t216 = call i64 @l0_new_cons(i64 40, i64 %t215, i64 2)
-  %t217 = call i64 @l0_new_cons(i64 101, i64 %t216, i64 2)
-  %t218 = call i64 @l0_new_cons(i64 109, i64 %t217, i64 2)
-  %t219 = call i64 @l0_new_cons(i64 111, i64 %t218, i64 2)
-  %t220 = call i64 @l0_new_cons(i64 115, i64 %t219, i64 2)
-  %t221 = call i64 @l0_new_cons(i64 95, i64 %t220, i64 2)
-  %t222 = call i64 @l0_new_cons(i64 100, i64 %t221, i64 2)
+  %t199 = call i64 @l0_new_cons(i64 52, i64 %t198, i64 2)
+  %t200 = call i64 @l0_new_cons(i64 54, i64 %t199, i64 2)
+  %t201 = call i64 @l0_new_cons(i64 105, i64 %t200, i64 2)
+  %t202 = call i64 @l0_new_cons(i64 32, i64 %t201, i64 2)
+  %t203 = call i64 @l0_new_cons(i64 101, i64 %t202, i64 2)
+  %t204 = call i64 @l0_new_cons(i64 114, i64 %t203, i64 2)
+  %t205 = call i64 @l0_new_cons(i64 97, i64 %t204, i64 2)
+  %t206 = call i64 @l0_new_cons(i64 108, i64 %t205, i64 2)
+  %t207 = call i64 @l0_new_cons(i64 99, i64 %t206, i64 2)
+  %t208 = call i64 @l0_new_cons(i64 101, i64 %t207, i64 2)
+  %t209 = call i64 @l0_new_cons(i64 100, i64 %t208, i64 2)
+  %t210 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
+  %t211 = call i64 @l0_new_cons(i64 41, i64 %t210, i64 2)
+  %t212 = call i64 @l0_new_cons(i64 52, i64 %t211, i64 2)
+  %t213 = call i64 @l0_new_cons(i64 54, i64 %t212, i64 2)
+  %t214 = call i64 @l0_new_cons(i64 105, i64 %t213, i64 2)
+  %t215 = call i64 @l0_new_cons(i64 32, i64 %t214, i64 2)
+  %t216 = call i64 @l0_new_cons(i64 44, i64 %t215, i64 2)
+  %t217 = call i64 @l0_new_cons(i64 52, i64 %t216, i64 2)
+  %t218 = call i64 @l0_new_cons(i64 54, i64 %t217, i64 2)
+  %t219 = call i64 @l0_new_cons(i64 105, i64 %t218, i64 2)
+  %t220 = call i64 @l0_new_cons(i64 40, i64 %t219, i64 2)
+  %t221 = call i64 @l0_new_cons(i64 101, i64 %t220, i64 2)
+  %t222 = call i64 @l0_new_cons(i64 114, i64 %t221, i64 2)
   %t223 = call i64 @l0_new_cons(i64 97, i64 %t222, i64 2)
-  %t224 = call i64 @l0_new_cons(i64 101, i64 %t223, i64 2)
-  %t225 = call i64 @l0_new_cons(i64 114, i64 %t224, i64 2)
-  %t226 = call i64 @l0_new_cons(i64 95, i64 %t225, i64 2)
-  %t227 = call i64 @l0_new_cons(i64 48, i64 %t226, i64 2)
-  %t228 = call i64 @l0_new_cons(i64 108, i64 %t227, i64 2)
-  %t229 = call i64 @l0_new_cons(i64 64, i64 %t228, i64 2)
-  %t230 = call i64 @l0_new_cons(i64 32, i64 %t229, i64 2)
-  %t231 = call i64 @l0_new_cons(i64 52, i64 %t230, i64 2)
-  %t232 = call i64 @l0_new_cons(i64 54, i64 %t231, i64 2)
-  %t233 = call i64 @l0_new_cons(i64 105, i64 %t232, i64 2)
-  %t234 = call i64 @l0_new_cons(i64 32, i64 %t233, i64 2)
-  %t235 = call i64 @l0_new_cons(i64 101, i64 %t234, i64 2)
-  %t236 = call i64 @l0_new_cons(i64 114, i64 %t235, i64 2)
-  %t237 = call i64 @l0_new_cons(i64 97, i64 %t236, i64 2)
-  %t238 = call i64 @l0_new_cons(i64 108, i64 %t237, i64 2)
-  %t239 = call i64 @l0_new_cons(i64 99, i64 %t238, i64 2)
-  %t240 = call i64 @l0_new_cons(i64 101, i64 %t239, i64 2)
-  %t241 = call i64 @l0_new_cons(i64 100, i64 %t240, i64 2)
-  %t242 = call fastcc i64 @l0_f_region_decls(i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t243 = call fastcc i64 @l0_f_append.0(i64 %t241, i64 %t242, i64 0, i64 0, i64 0)
-  %t244 = call fastcc i64 @l0_f_append.0(i64 %t205, i64 %t243, i64 0, i64 0, i64 0)
-  %t245 = call fastcc i64 @l0_f_append.0(i64 %t171, i64 %t244, i64 0, i64 0, i64 0)
-  %t246 = call fastcc i64 @l0_f_append.0(i64 %t143, i64 %t245, i64 0, i64 0, i64 0)
-  %t247 = call fastcc i64 @l0_f_append.0(i64 %t98, i64 %t246, i64 0, i64 0, i64 0)
-  %t248 = call fastcc i64 @l0_f_append.0(i64 %t67, i64 %t247, i64 0, i64 0, i64 0)
-  %t249 = musttail call fastcc i64 @l0_f_append.0(i64 %t33, i64 %t248, i64 0, i64 0, i64 0)
-  ret i64 %t249
+  %t224 = call i64 @l0_new_cons(i64 112, i64 %t223, i64 2)
+  %t225 = call i64 @l0_new_cons(i64 109, i64 %t224, i64 2)
+  %t226 = call i64 @l0_new_cons(i64 111, i64 %t225, i64 2)
+  %t227 = call i64 @l0_new_cons(i64 99, i64 %t226, i64 2)
+  %t228 = call i64 @l0_new_cons(i64 95, i64 %t227, i64 2)
+  %t229 = call i64 @l0_new_cons(i64 48, i64 %t228, i64 2)
+  %t230 = call i64 @l0_new_cons(i64 108, i64 %t229, i64 2)
+  %t231 = call i64 @l0_new_cons(i64 64, i64 %t230, i64 2)
+  %t232 = call i64 @l0_new_cons(i64 32, i64 %t231, i64 2)
+  %t233 = call i64 @l0_new_cons(i64 52, i64 %t232, i64 2)
+  %t234 = call i64 @l0_new_cons(i64 54, i64 %t233, i64 2)
+  %t235 = call i64 @l0_new_cons(i64 105, i64 %t234, i64 2)
+  %t236 = call i64 @l0_new_cons(i64 32, i64 %t235, i64 2)
+  %t237 = call i64 @l0_new_cons(i64 101, i64 %t236, i64 2)
+  %t238 = call i64 @l0_new_cons(i64 114, i64 %t237, i64 2)
+  %t239 = call i64 @l0_new_cons(i64 97, i64 %t238, i64 2)
+  %t240 = call i64 @l0_new_cons(i64 108, i64 %t239, i64 2)
+  %t241 = call i64 @l0_new_cons(i64 99, i64 %t240, i64 2)
+  %t242 = call i64 @l0_new_cons(i64 101, i64 %t241, i64 2)
+  %t243 = call i64 @l0_new_cons(i64 100, i64 %t242, i64 2)
+  %t244 = call i64 @l0_new_cons(i64 10, i64 0, i64 2)
+  %t245 = call i64 @l0_new_cons(i64 41, i64 %t244, i64 2)
+  %t246 = call i64 @l0_new_cons(i64 52, i64 %t245, i64 2)
+  %t247 = call i64 @l0_new_cons(i64 54, i64 %t246, i64 2)
+  %t248 = call i64 @l0_new_cons(i64 105, i64 %t247, i64 2)
+  %t249 = call i64 @l0_new_cons(i64 32, i64 %t248, i64 2)
+  %t250 = call i64 @l0_new_cons(i64 44, i64 %t249, i64 2)
+  %t251 = call i64 @l0_new_cons(i64 52, i64 %t250, i64 2)
+  %t252 = call i64 @l0_new_cons(i64 54, i64 %t251, i64 2)
+  %t253 = call i64 @l0_new_cons(i64 105, i64 %t252, i64 2)
+  %t254 = call i64 @l0_new_cons(i64 40, i64 %t253, i64 2)
+  %t255 = call i64 @l0_new_cons(i64 101, i64 %t254, i64 2)
+  %t256 = call i64 @l0_new_cons(i64 109, i64 %t255, i64 2)
+  %t257 = call i64 @l0_new_cons(i64 111, i64 %t256, i64 2)
+  %t258 = call i64 @l0_new_cons(i64 115, i64 %t257, i64 2)
+  %t259 = call i64 @l0_new_cons(i64 95, i64 %t258, i64 2)
+  %t260 = call i64 @l0_new_cons(i64 100, i64 %t259, i64 2)
+  %t261 = call i64 @l0_new_cons(i64 97, i64 %t260, i64 2)
+  %t262 = call i64 @l0_new_cons(i64 101, i64 %t261, i64 2)
+  %t263 = call i64 @l0_new_cons(i64 114, i64 %t262, i64 2)
+  %t264 = call i64 @l0_new_cons(i64 95, i64 %t263, i64 2)
+  %t265 = call i64 @l0_new_cons(i64 48, i64 %t264, i64 2)
+  %t266 = call i64 @l0_new_cons(i64 108, i64 %t265, i64 2)
+  %t267 = call i64 @l0_new_cons(i64 64, i64 %t266, i64 2)
+  %t268 = call i64 @l0_new_cons(i64 32, i64 %t267, i64 2)
+  %t269 = call i64 @l0_new_cons(i64 52, i64 %t268, i64 2)
+  %t270 = call i64 @l0_new_cons(i64 54, i64 %t269, i64 2)
+  %t271 = call i64 @l0_new_cons(i64 105, i64 %t270, i64 2)
+  %t272 = call i64 @l0_new_cons(i64 32, i64 %t271, i64 2)
+  %t273 = call i64 @l0_new_cons(i64 101, i64 %t272, i64 2)
+  %t274 = call i64 @l0_new_cons(i64 114, i64 %t273, i64 2)
+  %t275 = call i64 @l0_new_cons(i64 97, i64 %t274, i64 2)
+  %t276 = call i64 @l0_new_cons(i64 108, i64 %t275, i64 2)
+  %t277 = call i64 @l0_new_cons(i64 99, i64 %t276, i64 2)
+  %t278 = call i64 @l0_new_cons(i64 101, i64 %t277, i64 2)
+  %t279 = call i64 @l0_new_cons(i64 100, i64 %t278, i64 2)
+  %t280 = call fastcc i64 @l0_f_region_decls(i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t281 = call fastcc i64 @l0_f_append.0(i64 %t279, i64 %t280, i64 0, i64 0, i64 0)
+  %t282 = call fastcc i64 @l0_f_append.0(i64 %t243, i64 %t281, i64 0, i64 0, i64 0)
+  %t283 = call fastcc i64 @l0_f_append.0(i64 %t209, i64 %t282, i64 0, i64 0, i64 0)
+  %t284 = call fastcc i64 @l0_f_append.0(i64 %t181, i64 %t283, i64 0, i64 0, i64 0)
+  %t285 = call fastcc i64 @l0_f_append.0(i64 %t143, i64 %t284, i64 0, i64 0, i64 0)
+  %t286 = call fastcc i64 @l0_f_append.0(i64 %t98, i64 %t285, i64 0, i64 0, i64 0)
+  %t287 = call fastcc i64 @l0_f_append.0(i64 %t67, i64 %t286, i64 0, i64 0, i64 0)
+  %t288 = musttail call fastcc i64 @l0_f_append.0(i64 %t33, i64 %t287, i64 0, i64 0, i64 0)
+  ret i64 %t288
 }
 
 define internal fastcc i64 @l0_f_region_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {

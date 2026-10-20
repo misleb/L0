@@ -381,3 +381,5 @@ None.
   its builtins — done, changelog "Floating point"; passed on Linux arm64
 - [0095](0095-sin-and-cos.md) tooling: the library's sin and cos — done,
   changelog "The library has sine and cosine, and no language change for it"
+- [0096](0096-float-sqrt.md) `float_sqrt` — done, changelog "Square root of
+  a float"; passed on Linux arm64

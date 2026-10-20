@@ -111,3 +111,5 @@ parse error at offset 36: a def is (def name (params...) return-type body)
 35: an argument of float_from_int must be int, but this is float
 35: an argument of float_to_int must be float, but this is int
 35: an argument of float_neg must be float, but this is int
+35: float_sqrt takes 1 argument, but got 2
+35: an argument of float_sqrt must be float, but this is int

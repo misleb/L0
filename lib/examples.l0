@@ -547,7 +547,7 @@
 ; ------------------------------------------------------------------- floats
 
 ; A float is an IEEE binary64 number. Its builtins are float_add, float_sub,
-; float_mul, float_div, float_neg, float_lt, float_le, float_gt, float_ge,
+; float_mul, float_div, float_sqrt, float_neg, float_lt, float_le, float_gt, float_ge,
 ; float_from_int, and float_to_int, and the library has float_sin and
 ; float_cos. A literal has digits on both sides of its point, so 2.0, never 2.
 ; float_to_int truncates toward zero. This is the point at an angle on a
@@ -560,6 +560,11 @@
 
 (def on_circle_y ((cy int) (r int) (deg int)) int
   (add cy (float_to_int (float_mul (float_from_int r) (float_sin (radians deg))))))
+
+; The length of a vector: float_sqrt is the correctly rounded square root, so
+; the same bits come out on every machine.
+(def vector_length ((dx float) (dy float)) float
+  (float_sqrt (float_add (float_mul dx dx) (float_mul dy dy))))
 
 ; eq, compare, and hash see a float's key: -0.0 is not eq to 0.0, and a NaN is
 ; eq to itself. float_lt and the rest are IEEE's, so they are false with a NaN.

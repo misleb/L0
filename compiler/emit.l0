@@ -804,7 +804,7 @@
 (def builtin_type_rest ((n (list int)) (ts (list Ty))) Ty
   (if (any_eq n (split_spaces "arg buffer_bytes"))
       (TyList (TyInt))
-      (if (any_eq n (split_spaces "float_add float_sub float_mul float_div float_neg float_from_int float_from_bits"))
+      (if (any_eq n (split_spaces "float_add float_sub float_mul float_div float_neg float_sqrt float_from_int float_from_bits"))
           (TyFloat)
       (if (eq n "array_new")
           (TyArray (head (tail ts)))
@@ -1186,6 +1186,12 @@
         ((Val d td st1)
           (match (emit_assign (append "fneg double " d) st1)
             ((Val r tr st2) (f_encode r st2)))))
+      (if (eq n "float_sqrt")
+          (match (f_decode a st)
+            ((Val d td st1)
+              (match (emit_assign (append "call double @llvm.sqrt.f64(double "
+                                   (append d ")")) st1)
+                ((Val r tr st2) (f_encode_canon r st2)))))
       (if (eq n "float_from_int")
           (match (emit_assign (append "sitofp i64 " (append a " to double")) st)
             ((Val d td st1) (f_encode d st1)))
@@ -1196,7 +1202,7 @@
                                  (append d ")")) st1)))
               (if (eq n "float_bits")
                   (f_map a st)
-                  (emit_from_bits a st))))))
+                  (emit_from_bits a st)))))))
 
 ; float_from_bits: the key of the bits, or the one NaN's for any NaN.
 (def emit_from_bits ((a (list int)) (st Emit)) EmitVal
@@ -1925,9 +1931,10 @@
     (append "declare i64 @l0_bit_shr(i64, i64)\n"
       (append "declare i64 @l0_bit_count(i64)\n"
         (append "declare i64 @llvm.fptosi.sat.i64.f64(double)\n"
+        (append "declare double @llvm.sqrt.f64(double)\n"
         (append "declare i64 @l0_remove(i64)\n"
           (append "declare i64 @l0_compare(i64, i64)\n"
-            (append "declare i64 @l0_read_some(i64, i64)\n" (region_decls 0)))))))))
+            (append "declare i64 @l0_read_some(i64, i64)\n" (region_decls 0))))))))))
 
 (def region_decls ((i int)) (list int)
   (append "declare i64 @l0_region_open(i64, i64)\n"
