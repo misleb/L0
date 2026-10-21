@@ -120,7 +120,11 @@ empty; L0S can drop its table of sines. L0S then found its processes
 confined to the virt boards' fixed 384 MB of frames, and asked for the
 pool to be all the RAM the layout leaves, the input's pages with it once
 read, and a count of what is left, and has them (0097): about 765 MB of
-frames on aarch64 and 1.2 GB on riscv64, from 384 MB. The queue is empty.
+frames on aarch64 and 1.2 GB on riscv64, from 384 MB. The user then asked
+for a Raspberry Pi 5 target (0098), which has no emulator and so cannot be
+run here: its parts are built and linked, the shared changes it needs (entry
+at EL2, a 39-bit translation, input by the device tree's initrd) run under
+the virt suite, and a first run on a board is left to the user.
 
 ## Language queue
 
@@ -391,3 +395,5 @@ None.
   RAM the layout leaves, and `frame_free_count` — done, changelog "The virt
   boards' frames come from all the RAM the layout leaves"; passed on Linux
   arm64
+- [0098](0098-raspberry-pi-5.md) the Raspberry Pi 5 — done, changelog "The
+  Raspberry Pi 5"; no run on a board, whose first run's checks the Log lists

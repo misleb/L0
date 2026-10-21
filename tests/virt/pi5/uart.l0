@@ -1,0 +1,32 @@
+; Spec section 10.3 on the Raspberry Pi 5: its debug UART, a PL011, driven
+; through a region over its registers, and what its identification
+; registers say. This is built by tools/test.sh --virt and not run, since no
+; emulator has this board; on a Pi 5 whose serial line is read, the
+; program's output, bytes the UART takes in the order they are written, is
+; uart.out: the 15 bytes "hi from the pi" sent straight to the port, and
+; then, what write_line writes being held until the program ends, the two
+; identification bytes, which the PL011 fixes.
+
+(def put ((u IoDevice) (b int)) int
+  (if (eq (bit_and (device_read32 u 24) 32) 32)    ; transmit FIFO full
+      (put u b)
+      (device_write8 u 0 b)))                       ; the data register
+
+(def put_all ((u IoDevice) (s (list int))) int
+  (if (is_empty s)
+      0
+      (let w (put u (head s)) (put_all u (tail s)))))
+
+(def hex ((v int)) int
+  (write_line (hex_digits v 1)))
+
+(def opened ((r DeviceOpened)) IoDevice
+  (match r
+    ((DeviceOpened d) d)
+    ((DeviceFailed fault why) (IoDevice -1))))
+
+(def main () int
+  (let u (opened (open_device 70816632832 4096))    ; 0x107D001000, the PL011
+    (let w (put_all u "hi from the pi\n")
+      (let a (hex (device_read32 u 4064))           ; PL011 PeriphID0, 0x11
+        (hex (device_read8 u 4092))))))             ; PrimeCell ID3, 0xb1

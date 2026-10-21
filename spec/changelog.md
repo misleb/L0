@@ -7,6 +7,105 @@ New entries go at the top.
 
 ---
 
+## The Raspberry Pi 5
+
+**What changed.** A third board, `l0 build --target pi5` (spec 10.3): an
+aarch64 host for the Raspberry Pi 5 with no operating system beneath it,
+made of the parts the virt boards use and four it adds, a board part
+`runtime/board/pi5-aarch64.ll` with its layout, `runtime/bare/psci.ll`, and
+a manifest. What it changed for every aarch64 board: the boot code accepts
+entry at EL2 and leaves it for EL1; the translation is 39 bits of virtual
+address and 40 of physical (TCR T0SZ 25, IPS 40 bits) with a 512-entry boot
+map, where it was 32 and 32 with 4; the board's part maps the RAM the
+device tree describes, through a new hook `l0_board_map_ram`; standard
+input is the device tree's initrd where there is one, and the loader's word
+where there is none; an arm64 image's reserved word at byte 48 names its
+board. `l0 boot` refuses a board it has no emulator for, `l0 card` writes
+the SD card's files, and the virt aarch64 board now runs with its
+virtualization extension on, so that the whole suite enters at EL2. Roadmap
+0098. **Nothing here has run on a Raspberry Pi 5**: QEMU has no such
+machine, and the user had none at hand.
+
+**Why.** The user asked for it. The 0088 split was made so that a board
+would be a part, a layout, and a manifest, and the Pi 4's GIC-400 and PL011
+were the example; the Pi 5 has both too, and four things that QEMU's board
+hid: it enters at EL2, behind a firmware that stays resident; its devices
+are above 4 GB, outside a 4 GB translation; it has no semihosting and no
+loader, so standard error, the exit status, and standard input must come
+by the serial line, by PSCI, and by what the firmware loads; and its RAM
+starts at 0 and varies from 2 GB to 16, so a boot map cannot assume it.
+
+**The decisions.**
+
+- **EL2.** The Pi's BL31 enters the image at EL2. The boot code checks
+  `CurrentEL` and, at EL2, sets `HCR_EL2.RW`, lets EL1 read the counter,
+  zeroes the virtual offset, takes the virtualization IDs from the real
+  ones, gives `SCTLR_EL1` its reset value, and `eret`s to EL1h. QEMU's
+  virt board can enter at EL2 too (`-M virt,virtualization=on`), which the
+  aarch64 virt manifest now asks for, so the drop is run by the whole suite
+  rather than first by the hardware.
+- **Addresses.** One translation for every aarch64 board, 39 bits of
+  virtual address as Sv39 on riscv64, a level-1 table of 512 gigabyte
+  blocks, whose 4th entry is still the user range, so process images and
+  spaces are unchanged. The virt boards' boot map is the Pi's with
+  everything past 3 GB empty. The Pi's maps blocks 0 and 1 and the
+  devices' at boot, since the stack is in block 1, and the rest of the RAM
+  when the host reads `/memory`, a gigabyte at a time and never block 3,
+  so that nothing absent is mapped as normal memory, where a speculative
+  access could fault the bus.
+- **Standard input.** The arm64 boot protocol's own way: the firmware loads
+  an `initramfs` and says where in `/chosen` (`linux,initrd-start` and
+  `-end`). Both host kinds read it first, so QEMU's `-initrd` is a test of
+  it on aarch64, where QEMU puts it below the heap; on riscv64 QEMU puts it
+  at 0xA0200000, inside the heap, so it is ignored there and the test is
+  aarch64's. The loader's word is the fallback, so the virt boards' manifests are
+  unchanged. A board with neither has empty input, never garbage: the Pi's
+  layout puts `__input_len` at a word in its image that is always 0. (A
+  weak symbol was tried first and dropped: an external symbol's address is
+  never 0 to LLVM, so a test for "absent" folds away, and a weak one is
+  reached through the GOT, which a raw image has none of.)
+- **The serial line.** Standard output and error share the debug UART, as
+  the spec has said a board with one line may. The exit status has no
+  channel, so a nonzero one is written as `l0: exit status N`, after the
+  UART is drained, and the board is powered off by PSCI's `SYSTEM_OFF`
+  through SMC, which BL31 answers, and which halts it until the power
+  button. The virt boards' PSCI is through HVC, so the call is a part of its
+  own, linked only by the Pi.
+- **Interrupts.** The debug UART is SPI 121, GIC ID 153, and 152 on the
+  later silicon, which the device tree for the stepping a board has would
+  say but the host cannot rely on, so it enables both and reports either as
+  153. Reading the stepping register for it was dropped, since a wrong
+  address is an abort at boot.
+- **RAM in the user range.** Left unused, as on riscv64, so the user range
+  and every process image stay where they were.
+- **DMA.** The Pi's is not coherent, and no device is driven yet that would
+  show it. The spec says so rather than promising what it does not give; a
+  builtin that cleans and invalidates a frame waits for a driver.
+- **Telling images apart.** Both arm64 boards' images carry `ARM\x64`, and
+  `l0 boot` would have started a Pi image on QEMU. The header's reserved
+  word at byte 48, which the protocol says is zero and neither loader
+  reads, now holds a board's tag, 0 for virt and "pi5" for the Pi.
+- **The firmware's files.** `l0 card` writes `l0.img`, `cmdline.txt`,
+  `input.bin`, and `config.txt` into a directory the user copies to the
+  card's boot partition beside the Pi's own files. The device trees and
+  firmware are the user's, from Raspberry Pi OS; the toolchain ships none.
+
+**What it costs.** The boot map is 4 KB where it was 32 bytes. Every
+aarch64 program now runs with 39-bit translation. A Pi 5 with 1 GB is not
+supported: the heap and stack are in the 2nd gigabyte.
+
+**What a first run on a board must check.** UART output at all; that the
+drop from EL2 reaches `l0_bare_main`; `/memory` and the firmware's
+reservations on 2, 4, 8, and 16 GB boards, since only the 8 GB layout was
+read; that BL31's pages inside block 0 are never touched; that `kernel_address`
+and the initramfs address are honoured; what the firmware appends to
+`cmdline.txt` in `/chosen/bootargs`, which a program would see as extra
+arguments; the PSCI halt; the 152 and 153
+numbering on each silicon; and that user mode and the interrupts work on a
+Cortex-A76.
+
+---
+
 ## The virt boards' frames come from all the RAM the layout leaves
 
 **New:** the builtin `frame_free_count`, `-> int` (spec 6.13): how many

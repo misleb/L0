@@ -9,6 +9,9 @@
 #                                             it with the arguments after --
 #   l0 boot  IMAGE [ARG ...]                  boot an image built with
 #                                             --target virt, on standard input
+#   l0 card  IMAGE DIR [ARG ...]              write the files an image built with
+#                                             --target pi5 needs on an SD card,
+#                                             standard input among them
 #   l0 emit  FILE.l0 [MORE.l0 ...]            write LLVM IR to stdout
 #   l0 link  IR -o OUT                        link IR the compiler wrote, as
 #                                             l0 build does, for any target
@@ -31,8 +34,12 @@
 #                   than this host
 #   --target proc   l0 build and link: a process for a kernel (spec
 #                   sections 9.2 and 10.3), which only a kernel runs
+#   --target pi5    l0 build and link: for the Raspberry Pi 5, with no
+#                   operating system (spec section 10.3), which no emulator
+#                   runs; l0 card writes what its SD card needs
 #   --arch ARCH     with --target virt or proc, the CPU: aarch64, the
-#                   default unless L0_ARCH names another, or riscv64
+#                   default unless L0_ARCH names another, or riscv64; the
+#                   Raspberry Pi 5's is aarch64
 #
 # With --target virt, l0 build writes a raw image, as the CPU's boot
 # protocol loads it, and l0 run boots it with QEMU, qemu-system-aarch64 for
@@ -158,9 +165,9 @@ parse_args() {
                 shift
                 [ $# -gt 0 ] || { echo "l0: --target needs a name" >&2; exit 2; }
                 case "$1" in
-                    host | virt | proc) TARGET=$1 ;;
+                    host | virt | proc | pi5) TARGET=$1 ;;
                     *)
-                        echo "l0: unknown target $1; the targets are host, virt, and proc" >&2
+                        echo "l0: unknown target $1; the targets are host, virt, proc, and pi5" >&2
                         exit 2
                         ;;
                 esac
@@ -379,23 +386,36 @@ bare_link() {
     cp "$TMP/bare.out" "$2"
 }
 
-# image_board IMAGE: the manifest's T_ variables of the board IMAGE boots
-# on, which QEMU emulates, found by the four bytes at 0x38 that its CPU's
-# boot protocol puts in its header, "ARM\x64" for arm64's.
-image_board() {
+# board_of IMAGE: the manifest's T_ variables of the board IMAGE is for,
+# found by the four bytes at 0x38 that its CPU's boot protocol puts in its
+# header, "ARM\x64" for arm64's, and for an arm64 image the word at 0x30,
+# which is its board's tag (a manifest's T_BOARD_TAG, in hex, or 0).
+board_of() {
     magic=$(od -An -tx1 -j56 -N4 "$1" | tr -d ' \n')
+    tag=$(od -An -tu8 -j48 -N8 "$1" | tr -d ' \n')
     root=$(cd "$LIB/.." && pwd)
     for m in "$root"/runtime/targets/*.target "${L0_RUNTIMES:-$LIB}"/*/target; do
         [ -f "$m" ] || continue
-        T_KIND="" T_MAGIC="" T_QEMU=""
+        T_KIND="" T_ARCH="" T_MAGIC="" T_QEMU="" T_BOARD_TAG=""
         # shellcheck source=/dev/null
         . "$m"
-        if [ "$T_KIND" = board ] && [ "$T_MAGIC" = "$magic" ] && [ -n "$T_QEMU" ]; then
-            return 0
+        [ "$T_KIND" = board ] && [ "$T_MAGIC" = "$magic" ] || continue
+        if [ "$T_ARCH" = aarch64 ] && [ "$((0x${T_BOARD_TAG:-0}))" != "$tag" ]; then
+            continue
         fi
+        return 0
     done
-    echo "l0: $1 has no boot header of a board l0 boot knows; l0 build --target virt writes one" >&2
+    echo "l0: $1 has no boot header of a board l0 knows; l0 build --target virt or pi5 writes one" >&2
     exit 2
+}
+
+# image_board IMAGE: board_of, for a board QEMU emulates.
+image_board() {
+    board_of "$1"
+    if [ -z "$T_QEMU" ]; then
+        echo "l0: $1 is for a board with no emulator, which l0 boot cannot run; l0 card writes what its SD card needs" >&2
+        exit 2
+    fi
 }
 
 # virt_boot IMAGE INPUT [ARG ...]: boots IMAGE on the board whose manifest's
@@ -709,6 +729,72 @@ case "$cmd" in
         virt_boot "$image" "$TMP/stdin" "$@"
         ;;
 
+    card)
+        if [ $# -lt 2 ] || [ ! -f "$1" ]; then
+            echo "usage: l0 card IMAGE DIR [ARG ...] < input, for an image l0 build --target pi5 wrote" >&2
+            exit 2
+        fi
+        image=$1
+        dir=$2
+        shift 2
+        board_of "$image"
+        if [ -n "$T_QEMU" ]; then
+            echo "l0 card: $image is for a board QEMU emulates; l0 boot runs it" >&2
+            exit 2
+        fi
+        line=""
+        for a in "$@"; do
+            case $a in
+                "" | *" "*)
+                    echo "l0 card: a boot argument holds no space and is not empty: '$a'" >&2
+                    exit 2
+                    ;;
+            esac
+            line="${line:+$line }$a"
+        done
+        if [ "${#line}" -gt 65535 ]; then
+            echo "l0 card: the board takes at most 65,535 bytes of boot arguments" >&2
+            exit 2
+        fi
+        if [ -f "$dir/config.txt" ] && [ "$(head -n 1 "$dir/config.txt")" != "# written by l0 card" ]; then
+            echo "l0 card: $dir/config.txt is not one l0 card wrote; it is the card's own, and is left as it is" >&2
+            exit 2
+        fi
+        mkdir -p "$dir"
+        TMP=$(mktemp -d "$(scratch_base)/l0.XXXXXX")
+        trap 'rm -rf "$TMP"' EXIT
+        if [ -t 0 ]; then
+            : > "$TMP/stdin"
+        else
+            cat > "$TMP/stdin"
+        fi
+        len=$(wc -c < "$TMP/stdin" | tr -d ' ')
+        if [ "$len" -gt "$T_INPUT_MAX" ]; then
+            echo "l0 card: the board takes at most $T_INPUT_MAX bytes of standard input" >&2
+            exit 2
+        fi
+        cp "$image" "$dir/l0.img"
+        printf '%s\n' "$line" > "$dir/cmdline.txt"
+        {
+            echo "# written by l0 card"
+            echo "arm_64bit=1"
+            echo "os_check=0"
+            echo "kernel=l0.img"
+            echo "kernel_address=0x80000"
+            echo "device_tree_address=0x08000000"
+        } > "$dir/config.txt"
+        if [ "$len" -gt 0 ]; then
+            cp "$TMP/stdin" "$dir/input.bin"
+            echo "initramfs input.bin $T_INPUT_AT" >> "$dir/config.txt"
+        else
+            rm -f "$dir/input.bin"
+        fi
+        set -- "$dir"/bcm2712*.dtb
+        if [ ! -f "$1" ]; then
+            echo "l0 card: $dir holds no bcm2712 device tree; copy its files to a boot partition that has the firmware's own, from Raspberry Pi OS" >&2
+        fi
+        ;;
+
     link)
         setup "$@"
         # shellcheck disable=SC2086
@@ -757,6 +843,9 @@ case "$cmd" in
         if [ "$TARGET" = proc ]; then
             echo "l0: a process runs under a kernel, and no kernel comes with the toolchain; l0 build --target proc writes its image" >&2
             exit 2
+        elif [ "$TARGET" = pi5 ]; then
+            echo "l0: the Raspberry Pi 5 has no emulator; l0 build --target pi5 writes its image, and l0 card what its SD card needs" >&2
+            exit 2
         elif [ "$TARGET" = virt ]; then
             cat > "$TMP/stdin"
             run_compiler "$TMP/out.ll"
@@ -775,6 +864,10 @@ case "$cmd" in
         setup "$@"
         if [ "$TARGET" = proc ]; then
             echo "l0 test: runs on this host or the virt board; a process runs under a kernel, and no kernel comes with the toolchain" >&2
+            exit 2
+        fi
+        if [ "$TARGET" = pi5 ]; then
+            echo "l0 test: runs on this host or the virt board; the Raspberry Pi 5 has no emulator" >&2
             exit 2
         fi
         if [ "$TARGET" = virt ] && [ -n "$BLESS" ]; then

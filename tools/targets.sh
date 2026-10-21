@@ -21,9 +21,17 @@
 #                   registers the fast calling convention has, where LLVM
 #                   gets a tail call's words on the stack wrong (spec
 #                   section 10.3), so a program with a wider one is refused
-# and a board QEMU emulates, for l0 boot:
+# a board's images say which board they are for:
 #   T_MAGIC         the four bytes at 0x38 of its images, in hex, which its
 #                   boot protocol's header puts there and l0 boot reads
+#   T_BOARD_TAG     for an arm64 board, the word at 0x30, in hex, which the
+#                   layout's __l0_board puts there; 0 if unset, as for the
+#                   virt board, so that two boards with one CPU are told apart
+# and a board QEMU emulates, for l0 boot, which a board with no emulator, the
+# Raspberry Pi 5, leaves T_QEMU empty of, and then l0 boot refuses its images
+# and l0 card writes what its SD card needs, with T_INPUT_AT the address the
+# firmware is told to load standard input at, and T_INPUT_MAX at most how
+# much:
 #   T_QEMU          the emulator, and T_QEMU_ARGS its machine
 #   T_SERIAL        how the serial line reaches standard output: stdio, or
 #                   fd3, a descriptor of its own, when firmware writes on

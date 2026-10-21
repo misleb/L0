@@ -33,16 +33,24 @@ declare void @l0_semihost_exit(i64) noreturn
 declare i64 @l0_semihost_err_write(ptr, i64)
 
 ; The boot map, which the boot code turns the MMU on with: the identity
-; map in 1 GB blocks at level 1 (TCR T0SZ 32, 4 KB granule). Block 0 holds
-; the devices, MAIR attribute 0, Device-nGnRnE; blocks 1 and 2 are the RAM,
-; attribute 1, normal write-back, inner shareable. With the MMU off every
+; map in 1 GB blocks at level 1 (TCR T0SZ 25, 4 KB granule, 512 entries).
+; Block 0 holds the devices, MAIR attribute 0, Device-nGnRnE; blocks 1 and 2
+; are the RAM, attribute 1, normal write-back. With the MMU off every
 ; access would be to device memory, where an unaligned one faults. Block 3,
-; the 4th gigabyte, is the user range, which only a space maps.
-@l0_board_boot_map = global [4 x i64] [i64 1025, i64 1073743621, i64 2147485445, i64 0], align 4096
+; the 4th gigabyte, is the user range, which only a space maps. The rest,
+; which the 39-bit translation reaches and this board has nothing in, is
+; empty.
+@l0_board_boot_map = global <{ [4 x i64], [508 x i64] }> <{ [4 x i64] [i64 1025, i64 1073743621, i64 2147485445, i64 0], [508 x i64] zeroinitializer }>, align 4096
 
 define void @l0_board_init(i64 %dtb, i64 %hart) {
 entry:
   call void @l0_gicv2_init(i64 134217728, i64 134283264)
+  ret void
+}
+
+; The RAM the device tree describes is all in the boot map already.
+define void @l0_board_map_ram(i64 %lo, i64 %hi) {
+entry:
   ret void
 }
 

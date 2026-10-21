@@ -52,3 +52,4 @@ lib/virt/
 lib/proc/
 lib/virt-*
 lib/proc-*
+lib/pi5-*

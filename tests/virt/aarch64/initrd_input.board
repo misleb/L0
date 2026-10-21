@@ -1,0 +1,1 @@
+Standard input is QEMU's initrd, which only the board's host takes from the device tree.

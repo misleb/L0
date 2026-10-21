@@ -45,7 +45,9 @@ aarch64 and riscv64 `virt` boards:
 `l0 build --target virt [--arch riscv64]` makes an image and `l0 boot` runs it, and the
 compiler built that way compiles itself to the same bytes, which
 `tools/test.sh --virt` checks, with the compiled suite's programs run there
-against the expectations they meet here.
+against the expectations they meet here. A third board, the Raspberry Pi 5,
+is built for with `l0 build --target pi5`; no emulator has it, so it is
+written to an SD card by `l0 card`, and has not yet run on one.
 
 **A microkernel.** L0 should be able to express an operating system's
 kernel: a microkernel, written in L0, that runs drivers and programs as

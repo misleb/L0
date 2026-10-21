@@ -11,7 +11,7 @@ T_LAYOUT=board/virt-aarch64.ld
 T_LDFLAGS="--oformat binary"
 T_MAGIC=41524d64
 T_QEMU=qemu-system-aarch64
-T_QEMU_ARGS="-M virt -cpu cortex-a72 -m 2G -semihosting -global virtio-mmio.force-legacy=false"
+T_QEMU_ARGS="-M virt,virtualization=on -cpu cortex-a72 -m 2G -semihosting -global virtio-mmio.force-legacy=false"
 T_SERIAL=stdio
 T_INPUT_LEN_AT=0x4FFFFFF8
 T_INPUT_AT=0x50000000

@@ -1,0 +1,18 @@
+# The Raspberry Pi 5, with no operating system: l0 build --target pi5. A
+# target's manifest, sourced by tools/targets.sh and tools/l0, says how to
+# build an image for it; tools/targets.sh says what each variable means. It
+# has no emulator, so no T_QEMU: l0 card writes what its SD card needs, and
+# T_INPUT_AT is where the firmware is told to put standard input, an
+# initramfs, and T_INPUT_MAX at most how large.
+T_KIND=board
+T_ARCH=aarch64
+T_TRIPLE=aarch64-none-elf
+T_CFLAGS=""
+T_PARTS="bare/board.ll bare/psci.ll dev/gicv2.ll dev/pl011.ll board/pi5-aarch64.ll arch/aarch64/boot.ll"
+T_LAYOUT=board/pi5-aarch64.ld
+T_LDFLAGS="--oformat binary"
+T_MAGIC=41524d64
+T_BOARD_TAG=356970
+T_QEMU=
+T_INPUT_AT=0x10000000
+T_INPUT_MAX=805306368

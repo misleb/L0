@@ -52,6 +52,12 @@ declare i64 @l0_arch_pte_table(i64)
 ; whose contexts go M, S for each hart in turn.
 @plic_ctx = internal global i64 1
 
+; The RAM the device tree describes is all in the boot map already.
+define void @l0_board_map_ram(i64 %lo, i64 %hi) {
+entry:
+  ret void
+}
+
 define void @l0_board_init(i64 %dtb, i64 %hart) {
 entry:
   %h2 = shl i64 %hart, 1

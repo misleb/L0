@@ -4,10 +4,13 @@
 ; and takes its traps, writes arm64's page descriptors, and drives the
 ; generic timer. It names its triple, since most of it is assembly.
 ;
-; The protocol: a raw image with the protocol's header, entered at EL1 with
-; the device tree's address in x0. The board's layout gives the stack, the
-; bss, and the header's image size, and its part gives the boot map,
-; @l0_board_boot_map, the MMU's first tables.
+; The protocol: a raw image with the protocol's header, entered at EL2 or
+; EL1 with the device tree's address in x0. The board's layout gives the
+; stack, the bss, the header's image size and its board's tag, and its part
+; gives the boot map, @l0_board_boot_map, the MMU's first tables. QEMU's
+; virt board enters at EL1 unless it is given its virtualization extension,
+; and the Raspberry Pi 5's firmware at EL2; at EL2 the boot code first
+; leaves it for EL1, where the program runs.
 ;
 ; A program runs at EL1, with interrupts masked, and may run threads at EL0
 ; in spaces of its own (spec section 6.13). An exception the runtime does
@@ -21,11 +24,18 @@ target triple = "aarch64-unknown-none-elf"
 ; The arm64 boot protocol's header (Linux's Documentation/arm64/booting): a
 ; branch past it, a text offset of 0x80000 from the base of RAM, the
 ; image's size with its bss, no flags, and the magic "ARM\x64". A loader
-; that sees it enters at _start with the device tree's address in x0.
+; that sees it enters at _start with the device tree's address in x0. Its
+; last reserved word, at byte 48, which no loader reads, is the layout's
+; __l0_board: 0 for QEMU's virt board, "pi5" for the Raspberry Pi 5, which
+; l0 boot reads to tell the boards apart.
+;
+; Entered at EL2, the boot code gives EL1 the counters, no traps, and a
+; reset SCTLR, and runs on at EL1 with an eret.
 ;
 ; The boot code enables floating point and SIMD, which LLVM may use for
-; copies, and the MMU, with the board's boot map at level 1 (TCR T0SZ 32,
-; a 4 GB address space, 4 KB granule; MAIR attribute 0 Device-nGnRnE and 1
+; copies, and the MMU, with the board's boot map at level 1 (TCR T0SZ 25,
+; a 512 GB address space, 4 KB granule, 40-bit physical addresses; MAIR
+; attribute 0 Device-nGnRnE and 1
 ; normal write-back). It also lets EL0 read the virtual counter, and sets
 ; the SCTLR bits that let it read CTR_EL0 and zero by cache line, which LLVM
 ; may emit for a thread. Then it zeroes the bss and calls l0_bare_main with
@@ -38,11 +48,35 @@ module asm "  .word 0"
 module asm "  .quad 0x80000"
 module asm "  .quad __image_size"
 module asm "  .quad 0"
-module asm "  .quad 0, 0, 0"
+module asm "  .quad 0, 0"
+module asm "  .quad __l0_board"
 module asm "  .word 0x644d5241"
 module asm "  .word 0"
 module asm "l0_aarch64_boot:"
 module asm "  mov x20, x0"
+module asm "  mrs x0, currentel"
+module asm "  cmp x0, #8"
+module asm "  b.ne 6f"
+module asm "  mov x0, #(1 << 31)"
+module asm "  msr hcr_el2, x0"
+module asm "  mov x0, #3"
+module asm "  msr cnthctl_el2, x0"
+module asm "  msr cntvoff_el2, xzr"
+module asm "  mov x0, #0x33ff"
+module asm "  msr cptr_el2, x0"
+module asm "  msr hstr_el2, xzr"
+module asm "  mrs x0, midr_el1"
+module asm "  msr vpidr_el2, x0"
+module asm "  mrs x0, mpidr_el1"
+module asm "  msr vmpidr_el2, x0"
+module asm "  ldr x0, =0x30d00800"
+module asm "  msr sctlr_el1, x0"
+module asm "  mov x0, #0x3c5"
+module asm "  msr spsr_el2, x0"
+module asm "  adr x0, 6f"
+module asm "  msr elr_el2, x0"
+module asm "  eret"
+module asm "6:"
 module asm "  mov x0, #(3 << 20)"
 module asm "  msr cpacr_el1, x0"
 module asm "  isb"
@@ -54,7 +88,7 @@ module asm "  mov x0, #3"
 module asm "  msr cntkctl_el1, x0"
 module asm "  mov x0, #0xff00"
 module asm "  msr mair_el1, x0"
-module asm "  ldr x0, =0x803520"
+module asm "  ldr x0, =0x200803519"
 module asm "  msr tcr_el1, x0"
 module asm "  ldr x0, =l0_board_boot_map"
 module asm "  msr ttbr0_el1, x0"
@@ -264,7 +298,7 @@ module asm "  ldp d14, d15, [sp, #144]"
 module asm "  add sp, sp, #176"
 module asm "  ret"
 
-@l0_board_boot_map = external global [4 x i64]
+@l0_board_boot_map = external global [512 x i64]
 
 ; Defined by runtime/bare/board.ll.
 declare void @l0_bare_main(i64, i64) noreturn

@@ -313,9 +313,12 @@ args_of() {
 # tests/virt programs, and tests/virt/unit's, are built with the board's
 # constants, tests/virt/board/virt-ARCH.l0, beside them, and tests/virt/ARCH
 # holds those that only one CPU's board runs. A test's expectations for one
-# CPU, where they differ, are <stem>.ARCH.out and the like. A CPU with no
-# --target proc runtime, or no harness kernel, skips what runs as a
-# process.
+# CPU, where they differ, are <stem>.ARCH.out and the like. A program with a
+# <stem>.initrd is booted with those bytes as QEMU's -initrd, its standard
+# input by the device tree. A CPU with no --target proc runtime, or no
+# harness kernel, skips what runs as a process. The Raspberry Pi 5, which no
+# emulator runs, is checked only to build, in tests/virt/pi5, and to be
+# refused by l0 boot and written out by l0 card.
 #
 # Every image is linked by one container, started once and given each link
 # by docker exec, rather than a docker run per image, unless L0_VIRT_LD
@@ -344,14 +347,15 @@ if [ "$VIRT" = 1 ]; then
     nskip=0
     base_tmp=$TMP
 
-    # The CPUs with a board: every board manifest's, unless L0_VIRT_ARCHS
-    # names some.
+    # The CPUs with a board QEMU emulates: every such board manifest's,
+    # unless L0_VIRT_ARCHS names some. A board with no emulator, the
+    # Raspberry Pi 5, adds none; tests/virt/pi5 checks what is left of it.
     varchs=${L0_VIRT_ARCHS:-}
     if [ -z "$varchs" ]; then
         for m in runtime/targets/*.target; do
-            T_KIND=""
+            T_KIND="" T_QEMU=""
             . "$m"
-            [ "$T_KIND" = board ] && varchs="$varchs $T_ARCH"
+            [ "$T_KIND" = board ] && [ -n "$T_QEMU" ] && varchs="$varchs $T_ARCH"
         done
     fi
 
@@ -501,9 +505,14 @@ if [ "$VIRT" = 1 ]; then
             sed 's/^/    /' "$TMP/$name.berr"
             continue
         fi
+        # A program with a <stem>.initrd is given those bytes as the
+        # firmware's initrd, QEMU's -initrd, which is standard input where
+        # the device tree says so (spec section 10.3).
+        initrd=""
+        [ -f "$stem.initrd" ] && initrd="-initrd $stem.initrd"
         # shellcheck disable=SC2046
-        run_case virt "$name" "$stem" ./tools/l0 boot "$TMP/$name.img" \
-            $(args_of "$stem")
+        run_case virt "$name" "$stem" env L0_QEMU_ARGS="$initrd" \
+            ./tools/l0 boot "$TMP/$name.img" $(args_of "$stem")
     done
 
     # The same programs, but for those a .board file keeps on the board, as
@@ -795,6 +804,65 @@ if [ "$VIRT" = 1 ]; then
     done
     VARCH=""
     TMP=$base_tmp
+
+    # The Raspberry Pi 5 has no emulator, so nothing of it runs here. What
+    # can be checked is that each program of tests/virt/pi5 builds for it
+    # with tools/l0 build --target pi5; that its image's header says the
+    # board it is for, "pi5" at byte 48 and "ARM\x64" at 56, so that l0 boot
+    # refuses it rather than start it on QEMU's board; and that l0 card
+    # writes the files its SD card needs, arguments and input among them.
+    # The programs' expectations, <stem>.out, are what a board's serial line
+    # should show, for whoever runs one.
+    pi5_check() {
+        L0_ARCH=aarch64
+        export L0_ARCH
+        nin="$TMP/pi5.in"
+        printf 'pi5 input\n' > "$nin"
+        for src in tests/virt/pi5/*.l0; do
+            [ -f "$src" ] || continue
+            name=$(basename "$src" .l0)
+            selected "$name" || continue
+            img="$TMP/pi5-$name.img"
+            why=""
+            if ! L0_COMPILER="$vcc" ./tools/l0 build --target pi5 "$src" \
+                -o "$img" > "$TMP/pi5-$name.berr" 2>&1; then
+                why="did not build"
+            elif [ "$(od -An -tx1 -j48 -N3 "$img" | tr -d ' \n')" != 706935 ] ||
+                [ "$(od -An -tx1 -j56 -N4 "$img" | tr -d ' \n')" != 41524d64 ]; then
+                why="its header does not name the Raspberry Pi 5"
+            elif ./tools/l0 boot "$img" < /dev/null > /dev/null 2> "$TMP/pi5-$name.boot"; then
+                why="l0 boot started it, though no emulator runs it"
+            elif ! grep -q "no emulator" "$TMP/pi5-$name.boot"; then
+                why="l0 boot refused it, but not for having no emulator"
+            elif ! ./tools/l0 card "$img" "$TMP/pi5-$name.card" one two:2 \
+                < "$nin" > /dev/null 2>&1 && [ ! -f "$TMP/pi5-$name.card/config.txt" ]; then
+                why="l0 card wrote nothing"
+            elif [ "$(head -n 1 "$TMP/pi5-$name.card/config.txt")" != "# written by l0 card" ] ||
+                ! grep -qx "kernel=l0.img" "$TMP/pi5-$name.card/config.txt" ||
+                ! grep -qx "initramfs input.bin 0x10000000" "$TMP/pi5-$name.card/config.txt"; then
+                why="l0 card's config.txt is wrong"
+            elif [ "$(cat "$TMP/pi5-$name.card/cmdline.txt")" != "one two:2" ] ||
+                ! cmp -s "$TMP/pi5-$name.card/input.bin" "$nin" ||
+                ! cmp -s "$TMP/pi5-$name.card/l0.img" "$img"; then
+                why="l0 card's files are wrong"
+            elif ! ./tools/l0 card "$img" "$TMP/pi5-$name.card0" < /dev/null > /dev/null 2>&1 ||
+                [ -f "$TMP/pi5-$name.card0/input.bin" ] ||
+                grep -q initramfs "$TMP/pi5-$name.card0/config.txt"; then
+                why="l0 card gave input where there is none"
+            elif ./tools/l0 card "$img" "$TMP/pi5-$name.card1" "a b" < /dev/null > /dev/null 2>&1; then
+                why="l0 card took an argument with a space"
+            fi
+            if [ -z "$why" ]; then
+                npass=$((npass + 1))
+            else
+                nfail=$((nfail + 1))
+                failures="$failures pi5/$name"
+                echo "FAIL pi5/$name: $why"
+                [ -f "$TMP/pi5-$name.berr" ] && sed 's/^/    /' "$TMP/pi5-$name.berr"
+            fi
+        done
+    }
+    pi5_check
 
     echo
     echo "virt suite: $npass passed, $nfail failed, $nskip skipped, in $(( $(date +%s) - vstart )) s"

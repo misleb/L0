@@ -1,0 +1,13 @@
+; Spec section 10.3 on the board: standard input is the initrd the firmware
+; loaded, which the device tree's /chosen says the place and end of, here
+; QEMU's -initrd, which tools/test.sh gives from initrd_input.initrd; the
+; loader's word, which says there is none, is not read. The program counts
+; its bytes and adds them up.
+(def read_all ((n int) (sum int)) int
+  (let b (read_from 0)
+    (if (lt b 0)
+        (write_line (append "read " (append (digits n) (append " sum " (digits sum)))))
+        (read_all (add n 1) (add sum b)))))
+
+(def main () int
+  (read_all 0 0))

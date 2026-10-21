@@ -83,7 +83,8 @@ runtime/       l0rt.ll, the runtime every compiled program links, as LLVM IR,
                and host-libc.ll, its host file, the only one calling libc;
                for a host without an operating system, its parts: bare/
                (board.ll and proc.ll, what no machine decides, for a board
-               and for a process of a kernel, and semihost.ll), arch/ARCH/
+               and for a process of a kernel, semihost.ll, and psci.ll, for
+               a board with no emulator), arch/ARCH/
                (a CPU's boot.ll and proc.ll), board/ (a board's part and
                layout), dev/ (drivers), and targets/ (each target's
                manifest, listing its parts); proc.ld, a process's layout;

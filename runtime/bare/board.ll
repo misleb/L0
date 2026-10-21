@@ -11,9 +11,12 @@
 ; target links are listed by its manifest, runtime/targets/TARGET.
 ;
 ; What it gives:
-;   - standard input, the bytes a loader put at __input_start, their count
-;     in the word at __input_len, read once at boot, since a serial line
-;     has no end of input;
+;   - standard input, the bytes the firmware loaded as an initrd, which the
+;     device tree's /chosen says the place of, or else the bytes a loader
+;     put at __input_start, their count in the word at __input_len, read
+;     once at boot, since a serial line has no end of input; a board whose
+;     layout has no loader's word, and whose firmware loads no initrd, has
+;     none;
 ;     standard output, the board's console; standard error and the exit
 ;     status, the board's to deliver
 ;   - no files and no environment, as section 9.2 says
@@ -37,7 +40,9 @@ declare ptr @memcpy(ptr, ptr, i64)
 declare i64 @strlen(ptr)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 
-; The board's layout, runtime/board/BOARD.ld.
+; The board's layout, runtime/board/BOARD.ld. A layout whose board has no
+; loader puts __input_len at a word that is always 0, so that there is no
+; input unless the firmware loads an initrd.
 @__stack_top = external global i8
 @__stack_bottom = external global i8
 @__input_len = external global i64
@@ -74,6 +79,7 @@ declare void @l0_board_space_init(i64, i64)
 declare i64 @l0_board_window_count()
 declare i64 @l0_board_window_start(i64)
 declare i64 @l0_board_window_end(i64)
+declare void @l0_board_map_ram(i64, i64)
 declare i1 @l0_board_irq_exists(i64)
 declare void @l0_board_irq_enable(i64)
 declare i64 @l0_board_irq_take()
@@ -82,11 +88,12 @@ declare void @l0_board_irq_end(i64)
 ; ------------------------------------------------------------------- entry
 
 ; Called by the architecture's boot code, on the boot stack, with the
-; device tree's address and the booting CPU's number. The arguments are
-; copied out of the tree before anything else, since the tree is wherever
-; the firmware put it, and the pool is built from it and from standard
-; input's count. l0_rt_run's frame is a little below the top, so the size
-; it is given leaves 64 KB for what lies above it.
+; device tree's address and the booting CPU's number. The arguments and
+; the place of standard input are copied out of the tree before anything
+; else, since the tree is wherever the firmware put it, and the pool is
+; built from it and from standard input's count. l0_rt_run's frame is a
+; little below the top, so the size it is given leaves 64 KB for what lies
+; above it.
 define void @l0_bare_main(i64 %dtb, i64 %hart) noreturn {
 entry:
   call void @boot_args(i64 %dtb)
@@ -142,18 +149,39 @@ done:
 
 @in_pos = internal global i64 0
 @in_len = internal global i64 0
+@in_start = internal global i64 0
+@initrd_lo = internal global i64 0
+@initrd_hi = internal global i64 0
 
-; Reads standard input's count once, before the program starts, since the
-; page holding it is the pool's from then on: at most what the window up to
-; the heap holds.
+; Finds standard input's place and count once, before the program starts,
+; since the page holding the loader's count is the pool's from then on. An
+; initrd the device tree describes, from initrd_lo to initrd_hi, wins if it
+; lies below the heap, which is where the pool's first window ends; if
+; not, the loader's bytes at __input_start, at most what the window up to
+; the heap holds; with neither, there is no input.
 define internal void @input_init() {
 entry:
-  %len = load i64, ptr @__input_len
-  %is = ptrtoint ptr @__input_start to i64
+  %lo = load i64, ptr @initrd_lo
+  %hi = load i64, ptr @initrd_hi
   %hs = ptrtoint ptr @__heap_start to i64
-  %room = sub i64 %hs, %is
+  %some = icmp ult i64 %lo, %hi
+  %below = icmp ule i64 %hi, %hs
+  %initrd = and i1 %some, %below
+  br i1 %initrd, label %fromtree, label %loader
+fromtree:
+  %n0 = sub i64 %hi, %lo
+  store i64 %lo, ptr @in_start
+  store i64 %n0, ptr @in_len
+  ret void
+loader:
+  %is = ptrtoint ptr @__input_start to i64
+  %len = load i64, ptr @__input_len
+  %fits = icmp ult i64 %is, %hs
+  %room0 = sub i64 %hs, %is
+  %room = select i1 %fits, i64 %room0, i64 0
   %big = icmp ugt i64 %len, %room
   %n = select i1 %big, i64 %room, i64 %len
+  store i64 %is, ptr @in_start
   store i64 %n, ptr @in_len
   ret void
 }
@@ -172,7 +200,9 @@ input:
   %left = sub i64 %len, %pos
   %less = icmp ult i64 %left, %n
   %k = select i1 %less, i64 %left, i64 %n
-  %src = getelementptr i8, ptr @__input_start, i64 %pos
+  %base = load i64, ptr @in_start
+  %at = add i64 %base, %pos
+  %src = inttoptr i64 %at to ptr
   %x = call ptr @memcpy(ptr %buf, ptr %src, i64 %k)
   %np = add i64 %pos, %k
   store i64 %np, ptr @in_pos
@@ -310,6 +340,8 @@ set:
 @arg_n = internal global i64 0
 @s_chosen = private constant [7 x i8] c"chosen\00"
 @s_bootargs = private constant [9 x i8] c"bootargs\00"
+@s_initrd_start = private constant [19 x i8] c"linux,initrd-start\00"
+@s_initrd_end = private constant [17 x i8] c"linux,initrd-end\00"
 
 define internal i64 @dt_byte(i64 %a) {
 entry:
@@ -369,8 +401,23 @@ entry:
   ret i64 %r
 }
 
+; The number in the len bytes at val, one cell or, for two or more, its
+; last two as an address of two cells, or 0 if there is not a whole cell.
+define internal i64 @dt_prop_num(i64 %val, i64 %len) {
+entry:
+  %cells = lshr i64 %len, 2
+  %none = icmp eq i64 %cells, 0
+  br i1 %none, label %zero, label %num
+zero:
+  ret i64 0
+num:
+  %n = call i64 @dt_cells(i64 %val, i64 %cells)
+  ret i64 %n
+}
+
 ; Finds /chosen's bootargs in the device tree at dtb, if there is one, and
-; takes the arguments from it.
+; takes the arguments from it, and its linux,initrd-start and -end, where
+; the firmware says it loaded an initrd, for standard input.
 define internal void @boot_args(i64 %dtb) {
 entry:
   %null = icmp eq i64 %dtb, 0
@@ -436,10 +483,24 @@ propchk:
 named:
   %pname = add i64 %strings, %noff
   %isargs = call i1 @dt_name_is(i64 %pname, ptr @s_bootargs)
-  br i1 %isargs, label %take, label %prop
+  br i1 %isargs, label %take, label %nargs
 take:
   call void @take_args(i64 %val, i64 %len)
-  br label %done
+  br label %prop
+nargs:
+  %isrs = call i1 @dt_name_is(i64 %pname, ptr @s_initrd_start)
+  br i1 %isrs, label %takers, label %nstart
+takers:
+  %rs = call i64 @dt_prop_num(i64 %val, i64 %len)
+  store i64 %rs, ptr @initrd_lo
+  br label %prop
+nstart:
+  %isre = call i1 @dt_name_is(i64 %pname, ptr @s_initrd_end)
+  br i1 %isre, label %takere, label %prop
+takere:
+  %re = call i64 @dt_prop_num(i64 %val, i64 %len)
+  store i64 %re, ptr @initrd_hi
+  br label %prop
 prop:
   %lpad = call i64 @pad4(i64 %len)
   %pp0 = add i64 %p, 12
@@ -906,19 +967,43 @@ done:
   ret void
 }
 
+; Tells the board's part each range of RAM the device tree describes, so
+; that it maps what is there and nothing else. The ranges are in ram_lo and
+; ram_hi, ram_n of them.
+define internal void @map_ram() {
+entry:
+  %n = load i64, ptr @ram_n
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i1, %body ]
+  %more = icmp ult i64 %i, %n
+  br i1 %more, label %body, label %done
+body:
+  %lp = getelementptr [8 x i64], ptr @ram_lo, i64 0, i64 %i
+  %lo = load i64, ptr %lp
+  %hp = getelementptr [8 x i64], ptr @ram_hi, i64 0, i64 %i
+  %hi = load i64, ptr %hp
+  call void @l0_board_map_ram(i64 %lo, i64 %hi)
+  %i1 = add i64 %i, 1
+  br label %loop
+done:
+  ret void
+}
+
 ; Builds the pool: the windows' RAM with the device tree and the input's
 ; pages cut out, then the input's pages, which lie in the first window on
 ; every board, then the numbering.
 define internal void @pool_init(i64 %dtb) {
 entry:
   call void @boot_memory(i64 %dtb)
+  call void @map_ram()
   %dsize = call i64 @dt_size(i64 %dtb)
   %dlo = and i64 %dtb, -4096
   %de = add i64 %dtb, %dsize
   %dhi = call i64 @page_up(i64 %de)
   store i64 %dlo, ptr @hole_lo
   store i64 %dhi, ptr @hole_hi
-  %is = ptrtoint ptr @__input_start to i64
+  %is = load i64, ptr @in_start
   %len = load i64, ptr @in_len
   %ie0 = add i64 %is, %len
   %ie = call i64 @page_up(i64 %ie0)

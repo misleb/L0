@@ -240,9 +240,9 @@ if [ "$VIRT" = 1 ]; then
     archs=${L0_VIRT_ARCHS:-}
     if [ -z "$archs" ]; then
         for m in runtime/targets/*.target; do
-            T_KIND=""
+            T_KIND="" T_QEMU=""
             . "./$m"
-            [ "$T_KIND" = board ] && archs="$archs $T_ARCH"
+            [ "$T_KIND" = board ] && [ -n "$T_QEMU" ] && archs="$archs $T_ARCH"
         done
     fi
     for a in $archs; do
