@@ -1,0 +1,20 @@
+; Opens the serial port's first 4 bytes and closes them again 1,000 times,
+; more than the 512 pages kernel.l0's region window has: the runtime tells
+; the kernel of each close by spec section 10.3's call 13, and the kernel
+; takes the window's page back for the next open.
+(def uart () int
+  (if (eq (machine) 2) 268435456 150994944))     ; 0x10000000, 0x09000000
+
+; 0 if every open was given a region, or the first refusal.
+(def churn ((k int)) int
+  (if (le k 0)
+      0
+      (let r (region_open (uart) 4)
+        (if (lt r 0)
+            r
+            (let c (region_close r) (churn (sub k 1)))))))
+
+(def main () int
+  (let r (churn 1000)
+    (let a (write_line (if (eq r 0) "all opened" (append "refused: " (digits r))))
+      0)))

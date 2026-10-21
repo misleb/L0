@@ -20,6 +20,7 @@
 ;   5  close(stream)               10  region(base, len)
 ;                                  11  clock()
 ;                                  12  release(base, len)
+;                                  13  unregion(addr, len)
 ; What needs no kernel stays here: the allocator, the barrier, and the
 ; clock where the architecture's part reads it. There are no settings, as
 ; on a host with no environment.
@@ -139,6 +140,14 @@ define i64 @l0_host_region(i64 %base, i64 %len) {
 entry:
   %r = call i64 @sys(i64 10, i64 %base, i64 %len, i64 0, i64 0)
   ret i64 %r
+}
+
+; The region at addr, which the kernel gave for len bytes, is done with;
+; whatever the kernel answers, the process goes on.
+define void @l0_host_region_close(i64 %addr, i64 %len) {
+entry:
+  %r = call i64 @sys(i64 13, i64 %addr, i64 %len, i64 0, i64 0)
+  ret void
 }
 
 ; Pages of the heap freestanding.ll's allocator has freed, which the kernel

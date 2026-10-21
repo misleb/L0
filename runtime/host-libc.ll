@@ -456,6 +456,11 @@ entry:
   ret i64 -3
 }
 
+define void @l0_host_region_close(i64 %addr, i64 %len) {
+entry:
+  ret void
+}
+
 define void @l0_host_barrier() {
 entry:
   fence seq_cst

@@ -7,6 +7,52 @@ New entries go at the top.
 
 ---
 
+## A region can be closed
+
+**New:** `(region_close r)` (spec 6.12) closes region `r` and returns 0,
+after every access to it is complete; its number may be given again, and
+`region_open` gives the lowest free one. At most 64 are open at once,
+where before 64 could be opened over a program's life. Closing a region
+not open is the runtime error `not a region`. Behind it, a host function,
+`l0_host_region_close(addr, len)`, and for a process, system call 13,
+`unregion(addr, len)` (spec 10.3), which a kernel may ignore, as call 12.
+The library's `close_device` closes what `open_device` opened.
+
+*Why:* L0S asked (its `probes/region-close/REQUEST-region-close.md`). Its
+compositor opens a region over each window's title bar and frame buffers,
+which are shared pages it gives up when the window closes, and the
+runtime's table of 64 never gave a slot back: so `wm` could open 30
+windows over its whole life, and resizing, which needs buffers of a new
+size and so new regions, could not be built at all. Giving the pages up
+left the regions open over pages no longer mapped. A program cannot work
+around it: only `l0rt.ll` holds the table. L0S's workarounds were to keep
+every closed window's buffers at the largest size one could ever be,
+about 95 MB a window, or one region over all its device pages, which
+loses the check that a draw stays inside its own buffer.
+
+*Decided:* a region closed twice is a runtime error, not a code as
+`close`'s -2 is, since every other region builtin raises `not a region`
+for a number not open, and a double close is a bug, not a condition to
+handle. The table stays at 64: with closing, the limit is how many are
+open at once, which is what a fixed table can promise, and `wm` needs 4
+plus 2 a window open now. Closing does not resize, since a buffer of a
+new size is new pages at a new address anyway.
+
+*Fixed on the way:* when the table was full, `l0_region_open` gave -5
+after the host had already mapped the region, so a process's kernel kept
+pages for a region no one could reach. It now hands them back by the same
+host function before giving -5.
+
+*How:* a free slot is a length of 0, which no open region has; `region_at`
+treats one as not a region. On a board, and under `host-libc.ll`, which
+gives no regions, the host function does nothing. A process's host makes
+call 13; the IR harness kernels answer it as a call they do not know, and
+`tests/virt/user/kernel.l0` unmaps the window pages call 10 mapped, and
+takes them back when they are the last it gave, which a program that
+closes before it opens again always reaches.
+
+---
+
 ## A process hands free heap pages back to its kernel
 
 **New:** system call 12, `release(base, len)` (spec 10.3): the whole

@@ -21,7 +21,10 @@
 ; told at boot which process is the serial driver and where its device is.
 ; A process's heap and stack are mapped a page at a time as they are first
 ; touched, readable and writable, and a page of its heap that it releases,
-; by spec section 10.3's call 12, is unmapped and its frame freed.
+; by spec section 10.3's call 12, is unmapped and its frame freed. A
+; region's pages, which the region call maps at the next pages of a window
+; above the stack, are unmapped by call 13, and taken back when they are
+; the last the window gave.
 ;
 ; A process runs for a slice of 10 ms, the timer's deadline set as its turn
 ; starts (spec section 6.14), or until it exits, faults, or makes one of the
@@ -745,7 +748,29 @@
                       (answer i s m w c (clock_ns))    ; the clock
                       (if (eq n 12)
                           (sys_release i s m w c a b)
-                          (answer i s m w c -5))))))))  ; close, and any other
+                          (if (eq n 13)
+                              (sys_unregion i s m w c a b)
+                              (answer i s m w c -5)))))))))  ; close, and any other
+
+; unregion(addr, len): the window's pages the region over len bytes at addr
+; took are unmapped, and if they were the last the window gave, it takes
+; them back. A range not in the window's used pages is ignored.
+(def sys_unregion ((i int) (s int) (m (array int)) (w int) (c (array int))
+                   (addr int) (len int)) Proc
+  (let first (page_floor addr)
+    (let end (add (page_floor (sub (add addr len) 1)) 4096)
+      (let top (add (window) (mul w 4096))
+        (if (if (lt len 1) true (if (lt first (window)) true (gt end top)))
+            (answer i s m w c 0)
+            (let u (unmap_window s first end)
+              (answer i s m (if (eq end top) (bit_shr (sub first (window)) 12) w) c 0)))))))
+
+; Unmaps the device pages from p below end.
+(def unmap_window ((s int) (p int) (end int)) int
+  (if (ge p end)
+      0
+      (let u (space_unmap s p)
+        (unmap_window s (add p 4096) end))))
 
 ; release(base, len): the whole pages of the heap in the range, below the
 ; stack, given back.

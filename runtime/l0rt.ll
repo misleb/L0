@@ -28,6 +28,7 @@ declare ptr @l0_host_arg(i64)
 declare ptr @l0_host_setting(ptr)
 declare void @l0_host_exit(i64) noreturn
 declare i64 @l0_host_region(i64, i64)
+declare void @l0_host_region_close(i64, i64)
 declare void @l0_host_barrier()
 declare i64 @l0_host_space_new()
 declare i64 @l0_host_frame_new()
@@ -2537,10 +2538,10 @@ entry:
 
 ; The regions of spec section 6.12 a program has open: for each, the
 ; address the host gave for its first byte, and its length. A region is an
-; index into them, and none is ever closed.
+; index into them, and a length of 0, which no open region has, is a slot
+; that is free.
 @rg_addr = internal global [64 x i64] zeroinitializer
 @rg_len = internal global [64 x i64] zeroinitializer
-@rg_count = internal global i64 0
 
 @m_region = private constant [12 x i8] c"not a region"
 @m_rrange = private constant [26 x i8] c"region offset out of range"
@@ -2555,39 +2556,70 @@ entry:
 ask:
   %a = call i64 @l0_host_region(i64 %base, i64 %len)
   %failed = icmp slt i64 %a, 0
-  br i1 %failed, label %refused, label %room
+  br i1 %failed, label %refused, label %find
 refused:
   ret i64 %a
-room:
-  %n = load i64, ptr @rg_count
+find:
+  %n = phi i64 [ 0, %ask ], [ %n1, %taken ]
   %full = icmp uge i64 %n, 64
-  br i1 %full, label %nomore, label %keep
+  br i1 %full, label %nomore, label %look
+look:
+  %lp = getelementptr [64 x i64], ptr @rg_len, i64 0, i64 %n
+  %l = load i64, ptr %lp
+  %free = icmp eq i64 %l, 0
+  br i1 %free, label %keep, label %taken
+taken:
+  %n1 = add i64 %n, 1
+  br label %find
 nomore:
+  ; The host gave the region; it is handed back, since none can hold it.
+  call void @l0_host_region_close(i64 %a, i64 %len)
   ret i64 -5
 keep:
   %ap = getelementptr [64 x i64], ptr @rg_addr, i64 0, i64 %n
   store i64 %a, ptr %ap
-  %lp = getelementptr [64 x i64], ptr @rg_len, i64 0, i64 %n
   store i64 %len, ptr %lp
-  %n1 = add i64 %n, 1
-  store i64 %n1, ptr @rg_count
   ret i64 %n
 none:
   ret i64 -3
+}
+
+; Where region r's length is kept, if r is open, or the runtime error.
+define internal ptr @region_slot(i64 %r) {
+entry:
+  %in = icmp ult i64 %r, 64
+  br i1 %in, label %look, label %notopen
+look:
+  %lp = getelementptr [64 x i64], ptr @rg_len, i64 0, i64 %r
+  %len = load i64, ptr %lp
+  %free = icmp eq i64 %len, 0
+  br i1 %free, label %notopen, label %open
+open:
+  ret ptr %lp
+notopen:
+  call void @rt_error(ptr @m_region, i64 12)
+  unreachable
+}
+
+; Spec section 6.12: the accesses made are complete, then the host undoes
+; what it did, and the slot is free.
+define i64 @l0_region_close(i64 %r) {
+entry:
+  %lp = call ptr @region_slot(i64 %r)
+  %len = load i64, ptr %lp
+  %ap = getelementptr [64 x i64], ptr @rg_addr, i64 0, i64 %r
+  %a = load i64, ptr %ap
+  call void @l0_host_barrier()
+  call void @l0_host_region_close(i64 %a, i64 %len)
+  store i64 0, ptr %lp
+  ret i64 0
 }
 
 ; The address of an access of w bytes at off in region r, after the three
 ; checks of spec section 6.12, in its order.
 define internal ptr @region_at(i64 %r, i64 %off, i64 %w) {
 entry:
-  %n = load i64, ptr @rg_count
-  %open = icmp ult i64 %r, %n
-  br i1 %open, label %range, label %notopen
-notopen:
-  call void @rt_error(ptr @m_region, i64 12)
-  unreachable
-range:
-  %lp = getelementptr [64 x i64], ptr @rg_len, i64 0, i64 %r
+  %lp = call ptr @region_slot(i64 %r)
   %len = load i64, ptr %lp
   %neg = icmp slt i64 %off, 0
   %room = sub i64 %len, %w

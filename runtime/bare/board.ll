@@ -612,6 +612,12 @@ none:
   ret i64 -3
 }
 
+; A region is the device's own address, so nothing was mapped for it.
+define void @l0_host_region_close(i64 %addr, i64 %len) {
+entry:
+  ret void
+}
+
 define void @l0_host_barrier() {
 entry:
   call void @l0_arch_barrier()

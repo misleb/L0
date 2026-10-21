@@ -1,0 +1,43 @@
+; Spec section 6.12 on the board: region_close frees a region's number for
+; the next open, which takes the lowest free one, so 64 are open at once
+; however many have been opened, and a region closed is not a region. The
+; board's devices are tests/virt/board's.
+(def show ((r int)) int
+  (write_line (digits r)))
+
+; Opens the port k times, keeping all: the last region given.
+(def fill ((k int) (last int)) int
+  (if (le k 0)
+      last
+      (fill (sub k 1) (region_open (board_uart) 4))))
+
+; Closes regions hi down to lo.
+(def close_down ((hi int) (lo int)) int
+  (if (lt hi lo)
+      0
+      (let c (region_close hi)
+        (close_down (sub hi 1) lo))))
+
+; Opens and closes the port k times, one open at a time: 0 if each open
+; was given region 0, or the first that was not.
+(def churn ((k int)) int
+  (if (le k 0)
+      0
+      (let r (region_open (board_uart) (board_uart_len))
+        (if (eq r 0)
+            (let c (region_close r) (churn (sub k 1)))
+            r))))
+
+(def main () int
+  (let a (show (fill 64 -1))                               ; 63
+    (let b (show (region_open (board_uart) 4))              ; -5, all 64 open
+      (let c (show (region_close 10))                       ; 0
+        (let d (show (region_close 20))                     ; 0
+          (let e (show (region_open (board_uart) 4))        ; 10, the lowest free
+            (let f (show (region_open (board_uart) 4))      ; 20
+              (let g (close_down 63 0)
+                (let h (show (churn 200))                   ; 0, past 64 over a life
+                  (let u (region_open (board_rtc) 4096)
+                    (let w (region_read32 u 0)              ; the clock still reads
+                      (let x (show (region_close u))
+                        (show (region_open (board_rtc) 4096)))))))))))))) ; 0 again

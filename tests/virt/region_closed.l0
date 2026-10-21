@@ -1,0 +1,8 @@
+; Spec section 6.12: a region closed is not a region, so a read of it is a
+; runtime error, after the bytes already written.
+
+(def main () int
+  (let u (region_open (board_rtc) 4096)
+    (let c (region_close u)
+      (let w (write_line "closed")
+        (region_read32 u 0)))))

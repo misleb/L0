@@ -1,0 +1,7 @@
+; Spec section 6.12: closing a region the program does not have open, as
+; one closed already is, is a runtime error, after the bytes already
+; written, on every host. Under an operating system none is ever open.
+
+(def main () int
+  (let w (write_byte 111)
+    (region_close 0)))

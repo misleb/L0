@@ -167,6 +167,8 @@
       Why opening a device failed: the host has no device there, which under an operating system is every range; or no more can be open (spec section 6.12's -3 and -5).
   open_device ((base int) (len int)) DeviceOpened
       Opens the len bytes of device memory at address base, which must lie wholly within one of the machine's devices: on QEMU's virt board, those spec section 10.3 lists, such as the PL011 serial port's 4096 bytes at 0x09000000.
+  close_device ((d IoDevice)) int
+      Closes d, which open_device gave, once every access to it is complete, and returns 0: d is then no device, and its number may be given to a later open_device.
   device_read8 ((d IoDevice) (off int)) int
       The byte at off in d, 0 to 255.
   device_read16 ((d IoDevice) (off int)) int

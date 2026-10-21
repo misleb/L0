@@ -430,6 +430,13 @@
             (DeviceFailed (DeviceMissing) "no device there")
             (DeviceFailed (DeviceNoRoom) "too many devices open")))))
 
+;; Closes d, which open_device gave, once every access to it is complete,
+;; and returns 0: d is then no device, and its number may be given to a
+;; later open_device. Closing it again is a runtime error. At most 64
+;; devices are open at once.
+(def close_device ((d IoDevice)) int
+  (match d ((IoDevice r) (region_close r))))
+
 ;; The byte at off in d, 0 to 255. Every device_ read and write is one
 ;; access of its width, where evaluation order puts it, even when its result
 ;; is unused; an off past either end of d, or an address not a multiple of

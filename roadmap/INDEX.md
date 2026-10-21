@@ -128,6 +128,9 @@ the virt suite, and a first run on a board is left to the user. L0S then
 found its servers holding their peak heap, since nothing told a kernel a
 heap page was free again, and a process's runtime now does, by call 12,
 which a kernel may answer by freeing the page's frame or ignore (0099).
+Its compositor could open only 30 windows over its life, since the
+runtime's 64 regions were never given back, and `region_close` now gives
+one back, telling a process's kernel by call 13 (0100).
 
 ## Language queue
 
@@ -403,3 +406,5 @@ None.
 - [0099](0099-release-heap-pages.md) a process's runtime hands free heap
   pages back to its kernel — done, changelog "A process hands free heap
   pages back to its kernel"; passed on Linux arm64
+- [0100](0100-region-close.md) a region can be closed — done, changelog
+  "A region can be closed"; passed on Linux arm64
