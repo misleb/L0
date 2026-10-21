@@ -28,6 +28,15 @@ declare i64 @llvm.ctlz.i64(i64, i1)
 ; off what is left if that makes a block of its own; freeing merges a block
 ; with a free neighbour on either side, found by the neighbour's header
 ; above it and footer below it.
+;
+; Freeing then names to the host, by @l0_heap_release, the whole pages of
+; the merged block that hold none of its words above, its first 32 bytes
+; and its last 8, and lie at least in part in the block freed, so that each
+; page is named once, as it comes free (spec section 10.3, call 12). A
+; process's host passes them to its kernel, which may unmap them, and a
+; later touch reads zero; a board's host does nothing.
+
+declare void @l0_heap_release(i64, i64)
 
 @heap_ready = internal global i1 false
 @bins = internal global [64 x i64] zeroinitializer
@@ -240,6 +249,24 @@ put:
   %s = phi i64 [ %s1, %below ], [ %s2a, %merge_prev ]
   call void @set_tags(i64 %b, i64 %s, i64 0)
   call void @bin_insert(i64 %b)
+  %in0 = add i64 %b, 4127
+  %in = and i64 %in0, -4096
+  %own0 = and i64 %b0, -4096
+  %lo_in = icmp ugt i64 %in, %own0
+  %lo = select i1 %lo_in, i64 %in, i64 %own0
+  %e0 = add i64 %b, %s
+  %e1 = sub i64 %e0, 8
+  %out = and i64 %e1, -4096
+  %own1 = add i64 %b0, %s0
+  %own2 = add i64 %own1, 4095
+  %own3 = and i64 %own2, -4096
+  %hi_out = icmp ult i64 %out, %own3
+  %hi = select i1 %hi_out, i64 %out, i64 %own3
+  %some = icmp ult i64 %lo, %hi
+  br i1 %some, label %release, label %done
+release:
+  %len = sub i64 %hi, %lo
+  call void @l0_heap_release(i64 %lo, i64 %len)
   br label %done
 done:
   ret void

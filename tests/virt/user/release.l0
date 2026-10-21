@@ -1,0 +1,16 @@
+; Holds 32 MiB in an array, lets it go, and says whether the kernel has the
+; frames back, asking it how many it has left by kernel.l0's call 263
+; before and after: the runtime names a freed block's whole pages by spec
+; section 10.3's call 12, and the kernel frees their frames.
+(def held () int
+  (let a (array_new 4194304 1)                          ; 32 MiB, 8192 pages
+    (array_get a 4194303)))
+
+(def main () int
+  (let f0 (supervisor_call 263 0 0 0)
+    (let h (held)
+      (let f1 (supervisor_call 263 0 0 0)
+        (let a (write_line (if (lt (sub f0 f1) 1024)
+                               "frames back"
+                               (append "frames kept: " (digits (sub f0 f1)))))
+          0)))))

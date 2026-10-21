@@ -7,6 +7,46 @@ New entries go at the top.
 
 ---
 
+## A process hands free heap pages back to its kernel
+
+**New:** system call 12, `release(base, len)` (spec 10.3): the whole
+pages of the heap in the range hold nothing the process needs, and its
+kernel may unmap them and free their frames, a later touch reading zero,
+or do nothing. `freestanding.ll`'s `l0_host_free` makes it, through a hook
+its host defines, `l0_heap_release`: a process's makes the call, a
+board's does nothing.
+
+*Why:* L0S asked (its `l0-request-heap-pages.md`). A kernel may map a
+process's heap a page at a time as it is first touched, and L0S's does,
+but nothing ever said a page was free again: in a process, 0085's "back
+to the host" stops at the allocator over the process's own heap. So a
+process held its peak heap until it exited, which costs a short command
+nothing and L0S's servers, the compositor, the terminals, the file
+system, and the network stack, which run from boot to shutdown, the
+board. The kernel cannot tell a free page from a live one, and a program
+cannot reach its allocator: the calls from 256 are the program's, not
+the runtime's. `tests/virt/user/release`, which holds 32 MiB in an array
+and lets it go, saw its kernel 8,212 frames short before and has them
+back now.
+
+*How:* the allocator names a page as it comes free, once: the whole pages
+of the merged free block that hold none of its words, its first 32 bytes
+and last 8, and lie at least in part in the block just freed. So freeing a
+small block beside a large free one names a page or two, not the large
+one again, and the call is made only where memory leaves the runtime
+for the allocator: arrays, bytes, and chunks past the 4 the runtime keeps.
+Those 4 and the free lists stay touched, since the runtime cuts from them
+next; giving their pages back would trade a call now for a fault per page
+soon after. Ignoring the call is allowed, so every kernel that predates it
+still runs every program: the IR harness kernels answer it as a call they
+do not know, and `tests/virt/user/kernel.l0` unmaps and frees each page,
+keeping each page's frame in its map to do so, and gives its count of
+frames by a call of its own, 263, for the test to read. The compiler
+compiling itself as a process takes the time it did, to the second, under
+both kernels on both CPUs.
+
+---
+
 ## The Raspberry Pi 5
 
 **What changed.** A third board, `l0 build --target pi5` (spec 10.3): an

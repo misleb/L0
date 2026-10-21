@@ -124,7 +124,10 @@ frames on aarch64 and 1.2 GB on riscv64, from 384 MB. The user then asked
 for a Raspberry Pi 5 target (0098), which has no emulator and so cannot be
 run here: its parts are built and linked, the shared changes it needs (entry
 at EL2, a 39-bit translation, input by the device tree's initrd) run under
-the virt suite, and a first run on a board is left to the user.
+the virt suite, and a first run on a board is left to the user. L0S then
+found its servers holding their peak heap, since nothing told a kernel a
+heap page was free again, and a process's runtime now does, by call 12,
+which a kernel may answer by freeing the page's frame or ignore (0099).
 
 ## Language queue
 
@@ -397,3 +400,6 @@ None.
   arm64
 - [0098](0098-raspberry-pi-5.md) the Raspberry Pi 5 — done, changelog "The
   Raspberry Pi 5"; no run on a board, whose first run's checks the Log lists
+- [0099](0099-release-heap-pages.md) a process's runtime hands free heap
+  pages back to its kernel — done, changelog "A process hands free heap
+  pages back to its kernel"; passed on Linux arm64

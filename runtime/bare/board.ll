@@ -115,6 +115,13 @@ entry:
   unreachable
 }
 
+; Pages freestanding.ll's allocator has freed: a board has no kernel to
+; give them to, and they stay the heap's.
+define void @l0_heap_release(i64 %base, i64 %len) {
+entry:
+  ret void
+}
+
 @hexd = private constant [16 x i8] c"0123456789abcdef"
 
 ; Writes v on standard error as 0x and 16 hex digits, for the architecture's

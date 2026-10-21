@@ -20,7 +20,8 @@
 ; "N:VALUE" gives process N the argument VALUE, in their order, so it is
 ; told at boot which process is the serial driver and where its device is.
 ; A process's heap and stack are mapped a page at a time as they are first
-; touched, readable and writable.
+; touched, readable and writable, and a page of its heap that it releases,
+; by spec section 10.3's call 12, is unmapped and its frame freed.
 ;
 ; A process runs for a slice of 10 ms, the timer's deadline set as its turn
 ; starts (spec section 6.14), or until it exits, faults, or makes one of the
@@ -46,11 +47,13 @@
 ;        -3 for one the host has not, or the timer's: so that a driver can
 ;        have its interrupt enabled before its device raises it, which on
 ;        QEMU's riscv64 board is lost if the PLIC's source is not enabled
+;   263  frames(): how many frames the host has left, frame_free_count
 ; So a serial driver receives what its clients send and writes it, waiting
 ; for its device's interrupt, and a client sends and then syncs.
 
 (def user_lo () int 3221225472)                   ; 0xC0000000, the image
 (def user_top () int 3892314112)                  ; 0xE8000000, the stack's top
+(def stack_lo () int 3623878656)                  ; 0xD8000000, its bottom
 (def window () int 3892314112)                    ; regions from 0xE8000000
 (def window_pages () int 512)
 (def slice_ns () int 10000000)
@@ -143,7 +146,7 @@
 
 ; Maps a fresh frame at each page from p, page-aligned, below end that has
 ; none yet, with perm, as space_map takes it. A page's entry in m is 0 while
-; it has no frame, and then its perm plus 1.
+; it has no frame, and then its frame times 8 plus its perm plus 1.
 (def ensure ((s int) (m (array int)) (p int) (end int) (perm int)) Mem
   (if (ge p end)
       (Mem m)
@@ -155,8 +158,21 @@
                   (let r (space_map s p f perm)
                     (if (lt r 0)
                         (NoFrames m)
-                        (ensure s (array_set m i (add perm 1)) (add p 4096) end perm)))))
+                        (ensure s (array_set m i (add (mul f 8) (add perm 1))) (add p 4096) end perm)))))
             (ensure s m (add p 4096) end perm)))))
+
+; Unmaps each page from p, page-aligned, below end that has a frame mapped
+; readable and writable only, as the heap's are, and frees the frame.
+(def release ((s int) (m (array int)) (p int) (end int)) (array int)
+  (if (ge p end)
+      m
+      (let i (page_of p)
+        (let st (array_get m i)
+          (if (if (eq st 0) true (not (eq (bit_and (sub st 1) 7) 1)))
+              (release s m (add p 4096) end)
+              (let u (space_unmap s p)
+                (let f (frame_free (bit_shr st 3))
+                  (release s (array_set m i 0) (add p 4096) end))))))))
 
 ; Whether a process whose pages m holds may write the n bytes from va,
 ; which user_ok has passed: each page has no frame yet, and is mapped
@@ -575,7 +591,9 @@
               (schedule (kset k i -7) i)                ; asleep until its argument
               (if (eq n 262)
                   (k_listen k i)
-                  (schedule (kresume k i -5) i))))))
+                  (if (eq n 263)
+                      (schedule (kresume k i (frame_free_count)) i)
+                      (schedule (kresume k i -5) i)))))))
 
 ; listen(n)
 (def k_listen ((k Kern) (i int)) int
@@ -725,7 +743,20 @@
                   (sys_region i s m w c a b)
                   (if (eq n 11)
                       (answer i s m w c (clock_ns))    ; the clock
-                      (answer i s m w c -5)))))))      ; close, and any other
+                      (if (eq n 12)
+                          (sys_release i s m w c a b)
+                          (answer i s m w c -5))))))))  ; close, and any other
+
+; release(base, len): the whole pages of the heap in the range, below the
+; stack, given back.
+(def sys_release ((i int) (s int) (m (array int)) (w int) (c (array int))
+                  (base int) (len int)) Proc
+  (if (user_ok base len)
+      (let hi (page_floor (add base len))
+        (answer i s (release s m (page_floor (add base 4095))
+                             (if (gt hi (stack_lo)) (stack_lo) hi))
+                w c 0))
+      (answer i s m w c -5)))
 
 ; read(stream, buf, len): standard input, into the process, at most 64 KB,
 ; and only where it may write.
