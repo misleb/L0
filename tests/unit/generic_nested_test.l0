@@ -1,0 +1,74 @@
+; A call of a generic function has the type its arguments give it, not the
+; kinds its copy is written in (spec 10.2). A value taken out of a generic
+; call's result, whose type has a counted type nested under the parameter, is
+; counted as what it is: consed onto, or read from, it neither leaks nor is
+; freed while used. l0 test runs each under L0_RC_CHECK. From L0S's report
+; probes/generic-match-leak.
+
+(data Pt (Pt int int))
+(data (Box T) (Box T) (NoBox))
+
+; A map holding one list of one Pt, at 7.
+(def start () (Map int (list Pt))
+  (map_put ((MapEmpty int (list Pt))) 7 (cons (Pt 1 2) (nil Pt))))
+
+(def pts () (list Pt) (cons (Pt 1 2) (nil Pt)))
+
+; A generic function and a plain one, each giving back what it is given.
+(def (wrap_any T) ((x T)) (Option T) (Some x))
+(def (box_of T) ((x T)) (Box T) (Box x))
+(def wrap ((gs (list Pt))) (Option (list Pt)) (Some gs))
+
+; The list at k, a Pt consed on.
+(def from_map_get ((m (Map int (list Pt))) (k int)) (list Pt)
+  (cons (Pt 3 4) (match (map_get m k) ((None) (nil Pt)) ((Some gs) gs))))
+
+(def from_generic ((gs (list Pt))) (list Pt)
+  (cons (Pt 3 4) (match (wrap_any gs) ((None) (nil Pt)) ((Some hs) hs))))
+
+(def from_generic_box ((gs (list Pt))) (list Pt)
+  (cons (Pt 3 4) (match (box_of gs) ((NoBox) (nil Pt)) ((Box hs) hs))))
+
+(def from_map_get_let ((m (Map int (list Pt))) (k int)) (list Pt)
+  (let gs (match (map_get m k) ((None) (nil Pt)) ((Some hs) hs))
+    (cons (Pt 3 4) gs)))
+
+; An element read out of a list taken from a generic call's result.
+(def second ((gs (list Pt))) (list Pt)
+  (cons (match (wrap_any gs) ((None) (Pt 0 0)) ((Some hs) (head hs))) (nil Pt)))
+
+; What was always right.
+(def from_plain ((gs (list Pt))) (list Pt)
+  (cons (Pt 3 4) (match (wrap gs) ((None) (nil Pt)) ((Some hs) hs))))
+
+(def from_param ((o (Option (list Pt)))) (list Pt)
+  (cons (Pt 3 4) (match o ((None) (nil Pt)) ((Some gs) gs))))
+
+(def ints_from_generic ((xs (list int))) (list int)
+  (cons 9 (match (wrap_any xs) ((None) (nil int)) ((Some ys) ys))))
+
+(def pts_at ((m (Map int (list Pt))) (k int)) (list Pt)
+  (match (map_get m k) ((None) (nil Pt)) ((Some gs) gs)))
+(def from_helper ((m (Map int (list Pt))) (k int)) (list Pt)
+  (cons (Pt 3 4) (pts_at m k)))
+
+(def test_map_get () int
+  (check_int "two" (length (from_map_get (start) 7)) 2))
+(def test_map_get_absent () int
+  (check_int "one" (length (from_map_get (start) 8)) 1))
+(def test_generic () int
+  (check_int "two" (length (from_generic (pts))) 2))
+(def test_generic_box () int
+  (check_int "two" (length (from_generic_box (pts))) 2))
+(def test_map_get_let () int
+  (check_int "two" (length (from_map_get_let (start) 7)) 2))
+(def test_head_of_generic () int
+  (check_int "one" (length (second (pts))) 1))
+(def test_plain () int
+  (check_int "two" (length (from_plain (pts))) 2))
+(def test_param () int
+  (check_int "two" (length (from_param (Some (pts)))) 2))
+(def test_ints () int
+  (check_int "two" (length (ints_from_generic (cons 1 (nil int)))) 2))
+(def test_helper () int
+  (check_int "two" (length (from_helper (start) 7)) 2))

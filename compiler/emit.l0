@@ -742,7 +742,7 @@
               (match (emit_def_call sym ops env tl st1)
                 ((Val r rt st2)
                   (emit_ret tl
-                    (Val r (fn_type n env)
+                    (Val r (call_type n ts env)
                       (emit_dec_read_only ops ts ws ro st2)))))))))))
 
 ; Releases what a call was given in its read-only positions with a reference.
@@ -819,6 +819,27 @@
   (match (find_sig n (ctx_sigs (env_ctx env)))
     ((Some s) (match s ((S sn tps ps r) r)))
     ((None) (TyInt))))
+
+; The type of a call's result. A copy's return type is written in kinds, so
+; a call to one has the type its function's signature gives it for the
+; arguments' types, which keeps what lies inside a counted type parameter.
+(def call_type ((n (list int)) (ts (list Ty)) (env Env)) Ty
+  (match (find_sig (copy_base n) (ctx_sigs (env_ctx env)))
+    ((Some s)
+      (match s
+        ((S sn tps sps sr)
+          (if (is_empty tps)
+              (fn_type n env)
+              (match (match_tys sps ts tps (nil Bind))
+                ((COk bs) (ty_subst sr bs))
+                ((CErr o m) (fn_type n env)))))))
+    ((None) (fn_type n env))))
+
+; A copy's name without its kinds, and any other name as it is.
+(def copy_base ((n (list int))) (list int)
+  (if (is_empty n)
+      n
+      (if (eq (head n) 46) (nil int) (cons (head n) (copy_base (tail n))))))
 
 ; ------------------------------------------------------------ constructors
 
@@ -1991,20 +2012,33 @@
 ; point. Spec section 9.
 ; A function with type parameters is emitted as its copies, spec 10.2.
 (def emit_module ((ds (list Decl)) (pre int)) (list int)
-  (emit_grouped (mono_program (hide_tparams (group_upper ds pre)) pre) pre))
+  (let hs (hide_tparams (group_upper ds pre))
+    (emit_grouped (mono_program hs pre) (generic_defs hs (nil Decl)) pre)))
 
-(def emit_grouped ((ds (list Decl)) (pre int)) (list int)
+; The functions with type parameters, which copies replace in what is emitted
+; but whose signatures a call's type is computed from, spec 10.2.
+(def generic_defs ((ds (list Decl)) (acc (list Decl))) (list Decl)
+  (if (is_empty ds)
+      (rev_onto acc (nil Decl))
+      (generic_defs (tail ds)
+        (match (head ds)
+          ((DData o n tps cs) acc)
+          ((DDef o n fps ps ret body)
+            (if (is_empty fps) acc (cons (head ds) acc)))))))
+
+(def emit_grouped ((ds (list Decl)) (gs (list Decl)) (pre int)) (list int)
   (let st0 (Em 0 (push (ir_header 0) (nil int)))
     (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
                 (append (digits (ret_kind (program_decls ds pre (nil Decl))))
                         "\n")) st0)
-      (emit_module_fns ds pre (prelude_names ds pre)
+      (emit_module_fns ds gs pre (prelude_names ds pre)
         (program_prelude_names ds pre) st1))))
 
-(def emit_module_fns ((ds (list Decl)) (pre int) (ppre (list (list int)))
-                      (pprog (list (list int))) (st Emit)) (list int)
-  (let pv (prelude_view ds pre)
-    (let gv (program_view ds pre)
+(def emit_module_fns ((ds (list Decl)) (gs (list Decl)) (pre int)
+                      (ppre (list (list int))) (pprog (list (list int)))
+                      (st Emit)) (list int)
+  (let pv (prelude_view (append gs ds) pre)
+    (let gv (program_view (append gs ds) pre)
       (let pads (module_pads ds pre ppre pprog (ctx_builtins pv) (ctx_builtins gv))
         (emit_text
           (emit_fns ds (Sc pv ppre true pads) (Sc gv pprog false pads) pre st))))))

@@ -7,6 +7,30 @@ New entries go at the top.
 
 ---
 
+## A call of a generic function has the type its arguments give it
+
+**Fixed:** the emitter typed a call to a function with type parameters from
+the copy it calls, whose return type is written in kinds (spec 10.2): a
+parameter standing for a counted type is `(list int)`. So what lay inside such
+a type was lost at the call. `(wrap_any gs)` with `gs` a `(list Pt)` had the
+type `(Option (list int))`, and a list taken out of it had elements the
+emitter took for ints. Two failures followed, both from L0S's kernel, which
+keeps `(Map int (list ImageSeg))`: `(cons (Pt 3 4) (match (wrap_any gs) ...))`
+built its cell with a mask that did not mark the head as counted, so the `Pt`
+was never freed (a leak, found by `l0 test`'s leak check), and
+`(head hs)` of such a list was not given its reference, so it was freed while
+still in use (`use of a freed block`). Neither shows in a program whose
+generic calls take or return only the parameter's own type.
+
+A call's type is now `ty_subst` of the generic's return type by what its
+arguments' types bind, as the checker computes it. The copy is unchanged, and
+so is the output for a call whose result has nothing nested under a
+parameter. The spec's 10.2 now says that the call, not the copy, decides.
+
+Evidence: `tests/unit/generic_nested`, from L0S's report
+`probes/generic-match-leak`; ten cases, five leaked and one more used a freed
+block.
+
 ## A region can be closed
 
 **New:** `(region_close r)` (spec 6.12) closes region `r` and returns 0,
