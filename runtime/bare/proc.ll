@@ -271,6 +271,11 @@ entry:
   ret i64 2
 }
 
+define i64 @l0_host_frame_sync(i64 %f, i64 %dir) {
+entry:
+  ret i64 2
+}
+
 define i64 @l0_host_frame_free(i64 %f) {
 entry:
   ret i64 2

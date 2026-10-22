@@ -141,7 +141,10 @@
           (push (check_source (m "(head (frame_free_count))"))
           (push (check_source (m "(region_close)"))
           (push (check_source (m "(region_close true)"))
-          (push (check_source (m "(head (region_close 0))")) cz))))))))))))))))))
+          (push (check_source (m "(head (region_close 0))"))
+          (push (check_source (m "(frame_sync 0)"))
+          (push (check_source (m "(frame_sync 0 true)"))
+          (push (check_source (m "(head (frame_sync 0 1))")) cz)))))))))))))))))))))
     (rev da)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.

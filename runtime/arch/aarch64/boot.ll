@@ -491,6 +491,46 @@ done:
   ret void
 }
 
+; Spec section 10.3's frame_sync over [pa, pa + n), in the host's identity
+; map: with dir 1 cleans each line to the point of coherency, so a device
+; reads what the CPU wrote; with 2 invalidates it, so the CPU reads what a
+; device wrote; with 3 does both. The line is CTR_EL0's least, DminLine
+; words. Then dsb sy, so every access before it is complete.
+define void @l0_arch_dma_sync(i64 %pa, i64 %n, i64 %dir) {
+entry:
+  %ctr = call i64 asm "mrs $0, ctr_el0", "=r"()
+  %dl0 = lshr i64 %ctr, 16
+  %dl = and i64 %dl0, 15
+  %line = shl i64 4, %dl
+  %mask = sub i64 0, %line
+  %a0 = and i64 %pa, %mask
+  %end = add i64 %pa, %n
+  call void asm sideeffect "dsb sy", "~{memory}"()
+  br label %loop
+loop:
+  %a = phi i64 [ %a0, %entry ], [ %a1, %next ]
+  %more = icmp ult i64 %a, %end
+  br i1 %more, label %body, label %done
+body:
+  switch i64 %dir, label %both [ i64 1, label %clean
+                                 i64 2, label %inval ]
+clean:
+  call void asm sideeffect "dc cvac, $0", "r,~{memory}"(i64 %a)
+  br label %next
+inval:
+  call void asm sideeffect "dc ivac, $0", "r,~{memory}"(i64 %a)
+  br label %next
+both:
+  call void asm sideeffect "dc civac, $0", "r,~{memory}"(i64 %a)
+  br label %next
+next:
+  %a1 = add i64 %a, %line
+  br label %loop
+done:
+  call void asm sideeffect "dsb sy", "~{memory}"()
+  ret void
+}
+
 ; Runs the thread whose context is the 104 words at words, in the space
 ; whose root table is root, until it traps. Only the flags of its pstate
 ; are its own: it runs at EL0t, with interrupts unmasked.

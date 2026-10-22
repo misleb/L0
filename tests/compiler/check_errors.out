@@ -101,6 +101,9 @@ ok
 35: an argument of frame_free must be int, but this is (list int)
 35: machine takes 0 arguments, but got 1
 35: head must be a list, but this is int
+35: an argument of frame_sync must be int, but this is bool
+35: frame_sync takes 2 arguments, but got 1
+35: head must be a list, but this is int
 35: an argument of region_close must be int, but this is bool
 35: region_close takes 1 argument, but got 0
 35: head must be a list, but this is int

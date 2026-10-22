@@ -1,7 +1,8 @@
 # 0103: `frame_sync`, a frame's bytes made to agree between caches and memory
 
 Kind: language
-Status: queued
+Status: done, changelog "A frame's bytes made to agree between the CPU's
+caches and memory"; passed on Linux arm64; no run on a Pi
 Needs: 0102
 
 ## Why
@@ -55,3 +56,15 @@ No L0 code can clean a cache line, and a process cannot name a frame.
 - 2026-10-21: opened from L0S's request; queued after 0102. Interrupts
   (virt's INTx and MSIs, RP1's through the MIP) the request leaves to one
   of their own, once its driver runs.
+- 2026-10-21: done. Decided for the builtin, over non-cacheable frames,
+  for the changelog's reasons. The aarch64 cache operations are the CPU's
+  part (`l0_arch_dma_sync`), so the aarch64 virt board runs the same `dc`
+  instructions the Pi will, and the riscv64 board's is a fence. `l0rt.ll`
+  checks the frame by its address, then the direction, then asks the
+  host. `tests/virt/frame_dma` now syncs where a driver must, and
+  `tests/virt/frame_sync` and `tests/io/frame_sync_unknown` check the
+  three directions and both errors. Suites green: 65, 152, `--virt` 323
+  passed, 88 skipped; Linux arm64 65 and 152. Seed refreshed, so
+  `tools/l0` knows the builtin; L0S's `want.l0` checks. Next: tell L0S,
+  whose side is `dma_sync` in its kernel; then its request for
+  interrupts, once its driver runs.

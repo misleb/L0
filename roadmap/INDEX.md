@@ -133,13 +133,14 @@ runtime's 64 regions were never given back, and `region_close` now gives
 one back, telling a process's kernel by call 13 (0100). L0S then asked for
 what a USB stack needs: the aarch64 virt board's PCIe ECAM and MMIO window
 as regions (0101), the Pi 5's RP1 as one (0102), and a builtin that cleans
-and invalidates a frame for the Pi's DMA, which is not coherent (0103).
+and invalidates a frame for the Pi's DMA, which is not coherent (0103), and
+has all three; interrupts for its driver wait for a request of their own.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0103](0103-frame-sync.md) `frame_sync` — queued
+None.
 
 ## Other open items
 
@@ -416,3 +417,6 @@ None.
   ECAM and MMIO window are regions"
 - [0102](0102-pi5-rp1-region.md) the Raspberry Pi 5's RP1 is a region —
   done, changelog "The Raspberry Pi 5's RP1 is a region"; no run on a board
+- [0103](0103-frame-sync.md) `frame_sync` — done, changelog "A frame's
+  bytes made to agree between the CPU's caches and memory"; passed on
+  Linux arm64; no run on a Pi

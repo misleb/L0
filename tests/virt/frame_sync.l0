@@ -1,0 +1,18 @@
+; Spec section 6.13 on the board: a frame syncs in each of the three
+; directions, before and after its bytes are copied in and out, and keeps
+; them, since the board's devices and CPU agree already; then a direction
+; out of range is a runtime error, raised after the frame is checked.
+
+(def synced ((f int) (dir int)) int
+  (write_line (digits (frame_sync f dir))))
+
+(def main () int
+  (let s (space_new)
+    (let f (frame_new)
+      (let m (space_map s 3221225472 f 1)                   ; 0xC0000000
+        (let w (space_write s 3221225472 (bytes_from_list "sync") 0 4)
+          (let a (synced f 1)
+            (let b (synced f 2)
+              (let c (synced f 3)
+                (let r (write_line (bytes_to_list (space_read s 3221225472 4)))
+                  (frame_sync f 4))))))))))

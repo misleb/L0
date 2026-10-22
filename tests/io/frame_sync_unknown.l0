@@ -1,0 +1,5 @@
+; Spec sections 6.13 and 9.2: syncing a frame the program was never given
+; is a runtime error, on every host, and it is checked before the
+; direction, which here is out of range too.
+(def main () int
+  (frame_sync 0 0))

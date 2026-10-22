@@ -588,6 +588,14 @@ entry:
   ret void
 }
 
+; Spec section 10.3's frame_sync: the virt board's devices are coherent,
+; and its harts have no cache operations, so only the barrier.
+define void @l0_arch_dma_sync(i64 %pa, i64 %n, i64 %dir) {
+entry:
+  call void asm sideeffect "fence iorw, iorw", "~{memory}"()
+  ret void
+}
+
 define internal i64 @satp_of(i64 %root, i64 %asid) {
 entry:
   %ppn = lshr i64 %root, 12

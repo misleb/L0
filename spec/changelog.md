@@ -7,6 +7,43 @@ New entries go at the top.
 
 ---
 
+## A frame's bytes made to agree between the CPU's caches and memory
+
+**New:** `(frame_sync f dir)` (spec 6.13) makes frame `f`'s bytes agree
+between the CPU and a device, and returns 0: with `dir` 1 the CPU's
+writes reach memory, for a device about to read; with 2 the CPU's next
+reads come from memory, for what a device wrote; with 3 both. It orders
+accesses as `barrier` does. It raises `not a frame` as `frame_address`
+does, and the new runtime error `sync direction out of range` for any
+other `dir`. On the aarch64 hosts it is `dc cvac`, `dc ivac`, or `dc
+civac` a line at a time over the frame in the host's map, then `dsb sy`;
+on the riscv64 board, `fence iorw, iorw`. Behind it, a host function,
+`l0_host_frame_sync(f, dir)` (spec 10.3).
+
+*Why:* L0S asked (its `probes/usb/REQUEST-pcie-rp1-cache.md`, whose
+`want.l0` gave `unknown function frame_sync`). The Pi 5's DMA is not
+coherent, and the spec said so and left the builtin to "a driver that
+needs it". L0S's xHCI driver is that driver: it writes TRBs into a
+ring's frame before ringing a doorbell, and reads what the controller
+wrote into an event ring's. No L0 code can clean a cache line, and only
+the host knows both a frame and where its own map holds it.
+
+*Decided:* a builtin that syncs, not frames mapped non-cacheable. The
+host's map of its RAM is cacheable in 1 GB blocks, and mapping a page both
+cacheable and not is what the architecture warns against; splitting the
+host's map around each such frame would cost more than a cache operation,
+and a driver's rings are small and synced only around a transfer. A whole
+frame at a time, not a range, since a frame is what a device is given, and
+4096 bytes is 64 lines. One builtin with a direction, as the request
+proposed, rather than three. On the virt boards it does the same cache
+operations as on the Pi, rather than only a barrier, so that the suite
+runs the instructions the Pi will; QEMU models no caches, so there they
+change nothing. Invalidating may lose a CPU write not synced first, as on
+every architecture with this operation: a driver syncs a frame one way at
+a time. Nothing has run it on a Pi, as nothing of the Pi 5's has.
+
+---
+
 ## The Raspberry Pi 5's RP1 is a region
 
 **New:** on the Raspberry Pi 5, RP1's peripherals, 0x1F00000000 and

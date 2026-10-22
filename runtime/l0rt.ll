@@ -33,6 +33,7 @@ declare void @l0_host_barrier()
 declare i64 @l0_host_space_new()
 declare i64 @l0_host_frame_new()
 declare i64 @l0_host_frame_address(i64)
+declare i64 @l0_host_frame_sync(i64, i64)
 declare i64 @l0_host_space_map(i64, i64, i64, i64)
 declare i64 @l0_host_space_map_device(i64, i64, i64, i64)
 declare i64 @l0_host_space_unmap(i64, i64)
@@ -2802,6 +2803,27 @@ entry:
   %k = call i64 @l0_host_frame_address(i64 %f)
   call void @user_check(i64 %k)
   ret i64 %k
+}
+
+@m_sdir = private constant [27 x i8] c"sync direction out of range"
+
+; 0, or a runtime error: whether f is a frame, as frame_address says, and
+; then dir, spec section 6.13's order.
+define i64 @l0_frame_sync(i64 %f, i64 %dir) {
+entry:
+  %a = call i64 @l0_host_frame_address(i64 %f)
+  call void @user_check(i64 %a)
+  %lo = icmp slt i64 %dir, 1
+  %hi = icmp sgt i64 %dir, 3
+  %bad = or i1 %lo, %hi
+  br i1 %bad, label %err, label %sync
+err:
+  call void @rt_error(ptr @m_sdir, i64 27)
+  unreachable
+sync:
+  %k = call i64 @l0_host_frame_sync(i64 %f, i64 %dir)
+  call void @user_check(i64 %k)
+  ret i64 0
 }
 
 ; 0, or -5 when the host has no room left for the tables.

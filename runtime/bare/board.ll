@@ -57,6 +57,7 @@ declare void @l0_arch_timer_off()
 declare void @l0_arch_barrier()
 declare void @l0_arch_wait()
 declare void @l0_arch_code_sync(i64, i64)
+declare void @l0_arch_dma_sync(i64, i64, i64)
 declare i64 @l0_arch_pte_table(i64)
 declare i64 @l0_arch_pte_page(i64, i64)
 declare i64 @l0_arch_pte_device(i64)
@@ -1376,13 +1377,28 @@ e9:
 }
 
 ; Section 10.3: a device on the board reaches a frame at its physical
-; address, through the caches as the CPU does, so nothing more is needed.
+; address, where the host's map holds it too.
 define i64 @l0_host_frame_address(i64 %f) {
 entry:
   %pa = call i64 @frame_pa(i64 %f)
   %nof = icmp eq i64 %pa, 0
   %r = select i1 %nof, i64 2, i64 %pa
   ret i64 %r
+}
+
+; Frame f's 4096 bytes made to agree between the caches and memory, in
+; direction dir, 1 to 3, which l0rt.ll has checked, by what the CPU does
+; for it; or 2, not a frame.
+define i64 @l0_host_frame_sync(i64 %f, i64 %dir) {
+entry:
+  %pa = call i64 @frame_pa(i64 %f)
+  %nof = icmp eq i64 %pa, 0
+  br i1 %nof, label %none, label %sync
+none:
+  ret i64 2
+sync:
+  call void @l0_arch_dma_sync(i64 %pa, i64 4096, i64 %dir)
+  ret i64 0
 }
 
 define i64 @l0_host_frame_free_count() {
