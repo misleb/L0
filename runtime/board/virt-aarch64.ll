@@ -37,10 +37,11 @@ declare i64 @l0_semihost_err_write(ptr, i64)
 ; Block 0 holds the devices, MAIR attribute 0, Device-nGnRnE; blocks 1 and 2
 ; are the RAM, attribute 1, normal write-back. With the MMU off every
 ; access would be to device memory, where an unaligned one faults. Block 3,
-; the 4th gigabyte, is the user range, which only a space maps. The rest,
-; which the 39-bit translation reaches and this board has nothing in, is
-; empty.
-@l0_board_boot_map = global <{ [4 x i64], [508 x i64] }> <{ [4 x i64] [i64 1025, i64 1073743621, i64 2147485445, i64 0], [508 x i64] zeroinitializer }>, align 4096
+; the 4th gigabyte, is the user range, which only a space maps. Block 256,
+; 0x4000000000, holds the PCIe ECAM, and is device memory as block 0 is.
+; The rest, which the 39-bit translation reaches and this board has nothing
+; the host gives in, is empty.
+@l0_board_boot_map = global <{ [4 x i64], [252 x i64], i64, [255 x i64] }> <{ [4 x i64] [i64 1025, i64 1073743621, i64 2147485445, i64 0], [252 x i64] zeroinitializer, i64 274877907969, [255 x i64] zeroinitializer }>, align 4096
 
 define void @l0_board_init(i64 %dtb, i64 %hart) {
 entry:
@@ -74,27 +75,30 @@ entry:
 
 ; The board's devices, spec section 10.3's table, as QEMU's virt board
 ; places them: a base and a length each. All are in block 0 of the boot
-; map, which is device memory, Device-nGnRnE, so an access goes to the
-; device at its width and in order. Anything else, RAM and the runtime's
-; heap among it, is no region, and so is any range of the flash, the PCIe
-; windows, or the gaps between devices, where QEMU would answer an access
-; with an external abort, and so is the GIC, which this file drives.
-@devices = private constant [10 x i64] [
+; map but the ECAM, in block 256, and both are device memory,
+; Device-nGnRnE, so an access goes to the device at its width and in
+; order. Anything else, RAM and the runtime's heap among it, is no region,
+; and so is any range of the flash, the PCIe port-I/O and 64-bit windows,
+; or the gaps between devices, where QEMU would answer an access with an
+; external abort, and so is the GIC, which this file drives.
+@devices = private constant [14 x i64] [
   i64 150994944, i64 4096,        ; 0x09000000, the PL011
   i64 151060480, i64 4096,        ; 0x09010000, the PL031
   i64 151126016, i64 24,          ; 0x09020000, firmware configuration
   i64 151191552, i64 4096,        ; 0x09030000, the PL061
-  i64 167772160, i64 16384 ]      ; 0x0A000000, 32 virtio-mmio transports
+  i64 167772160, i64 16384,       ; 0x0A000000, 32 virtio-mmio transports
+  i64 268435456, i64 788463616,   ; 0x10000000, the PCIe 32-bit MMIO window
+  i64 275146342400, i64 268435456 ] ; 0x4010000000, the PCIe ECAM
 
 define i64 @l0_board_device_count() {
 entry:
-  ret i64 5
+  ret i64 7
 }
 
 define i64 @l0_board_device_base(i64 %k) {
 entry:
   %i = mul i64 %k, 2
-  %p = getelementptr [10 x i64], ptr @devices, i64 0, i64 %i
+  %p = getelementptr [14 x i64], ptr @devices, i64 0, i64 %i
   %v = load i64, ptr %p
   ret i64 %v
 }
@@ -103,14 +107,15 @@ define i64 @l0_board_device_len(i64 %k) {
 entry:
   %i0 = mul i64 %k, 2
   %i = add i64 %i0, 1
-  %p = getelementptr [10 x i64], ptr @devices, i64 0, i64 %i
+  %p = getelementptr [14 x i64], ptr @devices, i64 0, i64 %i
   %v = load i64, ptr %p
   ret i64 %v
 }
 
 ; A new space's root table, at l1: blocks 0 to 2 as the boot map has them,
 ; but for EL1 alone and never executable at EL0, and the devices' never at
-; EL1 either, and block 3, the user range, through the table at l2.
+; EL1 either, and block 3, the user range, through the table at l2. Block
+; 256, the ECAM's, is as block 0.
 define void @l0_board_space_init(i64 %l1, i64 %l2) {
 entry:
   %p0 = inttoptr i64 %l1 to ptr
@@ -122,6 +127,8 @@ entry:
   %p3 = getelementptr i64, ptr %p0, i64 3
   %d3 = or i64 %l2, 3                                       ; the user range
   store i64 %d3, ptr %p3
+  %p256 = getelementptr i64, ptr %p0, i64 256
+  store i64 27021872642130945, ptr %p256                    ; the ECAM, EL1
   ret void
 }
 

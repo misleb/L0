@@ -1,0 +1,34 @@
+; Spec section 10.3 on the aarch64 board: the PCIe ECAM and the 32-bit MMIO
+; window are regions, as L0S's probes/usb could not open them. Bus 0's
+; first function is QEMU's host bridge, vendor 0x1b36 and device 0x0008,
+; and a function no bus has reads as all ones, as the last bus's first
+; does at the ECAM's end. The window's first and last pages open, though
+; nothing is read there, since no BAR is assigned; a range past the end of
+; either is no region.
+
+(def hex ((v int)) int
+  (write_line (hex_digits v 1)))
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def ecam () int
+  (let e (region_open 275146342400 4096)            ; 0x4010000000, bus 0
+    (let a (hex (region_read16 e 0))                ; vendor
+      (let b (hex (region_read16 e 2))              ; device
+        (let z (region_open 275413729280 4096)      ; 0x401FF00000, bus 255
+          (hex (region_read32 z 0)))))))
+
+(def window () int
+  (let w (code (region_open 268435456 4096))        ; 0x10000000
+    (let x (code (region_open 1056894976 4096))     ; 0x3EFEF000
+      (code (region_open 1056894976 8192)))))       ; past the window
+
+(def outside () int
+  (let f (code (region_open 275413729280 1048577))  ; past the ECAM
+    (code (region_open 268431360 8192))))           ; before the window
+
+(def main () int
+  (let a (ecam)
+    (let b (window)
+      (outside))))

@@ -130,13 +130,18 @@ heap page was free again, and a process's runtime now does, by call 12,
 which a kernel may answer by freeing the page's frame or ignore (0099).
 Its compositor could open only 30 windows over its life, since the
 runtime's 64 regions were never given back, and `region_close` now gives
-one back, telling a process's kernel by call 13 (0100).
+one back, telling a process's kernel by call 13 (0100). L0S then asked for
+what a USB stack needs: the aarch64 virt board's PCIe ECAM and MMIO window
+as regions (0101), the Pi 5's RP1 as one (0102), and a builtin that cleans
+and invalidates a frame for the Pi's DMA, which is not coherent (0103).
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-None.
+1. [0102](0102-pi5-rp1-region.md) the Raspberry Pi 5's RP1 is a region —
+   queued
+2. [0103](0103-frame-sync.md) `frame_sync` — queued, needs 0102
 
 ## Other open items
 
@@ -408,3 +413,6 @@ None.
   pages back to its kernel"; passed on Linux arm64
 - [0100](0100-region-close.md) a region can be closed — done, changelog
   "A region can be closed"; passed on Linux arm64
+- [0101](0101-virt-pcie-regions.md) the aarch64 virt board's PCIe ECAM and
+  MMIO window are regions — done, changelog "The aarch64 virt board's PCIe
+  ECAM and MMIO window are regions"

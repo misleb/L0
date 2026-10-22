@@ -55,6 +55,9 @@ target triple = "aarch64-unknown-none-elf"
 
 ; ------------------------------------------------------------------- boot
 
+; The MMU: TCR T0SZ 32, a 4 GB address space, 4 KB granule, 40-bit physical
+; addresses, so a region page can map the PCIe ECAM at 0x4010000000; MAIR
+; attribute 0 Device-nGnRnE and 1 normal write-back.
 module asm ".section .text.boot,\22ax\22"
 module asm ".global _start"
 module asm "_start:"
@@ -69,7 +72,7 @@ module asm "  mov x0, #3"
 module asm "  msr cntkctl_el1, x0"
 module asm "  mov x0, #0xff00"
 module asm "  msr mair_el1, x0"
-module asm "  ldr x0, =0x803520"
+module asm "  ldr x0, =0x200803520"
 module asm "  msr tcr_el1, x0"
 module asm "  ldr x0, =k_boot_pt"
 module asm "  msr ttbr0_el1, x0"
@@ -969,12 +972,14 @@ define internal i64 @sys_clock() {
 ; The board's devices, as runtime/board/virt-aarch64.ll gives them, spec section
 ; 10.3's table: a base and a length each. Not the GIC, which this kernel
 ; drives itself.
-@devices = private constant [10 x i64] [
+@devices = private constant [14 x i64] [
   i64 150994944, i64 4096,        ; 0x09000000, the PL011
   i64 151060480, i64 4096,        ; 0x09010000, the PL031
   i64 151126016, i64 24,          ; 0x09020000, firmware configuration
   i64 151191552, i64 4096,        ; 0x09030000, the PL061
-  i64 167772160, i64 16384 ]      ; 0x0A000000, 32 virtio-mmio transports
+  i64 167772160, i64 16384,       ; 0x0A000000, 32 virtio-mmio transports
+  i64 268435456, i64 788463616,   ; 0x10000000, the PCIe 32-bit MMIO window
+  i64 275146342400, i64 268435456 ] ; 0x4010000000, the PCIe ECAM
 
 ; Whether [base, base + len) lies wholly within one device. The process is
 ; not trusted to have checked base and len, so they are checked here.
@@ -989,14 +994,14 @@ scan:
   br label %loop
 loop:
   %j = phi i64 [ 0, %scan ], [ %j1, %next ]
-  %more = icmp ult i64 %j, 5
+  %more = icmp ult i64 %j, 7
   br i1 %more, label %look, label %no
 look:
   %k = mul i64 %j, 2
-  %bp = getelementptr [10 x i64], ptr @devices, i64 0, i64 %k
+  %bp = getelementptr [14 x i64], ptr @devices, i64 0, i64 %k
   %db = load i64, ptr %bp
   %k1 = add i64 %k, 1
-  %lp = getelementptr [10 x i64], ptr @devices, i64 0, i64 %k1
+  %lp = getelementptr [14 x i64], ptr @devices, i64 0, i64 %k1
   %dl = load i64, ptr %lp
   %de = add i64 %db, %dl
   %from = icmp uge i64 %base, %db

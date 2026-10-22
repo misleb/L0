@@ -7,6 +7,37 @@ New entries go at the top.
 
 ---
 
+## The aarch64 virt board's PCIe ECAM and MMIO window are regions
+
+**New:** on QEMU's aarch64 virt board, two more devices are regions (spec
+10.3): the PCIe ECAM, 0x4010000000 and 0x10000000 bytes, and the 32-bit
+MMIO window, 0x10000000 and 0x2EFF0000 bytes. The boot map's block 256,
+0x4000000000, which holds the ECAM, is device memory, Device-nGnRnE, as
+block 0 is, and so is a space's for the host. The window was in block 0
+already, and only the table refused it.
+
+*Why:* L0S asked (its `probes/usb/REQUEST-pcie-rp1-cache.md`). Its USB
+stack, for the keyboard and mouse of a Raspberry Pi 5, drives an xHCI,
+which QEMU's virt board has only as `qemu-xhci`, on PCIe. Finding it,
+sizing its BAR, and turning on its memory space needs the ECAM, and
+reaching its registers needs the window; its board test opened bus 0's
+megabyte and the window's ends, and all three gave -3. No program can work
+around a region the host refuses.
+
+*Decided:* the host sets up nothing of PCIe. Assigning BARs and enabling a
+function are a driver's, through the ECAM, as L0S's `pcie` server does; a
+host that enumerated would decide where BARs go for every program, and the
+board has one driver that cares. The table is fixed, as the other devices
+are, rather than read from the device tree's `pcie@10000000` node: the
+places are QEMU's with high memory on, which `l0 boot` never turns off, and
+the device tree would be the first thing the host read for a region. The
+port-I/O window and the 64-bit MMIO window are left out, since a driver
+can put every BAR in the 32-bit window, and so are INTx and MSIs, which
+L0S's driver does without by polling, until a request of their own. The
+riscv64 board is unchanged: nothing has asked for its PCIe.
+
+---
+
 ## A call of a generic function has the type its arguments give it
 
 **Fixed:** the emitter typed a call to a function with type parameters from
