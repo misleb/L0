@@ -139,9 +139,7 @@ and invalidates a frame for the Pi's DMA, which is not coherent (0103).
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0102](0102-pi5-rp1-region.md) the Raspberry Pi 5's RP1 is a region —
-   queued
-2. [0103](0103-frame-sync.md) `frame_sync` — queued, needs 0102
+1. [0103](0103-frame-sync.md) `frame_sync` — queued
 
 ## Other open items
 
@@ -416,3 +414,5 @@ None.
 - [0101](0101-virt-pcie-regions.md) the aarch64 virt board's PCIe ECAM and
   MMIO window are regions — done, changelog "The aarch64 virt board's PCIe
   ECAM and MMIO window are regions"
+- [0102](0102-pi5-rp1-region.md) the Raspberry Pi 5's RP1 is a region —
+  done, changelog "The Raspberry Pi 5's RP1 is a region"; no run on a board

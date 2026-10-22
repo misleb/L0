@@ -839,6 +839,7 @@ if [ "$VIRT" = 1 ]; then
                 why="l0 card wrote nothing"
             elif [ "$(head -n 1 "$TMP/pi5-$name.card/config.txt")" != "# written by l0 card" ] ||
                 ! grep -qx "kernel=l0.img" "$TMP/pi5-$name.card/config.txt" ||
+                ! grep -qx "pciex4_reset=0" "$TMP/pi5-$name.card/config.txt" ||
                 ! grep -qx "initramfs input.bin 0x10000000" "$TMP/pi5-$name.card/config.txt"; then
                 why="l0 card's config.txt is wrong"
             elif [ "$(cat "$TMP/pi5-$name.card/cmdline.txt")" != "one two:2" ] ||

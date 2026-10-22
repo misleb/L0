@@ -1,7 +1,8 @@
 # 0102: the Raspberry Pi 5's RP1 is a region
 
 Kind: language
-Status: queued
+Status: done, changelog "The Raspberry Pi 5's RP1 is a region"; no run on
+a board
 Needs: 0101
 
 ## Why
@@ -35,3 +36,13 @@ the firmware leaves the PCIe x4 link to RP1 set up, which it does when
 ## Log
 
 - 2026-10-21: opened from L0S's request; queued after 0101.
+- 2026-10-21: started. Spec, changelog, the board's part (block 124 and
+  the device), `l0 card`'s `pciex4_reset=0`, test.sh's check of it, and
+  `tests/virt/pi5/rp1`, which opens both USB controllers and the window's
+  ends and reads nothing. On a first run, beyond `rp1.out`: whether each
+  controller's HCIVERSION (offset 2, 16 bits) and DWC3 GSNPSID (0xC120)
+  read as an xHCI and a DWC3 do, which says the window is where the
+  request says.
+- 2026-10-21: done. No compiler change, so no seed refresh. Suites green:
+  65, 151, `--virt` 319 passed, 88 skipped, `rp1` among the Pi 5's
+  builds and `l0 card`'s checks. Next: 0103.

@@ -1,0 +1,25 @@
+; Spec section 10.3 on the Raspberry Pi 5: RP1's peripherals are a region,
+; as L0S's probes/usb asked. This is built by tools/test.sh --virt and not
+; run, since no emulator has this board; on a Pi 5 whose serial line is
+; read, its output is rp1.out. Both of RP1's USB controllers, DWC3s at
+; 0x1F00200000 and 0x1F00300000, open over their first 64 KB, and so do
+; the window's first and last pages; a range past the window's end, and
+; one before it, are no region. Nothing is read, since what RP1's
+; registers hold is not the host's to promise.
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def inside () int
+  (let a (code (region_open 133146083328 65536))    ; 0x1F00200000, USB 0
+    (let b (code (region_open 133147131904 65536))  ; 0x1F00300000, USB 1
+      (let c (code (region_open 133143986176 4096)) ; 0x1F00000000
+        (code (region_open 133148176384 4096))))))  ; 0x1F003FF000
+
+(def outside () int
+  (let a (code (region_open 133148176384 8192))     ; past the window
+    (code (region_open 133143982080 8192))))        ; before it
+
+(def main () int
+  (let a (inside)
+    (outside)))

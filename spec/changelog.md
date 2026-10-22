@@ -7,6 +7,34 @@ New entries go at the top.
 
 ---
 
+## The Raspberry Pi 5's RP1 is a region
+
+**New:** on the Raspberry Pi 5, RP1's peripherals, 0x1F00000000 and
+0x400000 bytes, are a region (spec 10.3), in the boot map's block 124,
+Device-nGnRnE, which a space's root table copies for the host as it does
+every block of the boot map. `l0 card`'s `config.txt` says
+`pciex4_reset=0`.
+
+*Why:* L0S asked, in the same request as the virt board's PCIe (its
+`probes/usb/REQUEST-pcie-rp1-cache.md`). On the Pi 5, USB is the only way
+to attach a keyboard and a mouse, and both USB controllers are DWC3s, so
+xHCIs, on RP1, at 0x1F00200000 and 0x1F00300000. The spec said RP1 "is
+none", so no driver could reach them.
+
+*Decided:* the firmware sets up the PCIe link to RP1 and the host keeps
+it, rather than the host bringing up the root complex itself: the
+bootloader already does it, `pciex4_reset=0` tells the firmware to leave
+it, and bringing up PCIe would be the host deciding for every driver what
+is behind it. Only RP1's peripheral window is given, not the whole of
+PCIe's outbound window, since nothing else is behind this link.
+RP1's DMA offset, bus 0x1000000000 for CPU 0 (bcm2712's `dma-ranges`),
+stays the driver's to add, so that `frame_address` means one thing on
+every board. Neither the window nor the offset has been checked on a
+board, as nothing of the Pi 5's has; `tests/virt/pi5/rp1` is what a first
+run shows.
+
+---
+
 ## The aarch64 virt board's PCIe ECAM and MMIO window are regions
 
 **New:** on QEMU's aarch64 virt board, two more devices are regions (spec
