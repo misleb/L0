@@ -7,6 +7,50 @@ New entries go at the top.
 
 ---
 
+## A board program sizes its heap and stack, or brings its own layout
+
+**New:** a board's layout, `runtime/board/BOARD.ld`, is a template that
+`l0 build` fills with a heap size and a stack size (spec 10.3), today's
+by default, which `--heap-mb N` and `--stack-mb N` set for `--target
+virt` and `pi5`; the heap's start and the stack's top stay where they
+were. `--layout FILE` links with a script of the program's own in place
+of the template, which must define the template's symbols and keep
+standard input where the template has it; the driver puts the sizes
+before either script and its checks after. Each manifest gives its
+board's defaults and room, `T_HEAP_MB`, `T_STACK_MB`, and `T_ROOM_MB`.
+
+**Changed:** the frame windows are no longer the gaps between a layout's
+parts, but the RAM a board's boot map reaches, from which `board.ll`
+cuts everything below the image's end, the heap, and the stack, as it
+already cut the device tree and standard input. With the default sizes
+the pool is what it was.
+
+*Why:* L0S asked, in its proposal "Kernel-Sized Board Layouts", and so
+did the user, for a microkernel; it is 0097's item 2. A kernel is an
+ordinary board program, so it got a program's layout: on the aarch64
+virt board at 2 GB a heap of 1,024 MB and a stack of 256 MB, and 765 MB
+of frames for all its processes. L0S measured its demo with 65 processes
+at a kernel heap of 20.5 MB, a stack under 8 KB, and 30 MB of frames.
+With a heap of 64 MB and a stack of 16 MB the pool is about 1,967 MB.
+
+*Decided:* sizes, not addresses, so that one request means the same on
+every board; and options to the driver, not a declaration in the program,
+so that an L0 program stays the same on every host (spec 9.2). Both
+changes at once, since either alone gains nothing: a smaller heap left
+the RAM it gave up in no window, and derived windows with a fixed heap
+change nothing below the user range. The heap's start stays fixed above
+the loader's standard input, rather than following wherever the input
+lies, so that a heap's size never depends on the input's. A layout file
+is the user's ask, for a program whose needs are not two sizes; it is
+checked only for what the runtime and `l0 boot` rely on, since a board
+reports the rest itself. Left for later: a heap that grows from the pool,
+which L0S names the version that never needs revisiting; RAM under the
+user range, L0S's item 4; RAM past 0xC0000000 on the aarch64 virt board,
+which its boot map does not reach; and recording the sizes in the image's
+header, so that `l0 boot` could check the board's RAM holds them.
+
+---
+
 ## A frame's bytes made to agree between the CPU's caches and memory
 
 **New:** `(frame_sync f dir)` (spec 6.13) makes frame `f`'s bytes agree

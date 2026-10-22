@@ -1,0 +1,4 @@
+--heap-mb
+64
+--stack-mb
+16

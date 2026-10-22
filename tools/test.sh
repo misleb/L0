@@ -63,6 +63,10 @@
 #                  as its user mode; it is not run again as a process
 #   <stem>.refused tests/virt only: the board's toolchain must refuse to
 #                  build the program, writing this file's text
+#   <stem>.layout  tests/virt only: the options of its layout, --heap-mb,
+#                  --stack-mb, or --layout and a path from the root, one per
+#                  line, for a program built for the board alone, so it has
+#                  a .board or .refused file too; <stem>.ARCH.layout first
 #   <stem>.args    tests/virt: the program's arguments, one per line, which
 #                  hold no spaces: its boot arguments on the board, and its
 #                  arguments as a process under both kernels.
@@ -286,6 +290,15 @@ args_of() {
     fi
 }
 
+# The layout options a tests/virt program is built with, from its .layout
+# file, a CPU's own first, which hold no spaces, with paths from the root.
+layout_of() {
+    l=$(expect_file "$1" layout)
+    if [ -f "$l" ]; then
+        tr '\n' ' ' < "$l"
+    fi
+}
+
 # --------------------------------------------------------------------- virt
 #
 # For each CPU with a virt board, aarch64 and riscv64, or those
@@ -480,8 +493,8 @@ if [ "$VIRT" = 1 ]; then
             # A program the board's toolchain must refuse to build, saying
             # what its .refused file says.
             # shellcheck disable=SC2046
-            if L0_COMPILER="$vcc" ./tools/l0 build --target virt "$src" \
-                $(virt_extra "$stem") -o "$TMP/$name.img" > "$TMP/$name.berr" 2>&1; then
+            if L0_COMPILER="$vcc" ./tools/l0 build --target virt $(layout_of "$stem") \
+                "$src" $(virt_extra "$stem") -o "$TMP/$name.img" > "$TMP/$name.berr" 2>&1; then
                 nfail=$((nfail + 1))
                 failures="$failures $VARCH:virt/$name"
                 echo "FAIL $VARCH:virt/$name: built, though it must be refused"
@@ -496,8 +509,8 @@ if [ "$VIRT" = 1 ]; then
             continue
         fi
         # shellcheck disable=SC2046
-        if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$src" \
-            $(virt_extra "$stem") -o "$TMP/$name.img" \
+        if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt $(layout_of "$stem") \
+            "$src" $(virt_extra "$stem") -o "$TMP/$name.img" \
             > "$TMP/$name.berr" 2>&1; then
             nfail=$((nfail + 1))
             failures="$failures $VARCH:virt/$name"

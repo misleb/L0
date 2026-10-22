@@ -1,0 +1,1 @@
+l0: a heap of 1600 MB and a stack of 256 MB take 1856 MB, and --target virt --arch aarch64 has room for 1664 MB of both (spec section 10.3)

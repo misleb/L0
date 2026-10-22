@@ -1,0 +1,13 @@
+; Spec section 10.3 on the board: a layout file of the program's own puts
+; its stack of 16 MB right after its heap of 64 MB; the program runs on
+; that stack, its recursion's cells in that heap, and the RAM above both is
+; frames.
+(def build ((n int)) (list int)
+  (if (eq n 0) (nil int) (cons n (build (sub n 1)))))
+
+(def main () int
+  (let a (write_line (digits (length (build 10000))))
+    (let n (frame_free_count)
+      (if (gt n 450000)
+          (write_line "the pool holds more than 450000 frames")
+          (write_line (append "the pool holds only " (digits n)))))))

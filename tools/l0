@@ -40,6 +40,13 @@
 #   --arch ARCH     with --target virt or proc, the CPU: aarch64, the
 #                   default unless L0_ARCH names another, or riscv64; the
 #                   Raspberry Pi 5's is aarch64
+#   --heap-mb N     with --target virt or pi5, the program's heap and its
+#   --stack-mb N    stack, in megabytes, in place of the board's, which
+#                   leaves the rest of its RAM to frames (spec section
+#                   10.3): a kernel needs little of either
+#   --layout FILE   with --target virt or pi5, a linker script to lay the
+#                   image out with, in place of the board's template, which
+#                   must define what the template does (spec section 10.3)
 #
 # With --target virt, l0 build writes a raw image, as the CPU's boot
 # protocol loads it, and l0 run boots it with QEMU, qemu-system-aarch64 for
@@ -154,6 +161,21 @@ MATCH=""
 BLESS=""
 TARGET=host
 ARCH=${L0_ARCH:-aarch64}
+HEAP_MB=""
+STACK_MB=""
+LAYOUT=""
+
+# megabytes OPTION N: N, if it is a whole number of megabytes from 1 to
+# 9,999,999, written without a leading 0, or else the driver stops.
+megabytes() {
+    case "$2" in
+        "" | 0* | *[!0-9]* | ????????*)
+            echo "l0: $1 needs a number of megabytes from 1 to 9999999, not '$2'" >&2
+            exit 2
+            ;;
+    esac
+    echo "$2"
+}
 
 parse_args() {
     while [ $# -gt 0 ]; do
@@ -176,6 +198,23 @@ parse_args() {
                 shift
                 [ $# -gt 0 ] || { echo "l0: --arch needs a name" >&2; exit 2; }
                 ARCH=$1
+                ;;
+            --heap-mb)
+                shift
+                HEAP_MB=$(megabytes --heap-mb "${1:-}") || exit 2
+                ;;
+            --stack-mb)
+                shift
+                STACK_MB=$(megabytes --stack-mb "${1:-}") || exit 2
+                ;;
+            --layout)
+                shift
+                [ $# -gt 0 ] || { echo "l0: --layout needs a linker script" >&2; exit 2; }
+                if [ ! -f "$1" ]; then
+                    echo "l0: cannot read $1" >&2
+                    exit 1
+                fi
+                LAYOUT=$(cd "$(dirname "$1")" && pwd)/$(basename "$1")
                 ;;
             --match)
                 shift
@@ -205,6 +244,19 @@ parse_args() {
         echo "l0: no source files given" >&2
         exit 2
     fi
+    # A board's layout is its program's to size (spec section 10.3); a
+    # process's is its kernel's, and an operating system's host has none.
+    case $TARGET in
+        virt | pi5) ;;
+        *)
+            for o in "--heap-mb:$HEAP_MB" "--stack-mb:$STACK_MB" "--layout:$LAYOUT"; do
+                if [ -n "${o#*:}" ]; then
+                    echo "l0: ${o%%:*} is for --target virt or pi5, whose layout the program sizes, not --target $TARGET" >&2
+                    exit 2
+                fi
+            done
+            ;;
+    esac
 }
 
 # Writes an input bundle: a table of byte offsets and paths followed by the
@@ -327,7 +379,7 @@ load_target() {
         [ -f "$tdir.err" ] && sed 's/^/    /' "$tdir.err" >&2
         exit 2
     fi
-    T_CFLAGS="" T_TAIL_WORDS="" T_LDFLAGS=""
+    T_CFLAGS="" T_TAIL_WORDS="" T_LDFLAGS="" T_INPUT_AT="" T_INPUT_LEN_AT=""
     # shellcheck source=/dev/null
     . "$tdir/target"
 }
@@ -356,6 +408,7 @@ tail_words_ok() {
 bare_link() {
     load_target
     tail_words_ok "$1" || exit 1
+    write_layout "$TMP/layout.ld"
     parts=""
     for p in $(cat "$tdir/parts"); do
         parts="$parts -Xclang -mlink-bitcode-file -Xclang $tdir/$p"
@@ -368,7 +421,7 @@ bare_link() {
     # a process's an ELF, whose segments its kernel maps.
     if [ -n "${L0_VIRT_LD:-}" ]; then
         # shellcheck disable=SC2086
-        "$L0_VIRT_LD" -T "$tdir/layout.ld" $T_LDFLAGS "$TMP/bare.o" -o "$2"
+        "$L0_VIRT_LD" -T "$TMP/layout.ld" $T_LDFLAGS "$TMP/bare.o" -o "$2"
         return
     fi
     if ! command -v docker > /dev/null 2>&1; then
@@ -379,11 +432,41 @@ bare_link() {
         echo "l0: building the l0-virt-link image, once" >&2
         docker build -q -t l0-virt-link "$tdir" > /dev/null
     fi
-    cp "$tdir/layout.ld" "$TMP/layout.ld"
     # shellcheck disable=SC2086
     docker run --rm -v "$TMP:/w" -w /w l0-virt-link \
         ld.lld -T layout.ld $T_LDFLAGS bare.o -o bare.out
     cp "$TMP/bare.out" "$2"
+}
+
+# write_layout OUT: the linker script the target's image is linked with,
+# in OUT. A process's is its layout as it is. A board's is its template,
+# or the --layout file, with the heap's and stack's sizes before it, the
+# manifest's or the options', and after it the checks of what the runtime
+# and l0 boot rely on (spec section 10.3).
+write_layout() {
+    if [ "$T_KIND" != board ]; then
+        cp "$tdir/layout.ld" "$1"
+        return
+    fi
+    heap=${HEAP_MB:-$T_HEAP_MB}
+    stack=${STACK_MB:-$T_STACK_MB}
+    if [ -z "$LAYOUT" ] && [ $((heap + stack)) -gt "$T_ROOM_MB" ]; then
+        echo "l0: a heap of $heap MB and a stack of $stack MB take $((heap + stack)) MB, and --target $TARGET --arch $ARCH has room for $T_ROOM_MB MB of both (spec section 10.3)" >&2
+        exit 2
+    fi
+    {
+        echo "__l0_heap_size = $((heap * 1048576));"
+        echo "__l0_stack_size = $((stack * 1048576));"
+        cat "${LAYOUT:-$tdir/layout.ld}"
+        echo 'ASSERT(__heap_start % 4096 == 0 && __heap_end % 4096 == 0 && __heap_end - __heap_start >= 4096, "l0: the heap is not whole pages, at least one")'
+        echo 'ASSERT(__stack_bottom % 4096 == 0 && __stack_top % 4096 == 0 && __stack_top - __stack_bottom >= 4096, "l0: the stack is not whole pages, at least one")'
+        echo 'ASSERT(__heap_end <= __stack_bottom || __stack_top <= __heap_start, "l0: the heap and the stack overlap")'
+        [ -n "${T_INPUT_AT:-}" ] &&
+            echo "ASSERT(__input_start == $T_INPUT_AT, \"l0: __input_start is not $T_INPUT_AT, where the board's standard input is loaded\")"
+        [ -n "${T_INPUT_LEN_AT:-}" ] &&
+            echo "ASSERT(__input_len == $T_INPUT_LEN_AT, \"l0: __input_len is not $T_INPUT_LEN_AT, where the board's standard input's length is loaded\")"
+        :
+    } > "$1"
 }
 
 # board_of IMAGE: the manifest's T_ variables of the board IMAGE is for,

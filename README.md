@@ -72,7 +72,11 @@ its processes make calls of the kernel's own, with words and bytes. The
 kernel in `tests/virt/user` runs the compiler that way, preempted every
 10 ms, which compiles itself to the same bytes, and runs a serial driver
 that is a process, writing what a client process sends it and waiting for
-its device's interrupt, as `tools/test.sh --virt` checks.
+its device's interrupt, as `tools/test.sh --virt` checks. A kernel needs
+little memory of its own, so `l0 build --heap-mb N --stack-mb N` sizes a
+board program's heap and stack and gives the rest of the board's RAM to
+its processes' frames, and `--layout FILE` lays the image out with a linker
+script of its own.
 
 **Written for agents, not for human readers.** L0 does not aim to be pleasant
 for humans to read. Its reader and writer is an agent, so what counts is

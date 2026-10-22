@@ -11,7 +11,8 @@
 #                   program alike
 #   T_PARTS         the host's parts, under runtime/, linked into every
 #                   program beside runtime/l0rt.ll and runtime/freestanding.ll
-#   T_LAYOUT        its linker script, under runtime/
+#   T_LAYOUT        its linker script, under runtime/; for a board, a
+#                   template that tools/l0 fills (spec section 10.3)
 #   T_LDFLAGS       what else ld.lld needs to write its image as its loader
 #                   loads it (spec section 10.3): --oformat binary for a
 #                   board's raw image, and for a process's ELF
@@ -27,6 +28,10 @@
 #   T_BOARD_TAG     for an arm64 board, the word at 0x30, in hex, which the
 #                   layout's __l0_board puts there; 0 if unset, as for the
 #                   virt board, so that two boards with one CPU are told apart
+#   T_HEAP_MB       the heap's size the template gets, in megabytes, unless
+#                   --heap-mb gives another, and T_STACK_MB the stack's;
+#   T_ROOM_MB       the most the two may take together, from the template's
+#                   heap's start up to its stack's top
 # and a board QEMU emulates, for l0 boot, which a board with no emulator, the
 # Raspberry Pi 5, leaves T_QEMU empty of, and then l0 boot refuses its images
 # and l0 card writes what its SD card needs, with T_INPUT_AT the address the

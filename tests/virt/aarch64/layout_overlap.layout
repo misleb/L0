@@ -1,0 +1,2 @@
+--layout
+tests/virt/aarch64/layout_overlap.ld

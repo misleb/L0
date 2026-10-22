@@ -1,0 +1,6 @@
+--layout
+tests/virt/aarch64/layout_file.ld
+--heap-mb
+64
+--stack-mb
+16

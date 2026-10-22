@@ -1,0 +1,3 @@
+; Spec section 10.3: a layout file whose heap and stack overlap is refused
+; when the image is linked.
+(def main () int 0)

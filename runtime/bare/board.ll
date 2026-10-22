@@ -24,7 +24,8 @@
 ;     spaces
 ;   - regions over the board's table of devices, and the barrier the CPU's
 ;   - user mode: the pool of frames, the RAM the device tree describes in
-;     the windows the board's part gives, the spaces, and the tables mapping their user range, written through
+;     the windows the board's part gives, less what the layout keeps, the
+;     spaces, and the tables mapping their user range, written through
 ;     the CPU's descriptors: three levels of 4 KB tables with 9-bit
 ;     indices, which arm64's 4 KB granule and RISC-V's Sv39 both are
 ;   - the interrupts' bookkeeping, over the board's controller, and the
@@ -48,6 +49,8 @@ declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 @__input_len = external global i64
 @__input_start = external global i8
 @__heap_start = external global i8
+@__heap_end = external global i8
+@__image_end = external global i8
 
 ; The architecture's part, runtime/arch/ARCH/boot.ll.
 declare i64 @l0_arch_counter()
@@ -164,9 +167,8 @@ done:
 ; Finds standard input's place and count once, before the program starts,
 ; since the page holding the loader's count is the pool's from then on. An
 ; initrd the device tree describes, from initrd_lo to initrd_hi, wins if it
-; lies below the heap, which is where the pool's first window ends; if
-; not, the loader's bytes at __input_start, at most what the window up to
-; the heap holds; with neither, there is no input.
+; lies below the heap; if not, the loader's bytes at __input_start, at most
+; what lies between there and the heap; with neither, there is no input.
 define internal void @input_init() {
 entry:
   %lo = load i64, ptr @initrd_lo
@@ -630,10 +632,11 @@ entry:
 ; Spec sections 6.13 and 10.3. Pages come from the pool, built at boot by
 ; pool_init in at most 32 pieces of whole pages, mapped where they are by
 ; the boot map: each of the windows the board's part gives, cut by the RAM
-; the device tree's /memory nodes describe, with the device tree and the
-; pages holding standard input's bytes cut out, those pages then pieces of
-; their own after the others. Firmware reservations are not read, since a
-; board's windows leave them out. Pages are numbered through the pieces in
+; the device tree's /memory nodes describe, with the holes cut out:
+; everything below the image's end, the heap, the stack, the device tree,
+; and the pages holding standard input's bytes, those pages then pieces of
+; their own after the others. Firmware reservations are not read, since
+; the firmware a board's host runs under keeps below the image. Pages are numbered through the pieces in
 ; order, and frame k is the k-th page; page_state, at the start of the first
 ; piece large enough, holds 4 bytes for every page, so the pool has no bound
 ; but the RAM.
@@ -673,8 +676,8 @@ entry:
 @ram_lo = internal global [8 x i64] zeroinitializer
 @ram_hi = internal global [8 x i64] zeroinitializer
 @ram_n = internal global i64 0
-@hole_lo = internal global [2 x i64] zeroinitializer
-@hole_hi = internal global [2 x i64] zeroinitializer
+@hole_lo = internal global [5 x i64] zeroinitializer  ; the device tree, input,
+@hole_hi = internal global [5 x i64] zeroinitializer  ; image, heap, stack
 @in_joined = internal global i1 false
 @sp_l1 = internal global [255 x i64] zeroinitializer
 @sp_count = internal global i64 0
@@ -915,15 +918,15 @@ entry:
   %empty = icmp uge i64 %a, %b
   br i1 %empty, label %done, label %which
 which:
-  %last = icmp eq i64 %h, 2
+  %last = icmp eq i64 %h, 5
   br i1 %last, label %add, label %hole
 add:
   call void @add_piece(i64 %a, i64 %b)
   ret void
 hole:
-  %lp = getelementptr [2 x i64], ptr @hole_lo, i64 0, i64 %h
+  %lp = getelementptr [5 x i64], ptr @hole_lo, i64 0, i64 %h
   %lo = load i64, ptr %lp
-  %hp = getelementptr [2 x i64], ptr @hole_hi, i64 0, i64 %h
+  %hp = getelementptr [5 x i64], ptr @hole_hi, i64 0, i64 %h
   %hi = load i64, ptr %hp
   %h1 = add i64 %h, 1
   %nothing = icmp uge i64 %lo, %hi
@@ -1004,9 +1007,10 @@ done:
   ret void
 }
 
-; Builds the pool: the windows' RAM with the device tree and the input's
-; pages cut out, then the input's pages, which lie in the first window on
-; every board, then the numbering.
+; Builds the pool: the windows' RAM with the holes cut out, then the
+; input's pages, which lie in the first window on every board, then the
+; numbering. The image's hole is from 0, so it holds the firmware's too,
+; and the heap's and stack's are whole pages, as the driver checks.
 define internal void @pool_init(i64 %dtb) {
 entry:
   call void @boot_memory(i64 %dtb)
@@ -1021,10 +1025,26 @@ entry:
   %len = load i64, ptr @in_len
   %ie0 = add i64 %is, %len
   %ie = call i64 @page_up(i64 %ie0)
-  %h1l = getelementptr [2 x i64], ptr @hole_lo, i64 0, i64 1
+  %h1l = getelementptr [5 x i64], ptr @hole_lo, i64 0, i64 1
   store i64 %is, ptr %h1l
-  %h1h = getelementptr [2 x i64], ptr @hole_hi, i64 0, i64 1
+  %h1h = getelementptr [5 x i64], ptr @hole_hi, i64 0, i64 1
   store i64 %ie, ptr %h1h
+  %ime = ptrtoint ptr @__image_end to i64
+  %imh = call i64 @page_up(i64 %ime)
+  %h2h = getelementptr [5 x i64], ptr @hole_hi, i64 0, i64 2
+  store i64 %imh, ptr %h2h
+  %hs = ptrtoint ptr @__heap_start to i64
+  %he = ptrtoint ptr @__heap_end to i64
+  %h3l = getelementptr [5 x i64], ptr @hole_lo, i64 0, i64 3
+  store i64 %hs, ptr %h3l
+  %h3h = getelementptr [5 x i64], ptr @hole_hi, i64 0, i64 3
+  store i64 %he, ptr %h3h
+  %sb = ptrtoint ptr @__stack_bottom to i64
+  %st = ptrtoint ptr @__stack_top to i64
+  %h4l = getelementptr [5 x i64], ptr @hole_lo, i64 0, i64 4
+  store i64 %sb, ptr %h4l
+  %h4h = getelementptr [5 x i64], ptr @hole_hi, i64 0, i64 4
+  store i64 %st, ptr %h4h
   %wn = call i64 @l0_board_window_count()
   br label %wloop
 wloop:

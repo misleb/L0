@@ -420,3 +420,6 @@ None.
 - [0103](0103-frame-sync.md) `frame_sync` — done, changelog "A frame's
   bytes made to agree between the CPU's caches and memory"; passed on
   Linux arm64; no run on a Pi
+- [0104](0104-board-layout-sizes.md) a board program sizes its heap and
+  stack, or brings its own layout — done, changelog "A board program sizes
+  its heap and stack, or brings its own layout"

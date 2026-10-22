@@ -12,12 +12,14 @@
 ;               are copied out of it before the program starts
 ;   0x4FFFFFF8  standard input's length, a word, written by QEMU's loader
 ;   0x50000000  standard input's bytes, loaded by QEMU's loader
-;   0x58000000  the heap, to 0x98000000
-;   0x98000000  frames and the spaces' page tables, to 0xB0000000
-;   0xB0000000  the stack, 256 MB, growing down from 0xC0000000
+;   0x58000000  the heap, 1 GB unless --heap-mb gives its size
+;   ...         frames and the spaces' page tables
+;   0xB0000000  the stack, 256 MB unless --stack-mb gives its size, growing
+;               down from 0xC0000000
 ;   0xC0000000  to 0x100000000, the user range, mapped by each space alone
-; Frames and tables come too from the image's end to the heap, but for the
-; device tree and, until a read reaches their end, standard input's bytes.
+; Frames and tables come from all the RAM below the user range but the
+; image and what lies below it, the heap, the stack, the device tree, and,
+; until a read reaches their end, standard input's bytes.
 ;
 ; Standard output is the PL011 at 0x09000000. Standard error and the exit
 ; status reach the host by semihosting, so the three stay apart on a board
@@ -132,36 +134,23 @@ entry:
   ret void
 }
 
-; The frame windows, spec section 10.3: what the layout leaves besides the
-; image, the heap, and the stack, from the image's end to the heap and from
-; the heap's end to the stack. The device tree and standard input are in the
-; first, and runtime/bare/board.ll cuts them out.
-@__image_end = external global i8
-@__heap_start = external global i8
-@__heap_end = external global i8
-@__stack_bottom = external global i8
-
+; The frame windows, spec section 10.3: the RAM the boot map reaches below
+; the user range, 0x40000000 up to 0xC0000000. runtime/bare/board.ll cuts
+; out the image and what lies below it, the heap, the stack, the device
+; tree, and standard input, wherever the layout puts them.
 define i64 @l0_board_window_count() {
 entry:
-  ret i64 2
+  ret i64 1
 }
 
 define i64 @l0_board_window_start(i64 %k) {
 entry:
-  %a = ptrtoint ptr @__image_end to i64
-  %b = ptrtoint ptr @__heap_end to i64
-  %first = icmp eq i64 %k, 0
-  %r = select i1 %first, i64 %a, i64 %b
-  ret i64 %r
+  ret i64 1073741824
 }
 
 define i64 @l0_board_window_end(i64 %k) {
 entry:
-  %a = ptrtoint ptr @__heap_start to i64
-  %b = ptrtoint ptr @__stack_bottom to i64
-  %first = icmp eq i64 %k, 0
-  %r = select i1 %first, i64 %a, i64 %b
-  ret i64 %r
+  ret i64 3221225472
 }
 
 ; ------------------------------------------------------------- interrupts

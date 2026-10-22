@@ -15,15 +15,18 @@
 ;               program starts
 ;   0x10000000  standard input's bytes, the initramfs the firmware loaded,
 ;               which the device tree says the place and end of
-;   0x40000000  the heap, 768 MB
-;   0x70000000  the stack, 256 MB, growing down from 0x80000000
+;   0x40000000  the heap, 768 MB unless --heap-mb gives its size
+;   ...         frames and the spaces' page tables
+;   0x70000000  the stack, 256 MB unless --stack-mb gives its size, growing
+;               down from 0x80000000
 ;   0x80000000  more frames, when there is RAM there, to the user range
 ;   0xC0000000  to 0x100000000, the user range, mapped by each space alone:
 ;               the RAM there is never used
 ;   0x100000000 frames and the spaces' page tables, to 0x400000000, where
 ;               there is RAM; the board has up to 16 GB
-; Frames and tables come too from the image's end to the heap, but for the
-; device tree and, until a read reaches their end, standard input's bytes.
+; Frames and tables come from all the RAM but the user range, BL31, the
+; image, the heap, the stack, the device tree, and, until a read reaches
+; their end, standard input's bytes.
 ; The boot map holds blocks 0 and 1 and the devices', so that the boot stack
 ; and the heap are mapped, and the rest of the RAM the device tree describes
 ; is added by l0_board_map_ram, so that a block with no RAM is never mapped
@@ -238,45 +241,28 @@ done:
   ret void
 }
 
-; The frame windows, spec section 10.3: what the layout leaves besides the
-; image, the heap, and the stack, from the image's end to the heap, from
-; the stack's end to the user range, and from the 5th gigabyte to the 16th,
-; where the device tree says there is RAM. The device tree and standard
-; input are in the first, and runtime/bare/board.ll cuts them out.
-@__image_end = external global i8
-@__heap_start = external global i8
-@__stack_top = external global i8
-
+; The frame windows, spec section 10.3: the RAM the boot map may reach but
+; the user range, from 0 up to 0xC0000000 and from the 5th gigabyte to the
+; 16th, where the device tree says there is RAM. runtime/bare/board.ll
+; cuts out BL31 and the image, below the image's end, the heap, the stack,
+; the device tree, and standard input, wherever the layout puts them.
 define i64 @l0_board_window_count() {
 entry:
-  ret i64 3
+  ret i64 2
 }
 
 define i64 @l0_board_window_start(i64 %k) {
 entry:
-  switch i64 %k, label %w2 [ i64 0, label %w0
-                             i64 1, label %w1 ]
-w0:
-  %a = ptrtoint ptr @__image_end to i64
-  ret i64 %a
-w1:
-  %b = ptrtoint ptr @__stack_top to i64
-  ret i64 %b
-w2:
-  ret i64 4294967296
+  %first = icmp eq i64 %k, 0
+  %r = select i1 %first, i64 0, i64 4294967296             ; 0, 0x100000000
+  ret i64 %r
 }
 
 define i64 @l0_board_window_end(i64 %k) {
 entry:
-  switch i64 %k, label %w2 [ i64 0, label %w0
-                             i64 1, label %w1 ]
-w0:
-  %a = ptrtoint ptr @__heap_start to i64
-  ret i64 %a
-w1:
-  ret i64 3221225472
-w2:
-  ret i64 17179869184
+  %first = icmp eq i64 %k, 0
+  %r = select i1 %first, i64 3221225472, i64 17179869184   ; 0xC0000000, 0x400000000
+  ret i64 %r
 }
 
 ; ------------------------------------------------------------- interrupts

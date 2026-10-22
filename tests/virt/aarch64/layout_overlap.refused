@@ -1,0 +1,2 @@
+ld.lld: error: l0: the heap and the stack overlap
+ld.lld: error: l0: the heap and the stack overlap

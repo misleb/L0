@@ -3,7 +3,9 @@
    runtime/board/virt-aarch64.ll has the memory map, and runtime/bare/
    board.ll, runtime/arch/aarch64/boot.ll, and runtime/freestanding.ll use
    every symbol below. __l0_board is the image header's tag of the board,
-   0 for this one. */
+   0 for this one. It is a template (spec section 10.3): tools/l0 puts
+   __l0_heap_size and __l0_stack_size before it, the manifest's sizes or
+   --heap-mb's and --stack-mb's, and its checks after. */
 ENTRY(_start)
 SECTIONS
 {
@@ -22,9 +24,9 @@ SECTIONS
   __input_len = 0x4FFFFFF8;
   __input_start = 0x50000000;
   __heap_start = 0x58000000;
-  __heap_end = 0x98000000;
-  __stack_bottom = 0xB0000000;
+  __heap_end = __heap_start + __l0_heap_size;
   __stack_top = 0xC0000000;
+  __stack_bottom = __stack_top - __l0_stack_size;
   /DISCARD/ : { *(.eh_frame*) }
 }
 ASSERT(__image_end <= 0x48000000, "the image overlaps QEMU's device tree")

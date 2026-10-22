@@ -1,0 +1,3 @@
+; Spec section 10.3: a heap and a stack that together take more than the
+; board's template has room for are refused, before anything is linked.
+(def main () int 0)

@@ -6,7 +6,10 @@
    header's tag of the board, "pi5". The board has no loader: standard input
    is the initramfs the firmware puts at 0x10000000, which the device tree
    says the end of, so __input_len is a word that is always 0, which the
-   host reads where it finds no initrd. */
+   host reads where it finds no initrd. It is a template (spec section
+   10.3): tools/l0 puts __l0_heap_size and __l0_stack_size before it, the
+   manifest's sizes or --heap-mb's and --stack-mb's, and its checks
+   after. */
 ENTRY(_start)
 SECTIONS
 {
@@ -25,9 +28,9 @@ SECTIONS
   __l0_board = 0x356970;
   __input_start = 0x10000000;
   __heap_start = 0x40000000;
-  __heap_end = 0x70000000;
-  __stack_bottom = 0x70000000;
+  __heap_end = __heap_start + __l0_heap_size;
   __stack_top = 0x80000000;
+  __stack_bottom = __stack_top - __l0_stack_size;
   /DISCARD/ : { *(.eh_frame*) }
 }
 ASSERT(__image_end <= 0x08000000, "the image overlaps the device tree")

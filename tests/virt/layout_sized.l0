@@ -1,0 +1,9 @@
+; Spec section 10.3 on the board: a program built with a heap of 64 MB and
+; a stack of 16 MB gives the rest of the RAM below the user range to the
+; pool, more than 450,000 frames on either board, where the default sizes
+; leave about 196,000 on aarch64 and 307,000 on riscv64.
+(def main () int
+  (let n (frame_free_count)
+    (if (gt n 450000)
+        (write_line "the pool holds more than 450000 frames")
+        (write_line (append "the pool holds only " (digits n))))))
