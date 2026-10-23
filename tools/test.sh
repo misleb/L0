@@ -939,6 +939,9 @@ if [ "$COMPILED" = 1 ]; then
         fi
         [ "$njobs" -ge 1 ] || njobs=1
     fi
+    # It is this script's: the l0 test of tests/unit's files, each one of
+    # its jobs, runs a file's tests one at a time, l0 test's default.
+    unset L0_JOBS
 
     # Test the CURRENT compiler, not whatever the checked-in seed happens to
     # hold. Bootstrapping from source first is the only way to be sure of

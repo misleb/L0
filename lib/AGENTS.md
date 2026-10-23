@@ -76,9 +76,13 @@ board's devices, which a program drives through their registers with
 `open_device` and `device_read32` and the rest, at most 64 open at once,
 and `close_device` when done with one (`l0 doc IoDevice`); under
 an operating system there are none, and opening one fails. `l0 test
---target virt` runs tests on the board, booting the program once a test;
-there are no files there, so a golden file's test fails and `--bless` is
-refused, and tests that need files stay on this host. A program there can also be a kernel: it
+--target virt` runs tests on the board, booting the program once a test,
+as many at once as there are CPUs; there are no files there, so a golden
+file's test fails and `--bless` is refused, and tests that need files stay
+on this host. `l0 test -j N`, or `L0_JOBS=N`, runs up to N tests at once
+on either, and writes their results in order; on this host it is one at a
+time unless asked, since tests there share a directory and may write the
+same files. A program there can also be a kernel: it
 makes address spaces, maps pages into them, and runs threads in them until
 they trap, and gives back a page, a space, or a frame once it is done with
 it (`space_unmap`, `space_free`, `frame_free`; a frame only once no space

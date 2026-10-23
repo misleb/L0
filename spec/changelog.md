@@ -7,6 +7,41 @@ New entries go at the top.
 
 ---
 
+## l0 test starts fewer processes, and runs tests side by side
+
+**No semantic change. L0 is exactly the language it was before this entry.**
+`l0 test -j N`, or `L0_JOBS=N`, runs up to N tests at once and writes
+their TAP lines in the tests' order, each as soon as every test before it
+is done. By default it is 1 on this host and the CPU count on the board.
+The driver also stops starting helpers whose answer it already has: it
+looks for a leak report only when a test wrote something on standard
+error, for `(blessed` only under `--bless`, which alone writes it, and
+measures a bundle's files with one `wc`, not a `wc` and a `tr` each.
+What `l0 check` and `l0 test` print is unchanged.
+
+**Why.** L0S asked (its `probes/driver/REQUEST-fewer-processes.md`). Its
+`make test`, 127 runs of `l0 test` and 4,584 tests, took 7 minutes 20
+seconds for 3 minutes of CPU on a Mac whose endpoint security agent vets
+every program launch, about 15 ms each and barely overlapping. Each
+passing test started three helpers, about 80 ms of them, beside its own 25
+ms. On the board, each test is a QEMU boot, mostly CPU, which ran one at a
+time on one core. Here, io_test's 49 tests go from 7.96 s to 2.49 s, and
+map_test's 20 on the aarch64 board from 5.31 s to 3.54 s at `-j 1` and
+1.92 s at the default of 14.
+
+**Decided.** One on this host unless asked, because tests there run in
+the directory `l0 test` runs in and may write the same file, which one at
+a time never showed; the board has no files, so its tests cannot collide.
+`-j` sets a window rather than a pool: before a test starts, the oldest
+still running is waited for and judged, which keeps the output in order
+and streaming at the cost of an idle slot behind a slow test. Left out of
+L0S's four: running a file's tests in one process, which would move
+`lib/test.l0`'s `--bless` argument and need the driver to split one
+process's output by test, and rerun tests to blame a leak; worth
+measuring after these.
+
+---
+
 ## The aarch64 virt board gives PCIe's interrupts, INTx and MSI
 
 **New:** on the aarch64 virt board, the host bridge's four INTx lines,

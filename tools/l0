@@ -29,6 +29,9 @@
 #   --test          l0 check: check as l0 test builds, with test.l0 linked
 #   --match TEXT    l0 test: run only tests whose names contain TEXT
 #   --bless         l0 test: rewrite golden files instead of comparing
+#   -j N            l0 test: run up to N tests at once, in place of
+#                   L0_JOBS, or else one on this host and one for each CPU
+#                   on the board
 #   --target virt   l0 build, run, link, and test: for QEMU's virt board,
 #                   with no operating system (spec section 9.2), rather
 #                   than this host
@@ -76,7 +79,11 @@
 # memory it never freed fails, since that is a compiler or runtime bug.
 # With --target virt it boots the program once a test, naming the test by
 # its boot argument; there is no environment there, so no leak check, and
-# no files, so check_file fails and --bless is refused.
+# no files, so check_file fails and --bless is refused. With -j N, or
+# L0_JOBS=N, up to N tests run at once, and their TAP lines are written in
+# the tests' order all the same. It is one at a time on this host unless
+# asked, since tests there share the directory l0 test runs in and may
+# write the same files, and one for each CPU on the board, which has none.
 #
 # Several files are compiled together, because L0 has no module system.
 # The standard library, lib/prelude.l0 and lib/io.l0, is included
@@ -164,6 +171,7 @@ ARCH=${L0_ARCH:-aarch64}
 HEAP_MB=""
 STACK_MB=""
 LAYOUT=""
+JOBS=""
 
 # megabytes OPTION N: N, if it is a whole number of megabytes from 1 to
 # 9,999,999, written without a leading 0, or else the driver stops.
@@ -171,6 +179,19 @@ megabytes() {
     case "$2" in
         "" | 0* | *[!0-9]* | ????????*)
             echo "l0: $1 needs a number of megabytes from 1 to 9999999, not '$2'" >&2
+            exit 2
+            ;;
+    esac
+    echo "$2"
+}
+
+# job_count WHAT N: N, if it is a whole number of jobs from 1 to 9,999,
+# written without a leading 0, or else the driver stops. WHAT is the
+# option or variable it came from.
+job_count() {
+    case "$2" in
+        "" | 0* | *[!0-9]* | ?????*)
+            echo "l0: $1 needs a number of jobs from 1 to 9999, not '$2'" >&2
             exit 2
             ;;
     esac
@@ -221,6 +242,10 @@ parse_args() {
                 [ $# -gt 0 ] || { echo "l0: --match needs text" >&2; exit 2; }
                 MATCH=$1
                 ;;
+            -j)
+                shift
+                JOBS=$(job_count -j "${1:-}") || exit 2
+                ;;
             -o)
                 shift
                 [ $# -gt 0 ] || { echo "l0: -o needs a path" >&2; exit 2; }
@@ -244,6 +269,10 @@ parse_args() {
         echo "l0: no source files given" >&2
         exit 2
     fi
+    if [ -n "$JOBS" ] && [ "$cmd" != test ]; then
+        echo "l0: -j is for l0 test, which runs tests side by side" >&2
+        exit 2
+    fi
     # A board's layout is its program's to size (spec section 10.3); a
     # process's is its kernel's, and an operating system's host has none.
     case $TARGET in
@@ -265,6 +294,27 @@ parse_args() {
 write_bundle() {
     dest=$1
     set -- $SOURCES
+    # Each file's offset in the concatenation, and where the standard
+    # library, the first PRELUDE_FILES of them, ends: from one wc for every
+    # file, which writes a line for each, in order, and a total after them
+    # when there are several.
+    sizes=$(wc -c "$@")
+    table=""
+    offset=0
+    i=0
+    prelude_end=0
+    while read -r size f; do
+        [ "$i" -lt $# ] || break
+        table="$table$offset $f
+"
+        offset=$((offset + size))
+        i=$((i + 1))
+        if [ "$i" = "${PRELUDE_FILES:-0}" ]; then
+            prelude_end=$offset
+        fi
+    done << EOF
+$sizes
+EOF
     {
         echo "#l0bundle"
         # Checking asks whether the code is well typed, not whether it is a
@@ -274,13 +324,8 @@ write_bundle() {
         # Where the standard library ends. Everything after it is the program,
         # and a program definition shadows a prelude one of the same name, so
         # the prelude can gain functions without breaking existing code.
-        [ "${PRELUDE_END:-0}" != 0 ] && echo "#prelude $PRELUDE_END"
-        offset=0
-        for f in "$@"; do
-            echo "$offset $f"
-            size=$(wc -c < "$f" | tr -d ' ')
-            offset=$((offset + size))
-        done
+        [ "$prelude_end" != 0 ] && echo "#prelude $prelude_end"
+        printf '%s' "$table"
         echo "#source"
         cat "$@"
     } > "$dest"
@@ -316,15 +361,14 @@ setup() {
     RUNTIME=${L0_RUNTIME:-$LIB/l0rt.o}
     HOST=${L0_HOST:-$LIB/l0host.o}
     SOURCES=$FILES
-    PRELUDE_END=0
+    PRELUDE_FILES=0
     if [ "$WANT_TEST" = 1 ]; then
         # lib/test.l0 joins the standard library in the prelude group.
         SOURCES="$LIB/prelude.l0 $LIB/io.l0 $LIB/test.l0 $FILES"
-        PRELUDE_END=$(cat "$LIB/prelude.l0" "$LIB/io.l0" "$LIB/test.l0" |
-            wc -c | tr -d ' ')
+        PRELUDE_FILES=3
     elif [ "$WANT_PRELUDE" = 1 ]; then
         SOURCES="$LIB/prelude.l0 $LIB/io.l0 $FILES"
-        PRELUDE_END=$(cat "$LIB/prelude.l0" "$LIB/io.l0" | wc -c | tr -d ' ')
+        PRELUDE_FILES=2
     fi
     TMP=$(mktemp -d "$(scratch_base)/l0.XXXXXX")
     trap 'rm -rf "$TMP"' EXIT
@@ -518,7 +562,10 @@ virt_boot() {
     image=$1
     input=$2
     shift 2
-    len=$(wc -c < "$input" | tr -d ' ')
+    len=0
+    if [ -s "$input" ]; then
+        len=$(wc -c < "$input" | tr -d ' ')
+    fi
     if [ "$len" -gt "$T_INPUT_MAX" ]; then
         echo "l0: the virt board takes at most $T_INPUT_MAX bytes of standard input" >&2
         exit 2
@@ -1004,18 +1051,106 @@ case "$cmd" in
                 "$HOST" -o "$TMP/prog"
         fi
 
+        # How many tests run at once: -j's number, or L0_JOBS's, or else
+        # one on this host, where tests share the directory l0 test runs
+        # in and may write the same files, and one for each CPU on the
+        # board, which has no files and boots each test alone.
+        if [ -z "$JOBS" ] && [ -n "${L0_JOBS:-}" ]; then
+            JOBS=$(job_count L0_JOBS "$L0_JOBS") || exit 2
+        fi
+        if [ -z "$JOBS" ]; then
+            JOBS=1
+            if [ "$TARGET" = virt ]; then
+                JOBS=$(job_count "the CPU count" \
+                    "$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1)") || exit 2
+            fi
+        fi
+
         # run_one NAME runs the test program for NAME, a test or
-        # "expect:TEST", as its argument, its standard output and error in
-        # t.out and t.err: here under L0_RC_CHECK, whose leak check is
-        # section 10.3's; on the board, booted with NAME as its boot
-        # argument, with no environment to check under.
+        # "expect:TEST", as its argument: here under L0_RC_CHECK, whose
+        # leak check is section 10.3's; on the board, booted with NAME as
+        # its boot argument, with no environment to check under, and no
+        # standard input.
+        : > "$TMP/t.in"
         run_one() {
             if [ "$TARGET" = virt ]; then
-                : > "$TMP/t.in"
                 virt_boot "$TMP/prog.img" "$TMP/t.in" "$1"
             else
                 L0_RC_CHECK=1 "$TMP/prog" "$1" $BLESS < /dev/null
             fi
+        }
+
+        # run_test K NAME runs the test NAME, the Kth, leaving its standard
+        # output and error in tK.out and tK.err, and then its exit status
+        # in tK.st; and for a test that must die, the runtime error it must
+        # die with in tK.want. It touches nothing another test's run reads,
+        # so tests can run at once.
+        run_test() {
+            r_res="$TMP/t$1"
+            r_st=0
+            run_one "$2" > "$r_res.out" 2> "$r_res.err" || r_st=$?
+            case " $expects " in
+                *" ${2#test_} "*)
+                    run_one "expect:${2#test_}" > "$r_res.want" 2> /dev/null || true
+                    ;;
+            esac
+            echo "$r_st" > "$r_res.st"
+        }
+
+        # judge_next waits for the oldest test not yet judged, which run_test
+        # runs as a job of its own, and writes its TAP lines. If the job
+        # stopped before it could run the test, as when the board's
+        # emulator is missing, the driver stops too, saying why.
+        judge_next() {
+            judged=$((judged + 1))
+            j_n=$judged
+            eval "j_pid=\$pid_$j_n j_t=\$name_$j_n"
+            j_job=0
+            wait "$j_pid" || j_job=$?
+            j_res="$TMP/t$j_n"
+            if [ ! -f "$j_res.st" ]; then
+                cat "$j_res.err" >&2
+                [ "$j_job" != 0 ] || j_job=2
+                exit "$j_job"
+            fi
+            read -r j_st < "$j_res.st"
+            # The runtime reports blocks still live at a normal exit, and
+            # exits 0 all the same; spec section 10.3. A test that passes
+            # writes nothing on standard error, so that is looked through
+            # only when there is something.
+            if [ "$j_st" = 0 ] && [ -s "$j_res.err" ] &&
+                grep -q '^l0: blocks still live' "$j_res.err"; then
+                echo "not ok $j_n - $j_t"
+                echo "  # memory was never freed: a compiler or runtime bug"
+                failed=$((failed + 1))
+                sed 's/^/  # /' "$j_res.err"
+                return 0
+            fi
+            j_want=""
+            [ -f "$j_res.want" ] && j_want=$(cat "$j_res.want")
+            if [ -n "$j_want" ]; then
+                if [ "$j_st" = 70 ] &&
+                    [ "$(cat "$j_res.err")" = "l0: runtime error: $j_want" ]; then
+                    echo "ok $j_n - $j_t # expected runtime error: $j_want"
+                    return 0
+                fi
+                echo "not ok $j_n - $j_t"
+                echo "  # expected runtime error: $j_want"
+                echo "  # exit status $j_st"
+            elif [ "$j_st" = 0 ]; then
+                echo "ok $j_n - $j_t"
+                # Whatever --bless just declared correct is worth seeing,
+                # and nothing but --bless declares anything.
+                if [ -n "$BLESS" ]; then
+                    grep ' (blessed ' "$j_res.out" | sed 's/^/  # /' || true
+                fi
+                return 0
+            else
+                echo "not ok $j_n - $j_t"
+                [ "$j_st" = 1 ] || echo "  # exit status $j_st"
+            fi
+            failed=$((failed + 1))
+            sed 's/^/  # /' "$j_res.out" "$j_res.err"
         }
 
         selected=""
@@ -1026,49 +1161,25 @@ case "$cmd" in
         set -- $selected
         echo "TAP version 13"
         echo "1..$#"
-        n=0
+        # Up to JOBS tests run at once, each a job of its own. Before
+        # another starts, the oldest still running is waited for and
+        # judged, so the TAP lines come out in the tests' order, each as
+        # soon as every test before it is done.
+        k=0
+        judged=0
         failed=0
         for t in "$@"; do
-            n=$((n + 1))
-            if run_one "$t" > "$TMP/t.out" 2> "$TMP/t.err"
-            then st=0
-            else st=$?
+            k=$((k + 1))
+            if [ "$k" -gt "$JOBS" ]; then
+                judge_next
             fi
-            # The runtime reports blocks still live at a normal exit, and
-            # exits 0 all the same; spec section 10.3.
-            if [ "$st" = 0 ] && grep -q '^l0: blocks still live' "$TMP/t.err"; then
-                echo "not ok $n - $t"
-                echo "  # memory was never freed: a compiler or runtime bug"
-                failed=$((failed + 1))
-                sed 's/^/  # /' "$TMP/t.err"
-                continue
-            fi
-            want=""
-            case " $expects " in
-                *" ${t#test_} "*) want=$(run_one "expect:${t#test_}" 2> /dev/null) ;;
-            esac
-            if [ -n "$want" ]; then
-                if [ "$st" = 70 ] &&
-                    [ "$(cat "$TMP/t.err")" = "l0: runtime error: $want" ]; then
-                    echo "ok $n - $t # expected runtime error: $want"
-                    continue
-                fi
-                echo "not ok $n - $t"
-                echo "  # expected runtime error: $want"
-                echo "  # exit status $st"
-            elif [ "$st" = 0 ]; then
-                echo "ok $n - $t"
-                # Whatever --bless just declared correct is worth seeing.
-                grep ' (blessed ' "$TMP/t.out" | sed 's/^/  # /' || true
-                continue
-            else
-                echo "not ok $n - $t"
-                [ "$st" = 1 ] || echo "  # exit status $st"
-            fi
-            failed=$((failed + 1))
-            sed 's/^/  # /' "$TMP/t.out" "$TMP/t.err"
+            run_test "$k" "$t" &
+            eval "pid_$k=\$! name_$k=\$t"
         done
-        echo "# $((n - failed)) passed, $failed failed"
+        while [ "$judged" -lt "$k" ]; do
+            judge_next
+        done
+        echo "# $((k - failed)) passed, $failed failed"
         [ "$failed" = 0 ]
         ;;
 

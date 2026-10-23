@@ -183,7 +183,8 @@ l0 build prog.l0 -o prog  # produce an executable
 ```
 
 `l0 test` finds the tests itself, builds once, and runs each test in its own
-process, so a runtime error fails only its own test. Assertions show what was
+process, so a runtime error fails only its own test; `-j N` runs up to N of
+them at once, as `--target virt` does by default. Assertions show what was
 computed and what was expected; a test can also expect a particular runtime
 error, compare against a golden file (`--bless` rewrites them), or check a
 property over seeded pseudo-random inputs. `lib/test.l0` is the library and
