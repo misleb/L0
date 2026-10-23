@@ -29,6 +29,7 @@
 declare void @l0_pl011_put(i64, i8)
 declare void @l0_gicv2_init(i64, i64)
 declare void @l0_gicv2_enable(i64, i64)
+declare void @l0_gicv2_edge(i64, i64)
 declare i64 @l0_gicv2_take(i64)
 declare void @l0_gicv2_end(i64, i64)
 declare void @l0_semihost_exit(i64) noreturn
@@ -156,23 +157,31 @@ entry:
 ; ------------------------------------------------------------- interrupts
 ;
 ; Interrupt 0 is the virtual timer's, the GIC's 27; a device's number is
-; its GIC ID: the PL011's, PL031's, and PL061's are 33, 34, and 39, and the
-; virtio-mmio transports' 48 to 79.
+; its GIC ID: the PL011's and PL031's are 33 and 34, the PCIe host bridge's
+; INTA to INTD 35 to 38, the PL061's 39, the virtio-mmio transports' 48 to
+; 79, and the GICv2m frame's MSIs 80 to 143, its SPIs 48 to 111, which are
+; made edge-triggered as they are enabled. All the others are level.
 
 define i1 @l0_board_irq_exists(i64 %n) {
 entry:
   %timer = icmp eq i64 %n, 0
-  %uart = icmp eq i64 %n, 33
-  %rtc = icmp eq i64 %n, 34
-  %gpio = icmp eq i64 %n, 39
-  %lo = icmp sge i64 %n, 48
-  %hi = icmp sle i64 %n, 79
-  %virtio = and i1 %lo, %hi
-  %a = or i1 %timer, %uart
-  %b = or i1 %rtc, %gpio
-  %c = or i1 %a, %b
-  %ok = or i1 %c, %virtio
+  %lo = icmp sge i64 %n, 33                   ; the PL011 to the PL061
+  %hi = icmp sle i64 %n, 39
+  %low = and i1 %lo, %hi
+  %vlo = icmp sge i64 %n, 48                  ; the transports and the MSIs
+  %vhi = icmp sle i64 %n, 143
+  %high = and i1 %vlo, %vhi
+  %a = or i1 %timer, %low
+  %ok = or i1 %a, %high
   ret i1 %ok
+}
+
+define internal i1 @is_msi(i64 %n) {
+entry:
+  %lo = icmp sge i64 %n, 80
+  %hi = icmp sle i64 %n, 143
+  %msi = and i1 %lo, %hi
+  ret i1 %msi
 }
 
 define internal i64 @gic_id(i64 %n) {
@@ -185,6 +194,12 @@ entry:
 define void @l0_board_irq_enable(i64 %n) {
 entry:
   %id = call i64 @gic_id(i64 %n)
+  %msi = call i1 @is_msi(i64 %n)
+  br i1 %msi, label %edge, label %enable
+edge:
+  call void @l0_gicv2_edge(i64 134217728, i64 %id)
+  br label %enable
+enable:
   call void @l0_gicv2_enable(i64 134217728, i64 %id)
   ret void
 }

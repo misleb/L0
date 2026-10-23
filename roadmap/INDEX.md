@@ -134,9 +134,12 @@ one back, telling a process's kernel by call 13 (0100). L0S then asked for
 what a USB stack needs: the aarch64 virt board's PCIe ECAM and MMIO window
 as regions (0101), the Pi 5's RP1 as one (0102), and a builtin that cleans
 and invalidates a frame for the Pi's DMA, which is not coherent (0103), and
-has all three; interrupts for its driver wait for a request of their own.
-For its display driver, the Pi 5's HVS and the IOMMU in front of it are
-regions too (0105), and `l0 card` forces HDMI's hotplug.
+has all three. For its display driver, the Pi 5's HVS and the IOMMU in
+front of it are regions too (0105), and `l0 card` forces HDMI's hotplug.
+Its USB and SD drivers then asked to stop polling, and on the aarch64 virt
+board PCIe's four INTx lines and the GICv2m frame's 64 MSIs are now
+interrupts (0106); the Pi 5's, through bcm2712's MIP, wait for a request
+of their own.
 
 ## Language queue
 
@@ -428,3 +431,6 @@ None.
 - [0105](0105-pi5-hvs-regions.md) the Raspberry Pi 5's HVS and its IOMMU
   are regions — done, changelog "The Raspberry Pi 5's HVS and its IOMMU
   are regions"; no run on a board
+- [0106](0106-virt-pcie-interrupts.md) the aarch64 virt board gives PCIe's
+  interrupts, INTx and MSI — done, changelog "The aarch64 virt board gives
+  PCIe's interrupts, INTx and MSI"

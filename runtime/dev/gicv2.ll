@@ -68,6 +68,27 @@ enable:
   ret void
 }
 
+; Shared interrupt id edge-triggered, its field's upper bit set in
+; GICD_ICFGR, which holds 16 two-bit fields a word; a board calls this
+; before enabling it, since the architecture leaves a change to an enabled
+; one unpredictable. Every other stays as it resets, level.
+define void @l0_gicv2_edge(i64 %d, i64 %id) {
+entry:
+  %word = lshr i64 %id, 4
+  %wo = shl i64 %word, 2
+  %r0 = add i64 %d, 3072                                    ; GICD_ICFGR
+  %ra = add i64 %r0, %wo
+  %field = and i64 %id, 15
+  %b0 = shl i64 %field, 1
+  %bit = add i64 %b0, 1
+  %m = shl i64 1, %bit
+  %m32 = trunc i64 %m to i32
+  %old = call i32 @r32(i64 %ra)
+  %new = or i32 %old, %m32
+  call void @w32(i64 %ra, i32 %new)
+  ret void
+}
+
 ; The id of the interrupt the CPU interface signals, its priority dropped,
 ; or -1 for a spurious one, from 1,020, which needs no end.
 define i64 @l0_gicv2_take(i64 %c) {

@@ -7,6 +7,42 @@ New entries go at the top.
 
 ---
 
+## The aarch64 virt board gives PCIe's interrupts, INTx and MSI
+
+**New:** on the aarch64 virt board, the host bridge's four INTx lines,
+INTA to INTD, are interrupts 35 to 38, the GIC's own numbers, and the
+GICv2m frame's 64 MSI SPIs are 80 to 143 (spec 10.3). A function raises
+an MSI by writing its number to 0x08020040, the frame's
+`MSI_SETSPI_NS`, which its driver writes into the function's MSI
+capability through the ECAM; the frame stays the host's. The host makes
+an MSI edge-triggered as it enables it, in `GICD_ICFGR`; INTx stays
+level, as the PL011's is.
+
+*Why:* L0S asked (its `probes/usb/REQUEST-pcie-interrupts.md`, whose
+`irq_virt_test.l0` got -3 for all six of 35 to 38, 80, and 143). Its
+`xhci` and `sdhci` drivers, on `qemu-xhci` and `sdhci-pci`, were the last
+of its demo's drivers that could not wait for their device: `xhci` woke
+1,000 times a second, for ever, to read its event ring. Every other
+driver there waits on `irq_bind`. No program can work around it: only the
+host decides what is an interrupt.
+
+*Decided:* both routes at once, as asked. INTx is what every function
+has and the least a driver must set up; but four lines serve every slot,
+and in the L0S kernel an interrupt is bound to one port, so two
+functions sharing a line cannot both be driven by it. MSI gives each its
+own. The MSI range is fixed, as QEMU fixes it, rather than read from
+`MSI_TYPER` at boot, as every other number in the table is fixed; they
+agree. The address is in the spec, so a driver need not know the frame.
+Edge for the MSIs because the frame pulses its SPI: a level
+configuration happens to latch the pulse in QEMU's GIC, but on a GIC
+that follows the architecture it would be lost. Left for later: the Pi
+5's PCIe interrupts, which reach its GIC through bcm2712's MIP, and the
+riscv64 board's INTx, the PLIC's 32 to 35, until something there drives
+PCIe. `tests/virt/aarch64/pcie_irq` drives QEMU's `edu` device, which
+raises either on a write, and takes one of each.
+
+---
+
 ## A board program sizes its heap and stack, or brings its own layout
 
 **New:** a board's layout, `runtime/board/BOARD.ld`, is a template that

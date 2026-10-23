@@ -1,0 +1,65 @@
+; Spec section 10.3 on the aarch64 board: a PCIe function's interrupts,
+; by its pin and by MSI, as L0S's probes/usb could not enable them. The
+; function is QEMU's edu device, which its .qemu file adds at 00:01.0, in
+; place of the board's default network card, and
+; which raises its interrupt when its 0x60 register is written, holding it
+; until the bits written are acknowledged at 0x64. Its pin is INTA, which
+; slot 1 turns to INTB, interrupt 36. Then, its MSI capability given the
+; GICv2m frame's address and 80, the same raise is interrupt 80. Numbers
+; between and past the board's are still none.
+
+(def hex ((v int)) int
+  (write_line (hex_digits v 1)))
+
+(def show ((n int)) int
+  (write_line (digits n)))
+
+; The offset of the capability with id want in function c's list, from
+; offset p, or 0 at the list's end.
+(def find_cap ((c int) (p int) (want int)) int
+  (if (eq p 0)
+      0
+      (if (eq (region_read8 c p) want)
+          p
+          (find_cap c (region_read8 c (add p 1)) want))))
+
+; Raises the edu device's interrupt with bits, waits for it, reads the
+; device's status, acknowledges it there, and only then ends it, as a
+; driver of a level interrupt must. A timer deadline a second away is
+; what the wait gives, 0, if the device's never comes.
+(def raise ((b int) (bits int) (n int)) int
+  (let e (show (interrupt_enable n))
+    (let d (timer_at (add (clock_ns) 1000000000))
+      (let r (region_write32 b 96 bits)
+        (let t (show (interrupt_wait))
+          (let c (timer_at -1)
+            (let s (show (region_read32 b 36))
+              (let a (region_write32 b 100 bits)
+                (show (interrupt_done n))))))))))
+
+; The MSI capability given the frame's MSI_SETSPI_NS, 0x08020040, and
+; number n, at the data word a 64-bit capability has at 12 and a 32-bit
+; one at 8, then turned on.
+(def msi_on ((c int) (p int) (n int)) int
+  (let ctl (region_read16 c (add p 2))
+    (let w (bit_and ctl 128)
+      (let a (region_write32 c (add p 4) 134348864)
+        (let h (if (eq w 0) 0 (region_write32 c (add p 8) 0))
+          (let d (region_write16 c (add p (if (eq w 0) 8 12)) n)
+            (region_write16 c (add p 2) (bit_or ctl 1))))))))
+
+(def main () int
+  (let c (region_open 275146375168 4096)            ; 0x4010008000, 00:01.0
+    (let id (let z (interrupt_enable 0)             ; the timer, for raise
+              (hex (region_read32 c 0)))            ; edu, 1234:11e8
+      (let bar (region_write32 c 16 268435456)      ; BAR 0 at 0x10000000
+        (let cmd (region_write16 c 4 6)             ; memory space, bus master
+          (let b (region_open 268435456 4096)
+            (let v (hex (region_read32 b 0))        ; edu's identification
+              (let x (raise b 1 36)                 ; INTB
+                (let p (find_cap c (region_read8 c 52) 5)
+                  (let m (msi_on c p 80)
+                    (let y (raise b 2 80)           ; the frame's first MSI
+                      (let n1 (show (interrupt_enable 40))
+                        (let n2 (show (interrupt_enable 47))
+                          (show (interrupt_enable 144)))))))))))))))

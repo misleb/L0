@@ -520,9 +520,12 @@ if [ "$VIRT" = 1 ]; then
         fi
         # A program with a <stem>.initrd is given those bytes as the
         # firmware's initrd, QEMU's -initrd, which is standard input where
-        # the device tree says so (spec section 10.3).
+        # the device tree says so (spec section 10.3). One with a
+        # <stem>.qemu is booted with the devices its QEMU arguments add,
+        # such as PCIe functions.
         initrd=""
         [ -f "$stem.initrd" ] && initrd="-initrd $stem.initrd"
+        [ -f "$stem.qemu" ] && initrd="$initrd $(cat "$stem.qemu")"
         # shellcheck disable=SC2046
         run_case virt "$name" "$stem" env L0_QEMU_ARGS="$initrd" \
             ./tools/l0 boot "$TMP/$name.img" $(args_of "$stem")
