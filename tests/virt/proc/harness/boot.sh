@@ -3,6 +3,7 @@
 # and exits with the first one's status, or 99 if the kernel killed it.
 #
 # Usage: tests/virt/proc/harness/boot.sh WORK ARGS SLOT0 [SLOT1 [SLOT2]] < INPUT
+#        tests/virt/proc/harness/boot.sh WORK
 #
 #   WORK    a directory for the kernel's image and what QEMU loads for it,
 #           inside the repository, where the linker container can see it
@@ -20,20 +21,30 @@
 # L0_VIRT_LD if it names an ld.lld, or else in the l0-virt-link container,
 # as tools/l0 links --target virt: the kernel as an ELF, with elf.ll, its
 # loader for processes, beside it, which QEMU boots as it is, needing no
-# boot arguments, and fault.ll as a process is, an ELF.
+# boot arguments, and fault.ll as a process is, an ELF. Given WORK alone,
+# it links them and boots nothing, so that boots side by side, as
+# tools/test.sh --virt runs them, find them linked; each boot's own input
+# is in WORK under its process's number, and gone once QEMU is.
 set -eu
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 ROOT=$(cd "$HERE/../../../.." && pwd)
 . "$ROOT/tools/env.sh"
 
-if [ $# -lt 3 ]; then
+if [ $# -ne 1 ] && [ $# -lt 3 ]; then
     echo "usage: boot.sh WORK ARGS SLOT0 [SLOT1 [SLOT2]] < input" >&2
+    echo "       boot.sh WORK" >&2
     exit 2
 fi
 work=$1
-args=$2
-shift 2
+shift
+link_only=1
+args=""
+if [ $# -gt 0 ]; then
+    link_only=0
+    args=$1
+    shift
+fi
 if [ $# -gt 3 ]; then
     echo "boot.sh: the kernel has three slots" >&2
     exit 2
@@ -83,27 +94,31 @@ fi
 image "$H/kernel.ll" "$H/kernel.ld" "$work/kernel.elf" "$work/elf.o"
 # shellcheck disable=SC2086
 image "$H/fault.ll" "$ROOT/runtime/proc.ld" "$work/fault.img" $T_LDFLAGS
+[ "$link_only" = 0 ] || exit 0
 
-cat > "$work/stdin"
-len=$(wc -c < "$work/stdin" | tr -d ' ')
+stdin="$work/stdin.$$"
+argv="$work/args.$$"
+trap 'rm -f "$stdin" "$argv"' EXIT
+cat > "$stdin"
+len=$(wc -c < "$stdin" | tr -d ' ')
 if [ "$len" -gt 134217720 ]; then
     echo "boot.sh: the kernel takes at most 128 MB of standard input" >&2
     exit 2
 fi
 dev="-device loader,addr=$H_INPUT_LEN_AT,data=$len,data-len=8"
 if [ "$len" -gt 0 ]; then
-    dev="$dev -device loader,file=$work/stdin,addr=$H_INPUT_AT,force-raw=on"
+    dev="$dev -device loader,file=$stdin,addr=$H_INPUT_AT,force-raw=on"
 fi
 
 # Slot 0's arguments, each line ending in a NUL rather than a newline.
 alen=0
 if [ "$args" != - ]; then
-    tr '\n' '\000' < "$args" > "$work/args"
-    alen=$(wc -c < "$work/args" | tr -d ' ')
+    tr '\n' '\000' < "$args" > "$argv"
+    alen=$(wc -c < "$argv" | tr -d ' ')
 fi
 dev="$dev -device loader,addr=$H_ARGS_LEN_AT,data=$alen,data-len=8"
 if [ "$alen" -gt 0 ]; then
-    dev="$dev -device loader,file=$work/args,addr=$H_ARGS_AT,force-raw=on"
+    dev="$dev -device loader,file=$argv,addr=$H_ARGS_AT,force-raw=on"
 fi
 
 # Each process's image, its file as it is, at its slot's physical address,
@@ -127,13 +142,18 @@ for p in "$@"; do
 done
 
 # Where firmware writes on QEMU's standard output, the serial line is a
-# descriptor of its own, 3, which is ours, and QEMU's goes nowhere.
+# descriptor of its own, 3, which is ours, and QEMU's goes nowhere. QEMU's
+# status, the first process's, is this script's, once the input it was
+# given is removed.
+status=0
 if [ "$H_SERIAL" = fd3 ]; then
     # shellcheck disable=SC2086
-    exec "$H_QEMU" $H_QEMU_ARGS -display none -monitor none \
+    "$H_QEMU" $H_QEMU_ARGS -display none -monitor none \
         -chardev file,id=l0serial,path=/dev/fd/3,append=on -serial chardev:l0serial \
-        $dev -kernel "$work/kernel.elf" 3>&1 > /dev/null < /dev/null
+        $dev -kernel "$work/kernel.elf" 3>&1 > /dev/null < /dev/null || status=$?
+else
+    # shellcheck disable=SC2086
+    "$H_QEMU" $H_QEMU_ARGS -display none -monitor none -serial stdio \
+        $dev -kernel "$work/kernel.elf" < /dev/null || status=$?
 fi
-# shellcheck disable=SC2086
-exec "$H_QEMU" $H_QEMU_ARGS -display none -monitor none -serial stdio \
-    $dev -kernel "$work/kernel.elf" < /dev/null
+exit "$status"

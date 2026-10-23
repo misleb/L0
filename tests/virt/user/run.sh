@@ -5,7 +5,9 @@
 # Usage: tests/virt/user/run.sh KERNEL WORK ARGS IMAGE [IMAGE ...] < input
 #
 #   KERNEL      kernel.l0, built by tools/l0 build --target virt
-#   WORK        a directory for the kernel's input
+#   WORK        a directory for the kernel's input, each run's under its
+#               process's number, and gone once the board is, so that runs
+#               can share it
 #   ARGS        a file of the kernel's boot arguments, one per line, or -
 #               for none: "N:VALUE" gives process N the argument VALUE
 #   IMAGE       a process, built by tools/l0 build --target proc; the
@@ -24,9 +26,12 @@ work=$2
 args=$3
 shift 3
 mkdir -p "$work"
-"$HERE/bundle.sh" "$@" > "$work/bundle"
-if [ "$args" = - ]; then
-    exec "$ROOT/tools/l0" boot "$kernel" < "$work/bundle"
-fi
-# shellcheck disable=SC2046
-exec "$ROOT/tools/l0" boot "$kernel" $(cat "$args") < "$work/bundle"
+bundle="$work/bundle.$$"
+trap 'rm -f "$bundle"' EXIT
+"$HERE/bundle.sh" "$@" > "$bundle"
+kargs=""
+[ "$args" = - ] || kargs=$(cat "$args")
+status=0
+# shellcheck disable=SC2086
+"$ROOT/tools/l0" boot "$kernel" $kargs < "$bundle" || status=$?
+exit "$status"

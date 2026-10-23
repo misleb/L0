@@ -21,7 +21,8 @@
 #                  extension, such as bundle_prelude, matched in every suite.
 #                  A filter that matches nothing passes, with "0 tests".
 #
-#   L0_JOBS        how many of --compiled's tests run at once; by default,
+#   L0_JOBS        how many of --compiled's or --virt's tests run at once,
+#                  beside --virt's fixpoint on each board; by default,
 #                  the host's CPUs, as getconf _NPROCESSORS_ONLN counts them,
 #                  but at most one for each 2 GB of its memory
 #
@@ -132,6 +133,43 @@ if [ "$BLESS_CHECK" = 1 ] && [ "$COMPILED" = 0 ]; then
     exit 2
 fi
 
+if [ "$COMPILED" = 1 ] || [ "$VIRT" = 1 ]; then
+    # Their tests run L0_JOBS at once, by default one for each CPU the host
+    # has, but at most one for each 2 GB of its memory, since a
+    # tests/compiler job compiles a program the size of the compiler, which
+    # takes over a gigabyte. Each leaves what it did under its own name and
+    # reads nothing another writes. They are judged afterward, one at a time
+    # in the order they were listed, so the report is the same however many
+    # ran at once.
+    njobs=${L0_JOBS:-$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1)}
+    case $njobs in
+        '' | *[!0-9]*) njobs=0 ;;
+    esac
+    if [ "$njobs" -lt 1 ]; then
+        echo "L0_JOBS must be a positive number, not '${L0_JOBS:-}'" >&2
+        exit 2
+    fi
+    if [ -z "${L0_JOBS:-}" ]; then
+        # The host's memory in megabytes: Linux's by getconf, macOS's,
+        # which getconf does not give, by sysctl.
+        mem_mb=""
+        if pages=$(getconf _PHYS_PAGES 2> /dev/null) &&
+            psize=$(getconf PAGESIZE 2> /dev/null); then
+            mem_mb=$((pages / 1024 * psize / 1024))
+        elif bytes=$(sysctl -n hw.memsize 2> /dev/null); then
+            mem_mb=$((bytes / 1048576))
+        fi
+        if [ -n "$mem_mb" ] && [ "$njobs" -gt $((mem_mb / 2048)) ]; then
+            njobs=$((mem_mb / 2048))
+        fi
+        [ "$njobs" -ge 1 ] || njobs=1
+    fi
+    # It is this script's: the l0 test of tests/unit's files, each one of
+    # its jobs, runs a file's tests one at a time, l0 test's default on
+    # this host, and is told to on the board.
+    unset L0_JOBS
+fi
+
 "$ROOT/tools/build.sh" > /dev/null
 
 # The lang and check suites run through the stage-0 interpreter, the oracle
@@ -153,14 +191,15 @@ npass=0
 nfail=0
 failures=""
 
-# run_case SUITE NAME STEM COMMAND... runs a test and judges it.
+# run_case SUITE NAME STEM COMMAND... runs a test and judges it, with what
+# it did in RUNRES, a job's own, if that is set.
 run_case() {
     suite=$1
     name=$2
     stem=$3
     shift 3
-    exec_case "$TMP/run" "$stem" "$@"
-    judge_case "$suite" "$name" "$stem" "$TMP/run"
+    exec_case "${RUNRES:-$TMP/run}" "$stem" "$@"
+    judge_case "$suite" "$name" "$stem" "${RUNRES:-$TMP/run}"
 }
 
 # exec_case RES STEM COMMAND... runs a test on its stdin and leaves what it
@@ -364,6 +403,77 @@ if [ "$VIRT" = 1 ]; then
     nskip=0
     base_tmp=$TMP
 
+    # The suite's cases run as jobs, njobs at once. A job is a function the
+    # loops below hand to spawn, which runs it in a subshell of its own,
+    # with the counts at 0 and what it writes, its FAIL lines among them,
+    # in a file; it reads nothing another job writes. pool_judge then waits
+    # for each job spawned since it last ran, in the order they were
+    # spawned, writes what the job wrote, and adds its counts to the
+    # suite's. So a case's report and its place in the report are what
+    # they were when the cases ran one at a time.
+    POOL="$base_tmp/pool"
+    mkdir -p "$POOL"
+    mkfifo "$POOL/slots"
+    exec 3<> "$POOL/slots"
+    rm -f "$POOL/slots"
+    k=0
+    while [ "$k" -lt "$njobs" ]; do
+        echo >&3
+        k=$((k + 1))
+    done
+    pool_k=0
+    pool_judged=0
+
+    # spawn [-free] FUNCTION ARG... runs FUNCTION ARG... as a job once one
+    # of the pool's slots is free, or at once with -free, for a job that
+    # runs beside the pool's, as a board's fixpoint does. It runs with -e
+    # off, so a job ends by returning 0, and anything else is the suite's
+    # own failure, which pool_judge stops the suite for.
+    spawn() {
+        pool_slot=1
+        if [ "$1" = -free ]; then
+            pool_slot=0
+            shift
+        fi
+        [ "$pool_slot" = 0 ] || read -r _ <&3
+        pool_k=$((pool_k + 1))
+        pool_res="$POOL/$pool_k"
+        {
+            (
+                npass=0 nfail=0 nskip=0 failures=""
+                RUNRES="$pool_res.run"
+                pool_st=0
+                "$@" || pool_st=$?
+                echo "$pool_st $npass $nfail $nskip" > "$pool_res.n"
+                echo "$failures" > "$pool_res.f"
+            ) > "$pool_res.out" 2>&1 || true
+            [ "$pool_slot" = 0 ] || echo >&3
+        } < /dev/null &
+        eval "pool_pid_$pool_k=\$!"
+    }
+
+    pool_judge() {
+        while [ "$pool_judged" -lt "$pool_k" ]; do
+            pool_judged=$((pool_judged + 1))
+            eval "pool_pid=\$pool_pid_$pool_judged"
+            wait "$pool_pid" || true
+            pool_res="$POOL/$pool_judged"
+            [ -s "$pool_res.out" ] && cat "$pool_res.out"
+            pool_st=""
+            [ -f "$pool_res.n" ] && read -r pool_st pool_p pool_f pool_s < "$pool_res.n"
+            if [ "$pool_st" != 0 ]; then
+                echo "error: a job of the suite stopped part way (${pool_st:-killed})" >&2
+                exit 1
+            fi
+            pool_fl=""
+            read -r pool_fl < "$pool_res.f" || true
+            npass=$((npass + pool_p))
+            nfail=$((nfail + pool_f))
+            nskip=$((nskip + pool_s))
+            failures="$failures $pool_fl"
+        done
+    }
+
     # The CPUs with a board QEMU emulates: every such board manifest's,
     # unless L0_VIRT_ARCHS names some. A board with no emulator, the
     # Raspberry Pi 5, adds none; tests/virt/pi5 checks what is left of it.
@@ -407,40 +517,49 @@ if [ "$VIRT" = 1 ]; then
 
     # First the goal's measure: the compiler compiles itself on the board,
     # and as a process, to the bytes it writes here (tools/bootstrap.sh
-    # --virt).
-    if L0_VIRT_ARCHS=$VARCH ./tools/bootstrap.sh --virt > "$TMP/bootstrap.log" 2>&1; then
-        npass=$((npass + 1))
-    else
-        nfail=$((nfail + 1))
-        failures="$failures $VARCH:virt/fixpoint"
-        echo "FAIL $VARCH:virt/fixpoint: tools/bootstrap.sh --virt failed"
-        sed 's/^/    /' "$TMP/bootstrap.log"
-    fi
+    # --virt). It runs beside this CPU's cases, which build with the
+    # current compiler, not the stages it writes in build/, and is done
+    # before the next CPU's starts, which writes them again.
+    virt_fixpoint() {
+        if L0_VIRT_ARCHS=$VARCH ./tools/bootstrap.sh --virt > "$TMP/bootstrap.log" 2>&1; then
+            npass=$((npass + 1))
+        else
+            nfail=$((nfail + 1))
+            failures="$failures $VARCH:virt/fixpoint"
+            echo "FAIL $VARCH:virt/fixpoint: tools/bootstrap.sh --virt failed"
+            sed 's/^/    /' "$TMP/bootstrap.log"
+        fi
+    }
+    spawn -free virt_fixpoint
 
-    # virt_case SUITE NAME SRC STEM builds SRC for the board and judges it.
+    # virt_case SUITE NAME SRC STEM builds SRC for the board and judges it,
+    # in files named for the suite too, since tests/io and tests/virt share
+    # names.
     virt_case() {
         vsuite=$1
         vname_=$2
         vsrc=$3
         vstem=$4
+        vres="$TMP/$vsuite-$vname_"
         # shellcheck disable=SC2046
-        if ! ./tools/l0c "$vsrc" $(extra_sources "$vstem") > "$TMP/$vname_.ll" \
-            2> "$TMP/$vname_.cerr"; then
+        if ! ./tools/l0c "$vsrc" $(extra_sources "$vstem") > "$vres.ll" \
+            2> "$vres.cerr"; then
             nfail=$((nfail + 1))
             failures="$failures $VARCH:$vsuite/$vname_"
             echo "FAIL $VARCH:$vsuite/$vname_: compiler rejected a valid program"
-            sed 's/^/    /' "$TMP/$vname_.cerr"
-            return
+            sed 's/^/    /' "$vres.cerr"
+            return 0
         fi
-        if ! ./tools/l0 link --target virt "$TMP/$vname_.ll" -o "$TMP/$vname_.img" \
-            > "$TMP/$vname_.lerr" 2>&1; then
+        if ! ./tools/l0 link --target virt "$vres.ll" -o "$vres.img" \
+            > "$vres.lerr" 2>&1; then
             nfail=$((nfail + 1))
             failures="$failures $VARCH:$vsuite/$vname_"
             echo "FAIL $VARCH:$vsuite/$vname_: did not link for the board"
-            sed 's/^/    /' "$TMP/$vname_.lerr"
-            return
+            sed 's/^/    /' "$vres.lerr"
+            return 0
         fi
-        run_case "$vsuite" "$vname_" "$vstem" ./tools/l0 boot "$TMP/$vname_.img"
+        run_case "$vsuite" "$vname_" "$vstem" ./tools/l0 boot "$vres.img"
+        return 0
     }
 
     for src in tests/lang/*.l0 tests/compiler/*.l0 tests/io/*.l0; do
@@ -454,12 +573,35 @@ if [ "$VIRT" = 1 ]; then
             nskip=$((nskip + 1))
             continue
         fi
-        virt_case "virt-$(basename "$dir")" "$name" "$src" "$stem"
+        spawn virt_case "virt-$(basename "$dir")" "$name" "$src" "$stem"
     done
-    # Tests written with l0 test, on the board with l0 test --target virt,
-    # each file in a scratch directory as --compiled runs them: tests/unit's
-    # but for those with a .host file, and tests/virt/unit's, the board's
-    # own.
+
+    # virt_unit NAME SRC USTEM runs the tests of SRC, written with l0 test,
+    # on the board with l0 test --target virt, in a scratch directory as
+    # --compiled runs them, and one at a time, since this is one job of
+    # the pool already.
+    virt_unit() {
+        udir="$TMP/vunit-$1"
+        mkdir -p "$udir"
+        case $2 in
+            tests/virt/*) uextra=$(virt_extra "$ROOT/$3") ;;
+            *) uextra=$(extra_sources "$ROOT/$3") ;;
+        esac
+        # shellcheck disable=SC2046
+        if (cd "$udir" && L0_COMPILER="$vcc" L0_JOBS=1 "$ROOT/tools/l0" test \
+            --target virt "$ROOT/$2" $(echo "$uextra" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
+            > "$udir.tap" 2>&1; then
+            npass=$((npass + 1))
+        else
+            nfail=$((nfail + 1))
+            failures="$failures $VARCH:virt-unit/$1"
+            echo "FAIL $VARCH:virt-unit/$1:"
+            grep -v '^ok ' "$udir.tap" | sed 's/^/    /'
+        fi
+        return 0
+    }
+    # tests/unit's files but for those with a .host file, and
+    # tests/virt/unit's, the board's own.
     for src in tests/unit/*_test.l0 tests/virt/unit/*_test.l0; do
         [ -f "$src" ] || continue
         name=$(basename "$src" .l0)
@@ -469,30 +611,15 @@ if [ "$VIRT" = 1 ]; then
             nskip=$((nskip + 1))
             continue
         fi
-        udir="$TMP/vunit-$name"
-        mkdir -p "$udir"
-        case $src in
-            tests/virt/*) uextra=$(virt_extra "$ROOT/$ustem") ;;
-            *) uextra=$(extra_sources "$ROOT/$ustem") ;;
-        esac
-        # shellcheck disable=SC2046
-        if (cd "$udir" && L0_COMPILER="$vcc" "$ROOT/tools/l0" test --target virt \
-            "$ROOT/$src" $(echo "$uextra" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
-            > "$udir.tap" 2>&1; then
-            npass=$((npass + 1))
-        else
-            nfail=$((nfail + 1))
-            failures="$failures $VARCH:virt-unit/$name"
-            echo "FAIL $VARCH:virt-unit/$name:"
-            grep -v '^ok ' "$udir.tap" | sed 's/^/    /'
-        fi
+        spawn virt_unit "$name" "$src" "$ustem"
     done
 
-    for src in tests/virt/*.l0 tests/virt/"$VARCH"/*.l0; do
-        [ -f "$src" ] || continue
-        name=$(basename "$src" .l0)
-        selected "$name" || continue
-        stem="${src%.l0}"
+    # virt_program NAME SRC STEM builds tests/virt's SRC for the board and
+    # judges it, or judges how the board's toolchain refuses it.
+    virt_program() {
+        name=$1
+        src=$2
+        stem=$3
         if [ -f "$stem.refused" ]; then
             # A program the board's toolchain must refuse to build, saying
             # what its .refused file says.
@@ -510,7 +637,7 @@ if [ "$VIRT" = 1 ]; then
             else
                 npass=$((npass + 1))
             fi
-            continue
+            return 0
         fi
         # shellcheck disable=SC2046
         if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt $(layout_of "$stem") \
@@ -520,7 +647,7 @@ if [ "$VIRT" = 1 ]; then
             failures="$failures $VARCH:virt/$name"
             echo "FAIL $VARCH:virt/$name: did not build"
             sed 's/^/    /' "$TMP/$name.berr"
-            continue
+            return 0
         fi
         # A program with a <stem>.initrd is given those bytes as the
         # firmware's initrd, QEMU's -initrd, which is standard input where
@@ -533,6 +660,13 @@ if [ "$VIRT" = 1 ]; then
         # shellcheck disable=SC2046
         run_case virt "$name" "$stem" env L0_QEMU_ARGS="$initrd" \
             ./tools/l0 boot "$TMP/$name.img" $(args_of "$stem")
+        return 0
+    }
+    for src in tests/virt/*.l0 tests/virt/"$VARCH"/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        spawn virt_program "$name" "$src" "${src%.l0}"
     done
 
     # The same programs, but for those a .board file keeps on the board, as
@@ -598,20 +732,22 @@ if [ "$VIRT" = 1 ]; then
         esac
     }
 
-    # proc_build SUITE NAME SRC STEM builds SRC as a process image, or
-    # fails the test, as it does if the image is not section 10.3's.
+    # proc_build SUITE NAME SRC STEM [IMG] builds SRC as a process image,
+    # IMG or else $TMP/NAME.proc.img, or fails the test, as it does if the
+    # image is not section 10.3's. A job that builds a program another job
+    # runs names an IMG of its own.
     proc_build() {
+        pimg=${5:-$TMP/$2.proc.img}
         # shellcheck disable=SC2046
         if ! L0_COMPILER="$vcc" ./tools/l0 build --target proc "$3" \
-            $(virt_extra "$4") -o "$TMP/$2.proc.img" \
-            > "$TMP/$2.proc.berr" 2>&1; then
+            $(virt_extra "$4") -o "$pimg" > "$pimg.berr" 2>&1; then
             nfail=$((nfail + 1))
             failures="$failures $VARCH:$1/$2"
             echo "FAIL $VARCH:$1/$2: did not build as a process"
-            sed 's/^/    /' "$TMP/$2.proc.berr"
+            sed 's/^/    /' "$pimg.berr"
             return 1
         fi
-        if ! why=$(elf_ok "$TMP/$2.proc.img"); then
+        if ! why=$(elf_ok "$pimg"); then
             nfail=$((nfail + 1))
             failures="$failures $VARCH:$1/$2"
             echo "FAIL $VARCH:$1/$2: its process image is not spec section 10.3's: $why"
@@ -620,11 +756,30 @@ if [ "$VIRT" = 1 ]; then
     }
 
     if [ "$procs" = 0 ]; then
-        nskip=$((nskip + 1))
-        echo "skip $VARCH: no process runtime or harness kernel, so nothing runs as a process"
+        virt_noprocs() {
+            nskip=$((nskip + 1))
+            echo "skip $VARCH: no process runtime or harness kernel, so nothing runs as a process"
+            return 0
+        }
+        spawn virt_noprocs
+        pool_judge
         return 0
     fi
 
+    # The harness kernel, linked into $pwork once, before any job boots it
+    # there; each boot then leaves its own input beside it.
+    "$harness/boot.sh" "$pwork" > "$TMP/proc-link.log" 2>&1 || true
+
+    # proc_program NAME SRC STEM builds tests/virt's SRC as a process and
+    # runs it under the harness kernel.
+    proc_program() {
+        proc_build virt-proc "$1" "$2" "$3" || return 0
+        pargs=$(expect_file "$3" args)
+        [ -f "$pargs" ] || pargs=-
+        run_case virt-proc "$1" "$3" "$harness/boot.sh" "$pwork" "$pargs" \
+            "$TMP/$1.proc.img"
+        return 0
+    }
     for src in tests/virt/*.l0 tests/virt/"$VARCH"/*.l0; do
         [ -f "$src" ] || continue
         name=$(basename "$src" .l0)
@@ -632,40 +787,39 @@ if [ "$VIRT" = 1 ]; then
         stem="${src%.l0}"
         [ -f "$stem.board" ] && continue
         [ -f "$stem.refused" ] && continue
-        proc_build virt-proc "$name" "$src" "$stem" || continue
-        pargs=$(expect_file "$stem" args)
-        [ -f "$pargs" ] || pargs=-
-        run_case virt-proc "$name" "$stem" "$harness/boot.sh" "$pwork" "$pargs" \
-            "$TMP/$name.proc.img"
+        spawn proc_program "$name" "$src" "$stem"
     done
 
-    spin=""
-    for src in tests/virt/proc/*.l0; do
-        [ -f "$src" ] || continue
-        name=$(basename "$src" .l0)
-        selected "$name" || continue
-        stem="tests/virt/proc/$name"
-        proc_build proc "$name" "$src" "$stem" || continue
+    # proc_suite NAME SRC STEM builds tests/virt/proc's SRC and runs it
+    # under the harness kernel, beside what its .with file names: spin,
+    # built for it alone, or the harness's own IR, such as fault.
+    proc_suite() {
+        proc_build proc "$1" "$2" "$3" || return 0
         args=-
-        [ -f "$stem.args" ] && args="$stem.args"
+        [ -f "$3.args" ] && args="$3.args"
         beside=""
-        if [ -f "$stem.with" ]; then
-            for w in $(cat "$stem.with"); do
+        if [ -f "$3.with" ]; then
+            for w in $(cat "$3.with"); do
                 case $w in
                     spin)
-                        if [ -z "$spin" ]; then
-                            proc_build proc spin "$harness/spin.l0" "$harness/spin" || continue 2
-                            spin="$TMP/spin.proc.img"
-                        fi
-                        beside="$beside $spin"
+                        proc_build proc spin "$harness/spin.l0" "$harness/spin" \
+                            "$TMP/spin-$1.proc.img" || return 0
+                        beside="$beside $TMP/spin-$1.proc.img"
                         ;;
                     *) beside="$beside $w" ;;
                 esac
             done
         fi
         # shellcheck disable=SC2086
-        run_case proc "$name" "$stem" "$harness/boot.sh" "$pwork" "$args" \
-            "$TMP/$name.proc.img" $beside
+        run_case proc "$1" "$3" "$harness/boot.sh" "$pwork" "$args" \
+            "$TMP/$1.proc.img" $beside
+        return 0
+    }
+    for src in tests/virt/proc/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        spawn proc_suite "$name" "$src" "tests/virt/proc/$name"
     done
 
     # And under a kernel written in L0 (spec sections 6.13 and 6.14): each
@@ -746,77 +900,119 @@ if [ "$VIRT" = 1 ]; then
         rm -f "$img"
         return 1
     }
-    if ! L0_COMPILER="$vcc" ./tools/l0 build --target virt "$user/kernel.l0" \
-        -o "$uwork/kernel.img" > "$uwork/kernel.berr" 2>&1; then
-        nfail=$((nfail + 1))
-        failures="$failures $VARCH:virt-user/kernel"
-        echo "FAIL $VARCH:virt-user/kernel: did not build"
-        sed 's/^/    /' "$uwork/kernel.berr"
-    else
-        for src in tests/virt/*.l0 tests/virt/"$VARCH"/*.l0; do
-            [ -f "$src" ] || continue
-            name=$(basename "$src" .l0)
-            selected "$name" || continue
-            stem="${src%.l0}"
-            [ -f "$TMP/$name.proc.img" ] || continue
-            # The program's arguments are the kernel's for process 0.
-            kargs=-
-            pargs=$(expect_file "$stem" args)
-            if [ -f "$pargs" ]; then
-                sed 's/^/0:/' "$pargs" > "$uwork/$name.kargs"
-                kargs="$uwork/$name.kargs"
-            fi
-            run_case virt-user "$name" "$stem" "$user/run.sh" \
-                "$uwork/kernel.img" "$uwork" "$kargs" "$TMP/$name.proc.img"
+    # user_prepare builds kernel.l0 for the board, and links the harness IR
+    # that tests/virt/user's .procs files and tests/virt/proc's .with files
+    # name, each once, before the jobs that boot them start. One that does
+    # not link is left for the test that uses it to fail on.
+    user_prepare() {
+        if L0_COMPILER="$vcc" ./tools/l0 build --target virt "$user/kernel.l0" \
+            -o "$uwork/kernel.img" > "$uwork/kernel.berr" 2>&1; then
+            : > "$uwork/kernel.ok"
+        else
+            nfail=$((nfail + 1))
+            failures="$failures $VARCH:virt-user/kernel"
+            echo "FAIL $VARCH:virt-user/kernel: did not build"
+            sed 's/^/    /' "$uwork/kernel.berr"
+        fi
+        for w in $(cat "$user"/*.procs tests/virt/proc/*.with 2> /dev/null); do
+            case $w in
+                *.l0 | spin) ;;
+                *) (user_ir "$w") > /dev/null 2>&1 || true ;;
+            esac
         done
-        for spec in "$user"/*.procs; do
-            [ -f "$spec" ] || continue
-            name=$(basename "$spec" .procs)
-            selected "$name" || continue
-            images=""
-            for p in $(cat "$spec"); do
-                case $p in
-                    *.l0)
-                        pn=$(basename "$p" .l0)
-                        proc_build user "$pn" "$p" "${p%.l0}" || continue 2
-                        images="$images $TMP/$pn.proc.img"
-                        ;;
+        return 0
+    }
+    spawn user_prepare
+    # The process images the jobs so far built are what the L0 kernel's
+    # jobs boot, so they are all done first.
+    pool_judge
+    [ -f "$uwork/kernel.ok" ] || return 0
+
+    # user_program NAME STEM runs tests/virt's program as built above, the
+    # one process of kernel.l0, whose arguments for process 0 are the
+    # program's.
+    user_program() {
+        kargs=-
+        pargs=$(expect_file "$2" args)
+        if [ -f "$pargs" ]; then
+            sed 's/^/0:/' "$pargs" > "$uwork/$1.kargs"
+            kargs="$uwork/$1.kargs"
+        fi
+        run_case virt-user "$1" "$2" "$user/run.sh" \
+            "$uwork/kernel.img" "$uwork" "$kargs" "$TMP/$1.proc.img"
+        return 0
+    }
+    for src in tests/virt/*.l0 tests/virt/"$VARCH"/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        [ -f "$TMP/$name.proc.img" ] || continue
+        spawn user_program "$name" "${src%.l0}"
+    done
+
+    # user_procs NAME SPEC runs the processes SPEC names under kernel.l0,
+    # each L0 program among them built for this job alone, since another
+    # job may run the same program.
+    user_procs() {
+        images=""
+        for p in $(cat "$2"); do
+            case $p in
+                *.l0)
+                    pn=$(basename "$p" .l0)
+                    proc_build user "$pn" "$p" "${p%.l0}" "$uwork/$1-$pn.proc.img" ||
+                        return 0
+                    images="$images $uwork/$1-$pn.proc.img"
+                    ;;
+                *)
+                    user_ir "$p" || return 0
+                    images="$images $(user_img "$p")"
+                    ;;
+            esac
+        done
+        kargs=$(expect_file "$user/$1" args)
+        [ -f "$kargs" ] || kargs=-
+        # shellcheck disable=SC2086
+        run_case user "$1" "$user/$1" "$user/run.sh" \
+            "$uwork/kernel.img" "$uwork" "$kargs" $images
+        return 0
+    }
+    for spec in "$user"/*.procs; do
+        [ -f "$spec" ] || continue
+        name=$(basename "$spec" .procs)
+        selected "$name" || continue
+        spawn user_procs "$name" "$spec"
+    done
+
+    # user_proc NAME STEM runs tests/virt/proc's program, as built above,
+    # under kernel.l0, beside what its .with file names.
+    user_proc() {
+        beside=""
+        if [ -f "$2.with" ]; then
+            for w in $(cat "$2.with"); do
+                case $w in
+                    spin) beside="$beside $TMP/spin-$1.proc.img" ;;
                     *)
-                        user_ir "$p" || continue 2
-                        images="$images $(user_img "$p")"
+                        user_ir "$w" || return 0
+                        beside="$beside $(user_img "$w")"
                         ;;
                 esac
             done
-            kargs=$(expect_file "$user/$name" args)
-            [ -f "$kargs" ] || kargs=-
-            # shellcheck disable=SC2086
-            run_case user "$name" "$user/$name" "$user/run.sh" \
-                "$uwork/kernel.img" "$uwork" "$kargs" $images
-        done
-        for src in tests/virt/proc/*.l0; do
-            [ -f "$src" ] || continue
-            name=$(basename "$src" .l0)
-            selected "$name" || continue
-            stem="tests/virt/proc/$name"
-            [ -f "$stem.args" ] && continue
-            [ -f "$TMP/$name.proc.img" ] || continue
-            beside=""
-            if [ -f "$stem.with" ]; then
-                for w in $(cat "$stem.with"); do
-                    case $w in
-                        spin) beside="$beside $TMP/spin.proc.img" ;;
-                        *)
-                            user_ir "$w" || continue 2
-                            beside="$beside $(user_img "$w")"
-                            ;;
-                    esac
-                done
-            fi
-            # shellcheck disable=SC2086
-            run_case user-proc "$name" "$stem" "$user/run.sh" \
-                "$uwork/kernel.img" "$uwork" - "$TMP/$name.proc.img" $beside
-        done
-    fi
+        fi
+        # shellcheck disable=SC2086
+        run_case user-proc "$1" "$2" "$user/run.sh" \
+            "$uwork/kernel.img" "$uwork" - "$TMP/$1.proc.img" $beside
+        return 0
+    }
+    for src in tests/virt/proc/*.l0; do
+        [ -f "$src" ] || continue
+        name=$(basename "$src" .l0)
+        selected "$name" || continue
+        stem="tests/virt/proc/$name"
+        [ -f "$stem.args" ] && continue
+        [ -f "$TMP/$name.proc.img" ] || continue
+        spawn user_proc "$name" "$stem"
+    done
+    pool_judge
     }
 
     for a in $varchs; do
@@ -909,40 +1105,6 @@ fi
 # failure: the interpreter accepts the program, so the compiler must too.
 
 if [ "$COMPILED" = 1 ]; then
-    # The tests run L0_JOBS at once, by default one for each CPU the host
-    # has, but at most one for each 2 GB of its memory, since a
-    # tests/compiler job compiles a program the size of the compiler, which
-    # takes over a gigabyte. Each leaves what it did under its own name,
-    # $TMP/SUITE-NAME, and reads nothing another writes. They are judged
-    # afterward, one at a time in the order they were listed, so the report
-    # is the same however many ran at once.
-    njobs=${L0_JOBS:-$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1)}
-    case $njobs in
-        '' | *[!0-9]*) njobs=0 ;;
-    esac
-    if [ "$njobs" -lt 1 ]; then
-        echo "L0_JOBS must be a positive number, not '${L0_JOBS:-}'" >&2
-        exit 2
-    fi
-    if [ -z "${L0_JOBS:-}" ]; then
-        # The host's memory in megabytes: Linux's by getconf, macOS's,
-        # which getconf does not give, by sysctl.
-        mem_mb=""
-        if pages=$(getconf _PHYS_PAGES 2> /dev/null) &&
-            psize=$(getconf PAGESIZE 2> /dev/null); then
-            mem_mb=$((pages / 1024 * psize / 1024))
-        elif bytes=$(sysctl -n hw.memsize 2> /dev/null); then
-            mem_mb=$((bytes / 1048576))
-        fi
-        if [ -n "$mem_mb" ] && [ "$njobs" -gt $((mem_mb / 2048)) ]; then
-            njobs=$((mem_mb / 2048))
-        fi
-        [ "$njobs" -ge 1 ] || njobs=1
-    fi
-    # It is this script's: the l0 test of tests/unit's files, each one of
-    # its jobs, runs a file's tests one at a time, l0 test's default.
-    unset L0_JOBS
-
     # Test the CURRENT compiler, not whatever the checked-in seed happens to
     # hold. Bootstrapping from source first is the only way to be sure of
     # that, and it makes --compiled verify the fixpoint as a side effect.
