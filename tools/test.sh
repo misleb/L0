@@ -21,6 +21,10 @@
 #                  extension, such as bundle_prelude, matched in every suite.
 #                  A filter that matches nothing passes, with "0 tests".
 #
+#   L0_JOBS        how many of --compiled's tests run at once; by default,
+#                  the host's CPUs, as getconf _NPROCESSORS_ONLN counts them,
+#                  but at most one for each 2 GB of its memory
+#
 # Suites:
 #   tests/backend/*.ll   hand-written IR linked against the runtime, pinning
 #                        down the ABI in spec section 10
@@ -905,6 +909,37 @@ fi
 # failure: the interpreter accepts the program, so the compiler must too.
 
 if [ "$COMPILED" = 1 ]; then
+    # The tests run L0_JOBS at once, by default one for each CPU the host
+    # has, but at most one for each 2 GB of its memory, since a
+    # tests/compiler job compiles a program the size of the compiler, which
+    # takes over a gigabyte. Each leaves what it did under its own name,
+    # $TMP/SUITE-NAME, and reads nothing another writes. They are judged
+    # afterward, one at a time in the order they were listed, so the report
+    # is the same however many ran at once.
+    njobs=${L0_JOBS:-$(getconf _NPROCESSORS_ONLN 2> /dev/null || echo 1)}
+    case $njobs in
+        '' | *[!0-9]*) njobs=0 ;;
+    esac
+    if [ "$njobs" -lt 1 ]; then
+        echo "L0_JOBS must be a positive number, not '${L0_JOBS:-}'" >&2
+        exit 2
+    fi
+    if [ -z "${L0_JOBS:-}" ]; then
+        # The host's memory in megabytes: Linux's by getconf, macOS's,
+        # which getconf does not give, by sysctl.
+        mem_mb=""
+        if pages=$(getconf _PHYS_PAGES 2> /dev/null) &&
+            psize=$(getconf PAGESIZE 2> /dev/null); then
+            mem_mb=$((pages / 1024 * psize / 1024))
+        elif bytes=$(sysctl -n hw.memsize 2> /dev/null); then
+            mem_mb=$((bytes / 1048576))
+        fi
+        if [ -n "$mem_mb" ] && [ "$njobs" -gt $((mem_mb / 2048)) ]; then
+            njobs=$((mem_mb / 2048))
+        fi
+        [ "$njobs" -ge 1 ] || njobs=1
+    fi
+
     # Test the CURRENT compiler, not whatever the checked-in seed happens to
     # hold. Bootstrapping from source first is the only way to be sure of
     # that, and it makes --compiled verify the fixpoint as a side effect.
@@ -930,154 +965,179 @@ if [ "$COMPILED" = 1 ]; then
 
     nskip=0
 
-    # build_exe SUITE NAME SRC STEM -> 0 built, 1 failed, 2 unsupported
-    build_exe() {
-        bsuite=$1
-        bname=$2
-        bsrc=$3
-        bstem=$4
+    # compiled_build RES SRC STEM compiles SRC and links it into RES.exe;
+    # or leaves RES.skip, if this compiler cannot compile it yet; or what
+    # failed in RES.what, and why in RES.why.
+    compiled_build() {
         # shellcheck disable=SC2046
-        if ! ./tools/l0c "$bsrc" $(extra_sources "$bstem") > "$TMP/$bname.ll" \
-            2> "$TMP/$bname.cerr"; then
-            if grep -q "not supported by this compiler yet" \
-                "$TMP/$bname.cerr"; then
-                return 2
+        if ! ./tools/l0c "$2" $(extra_sources "$3") > "$1.ll" 2> "$1.why"; then
+            if grep -q "not supported by this compiler yet" "$1.why"; then
+                : > "$1.skip"
+            else
+                echo "compiler rejected a valid program" > "$1.what"
             fi
-            nfail=$((nfail + 1))
-            failures="$failures $bsuite/$bname"
-            echo "FAIL $bsuite/$bname: compiler rejected a valid program"
-            sed 's/^/    /' "$TMP/$bname.cerr"
             return 1
         fi
-        if ! ./tools/l0ll "$TMP/$bname.ll" "$TMP/$bname.exe" \
-            2> "$TMP/$bname.lerr"; then
-            nfail=$((nfail + 1))
-            failures="$failures $bsuite/$bname"
-            echo "FAIL $bsuite/$bname: generated IR did not assemble"
-            sed 's/^/    /' "$TMP/$bname.lerr"
+        if ! ./tools/l0ll "$1.ll" "$1.exe" 2> "$1.why"; then
+            echo "generated IR did not assemble" > "$1.what"
             return 1
         fi
-        return 0
     }
 
-    # Programs that must run. Judged against the interpreter's expectations,
-    # which is what makes this differential rather than self-referential.
-    for src in tests/lang/*.l0; do
-        [ -f "$src" ] || continue
-        name=$(basename "$src" .l0)
-        selected "$name" || continue
-        stem="tests/lang/$name"
-        build_exe compiled "$name" "$src" "$stem"
-        case $? in
-            2) nskip=$((nskip + 1)); continue ;;
-            1) continue ;;
+    # compiled_names SRC sets suite, name, stem, and res for the test SRC.
+    compiled_names() {
+        dir=${1%/*}
+        suite=${dir#tests/}
+        name=${1##*/}
+        name=${name%.l0}
+        stem="$dir/$name"
+        res="$TMP/$suite-$name"
+    }
+
+    # compiled_run SRC builds and runs the test SRC, leaving what it did
+    # beside $TMP/SUITE-NAME for compiled_judge. It counts nothing, since
+    # it runs in a job of its own.
+    compiled_run() {
+        compiled_names "$1"
+        st=0
+        case $suite in
+            check)
+                # Programs that must be REJECTED.
+                if ./tools/l0c "$1" > /dev/null 2> "$res.cerr"; then
+                    : > "$res.accepted"
+                fi
+                ;;
+            unit)
+                # Tests written with l0 test, each file run in a scratch
+                # directory so the files its tests write stay out of the
+                # repository, and against the compiler and runtime just
+                # built rather than the installed ones.
+                mkdir -p "$res"
+                # shellcheck disable=SC2046
+                (cd "$res" && L0_COMPILER="$BUILD/l0c-native" \
+                    L0_RUNTIME="$BUILD/l0rt.o" L0_HOST="$BUILD/l0host.o" \
+                    "$ROOT/tools/l0" test "$ROOT/$1" \
+                    $(extra_sources "$ROOT/$stem" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
+                    > "$res.tap" 2>&1 || st=$?
+                echo "$st" > "$res.status"
+                ;;
+            *)
+                compiled_build "$res" "$1" "$stem" || return 0
+                if [ "$suite" = io ] && [ -f "$stem.sh" ]; then
+                    sh "$stem.sh" "$res.exe" "$res.ll" > "$res.shout" 2>&1 || st=$?
+                    echo "$st" > "$res.status"
+                else
+                    exec_case "$res" "$stem" "$res.exe"
+                fi
+                ;;
         esac
-        run_case compiled "$name" "$stem" "$TMP/$name.exe"
-    done
+    }
 
-    # Compiler stage tests, against the very same goldens the interpreted run
-    # uses. These are pure functions of stdin, so any difference at all means
-    # the two implementations disagree.
-    for src in tests/compiler/*.l0; do
-        [ -f "$src" ] || continue
-        name=$(basename "$src" .l0)
-        case "$name" in fmt) continue ;; esac
-        selected "$name" || continue
-        stem="tests/compiler/$name"
-        build_exe compiled "$name" "$src" "$stem"
-        case $? in
-            2) nskip=$((nskip + 1)); continue ;;
-            1) continue ;;
+    # compiled_judge SRC judges what compiled_run left for SRC, and counts
+    # it:
+    #   tests/lang      against the interpreter's expectations, which is
+    #                   what makes this differential rather than
+    #                   self-referential
+    #   tests/compiler  against the very same goldens the interpreted run
+    #                   uses; these are pure functions of stdin, so any
+    #                   difference at all means the two implementations
+    #                   disagree
+    #   tests/check     the compiler's wording differs from the
+    #                   interpreter's, so these have their own .cerr
+    #                   expectations; what matters is that every program the
+    #                   interpreter rejects, the compiler rejects too
+    #   tests/io        programs stage 0 cannot run, against hand-written
+    #                   expectations, or by a script when what matters is
+    #                   when output appears
+    #   tests/unit      by l0 test's exit status
+    compiled_judge() {
+        compiled_names "$1"
+        case $suite in
+            lang | compiler) label="compiled/$name" ;;
+            check) label="compiled-check/$name" ;;
+            *) label="$suite/$name" ;;
         esac
-        run_case compiled "$name" "$stem" "$TMP/$name.exe"
-    done
-
-    # Programs that must be REJECTED. The compiler's wording differs from the
-    # interpreter's, so these have their own .cerr expectations; what matters
-    # is that every program the interpreter rejects, the compiler rejects too.
-    for src in tests/check/*.l0; do
-        [ -f "$src" ] || continue
-        name=$(basename "$src" .l0)
-        selected "$name" || continue
-        cerr="tests/check/$name.cerr"
-
-        if ./tools/l0c "$src" > /dev/null 2> "$TMP/$name.cerr"; then
+        if [ -f "$res.skip" ]; then
+            nskip=$((nskip + 1))
+        elif [ -f "$res.what" ]; then
             nfail=$((nfail + 1))
-            failures="$failures compiled-check/$name"
-            echo "FAIL compiled-check/$name: compiler ACCEPTED a program the interpreter rejects"
-            continue
-        fi
-
-        if [ "$BLESS_CHECK" = 1 ]; then
-            cp "$TMP/$name.cerr" "$cerr"
-            echo "bless compiled-check/$name"
-            npass=$((npass + 1))
-            continue
-        fi
-        if [ ! -f "$cerr" ]; then
-            nfail=$((nfail + 1))
-            failures="$failures compiled-check/$name"
-            echo "FAIL compiled-check/$name: no expectation file"
-        elif ! cmp -s "$TMP/$name.cerr" "$cerr"; then
-            nfail=$((nfail + 1))
-            failures="$failures compiled-check/$name"
-            echo "FAIL compiled-check/$name: diagnostics differ"
-            diff -u "$cerr" "$TMP/$name.cerr" | sed 's/^/    /' || true
-        else
-            npass=$((npass + 1))
-        fi
-    done
-
-    # Programs stage 0 cannot run, judged against hand-written expectations,
-    # or by a script when what matters is when output appears.
-    for src in tests/io/*.l0; do
-        [ -f "$src" ] || continue
-        name=$(basename "$src" .l0)
-        selected "$name" || continue
-        stem="tests/io/$name"
-        build_exe io "$name" "$src" "$stem"
-        case $? in
-            2) nskip=$((nskip + 1)); continue ;;
-            1) continue ;;
-        esac
-        if [ -f "$stem.sh" ]; then
-            if sh "$stem.sh" "$TMP/$name.exe" "$TMP/$name.ll" \
-                > "$TMP/$name.shout" 2>&1; then
+            failures="$failures $label"
+            echo "FAIL $label: $(cat "$res.what")"
+            sed 's/^/    /' "$res.why"
+        elif [ "$suite" = check ]; then
+            cerr="$stem.cerr"
+            if [ -f "$res.accepted" ]; then
+                nfail=$((nfail + 1))
+                failures="$failures $label"
+                echo "FAIL $label: compiler ACCEPTED a program the interpreter rejects"
+            elif [ "$BLESS_CHECK" = 1 ]; then
+                cp "$res.cerr" "$cerr"
+                echo "bless $label"
+                npass=$((npass + 1))
+            elif [ ! -f "$cerr" ]; then
+                nfail=$((nfail + 1))
+                failures="$failures $label"
+                echo "FAIL $label: no expectation file"
+            elif ! cmp -s "$res.cerr" "$cerr"; then
+                nfail=$((nfail + 1))
+                failures="$failures $label"
+                echo "FAIL $label: diagnostics differ"
+                diff -u "$cerr" "$res.cerr" | sed 's/^/    /' || true
+            else
+                npass=$((npass + 1))
+            fi
+        elif [ -f "$res.status" ]; then
+            if [ "$(cat "$res.status")" = 0 ]; then
                 npass=$((npass + 1))
             else
                 nfail=$((nfail + 1))
-                failures="$failures io/$name"
-                echo "FAIL io/$name: $stem.sh failed"
-                sed 's/^/    /' "$TMP/$name.shout"
+                failures="$failures $label"
+                if [ "$suite" = unit ]; then
+                    echo "FAIL $label:"
+                    grep -v '^ok ' "$res.tap" | sed 's/^/    /'
+                else
+                    echo "FAIL $label: $stem.sh failed"
+                    sed 's/^/    /' "$res.shout"
+                fi
             fi
         else
-            run_case io "$name" "$stem" "$TMP/$name.exe"
+            judge_case "${label%%/*}" "$name" "$stem" "$res"
         fi
+    }
+
+    list="$TMP/compiled.list"
+    : > "$list"
+    for src in tests/lang/*.l0 tests/compiler/*.l0 tests/check/*.l0 \
+        tests/io/*.l0 tests/unit/*_test.l0; do
+        [ -f "$src" ] || continue
+        case "$src" in tests/compiler/fmt.l0) continue ;; esac
+        compiled_names "$src"
+        selected "$name" || continue
+        echo "$src" >> "$list"
     done
 
-    # Tests written with l0 test, each file run in a scratch directory so the
-    # files its tests write stay out of the repository, and against the
-    # compiler and runtime just built rather than the installed ones.
-    for src in tests/unit/*_test.l0; do
-        [ -f "$src" ] || continue
-        name=$(basename "$src" .l0)
-        selected "$name" || continue
-        udir="$TMP/unit-$name"
-        mkdir -p "$udir"
-        # shellcheck disable=SC2046
-        if (cd "$udir" && L0_COMPILER="$BUILD/l0c-native" \
-            L0_RUNTIME="$BUILD/l0rt.o" L0_HOST="$BUILD/l0host.o" \
-            "$ROOT/tools/l0" test "$ROOT/$src" \
-            $(extra_sources "$ROOT/tests/unit/$name" | sed "s|[^ ][^ ]*|$ROOT/&|g")) \
-            > "$udir.tap" 2>&1; then
-            npass=$((npass + 1))
-        else
-            nfail=$((nfail + 1))
-            failures="$failures unit/$name"
-            echo "FAIL unit/$name:"
-            grep -v '^ok ' "$udir.tap" | sed 's/^/    /'
-        fi
+    # The pool is a pipe holding a line for each job that may start, opened
+    # both ways so it never ends: a job starts once it has read a line, and
+    # writes it back when it is done. Each job's standard input is
+    # /dev/null, not the list being read.
+    mkfifo "$TMP/pool"
+    exec 3<> "$TMP/pool"
+    rm -f "$TMP/pool"
+    k=0
+    while [ "$k" -lt "$njobs" ]; do
+        echo >&3
+        k=$((k + 1))
     done
+    while read -r src; do
+        read -r _ <&3
+        { compiled_run "$src" || true; echo >&3; } < /dev/null &
+    done < "$list"
+    wait
+    exec 3>&-
+
+    while read -r src; do
+        compiled_judge "$src"
+    done < "$list"
 
     echo
     echo "compiled suite: $npass passed, $nfail failed, $nskip skipped"
