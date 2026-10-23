@@ -135,6 +135,8 @@ what a USB stack needs: the aarch64 virt board's PCIe ECAM and MMIO window
 as regions (0101), the Pi 5's RP1 as one (0102), and a builtin that cleans
 and invalidates a frame for the Pi's DMA, which is not coherent (0103), and
 has all three; interrupts for its driver wait for a request of their own.
+For its display driver, the Pi 5's HVS and the IOMMU in front of it are
+regions too (0105), and `l0 card` forces HDMI's hotplug.
 
 ## Language queue
 
@@ -423,3 +425,6 @@ None.
 - [0104](0104-board-layout-sizes.md) a board program sizes its heap and
   stack, or brings its own layout — done, changelog "A board program sizes
   its heap and stack, or brings its own layout"
+- [0105](0105-pi5-hvs-regions.md) the Raspberry Pi 5's HVS and its IOMMU
+  are regions — done, changelog "The Raspberry Pi 5's HVS and its IOMMU
+  are regions"; no run on a board

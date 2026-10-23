@@ -1,0 +1,27 @@
+; Spec section 10.3 on the Raspberry Pi 5: the HVS, iommu4 and iommuc are
+; regions, as L0S's probes/display asked. This is built by tools/test.sh
+; --virt and not run, since no emulator has this board; on a Pi 5 whose
+; serial line is read, its output is hvs.out. The HVS opens whole and over
+; its display list memory alone, and both IOMMUs open; a range past the
+; HVS's end, one past iommu4's, and iommu2 and iommu5, which share
+; iommu4's page, are no region. Nothing is read, since what the HVS holds
+; is the firmware's to leave.
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def inside () int
+  (let a (code (region_open 70805618688 106496))  ; 0x107C580000, the HVS
+    (let b (code (region_open 70805635072 90112)) ; 0x107C584000, its lists
+      (let c (code (region_open 68719497728 128)) ; 0x1000005200, iommu4
+        (code (region_open 68719500032 128))))))  ; 0x1000005B00, iommuc
+
+(def outside () int
+  (let a (code (region_open 70805721088 8192))    ; past the HVS's end
+    (let b (code (region_open 68719497728 256))   ; past iommu4's
+      (let c (code (region_open 68719497472 128)) ; 0x1000005100, iommu2
+        (code (region_open 68719497984 128))))))  ; 0x1000005280, iommu5
+
+(def main () int
+  (let a (inside)
+    (outside)))

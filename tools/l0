@@ -866,6 +866,7 @@ case "$cmd" in
             echo "kernel_address=0x80000"
             echo "device_tree_address=0x08000000"
             echo "pciex4_reset=0"
+            echo "hdmi_force_hotplug=1"
         } > "$dir/config.txt"
         if [ "$len" -gt 0 ]; then
             cp "$TMP/stdin" "$dir/input.bin"

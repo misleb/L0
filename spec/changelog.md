@@ -88,6 +88,42 @@ a time. Nothing has run it on a Pi, as nothing of the Pi 5's has.
 
 ---
 
+## The Raspberry Pi 5's HVS and its IOMMU are regions
+
+**New:** on the Raspberry Pi 5, three more devices are regions (spec
+10.3): the HVS, 0x107C580000 and 0x1A000 bytes, in the boot map's block
+65 with the others; and `iommu4`, 0x1000005200, and `iommuc`, 0x1000005B00,
+0x80 bytes each, in block 64, which the boot map now maps as
+Device-nGnRnE too. `l0 card`'s `config.txt` says `hdmi_force_hotplug=1`.
+
+*Why:* L0S asked (its `probes/display/REQUEST-pi5-hvs-iommu.md`). Its
+`hvs` driver composes the screen as its virtio-gpu driver does on QEMU,
+with no pixel copied: a plane per window, read by the HVS straight from
+the pages a client shares. Those pages are scattered and a plane reads
+one run of addresses, so the driver maps them one after another through
+`iommu4`, which the device tree puts in front of the HVS
+(`iommus = <&iommu4>`), and whose cache, `iommuc`, it must flush. With
+none of them a region, the driver could only say there was no display.
+
+*Decided:* the firmware's display is kept, not brought up by the host:
+the firmware has HDMI0 scanning out by the time the program runs, and the
+driver takes its mode, so `hdmi_force_hotplug=1` is all that makes that
+hold without a monitor's hotplug seen in time. A region over the
+framebuffer the mailbox can ask for was the alternative, and was not
+taken: it is RAM, so as device memory every pixel written to it is
+uncached, and every window and scroll would be copied into it. Contiguous
+frames in place of the IOMMU would be a new allocator, and would give a
+frame's number a meaning section 6.13 denies it. Block 64 is mapped whole,
+as block 65 is, though only the IOMMUs in it are regions: the boot map is
+the host's, and a region is still only a range the device table names.
+The HVS's interrupts, through `disp_intr`, wait for a request of their
+own, since the driver polls. The places are the Raspberry Pi kernel's
+`rpi-6.12.y` device tree's, whose `axi` bus maps them unchanged; nothing
+of them has run on a board, and `tests/virt/pi5/hvs` is what a first run
+shows.
+
+---
+
 ## The Raspberry Pi 5's RP1 is a region
 
 **New:** on the Raspberry Pi 5, RP1's peripherals, 0x1F00000000 and

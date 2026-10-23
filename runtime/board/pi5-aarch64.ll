@@ -54,11 +54,12 @@ declare void @l0_psci_off() noreturn
 ; 0 and 1, the first 2 GB of RAM, are normal memory, MAIR attribute 1,
 ; write-back, inner shareable, readable and writable at EL1 alone and never
 ; executable at EL0. Block 65, 0x1040000000, holds every device the board's
-; part drives or opens but RP1's, and block 124, 0x1F00000000, RP1's
-; peripherals: both attribute 0, Device-nGnRnE, never executable. Block
+; part drives or opens but the IOMMUs and RP1's, block 64, 0x1000000000,
+; the IOMMUs, and block 124, 0x1F00000000, RP1's peripherals: all three
+; attribute 0, Device-nGnRnE, never executable. Block
 ; 3, the user range, is left empty, and only a space maps it; so is every
 ; block with no RAM in it until l0_board_map_ram adds it.
-@l0_board_boot_map = global <{ i64, i64, [63 x i64], i64, [58 x i64], i64, [387 x i64] }> <{ i64 18014398509483781, i64 18014399583225605, [63 x i64] zeroinitializer, i64 27021667557442561, [58 x i64] zeroinitializer, i64 27021730908210177, [387 x i64] zeroinitializer }>, align 4096
+@l0_board_boot_map = global <{ i64, i64, [62 x i64], i64, i64, [58 x i64], i64, [387 x i64] }> <{ i64 18014398509483781, i64 18014399583225605, [62 x i64] zeroinitializer, i64 27021666483700737, i64 27021667557442561, [58 x i64] zeroinitializer, i64 27021730908210177, [387 x i64] zeroinitializer }>, align 4096
 
 ; The debug UART, and the GIC's distributor and CPU interface.
 @uart_irq = internal global i64 153
@@ -186,26 +187,30 @@ off:
 }
 
 ; The board's devices, spec section 10.3's table, as the device tree
-; places them: a base and a length each, in blocks 65 and 124 of the boot
-; map, which are device memory. RP1's window holds while the firmware
-; leaves the PCIe link to it up, which l0 card's config.txt asks for.
-; Anything else, RAM and the runtime's heap among it, is no region, and so
-; is the GIC, which this file drives.
-@devices = private constant [8 x i64] [
+; places them: a base and a length each, in blocks 64, 65 and 124 of the
+; boot map, which are device memory. RP1's window holds while the firmware
+; leaves the PCIe link to it up, which l0 card's config.txt asks for, and
+; the HVS scans out HDMI0 as the firmware set it up. Anything else, RAM and
+; the runtime's heap among it, is no region, and so is the GIC, which this
+; file drives, and so are iommu2 and iommu5, beside iommu4.
+@devices = private constant [14 x i64] [
   i64 70816632832, i64 4096,      ; 0x107D001000, the debug UART, a PL011
   i64 70799863808, i64 4096,      ; 0x107C003000, the 1 MHz system timer
   i64 70799931520, i64 64,        ; 0x107C013880, the VideoCore mailbox
-  i64 133143986176, i64 4194304 ] ; 0x1F00000000, RP1's peripherals
+  i64 133143986176, i64 4194304,  ; 0x1F00000000, RP1's peripherals
+  i64 70805618688, i64 106496,    ; 0x107C580000, the HVS
+  i64 68719497728, i64 128,       ; 0x1000005200, iommu4, the HVS's IOMMU
+  i64 68719500032, i64 128 ]      ; 0x1000005B00, iommuc, the IOMMUs' cache
 
 define i64 @l0_board_device_count() {
 entry:
-  ret i64 4
+  ret i64 7
 }
 
 define i64 @l0_board_device_base(i64 %k) {
 entry:
   %i = mul i64 %k, 2
-  %p = getelementptr [8 x i64], ptr @devices, i64 0, i64 %i
+  %p = getelementptr [14 x i64], ptr @devices, i64 0, i64 %i
   %v = load i64, ptr %p
   ret i64 %v
 }
@@ -214,7 +219,7 @@ define i64 @l0_board_device_len(i64 %k) {
 entry:
   %i0 = mul i64 %k, 2
   %i = add i64 %i0, 1
-  %p = getelementptr [8 x i64], ptr @devices, i64 0, i64 %i
+  %p = getelementptr [14 x i64], ptr @devices, i64 0, i64 %i
   %v = load i64, ptr %p
   ret i64 %v
 }
