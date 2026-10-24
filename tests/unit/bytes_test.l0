@@ -69,6 +69,45 @@
       (add (check_str "list" l "xy")
            (check_int "still there" (bytes_get b 0) 120)))))
 
+(def test_slice () int
+  (let b (bytes_from_list "hello")
+    (add (check_str "middle" (bytes_to_list (bytes_slice b 1 4)) "ell")
+      (add (check_str "all" (bytes_to_list (bytes_slice b 0 5)) "hello")
+        (add (check_int "empty at the end" (bytes_len (bytes_slice b 5 5)) 0)
+          (add (check_int "empty at the start" (bytes_len (bytes_slice b 0 0)) 0)
+            (add (check_true "equal to its bytes" (eq (bytes_slice b 3 5) (bytes_from_list "lo")))
+                 (check_str "source kept" (bytes_to_list b) "hello"))))))))
+
+(def test_concat () int
+  (let a (bytes_from_list "head")
+    (let c (bytes_from_list "body")
+      (add (check_str "two" (bytes_to_list (bytes_concat (cons a (cons c (nil bytes))))) "headbody")
+        (add (check_int "none" (bytes_len (bytes_concat (nil bytes))) 0)
+          (add (check_str "one" (bytes_to_list (bytes_concat (cons c (nil bytes)))) "body")
+            (add (check_str "empty parts" (bytes_to_list (bytes_concat (cons (bytes_from_list "") (cons a (cons (bytes_from_list "") (nil bytes)))))) "head")
+              (add (check_str "the same twice" (bytes_to_list (bytes_concat (cons a (cons a (nil bytes))))) "headhead")
+                (add (check_str "parts kept" (bytes_to_list a) "head")
+                     (check_str "and the other" (bytes_to_list c) "body"))))))))))
+
+; A message cut into its parts and joined back is the message.
+(def test_slice_and_join () int
+  (let m (bytes_from_list "pid!payload")
+    (let p (bytes_slice m 4 (bytes_len m))
+      (add (check_str "payload" (bytes_to_list p) "payload")
+           (check_true "joined back" (eq (bytes_concat (cons (bytes_slice m 0 4) (cons p (nil bytes)))) m))))))
+
+; Bytes past the 64 KB a handle buffers, joined and cut again.
+(def test_large () int
+  (let a (bytes_from_list (repeat_byte 7 100000 (nil int)))
+    (let j (bytes_concat (cons a (cons (bytes_from_list "x") (cons a (nil bytes)))))
+      (add (check_int "length" (bytes_len j) 200001)
+        (add (check_int "the middle" (bytes_get j 100000) 120)
+          (add (check_int "the last" (bytes_get j 200000) 7)
+               (check_true "cut back" (eq (bytes_slice j 100001 200001) a))))))))
+
+(def repeat_byte ((v int) (n int) (acc (list int))) (list int)
+  (if (le n 0) acc (repeat_byte v (sub n 1) (cons v acc))))
+
 ; bytes is a type only where a type is expected.
 (def count_of ((bytes (list int))) int
   (if (is_empty bytes) 0 (add 1 (count_of (tail bytes)))))

@@ -121,3 +121,11 @@ parse error at offset 36: a def is (def name (params...) return-type body)
 35: an argument of float_neg must be float, but this is int
 35: float_sqrt takes 1 argument, but got 2
 35: an argument of float_sqrt must be float, but this is int
+35: head must be a list, but this is bytes
+46: an argument of bytes_concat must be (list bytes), but this is (list (list int))
+46: an argument of bytes_concat must be (list bytes), but this is bytes
+46: bytes_concat takes 1 argument, but got 0
+35: head must be a list, but this is bytes
+46: an argument of bytes_slice must be int, but this is bool
+46: an argument of bytes_slice must be bytes, but this is (list int)
+46: bytes_slice takes 3 arguments, but got 2

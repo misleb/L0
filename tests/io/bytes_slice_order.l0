@@ -1,0 +1,6 @@
+; A slice whose start is past its end is a runtime error, even when both
+; are within the bytes.
+
+(def main () int
+  (let b (bytes_from_list "abc")
+    (bytes_len (bytes_slice b 2 1))))

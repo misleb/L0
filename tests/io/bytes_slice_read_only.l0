@@ -1,0 +1,21 @@
+; Loops over a bytes parameter and a list of bytes that they only slice and
+; join: bytes_slice and bytes_concat borrow and return new bytes, so the
+; parameters are read-only (spec 10.3), the loops count no references, and
+; nothing leaks.
+
+(def sum_slices ((b bytes) (i int) (acc int)) int
+  (if (ge i (bytes_len b))
+      acc
+      (sum_slices b (add i 1) (add acc (bytes_len (bytes_slice b i (bytes_len b)))))))
+
+(def sum_joins ((bs (list bytes)) (n int) (acc int)) int
+  (if (le n 0)
+      acc
+      (sum_joins bs (sub n 1) (add acc (bytes_len (bytes_concat bs))))))
+
+(def main () int
+  (let b (bytes_from_list "ABC")
+    (let bs (cons b (cons (bytes_from_list "de") (nil bytes)))
+      (if (eq (sum_slices b 0 0) 6)
+          (if (eq (sum_joins bs 4 0) 20) (bytes_len b) 1)
+          2))))

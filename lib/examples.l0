@@ -517,6 +517,15 @@
       i
       (if (eq (bytes_get b i) 10) (add i 1) (line_end b (add i 1)))))
 
+; A line kept as bytes of its own, and a message built as one value from a
+; header and a body: bytes_slice and bytes_concat copy only the bytes they
+; return, and neither goes through a list.
+(def line_bytes ((b bytes)) bytes
+  (bytes_slice b 0 (line_end b 0)))
+
+(def framed ((tag (list int)) (body bytes)) bytes
+  (bytes_concat (cons (bytes_from_list tag) (cons body (nil bytes)))))
+
 ; --------------------------------------------------------------------- bits
 
 ; bit_and, bit_or, bit_xor, bit_shl, bit_shr, and bit_count work on the 64

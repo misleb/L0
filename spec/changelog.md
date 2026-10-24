@@ -7,6 +7,41 @@ New entries go at the top.
 
 ---
 
+## Bytes are sliced and joined without a list
+
+**New:** `(bytes_slice b i j)` is bytes `i` up to `j` of `b` as bytes of
+their own, under `write_bytes`'s bounds rule, and `(bytes_concat bs)` is
+the bytes of each value of a `(list bytes)`, in order, as one (spec 6.6).
+Both read their arguments without consuming them and return new bytes, so
+a parameter they read stays read-only (10.3).
+
+*Why:* L0S asked (its `probes/bytes/REQUEST-bytes-slice-join.md`). A
+bytes value could be made only by `bytes_from_list`, a read, or a
+receive, so wherever a header and a body had to become one message, the
+body went through a list, a cons cell a byte, and back: a spawn's header
+in front of a program image of hundreds of KB, and the kernel's writes,
+fs replies, inet packets, and NIC frames, up to 4 KB each, on every
+message. Joining a 6-byte header to a 512 KB image that way took L0S 4.4
+to 4.9 ms on the host, and built half a million cells. L0S already reads
+in place with (bytes, start, end) and sends ranges wherever it can; what
+was left needs one value holding both. `roadmap/0107/why.l0` is the code.
+
+*Decided:* both, as asked: a slice alone would take the lists out of
+reading, but not out of building a message. A join over a list rather
+than of two values, so a message of many parts is copied once, not once
+per part; a builder would have needed a mutable or linear value, which L0
+has no other use for. Both copy: a slice that shared its source's block
+would keep a whole message alive for its smallest part, and would make
+bytes a view, which every builtin reading them would then have to know.
+They borrow, as `write_bytes` does, because what they return holds no
+part of an argument, and a program that slices a message it keeps
+reading should not pay a reference to do so. `bytes_concat` takes a list
+of bytes rather than a list of lists, since its parts are already bytes:
+the list is a few cells, not one a byte. Nothing is lost: bytes stay
+immutable.
+
+---
+
 ## l0 test starts fewer processes, and runs tests side by side
 
 **No semantic change. L0 is exactly the language it was before this entry.**

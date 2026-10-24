@@ -2072,6 +2072,77 @@ out:
   ret i64 %acc
 }
 
+; Bytes i up to j of b, as new bytes. i and j must be in order within b.
+; Borrows b.
+define i64 @l0_bytes_slice(i64 %b, i64 %i, i64 %j) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %n = load i64, ptr %q
+  %lo = icmp ule i64 %i, %j
+  %hi = icmp ule i64 %j, %n
+  %in = and i1 %lo, %hi
+  br i1 %in, label %ok, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+ok:
+  %k = sub i64 %j, %i
+  %r = call i64 @bytes_alloc(i64 %k)
+  %rq = inttoptr i64 %r to ptr
+  %dst = getelementptr i8, ptr %rq, i64 8
+  %so = add i64 %i, 8
+  %src = getelementptr i8, ptr %q, i64 %so
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 %k, i1 false)
+  ret i64 %r
+}
+
+; The bytes of each value on the list bs, in order, as new bytes. Borrows bs.
+; A total past bytes_alloc's limit stops the count there, and bytes_alloc
+; reports it, so the sum cannot wrap.
+define i64 @l0_bytes_concat(i64 %bs) {
+entry:
+  br label %count
+count:
+  %c = phi i64 [ %bs, %entry ], [ %cn, %cstep ]
+  %t = phi i64 [ 0, %entry ], [ %t1, %cstep ]
+  %cend = icmp eq i64 %c, 0
+  br i1 %cend, label %alloc, label %cstep
+cstep:
+  %cq = inttoptr i64 %c to ptr
+  %e = load i64, ptr %cq
+  %eq = inttoptr i64 %e to ptr
+  %en = load i64, ptr %eq
+  %t1 = add i64 %t, %en
+  %cnp = getelementptr i64, ptr %cq, i64 1
+  %cn = load i64, ptr %cnp
+  %big = icmp ugt i64 %t1, 1099511627776
+  br i1 %big, label %alloc, label %count
+alloc:
+  %total = phi i64 [ %t, %count ], [ %t1, %cstep ]
+  %r = call i64 @bytes_alloc(i64 %total)
+  %rq = inttoptr i64 %r to ptr
+  br label %fill
+fill:
+  %f = phi i64 [ %bs, %alloc ], [ %fn, %fstep ]
+  %at = phi i64 [ 8, %alloc ], [ %at1, %fstep ]
+  %fend = icmp eq i64 %f, 0
+  br i1 %fend, label %done, label %fstep
+fstep:
+  %fq = inttoptr i64 %f to ptr
+  %x = load i64, ptr %fq
+  %xq = inttoptr i64 %x to ptr
+  %xn = load i64, ptr %xq
+  %src = getelementptr i8, ptr %xq, i64 8
+  %dst = getelementptr i8, ptr %rq, i64 %at
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 %xn, i1 false)
+  %at1 = add i64 %at, %xn
+  %fnp = getelementptr i64, ptr %fq, i64 1
+  %fn = load i64, ptr %fnp
+  br label %fill
+done:
+  ret i64 %r
+}
+
 ; Writes bytes i up to j of b to h, as write_to would one by one: 0, or -2
 ; if h is not open for writing. i and j must be in order within b.
 define i64 @l0_write_bytes(i64 %h, i64 %b, i64 %i, i64 %j) {

@@ -137,6 +137,12 @@
   (add (check_str "with newline" (written_first_line "one\ntwo\n") "one\n")
        (check_str "without" (written_first_line "only") "only")))
 
+(def test_line_bytes_and_framed () int
+  (let line (line_bytes (bytes_from_list "one\ntwo\n"))
+    (add (check_str "first line" (bytes_to_list line) "one\n")
+      (add (check_str "framed" (bytes_to_list (framed "w " line)) "w one\n")
+           (check_int "framed empty" (bytes_len (framed "" (bytes_from_list ""))) 0)))))
+
 ; Code that reads an IoFile is tested by giving it a string to read.
 (def lines_in ((text (list int))) int
   (match (open_in_bytes text)

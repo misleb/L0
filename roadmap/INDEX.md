@@ -139,7 +139,9 @@ front of it are regions too (0105), and `l0 card` forces HDMI's hotplug.
 Its USB and SD drivers then asked to stop polling, and on the aarch64 virt
 board PCIe's four INTx lines and the GICv2m frame's 64 MSIs are now
 interrupts (0106); the Pi 5's, through bcm2712's MIP, wait for a request
-of their own.
+of their own. Its messages, files, and frames are bytes, which it could
+neither cut nor join without a list, and `bytes_slice` and
+`bytes_concat` now do both (0107).
 
 ## Language queue
 
@@ -434,3 +436,6 @@ None.
 - [0106](0106-virt-pcie-interrupts.md) the aarch64 virt board gives PCIe's
   interrupts, INTx and MSI — done, changelog "The aarch64 virt board gives
   PCIe's interrupts, INTx and MSI"
+- [0107](0107-bytes-slice-concat.md) `bytes_slice` and `bytes_concat` —
+  done, changelog "Bytes are sliced and joined without a list"; passed on
+  Linux arm64
