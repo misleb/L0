@@ -1,0 +1,61 @@
+; Spec section 10.3 on the Raspberry Pi 5: PCIe's MSIs are interrupts 160
+; to 223, and RP1 raises one. This is built by tools/test.sh --virt and
+; not run, since no emulator has this board; on a Pi 5 whose serial line
+; is read, its output is msi.out. The program sets the controller up as
+; the spec says, with RP1's BAR2 and BAR0 put in its region, gives RP1's
+; vector 0 the doorbell, 0xFF_FFFFF000, and the number 1, and raises it by
+; its MSIX_CFG test bit: the wait takes 161, not the timer's deadline, 0,
+; a second away. Then the first and last MSIs enable, and the numbers
+; either side of them are none.
+
+(def show ((n int)) int
+  (write_line (digits n)))
+
+; RP1's window, its BAR1 at PCI 0, BAR2 at 0x400000, and BAR0 at
+; 0x410000, through the controller u.
+(def rp1_up ((u int)) int
+  (let a (region_write32 u 24 65792)              ; bus numbers 0, 1, 1
+    (let b (region_write32 u 32 4194304)          ; memory window 0..0x4FFFFF
+      (let c (region_write32 u 36864 1048576)     ; index: bus 1
+        (let d (region_write32 u 32788 0)         ; BAR1
+          (let e (region_write32 u 32792 4194304) ; BAR2
+            (let f (region_write32 u 32784 4259840) ; BAR0
+              (let g (region_write32 u 16396 0)   ; outbound: PCI 0
+                (let h (region_write32 u 16512 31) ; from CPU 0x1F00000000
+                  (region_write32 u 16516 31))))))))))
+
+; RP1's vector v sent to the doorbell as number n, through its MSI-X
+; table at 0x410000 in r, and MSI-X turned on in its configuration space.
+(def vector_to ((u int) (r int) (v int) (n int)) int
+  (let e (add 4259840 (mul v 16))
+    (let a (region_write32 r e 4294963200)        ; 0xFFFFF000
+      (let b (region_write32 r (add e 4) 255)     ; 0xFF
+        (let c (region_write32 r (add e 8) n)
+          (let d (region_write32 r (add e 12) 0)  ; unmasked
+            (region_write32 u 32944 (bit_or (region_read32 u 32944) 2147483648))))))))
+
+; Enables interrupt n, raises RP1's vector v by its test bit, and waits a
+; second at most; prints what the wait took, then clears the test bit and
+; ends n.
+(def raise ((r int) (v int) (n int)) int
+  (let cfg (add 1081352 (mul v 4))                ; MSIX_CFG(v), 0x108008
+    (let e (show (interrupt_enable n))
+      (let d (timer_at (add (clock_ns) 1000000000))
+        (let w (region_write32 r (add cfg 2048) 3) ; set: enable, test
+          (let t (show (interrupt_wait))
+            (let c (timer_at -1)
+              (let x (region_write32 r (add cfg 3072) 2) ; clear: test
+                (show (interrupt_done n))))))))))
+
+(def main () int
+  (let z (interrupt_enable 0)
+    (let u (region_open 68720656384 37648)        ; 0x1000120000
+      (let s (rp1_up u)
+        (let r (region_open 133143986176 4276224) ; 0x1F00000000
+          (let id (show (region_read32 r 0))      ; RP1's chip ID
+            (let m (vector_to u r 0 1)
+              (let y (raise r 0 161)
+                (let a (show (interrupt_enable 160))
+                  (let b (show (interrupt_enable 223))
+                    (let c (show (interrupt_enable 159))
+                      (show (interrupt_enable 224)))))))))))))

@@ -1,0 +1,71 @@
+; Spec section 10.3 on the Raspberry Pi 5: one of RP1's devices raises an
+; MSI, a level-triggered one, which its driver acknowledges at RP1. This
+; is built by tools/test.sh --virt and not run, since no emulator has this
+; board; on a Pi 5 whose serial line is read, its output is gpio_irq.out,
+; with nothing on GPIO 27, header pin 13, whose pad then reads low. Its
+; bank, io_bank0 at RP1's 0xD0000, given IRQEN_LOW and the pin enabled for
+; PCIe, raises RP1's interrupt 0, IO_BANK0, sent as its MSI-X vector 0
+; with the number 2: the wait takes 162, not the deadline's 0. The driver
+; clears IRQEN_LOW, which is the cause, and acknowledges the vector by its
+; MSIX_CFG's IACK, before it ends 162. Prints RP1's id, enable's 0, GPIO
+; 27's STATUS (raw and filtered LOW), the wait's number, STATUS with the
+; interrupt up and the bank's PCIE_INTS with bit 27, then both again after
+; the acknowledgement, and interrupt_done's 0. The pin's output is not
+; touched: CTRL's function is plain GPIO, with no override.
+
+(def show ((n int)) int
+  (write_line (digits n)))
+
+(def hex ((v int)) int
+  (write_line (hex_digits v 8)))
+
+; RP1's window, its BAR1 at PCI 0, BAR2 at 0x400000, and BAR0 at
+; 0x410000, through the controller u.
+(def rp1_up ((u int)) int
+  (let a (region_write32 u 24 65792)              ; bus numbers 0, 1, 1
+    (let b (region_write32 u 32 4194304)          ; memory window 0..0x4FFFFF
+      (let c (region_write32 u 36864 1048576)     ; index: bus 1
+        (let d (region_write32 u 32788 0)         ; BAR1
+          (let e (region_write32 u 32792 4194304) ; BAR2
+            (let f (region_write32 u 32784 4259840) ; BAR0
+              (let g (region_write32 u 16396 0)   ; outbound: PCI 0
+                (let h (region_write32 u 16512 31) ; from CPU 0x1F00000000
+                  (region_write32 u 16516 31))))))))))
+
+; RP1's vector v sent to the doorbell as number n, through its MSI-X
+; table at 0x410000 in r, and MSI-X turned on in its configuration space.
+(def vector_to ((u int) (r int) (v int) (n int)) int
+  (let e (add 4259840 (mul v 16))
+    (let a (region_write32 r e 4294963200)        ; 0xFFFFF000
+      (let b (region_write32 r (add e 4) 255)     ; 0xFF
+        (let c (region_write32 r (add e 8) n)
+          (let d (region_write32 r (add e 12) 0)  ; unmasked
+            (region_write32 u 32944 (bit_or (region_read32 u 32944) 2147483648))))))))
+
+; GPIO 27's CTRL at 0xD00DC and STATUS at 0xD00D8, with the set alias at
+; +0x2000 and the clear one at +0x3000; the bank's PCIE_INTE at 0xD011C
+; and PCIE_INTS at 0xD0124; MSIX_CFG(0) at 0x108008, set alias +0x800.
+(def main () int
+  (let z (interrupt_enable 0)
+    (let u (region_open 68720656384 37648)        ; 0x1000120000
+      (let s (rp1_up u)
+        (let r (region_open 133143986176 4276224) ; 0x1F00000000
+          (let id (hex (region_read32 r 0))
+            (let c0 (region_write32 r 852188 5)               ; CTRL: GPIO, no overrides
+              (let c1 (region_write32 r 860380 268435456)     ; set: IRQRESET
+                (let c2 (region_write32 r 860444 134217728)   ; PCIE_INTE set: bit 27
+                  (let m (vector_to u r 0 2)
+                    (let cf (region_write32 r 1083400 9)      ; MSIX_CFG(0) set: enable, level
+                      (let e (show (interrupt_enable 162))
+                        (let s0 (hex (region_read32 r 852184))
+                          (let d (timer_at (add (clock_ns) 1000000000))
+                            (let c4 (region_write32 r 860380 4194304) ; set: IRQEN_LOW
+                              (let t (show (interrupt_wait))
+                                (let c5 (timer_at -1)
+                                  (let s1 (hex (region_read32 r 852184))
+                                    (let s2 (hex (region_read32 r 852260))
+                                      (let c6 (region_write32 r 864476 4194304) ; clear: IRQEN_LOW
+                                        (let k (region_write32 r 1083400 4)       ; IACK
+                                          (let s3 (hex (region_read32 r 852184))
+                                            (let s4 (hex (region_read32 r 852260))
+                                              (show (interrupt_done 162)))))))))))))))))))))))))

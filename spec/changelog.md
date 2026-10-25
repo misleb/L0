@@ -7,6 +7,51 @@ New entries go at the top.
 
 ---
 
+## The Raspberry Pi 5 gives PCIe's MSIs, RP1's among them (roadmap 0116)
+
+**Added:** spec 10.3's interrupt table for the Pi 5 gains 160 to 223,
+`mip0`'s 64 vectors, edge-triggered: a function behind RP1's PCIe
+controller that writes n to the bus address 0xFF_FFFFF000 raises
+interrupt 160 + n. The host sets the path up as it starts: the
+controller's third inbound window, which the firmware leaves empty, from
+that address to `mip0` at 0x1000130000, and `mip0`'s vectors
+edge-triggered and masked for the VideoCore. RP1's region grows from 4 MB
+to 0x414000 bytes, so that its BAR2 and BAR0, the latter holding its
+MSI-X table, are in it once a program puts them at PCI 0x400000 and
+0x410000.
+
+*Why:* a driver for any of RP1's devices could reach their registers
+since 0114 but could only poll, as L0S's USB stack does on the Pi; the
+aarch64 virt board's PCIe interrupts came in 0106, and the Pi's are
+another path. Two probes on a 2 GB board settled it. As the firmware
+leaves them, `mip0`'s registers are all 0 (level, every vector open to
+both the CPU and the VideoCore), the controller's inbound windows map
+PCI 0 to 64 GB onto RAM one to one and nothing to `mip0`, its own MSI
+target is enabled at 0xF_FFFFFFFC, and RP1's MSI-X capability, at 0xB0,
+has 61 vectors, off, its table in BAR0 (16 KB) at PCI 0x80410000, beyond
+the region. With the window and `mip0` set as Raspberry Pi's Linux sets
+them (`pcie-brcmstb.c`, `irq-bcm2712-mip.c`), a write by the CPU of 0 to
+`mip0` was taken as interrupt 160, and RP1's vector 0, its table entry
+given the doorbell and 1, raised by its `MSIX_CFG` test bit, as 161.
+
+*Decided:* the inbound window and `mip0` are the host's, as the GIC is,
+not a driver's: a write to `mip0` raises any vector, so a region of it
+would let any program fake any device's interrupt, and the window is one
+setting every driver needs alike. The rest of RP1's path, its MSI-X table
+and its `MSIX_CFG` registers, is the driver's, through regions it has
+already, since which of RP1's 61 sources a driver wants and which number
+it gives each are its own. The controller's four INTx lines, which RP1's
+pin 1 would use, and the controller's own MSI target, whose one SPI 32
+vectors share, are left out: nothing has needed them, and neither was
+run. Two board tests show the path: `msi` raises RP1's vector 0 by its
+test bit, and `gpio_irq` by RP1's GPIO bank, a level source, GPIO 27's
+level-low detector given an unconnected pin, taken as 162 and
+acknowledged by `MSIX_CFG`'s IACK. A first try at the latter overrode
+the pin's input from low to high and got nothing: the bank's detectors
+watch the pad, not the overridden input.
+
+---
+
 ## The Pi 5's firmware keeps its framebuffer out of /memory (roadmap 0118)
 
 **Decided:** no change. The frame pool still reads only `/memory` and

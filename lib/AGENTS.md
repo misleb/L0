@@ -158,8 +158,18 @@ the tables; the values below were read there, through the regions):
   after each byte as on QEMU. A driver that waits for it after every byte
   first waits for the UART to be idle (UARTFR, 0x18, reads 0x80 under
   mask 0x88) and turns the FIFOs off (clear bit 4 of UARTLCR_H, 0x2C).
-- RP1's and other PCIe devices' interrupts are not interrupts L0 gives
-  yet: a driver polls.
+- RP1's interrupts come as MSIs, interrupts 160 to 223, edge-triggered:
+  a write of n to bus address 0xFF_FFFFF000 is interrupt 160 + n, which
+  the host has set up. To reach RP1's MSI-X table, also write 0x00400000
+  to the root's memory window at 0x20, 0x400000 to BAR2 (0x8018), and
+  0x410000 to BAR0 (0x8010); the table is then at 0x1F00410000. For RP1's
+  vector v (its interrupt number, 0 to 60): write at 0x1F00410000 + 16 v
+  the words 0xFFFFF000, 0xFF, n, and 0; OR 0x80000000 into
+  configuration word 0xB0; then write 1 (enable), or 9 (enable and level)
+  for a level-triggered source, to 0x1F00108808 + 4 v. After handling a
+  level one, write 4 there to acknowledge it, or RP1 sends no more of it.
+  These are set bits: the same at 0x1F00108C08 + 4 v clears them.
+  Writing 2 there raises v as a test, which stays set until cleared.
 - A kernel written in L0 runs on a Pi 5 as on QEMU, its processes'
   images in its standard input, which `l0 card` puts in the initramfs:
   `tests/virt/user/kernel.l0` has run there with its processes, the

@@ -141,20 +141,27 @@ board PCIe's four INTx lines and the GICv2m frame's 64 MSIs are now
 interrupts (0106); the Pi 5's, through bcm2712's MIP, wait for a request
 of their own. Its messages, files, and frames are bytes, which it could
 neither cut nor join without a list, and `bytes_slice` and
-`bytes_concat` now do both (0107).
+`bytes_concat` now do both (0107). On the Pi 5, PCIe's MSIs are now
+interrupts 160 to 223, the host mapping the doorbell to the MIP, and
+RP1's devices raise them through its MSI-X table, which its region now
+reaches (0116): a driver there need not poll.
 
 ## Language queue
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0116](0116-pi5-pcie-interrupts.md) the Pi 5's PCIe interrupts, RP1's
-   among them — queued
+None.
 
 ## Other open items
 
 None.
 
 ## Done and dropped
+
+- [0116](0116-pi5-pcie-interrupts.md) the Pi 5's PCIe interrupts, RP1's
+  among them — done, changelog "The Raspberry Pi 5 gives PCIe's MSIs,
+  RP1's among them"; run on a Pi 5: RP1's test bit as 161, and its GPIO
+  bank as 162; riscv64's half of `--virt` not run here
 
 - [0118](0118-pi5-firmware-reservations.md) research: does the Pi 5's
   frame pool include RAM the firmware keeps (L0S's request) — done: no;
