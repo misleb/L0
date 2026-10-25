@@ -156,6 +156,11 @@ None.
 
 ## Done and dropped
 
+- [0118](0118-pi5-firmware-reservations.md) research: does the Pi 5's
+  frame pool include RAM the firmware keeps (L0S's request) — done: no;
+  the firmware leaves its framebuffer out of `/memory`, and every
+  reservation is below the image or outside `/memory`; no change
+
 - [0117](0117-pi5-rp1-driver.md) program: a first RP1 driver, as a process
   on the Pi 5 — dropped: the user's microkernel project brings up RP1's
   USB by polling, and reports back what L0 cannot express

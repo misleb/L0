@@ -7,6 +7,30 @@ New entries go at the top.
 
 ---
 
+## The Pi 5's firmware keeps its framebuffer out of /memory (roadmap 0118)
+
+**Decided:** no change. The frame pool still reads only `/memory` and
+leaves out what lies below the image, as spec 10.3 says, and does not
+read `/memreserve/` or `/reserved-memory`.
+
+*Why:* L0S asked for those to be read, taking the firmware's HDMI
+framebuffer at 0x3F800000 to be in the pool on a Pi 5. The device tree as
+the firmware hands it over, dumped on a 2 GB board with a monitor on
+HDMI0, says otherwise: `/memory` there is 0 to 0x3F800000 and 0x40000000 to
+0x80000000, the framebuffer's 4 MB and the VideoCore's memory above it
+left out by the firmware, where with no monitor the first range runs to
+0x3FC00000. Its header has no `/memreserve/` entries and the tree no
+`simple-framebuffer`; its `/reserved-memory` is BL31's pages below the
+image, a `reusable` CMA pool, and the bootloader's config at 0x3FD23180,
+outside `/memory`; and a root property `memreserve` names 0x3F800000 to
+0x40000000, also outside. The pool at boot was 1,022 pages smaller than
+without a monitor. Reading the reservations would leave out nothing more
+on this board, and a change is earned by code it makes possible: if a
+board or firmware puts a reservation inside `/memory`, that is the
+evidence for it.
+
+---
+
 ## The Pi 5's HVS answers only with a monitor on HDMI0
 
 **Corrected:** spec 10.3 no longer says `hdmi_force_hotplug=1` has the

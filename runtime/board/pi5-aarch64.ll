@@ -7,8 +7,10 @@
 ; tools/pi5-run.
 ;
 ; Memory, on a board with 2 GB or more (RAM from 0; on a 2 GB board the
-; device tree's /memory is 0 to 0x3FC00000 and 0x40000000 to 0x80000000, and
-; reserves BL31's pages below 0x80000 apart, in /reserved-memory/atf@0):
+; device tree's /memory is 0 to 0x3FC00000, or to 0x3F800000 when the
+; firmware has an HDMI framebuffer above that, and 0x40000000 to
+; 0x80000000, and reserves BL31's pages below 0x80000 apart, in
+; /reserved-memory/atf@0):
 ;   0x00000000  BL31, the firmware's resident secure monitor, to 0x80000
 ;   0x00080000  the image: code, data, bss, which the boot code zeroes; the
 ;               firmware loads it there, kernel_address, and enters it at EL2
