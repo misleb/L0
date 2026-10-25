@@ -629,11 +629,16 @@ if [ "$VIRT" = 1 ]; then
                 nfail=$((nfail + 1))
                 failures="$failures $VARCH:virt/$name"
                 echo "FAIL $VARCH:virt/$name: built, though it must be refused"
-            elif ! cmp -s "$TMP/$name.berr" "$stem.refused"; then
+            elif ! { uniq "$stem.refused" > "$TMP/$name.want" &&
+                     uniq "$TMP/$name.berr" > "$TMP/$name.got" &&
+                     cmp -s "$TMP/$name.got" "$TMP/$name.want"; }; then
+                # Compared with a line the linker repeats written once: some
+                # versions of ld.lld say an error twice, and the wording is
+                # what the file pins down.
                 nfail=$((nfail + 1))
                 failures="$failures $VARCH:virt/$name"
                 echo "FAIL $VARCH:virt/$name: refused, but not as $stem.refused says"
-                diff -u "$stem.refused" "$TMP/$name.berr" | sed 's/^/    /' || true
+                diff -u "$TMP/$name.want" "$TMP/$name.got" | sed 's/^/    /' || true
             else
                 npass=$((npass + 1))
             fi
@@ -1059,11 +1064,12 @@ if [ "$VIRT" = 1 ]; then
                 ! grep -qx "hdmi_force_hotplug=1" "$TMP/pi5-$name.card/config.txt" ||
                 ! grep -qx "initramfs input.bin 0x10000000" "$TMP/pi5-$name.card/config.txt"; then
                 why="l0 card's config.txt is wrong"
-            elif [ "$(cat "$TMP/pi5-$name.card/cmdline.txt")" != "one two:2" ] ||
+            elif [ "$(cat "$TMP/pi5-$name.card/cmdline.txt")" != "--l0-args one two:2" ] ||
                 ! cmp -s "$TMP/pi5-$name.card/input.bin" "$nin" ||
                 ! cmp -s "$TMP/pi5-$name.card/l0.img" "$img"; then
                 why="l0 card's files are wrong"
             elif ! ./tools/l0 card "$img" "$TMP/pi5-$name.card0" < /dev/null > /dev/null 2>&1 ||
+                [ "$(cat "$TMP/pi5-$name.card0/cmdline.txt")" != "--l0-args" ] ||
                 [ -f "$TMP/pi5-$name.card0/input.bin" ] ||
                 grep -q initramfs "$TMP/pi5-$name.card0/config.txt"; then
                 why="l0 card gave input where there is none"

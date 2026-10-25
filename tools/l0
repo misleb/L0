@@ -882,8 +882,11 @@ case "$cmd" in
             esac
             line="${line:+$line }$a"
         done
+        # The marker (spec 10.3) goes first, so the program's arguments are
+        # told from the firmware's own, which the firmware puts before them.
+        line="--l0-args${line:+ $line}"
         if [ "${#line}" -gt 65535 ]; then
-            echo "l0 card: the board takes at most 65,535 bytes of boot arguments" >&2
+            echo "l0 card: the board takes at most 65,535 bytes of boot arguments, the marker --l0-args among them" >&2
             exit 2
         fi
         if [ -f "$dir/config.txt" ] && [ "$(head -n 1 "$dir/config.txt")" != "# written by l0 card" ]; then

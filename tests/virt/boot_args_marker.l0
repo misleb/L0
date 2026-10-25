@@ -1,0 +1,17 @@
+; Spec section 10.3: the program's boot arguments are those after the last
+; that is --l0-args, and the arguments before it are none of the program's,
+; as a firmware's own are on the Raspberry Pi 5, which puts them before
+; cmdline.txt's. tools/test.sh passes boot_args_marker.args: two arguments
+; of a firmware's, the marker, a third, the marker again, and the program's
+; two, one with a colon and an equals sign, which mean nothing to the board.
+; The marker is not given, and nor is anything before the last one; past the
+; last argument, arg is empty.
+(def show ((i int) (n int)) int
+  (if (ge i n)
+      (write_line (arg n))
+      (let w (write_line (arg i)) (show (add i 1) n))))
+
+(def main () int
+  (let n (arg_count)
+    (let w (write_line (digits n))
+      (show 0 n))))

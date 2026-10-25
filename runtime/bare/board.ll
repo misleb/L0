@@ -566,18 +566,52 @@ next:
   %i1 = add i64 %i, 1
   br label %scan
 finish:
+  call void @find_marker()
+  ret void
+}
+
+; The program's arguments are those after the last that is the marker, if
+; any is (spec 10.3), so that a firmware's own, which it puts before those
+; of its configuration, are not given. arg_skip is how many come before.
+@arg_skip = internal global i64 0
+@s_argmark = private constant [10 x i8] c"--l0-args\00"
+
+define internal void @find_marker() {
+entry:
+  %n = load i64, ptr @arg_n
+  br label %loop
+loop:
+  %k = phi i64 [ 0, %entry ], [ %k1, %look ]
+  %skip = phi i64 [ 0, %entry ], [ %skip1, %look ]
+  %more = icmp ult i64 %k, %n
+  br i1 %more, label %look, label %done
+look:
+  %ap = getelementptr [4096 x i64], ptr @arg_at, i64 0, i64 %k
+  %o = load i64, ptr %ap
+  %base = ptrtoint ptr @args_buf to i64
+  %a = add i64 %base, %o
+  %is = call i1 @dt_name_is(i64 %a, ptr @s_argmark)
+  %k1 = add i64 %k, 1
+  %skip1 = select i1 %is, i64 %k1, i64 %skip
+  br label %loop
+done:
+  store i64 %skip, ptr @arg_skip
   ret void
 }
 
 define i64 @l0_host_arg_count() {
 entry:
   %n = load i64, ptr @arg_n
-  ret i64 %n
+  %skip = load i64, ptr @arg_skip
+  %m = sub i64 %n, %skip
+  ret i64 %m
 }
 
 ; l0rt.ll asks only for an argument below the count.
-define ptr @l0_host_arg(i64 %i) {
+define ptr @l0_host_arg(i64 %i0) {
 entry:
+  %skip = load i64, ptr @arg_skip
+  %i = add i64 %i0, %skip
   %ap = getelementptr [4096 x i64], ptr @arg_at, i64 0, i64 %i
   %o = load i64, ptr %ap
   %p = getelementptr [65536 x i8], ptr @args_buf, i64 0, i64 %o

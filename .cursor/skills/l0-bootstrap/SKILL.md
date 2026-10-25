@@ -20,6 +20,8 @@ tools/l0 run FILE.l0 ... < in   # run a program (build/l0i knows only stage 0's 
 tools/bootstrap.sh              # self-compile and check the fixpoint
 tools/bootstrap.sh --refresh-seed   # also install the result as bootstrap/stage2.ll
 tools/linux-test.sh [arm64] [amd64] # both suites on Linux, in a local container
+tools/pi5-run PROG.l0 [ARG ...] < in # run on a Pi 5 that boots from TFTP, and print
+                                # its serial output; see the script's header
 tools/test.sh --virt [NAME]     # the fixpoint, the compiled suite, and
                                 # tests/virt on QEMU's virt board, no OS,
                                 # then tests/virt and tests/virt/proc as

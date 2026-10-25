@@ -1,11 +1,17 @@
 ; Spec section 10.3 on the Raspberry Pi 5: its debug UART, a PL011, driven
-; through a region over its registers, and what its identification
-; registers say. This is built by tools/test.sh --virt and not run, since no
-; emulator has this board; on a Pi 5 whose serial line is read, the
-; program's output, bytes the UART takes in the order they are written, is
-; uart.out: the 15 bytes "hi from the pi" sent straight to the port, and
-; then, what write_line writes being held until the program ends, the two
-; identification bytes, which the PL011 fixes.
+; through a region over its registers. This is built by tools/test.sh
+; --virt and not run, since no emulator has this board; on a Pi 5 whose
+; serial line is read, the program's output, bytes the UART takes in the
+; order they are written, is uart.out: the 15 bytes "hi from the pi" sent
+; straight to the port, and then, what write_line writes being held until
+; the program ends, three values read from the registers.
+;
+; Those are from a run on a Pi 5 (roadmap 0109), not from the PL011's
+; specification. The two identification registers, PeriphID0 and PrimeCell
+; ID3, which QEMU's PL011 gives as 0x11 and 0xb1, read 0 on this board, and
+; so does every other one of the eight, so a driver must not probe by them.
+; The control register's enable bits are what the firmware leaves: the UART
+; on, with transmit and receive on, 0x101 of 0x301 here.
 
 (def put ((u IoDevice) (b int)) int
   (if (eq (bit_and (device_read32 u 24) 32) 32)    ; transmit FIFO full
@@ -28,5 +34,6 @@
 (def main () int
   (let u (opened (open_device 70816632832 4096))    ; 0x107D001000, the PL011
     (let w (put_all u "hi from the pi\n")
-      (let a (hex (device_read32 u 4064))           ; PL011 PeriphID0, 0x11
-        (hex (device_read8 u 4092))))))             ; PrimeCell ID3, 0xb1
+      (let a (hex (device_read32 u 4064))           ; PeriphID0, 0 on this board
+        (let b (hex (device_read8 u 4092))          ; PrimeCell ID3, 0 on this board
+          (hex (bit_and (device_read32 u 48) 257)))))))   ; CR: UARTEN and TXE, 0x101

@@ -147,14 +147,23 @@ neither cut nor join without a list, and `bytes_slice` and
 
 Changes to the language, strictly in order. At most one is active.
 
-None.
+None queued.
 
 ## Other open items
 
-None.
+- [0110](0110-pi5-board-checks.md) program: the checks 0098 left for a
+  Pi 5, run on one — active; run on a 2 GB board: RP1's and the HVS's
+  regions, arguments (0112), standard input, the clock, `/memory`, the
+  frame pool, user mode, `frame_sync`, and the timer's and UART's
+  interrupts; RP1 reads 0xdeaddead with the PCIe link up (0113); not yet:
+  reads from the HVS, DMA coherence
 
 ## Done and dropped
 
+- [0113](0113-pi5-pcie-controller-region.md) the Pi 5's PCIe controller for
+  RP1 is a region — done, changelog "The Raspberry Pi 5's PCIe controller
+  for RP1 is a region"; run on a Pi 5: the link is up, and RP1's window
+  still reads 0xdeaddead; riscv64's half of `--virt` not run here
 - [0001](0001-shed-c-runtime-plan.md) research: how to shed the C runtime —
   done
 - [0002](0002-runtime-in-l0.md) program: write the runtime in L0 — done, ten
@@ -413,7 +422,8 @@ None.
   boards' frames come from all the RAM the layout leaves"; passed on Linux
   arm64
 - [0098](0098-raspberry-pi-5.md) the Raspberry Pi 5 — done, changelog "The
-  Raspberry Pi 5"; no run on a board, whose first run's checks the Log lists
+  Raspberry Pi 5"; first run on a board 2026-10-24 (UART, EL2 entry,
+  firmware load by TFTP), the rest of the checks are 0110
 - [0099](0099-release-heap-pages.md) a process's runtime hands free heap
   pages back to its kernel — done, changelog "A process hands free heap
   pages back to its kernel"; passed on Linux arm64
@@ -423,19 +433,33 @@ None.
   MMIO window are regions — done, changelog "The aarch64 virt board's PCIe
   ECAM and MMIO window are regions"
 - [0102](0102-pi5-rp1-region.md) the Raspberry Pi 5's RP1 is a region —
-  done, changelog "The Raspberry Pi 5's RP1 is a region"; no run on a board
+  done, changelog "The Raspberry Pi 5's RP1 is a region"; run on a board:
+  it opens, but reads in it return 0xdeaddead, see 0113
 - [0103](0103-frame-sync.md) `frame_sync` — done, changelog "A frame's
   bytes made to agree between the CPU's caches and memory"; passed on
-  Linux arm64; no run on a Pi
+  Linux arm64; no run on a Pi, 0110 runs it
 - [0104](0104-board-layout-sizes.md) a board program sizes its heap and
   stack, or brings its own layout — done, changelog "A board program sizes
   its heap and stack, or brings its own layout"
 - [0105](0105-pi5-hvs-regions.md) the Raspberry Pi 5's HVS and its IOMMU
   are regions — done, changelog "The Raspberry Pi 5's HVS and its IOMMU
-  are regions"; no run on a board
+  are regions"; no run on a board, 0110 runs it
 - [0106](0106-virt-pcie-interrupts.md) the aarch64 virt board gives PCIe's
   interrupts, INTx and MSI — done, changelog "The aarch64 virt board gives
   PCIe's interrupts, INTx and MSI"
 - [0107](0107-bytes-slice-concat.md) `bytes_slice` and `bytes_concat` —
   done, changelog "Bytes are sliced and joined without a list"; passed on
   Linux arm64
+- [0108](0108-pi5-boot-loop.md) tooling: `tools/pi5-run`, a Pi 5 boot loop from
+  source to serial log — done; run on a board
+- [0109](0109-pi5-uart-id-registers.md) the Pi 5's debug UART has no
+  identification registers — done, changelog "The Pi 5's debug UART has no
+  identification registers"; run on a Pi 5; riscv64's half of `--virt` not
+  run here
+- [0112](0112-pi5-boot-argument-order.md) the Pi 5's firmware puts its
+  arguments first, so the program's follow a marker — done, changelog "The
+  Raspberry Pi 5's firmware puts its arguments first"; run on a Pi 5;
+  riscv64's half of `--virt` not run here
+- [0111](0111-pi5-frame-pool.md) the Pi 5's frame pool, said to be one
+  gigabyte on a 16 GB board — dropped: the board is 2 GB, and the pool is
+  as the spec gives it

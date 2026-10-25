@@ -50,6 +50,6 @@ l0 test $(l0 examples --path) > got.tap ||
 
 # l0 init copies only what an agent's environment needs as files.
 l0 init proj > /dev/null
-found=$(cd proj && find . -type f | sort | tr '\n' ' ')
+found=$(cd proj && find . -type f | LC_ALL=C sort | tr '\n' ' ')
 [ "$found" = "./.cursor/skills/l0-code/SKILL.md ./AGENTS.md " ] ||
     fail "l0 init copied more than AGENTS.md and the skill: $found"

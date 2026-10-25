@@ -1,0 +1,2 @@
+A board's host drops the arguments before the marker; a process's kernel
+gives its arguments as they are, and has no firmware's to tell apart.

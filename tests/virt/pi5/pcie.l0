@@ -1,0 +1,23 @@
+; Spec section 10.3 on the Raspberry Pi 5: the PCIe controller RP1 is behind
+; is a region, since RP1's window answers only once a driver has set it up
+; through the controller. This is built by tools/test.sh --virt and not run,
+; since no emulator has this board; on a Pi 5 whose serial line is read,
+; its output is pcie.out. The controller, 0x1000120000 and 0x9310 bytes,
+; opens whole and over a page of its registers; a range that runs past its
+; end, and one that runs into its start from before it, are no region.
+; Nothing is read, since what the controller holds is the firmware's.
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def inside () int
+  (let a (code (region_open 68720656384 37648))   ; 0x1000120000, whole
+    (code (region_open 68720672768 256))))        ; 0x1000124000, a page of it
+
+(def outside () int
+  (let a (code (region_open 68720693248 4096))    ; 0x1000129000, past its end
+    (code (region_open 68720652288 8192))))       ; 0x100011F000, into its start
+
+(def main () int
+  (let a (inside)
+    (outside)))

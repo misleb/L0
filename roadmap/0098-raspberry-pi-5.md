@@ -77,3 +77,18 @@ Spec 10.3 and the changelog first, then runtime and tools, then tests.
   `cmdline.txt`; PSCI `SYSTEM_OFF`; the 152 and 153 numbering; user mode and
   interrupts on a Cortex-A76; coherent DMA, which it is not. `tests/virt/pi5/
   uart.l0` is the first program to run there.
+- 2026-10-24: first run on a Pi 5 (serial 1b08af2e, 2 GB, EEPROM 2026/05/26),
+  booted by TFTP: dnsmasq as a TFTP-only server, the files `l0 card` writes
+  plus `bcm2712-rpi-5-b.dtb` from raspberrypi/firmware, the router's DHCP
+  option 66 naming this machine. The firmware loaded `l0.img` at 0x80000 and
+  the dtb at 0x08000000, and `config.txt` and `cmdline.txt` were honoured.
+  `tests/virt/pi5/uart.l0` ran: BL31 printed, then the program, so the EL2
+  entry, the UART region, and the 4 GB-plus device mapping work, and
+  `device_write8` to the data register works. It printed `hi from the pi`
+  and then `0` and `0`, where uart.out has `11` and `b1`: the PL011's
+  PeriphID0 and PrimeCell ID3 read as 0 on this chip, so the ID registers
+  are not reachable there and the test's expectation is wrong for the Pi 5.
+  After the program ended, the firmware logged `Halt: power_off: 0` and
+  booted the next time, so SYSTEM_OFF was reached. Still unrun: `/memory`
+  on 4, 8, and 16 GB boards (this one is 2 GB, which 0110 checked), user
+  mode, interrupts, DMA.

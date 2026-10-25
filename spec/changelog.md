@@ -7,6 +7,112 @@ New entries go at the top.
 
 ---
 
+## The Raspberry Pi 5's PCIe controller for RP1 is a region
+
+**New:** on the Raspberry Pi 5, the PCIe controller RP1 is behind,
+`brcm,bcm2712-pcie` at 0x1000120000, 0x9310 bytes, is a region (spec
+10.3), in the boot map's block 64 with the IOMMUs, Device-nGnRnE. The spec
+no longer says RP1's window holds while the firmware leaves the link set
+up; it says what a first run read there.
+
+*Why:* 0102 made RP1's peripheral window a region, 0x1F00000000, on the
+plan that `pciex4_reset=0` leaves it answering, and asked a first run to
+read each USB controller's xHCI and DWC3 identity. Run on a 2 GB Pi 5
+through `tools/pi5-run`, `tmp/0110/rp1usb.l0` opened both controllers over
+64 KB and read the first word of each and GSNPSID at 0xC120: all four were
+0xDEADDEAD, and so were the window's first two words, where the firmware's
+log gives RP1's chip ID, 0x20001927. No read faulted. The window answers,
+not as RP1: it is the controller's outbound PCI memory space (the device
+tree's `ranges` map PCI address 0 to 0x1F00000000), and RP1 is in it only
+once the controller's outbound window is set and RP1's BAR1 assigned. That
+is done through the controller's registers, which were no region, so no
+program could read the link's state, set the window, or assign the BAR:
+L0S's `probes/usb` could not reach its controllers however it was written.
+
+*Decided:* the controller as one region over its whole register block,
+0x9310 bytes, the device tree's, as the HVS was, and not the few registers
+a first driver needs, since which they are is the driver's to find and the
+blocks a region may cover are the board's devices. Configuration space of
+RP1 is reached through the controller's index and data registers inside it,
+so it needs no region of its own. A first read of the controller
+through `tools/pi5-run` (`tmp/0113/pcie.l0`) gave MISC_PCIE_STATUS (0x4068)
+0x3E0B0, with the port, data-link-active and PHY-link-up bits set as the
+2711 driver names them, MISC_PCIE_CTRL (0x4064) 4, and MISC_REVISION
+(0x406C) 0x500: the link is up, and RP1's window still reads 0xDEADDEAD, so
+the failing step is above the link, in the outbound window or RP1's BAR.
+The offsets are the 2711 driver's, not verified for the bcm2712. Nothing
+else is promised: what a driver must set to make RP1 answer is for it to
+find.
+
+---
+
+## The Raspberry Pi 5's firmware puts its arguments first
+
+**New:** a board's host gives the program the boot arguments after the
+last that is `--l0-args`, and all of them if there is none (spec 10.3).
+`l0 card` writes `--l0-args` first in `cmdline.txt`, so on the Pi a
+program's arguments are exactly those it gave `l0 card`, however many the
+firmware adds. The marker is never one of the arguments, and neither is
+any before it. Nothing else changes: QEMU's boards, whose `-append` has no
+marker, give every argument, as they did.
+
+*Why:* the first run on a Pi 5 (roadmap 0110, `tmp/0110/basics.l0`, with
+`cmdline.txt` holding `first base=0x09000000 a:b`) printed an `arg_count`
+of 20: `reboot=w`, `coherent_pool=1M`, `8250.nr_uarts=1`, `pci=pcie_bus_safe`,
+and 13 more of the firmware's, then `first`, `base=0x09000000`, and
+`a:b`. The spec said the firmware "may follow" `cmdline.txt` with its own;
+it puts them before. A program reading `(arg 0)` got `reboot=w`, and its
+count was the program's plus 17, which the firmware, its EEPROM, and the
+board's model decide. 0098's list of what a first run must check had asked
+what the firmware appends; this is the answer, and the reverse of the
+guess.
+
+*Decided:* a marker, of three ways. The host dropping the arguments it
+knows the firmware adds would be wrong on the next firmware, and a Pi
+whose firmware adds one more would give a program an argument that is not
+its. Saying the arguments are the firmware's and the program's together
+would leave every program, and L0S's kernel above all, to tell them apart
+by guessing, with a count that changes under it. The marker needs only the
+firmware's order, which it keeps: `cmdline.txt` is copied whole, after its
+own. It is `--l0-args`, one token with no space, as every argument is. A
+program given the marker as an argument itself, on `l0 card` or on a QEMU
+board, gets only what follows it, which is the rule and the cost: such an
+argument cannot be passed. The last marker wins, so a firmware that adds
+the marker itself, which none does, would not hide the program's. The rule is in the board host every bare board
+shares, not the Pi's part, so one rule serves the three and
+`tests/virt/boot_args_marker` runs it on QEMU's boards, where a firmware's
+arguments can be made up with `-append`. It is not a process's rule: a
+process's kernel gives its arguments, and has no firmware's to tell apart.
+
+---
+
+## The Pi 5's debug UART has no identification registers
+
+**New:** spec 10.3 says the Raspberry Pi 5's debug UART is as the firmware
+leaves it, enabled with transmit and receive on, and that its PrimeCell
+and peripheral identification registers read 0, so a driver does not
+probe by them. No code of the language or the runtime changed.
+
+*Why:* 0098 planned the UART's region as 0x1000 bytes so that the
+PL011's identification registers were reachable, and `tests/virt/pi5/
+uart.l0` expected 0x11 and 0xb1 from two of them, as QEMU gives. The
+first run on a Pi 5 (serial 1b08af2e, EEPROM 2026/05/26, booted by TFTP)
+printed `hi from the pi`, then 0 and 0. A probe, `roadmap/0109`, read
+all eight of them as 32-bit words: every one was 0. The same probe read
+FR 0x90, IBRD 0x18, FBRD 0, LCRH 0x70, CR 0x301, and IMSC 0.
+
+*Decided:* the region stays 0x1000, since the registers a driver uses
+are inside it and the size is the device tree's. The test expects what
+the board does, and its header says the expectation is from a run on a
+board, not from the PL011's specification. It also reads the control
+register's enable bits, which the firmware's setting makes 0x101 here,
+since they are what makes standard output work. The control register's
+other bits, and the baud divisors, are the firmware's to change, so the
+test does not pin them. `uart.out` was changed by hand, not with
+`--bless`, which cannot run a board.
+
+---
+
 ## Bytes are sliced and joined without a list
 
 **New:** `(bytes_slice b i j)` is bytes `i` up to `j` of `b` as bytes of

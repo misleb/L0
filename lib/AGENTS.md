@@ -109,11 +109,14 @@ one, and any QEMU options there are added to how `l0 boot`, `l0 run`, and
 operating system, which no emulator runs, so `l0 boot` refuses it. `l0 card
 IMAGE DIR ARG ... < input` writes the files its SD card's boot partition
 needs, beside the firmware's own: the image, `config.txt`, `cmdline.txt`
-for the arguments, and the input as an initramfs. Its standard output and
-error are its debug UART; a status that is not 0 is written there, and the
-board is powered off. Nothing of it has run on a board yet (changelog, "The
-Raspberry Pi 5"), and its DMA is not coherent, so `frame_sync` matters
-there. RP1's peripherals, its USB controllers among them, are a region.
+for the arguments, with `--l0-args` first so that the firmware's own, which
+it puts before them, are not given to the program, and the input as an
+initramfs. Its standard output and error are its debug UART; a status that
+is not 0 is written there, and the board is powered off. It has run on a
+Pi 5 (changelog, "The Raspberry Pi 5"), and its DMA is not coherent, so
+`frame_sync` matters there. RP1's peripherals, its USB controllers among
+them, are a region, but on a Pi 5 its registers read as `0xdeaddead`
+until a driver sets up the PCIe link, which no region lets it do yet.
 
 `l0 build --target proc` builds a program as a process for a kernel on
 aarch64, or riscv64 with `--arch riscv64`, in an address space of its own, reaching the kernel through the

@@ -1,0 +1,197 @@
+#!/bin/sh
+# pi5-run -- run an L0 program on a Raspberry Pi 5 that boots from TFTP, and
+# print what it wrote to the board's debug UART.
+#
+# Usage: tools/pi5-run [OPTION ...] PROGRAM.l0 | IMAGE [ARG ...] < input
+#
+# A .l0 file is built with l0 build --target pi5; any other file is taken to
+# be an image that already was. The boot files l0 card writes, with the
+# program's boot arguments ARG, which hold no space, and all of standard
+# input, go under tmp/pi5/tftp, and nothing is written outside tmp/. The
+# board's device tree is fetched once from raspberrypi/firmware and kept in
+# tmp/pi5.
+#
+# Options:
+#   --wait SECONDS   how long to read the serial line, default 120
+#   --no-build       use tmp/pi5/tftp as it is, and only read the serial line
+#
+# Environment:
+#   L0_VIRT_LD       an ld.lld, as l0 build takes it; else ld.lld on PATH
+#   PI5_SERIAL       the serial device, default /dev/ttyUSB0, at 115200
+#   PI5_TFTP_ADDR    the address of this host the Pi is told to ask, which
+#                    its router's DHCP option 66 names; used only to print
+#                    the server's command
+#
+# The Pi's firmware fetches its files from the server named by DHCP option
+# 66, on port 69, which only root may bind. So the server is a step this
+# script cannot take: it checks that one is listening, and if none is, it
+# prints the command, which is to be run as root once, and which serves
+# tmp/pi5/tftp for every run after. Powering the board is the other step:
+# the script starts reading the serial line, says so, and waits for the
+# board to be power-cycled, since a Pi 5 that has halted stays off.
+#
+# The output is the part of the serial line from BL31's banner, which the
+# program follows, up to the firmware's banner, which comes when the program
+# ends. The whole line is kept in tmp/pi5/serial.log. Exit status is 0 when
+# a program's part was seen, 1 when it was not, and 2 for a failure of this
+# script's own.
+
+set -eu
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd)
+WORK="$ROOT/tmp/pi5"
+TFTP="$WORK/tftp"
+LOG="$WORK/serial.log"
+DTB_NAME=bcm2712-rpi-5-b.dtb
+DTB_URL="https://github.com/raspberrypi/firmware/raw/stable/boot/$DTB_NAME"
+SERIAL=${PI5_SERIAL:-/dev/ttyUSB0}
+
+die() {
+    echo "pi5-run: $*" >&2
+    exit 2
+}
+
+wait_s=120
+build=1
+while [ $# -gt 0 ]; do
+    case $1 in
+        --wait)
+            [ $# -ge 2 ] || die "--wait takes a number of seconds"
+            wait_s=$2
+            shift 2
+            ;;
+        --no-build)
+            build=0
+            shift
+            ;;
+        -*)
+            die "unknown option $1; see the header of tools/pi5-run"
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+case $wait_s in
+    "" | *[!0-9]*) die "--wait takes a number of seconds, not '$wait_s'" ;;
+esac
+
+mkdir -p "$WORK"
+
+# Is a TFTP server listening, and what does it serve? A server that is
+# listening may serve some other directory, and the board would then boot
+# whatever that holds, so the script stages into the server's own directory,
+# if it is under tmp/, and stops if it is not.
+if ! ss -ulnH 2> /dev/null | awk '{ n = split($4, a, ":"); if (a[n] == 69) found = 1 } END { exit !found }'; then
+    addr=${PI5_TFTP_ADDR:-}
+    {
+        echo "pi5-run: no TFTP server is listening on port 69. Port 69 needs root, so"
+        echo "run this once, in a terminal; it serves $TFTP for every run after:"
+        echo
+        printf '  sudo dnsmasq -d --port=0 --enable-tftp --tftp-root=%s' "$TFTP"
+        if [ -n "$addr" ]; then
+            printf ' --listen-address=%s --bind-interfaces' "$addr"
+        fi
+        echo " \\"
+        echo "    --user=$(id -un) --log-dhcp --log-facility=-"
+        echo
+        if [ -z "$addr" ]; then
+            echo "Set PI5_TFTP_ADDR to the address the router's DHCP option 66 names, to"
+            echo "have it listen on that address only."
+            echo
+        fi
+        echo "Then run tools/pi5-run again."
+    } >&2
+    exit 2
+fi
+served=$(ps -eo args 2> /dev/null | awk '
+    $1 == "dnsmasq" { for (i = 2; i <= NF; i++) if ($i ~ /^--tftp-root=/) { sub(/^--tftp-root=/, "", $i); print $i; exit } }')
+if [ -z "$served" ]; then
+    die "a server is listening on port 69, but it is not a dnsmasq with --tftp-root that this script can read; stop it, or serve $TFTP"
+fi
+if [ "$served" != "$TFTP" ]; then
+    case $served in
+        "$ROOT"/tmp/*)
+            echo "pi5-run: the server on port 69 serves $served; staging there" >&2
+            TFTP=$served
+            ;;
+        *)
+            die "the server on port 69 serves $served, outside $ROOT/tmp; stop it and serve $TFTP"
+            ;;
+    esac
+fi
+
+if [ "$build" = 1 ]; then
+    if [ $# -lt 1 ] || [ ! -f "$1" ]; then
+        die "usage: tools/pi5-run [OPTION ...] PROGRAM.l0 | IMAGE [ARG ...] < input"
+    fi
+    prog=$1
+    shift
+    image=$prog
+    case $prog in
+        *.l0)
+            image="$WORK/prog.img"
+            if [ -z "${L0_VIRT_LD:-}" ]; then
+                ld=$(command -v ld.lld) || die "--target pi5 links with ld.lld; set L0_VIRT_LD to one, or install it"
+                L0_VIRT_LD=$ld
+                export L0_VIRT_LD
+            fi
+            "$ROOT/tools/l0" build --target pi5 "$prog" -o "$image" ||
+                die "the program did not build"
+            ;;
+    esac
+
+    if [ ! -s "$WORK/$DTB_NAME" ]; then
+        command -v curl > /dev/null 2>&1 || die "curl is needed to fetch $DTB_NAME, once"
+        echo "pi5-run: fetching $DTB_NAME, once" >&2
+        curl -fsSL -o "$WORK/$DTB_NAME.part" "$DTB_URL" ||
+            die "could not fetch $DTB_URL"
+        mv "$WORK/$DTB_NAME.part" "$WORK/$DTB_NAME"
+    fi
+    mkdir -p "$TFTP"
+    cp "$WORK/$DTB_NAME" "$TFTP/$DTB_NAME"
+
+    # l0 card reads standard input when it is not a terminal.
+    "$ROOT/tools/l0" card "$image" "$TFTP" "$@" || die "l0 card failed"
+elif [ ! -f "$TFTP/config.txt" ]; then
+    die "--no-build, and $TFTP holds no boot files yet"
+fi
+
+[ -c "$SERIAL" ] || die "$SERIAL is not a serial device; set PI5_SERIAL"
+[ -r "$SERIAL" ] || die "$SERIAL is not readable by $(id -un); it belongs to a group, usually uucp"
+stty -F "$SERIAL" 115200 raw -echo || die "could not set up $SERIAL"
+
+: > "$LOG"
+timeout "$wait_s" cat "$SERIAL" > "$LOG" &
+reader=$!
+trap 'kill "$reader" 2> /dev/null || true' EXIT
+
+echo "pi5-run: reading $SERIAL for up to $wait_s s; power-cycle the Pi now" >&2
+
+# The firmware prints "Halt:" when the program has ended and it has been
+# handed back the board. Give the line a moment to finish.
+waited=0
+while [ "$waited" -lt "$wait_s" ]; do
+    if tr -d '\r' < "$LOG" | awk '/Starting OS/ { os = 1 } os && /Halt:/ { f = 1 } END { exit !f }'; then
+        sleep 1
+        break
+    fi
+    sleep 1
+    waited=$((waited + 1))
+done
+kill "$reader" 2> /dev/null || true
+
+# From the first BL31 line after the OS was started to the firmware's next
+# banner, which the program's end brings.
+out=$(tr -d '\r' < "$LOG" | awk '
+    /Starting OS/ { os = 1; next }
+    os && !on && /BL31/ { on = 1 }
+    on && /RPi: BOOTSYS/ { exit }
+    on { print }
+')
+
+if [ -z "$out" ]; then
+    echo "pi5-run: no program output seen; the whole line is in $LOG" >&2
+    exit 1
+fi
+printf '%s\n' "$out"
