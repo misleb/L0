@@ -147,13 +147,23 @@ neither cut nor join without a list, and `bytes_slice` and
 
 Changes to the language, strictly in order. At most one is active.
 
-None queued.
+1. [0116](0116-pi5-pcie-interrupts.md) the Pi 5's PCIe interrupts, RP1's
+   among them — queued
 
 ## Other open items
 
 None.
 
 ## Done and dropped
+
+- [0117](0117-pi5-rp1-driver.md) program: a first RP1 driver, as a process
+  on the Pi 5 — dropped: the user's microkernel project brings up RP1's
+  USB by polling, and reports back what L0 cannot express
+
+- [0115](0115-pi5-microkernel.md) program: an L0 microkernel and its
+  processes on the Pi 5 — done: `tests/virt/user/kernel.l0` ran `release`,
+  `sleeper`, and the serial driver there, after the driver stopped relying
+  on QEMU's PL011 raising a transmit interrupt per byte
 
 - [0110](0110-pi5-board-checks.md) program: the checks 0098 left for a
   Pi 5, run on one — done on a 2 GB board: RP1's and the HVS's regions,

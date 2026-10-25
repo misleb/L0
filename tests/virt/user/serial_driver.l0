@@ -10,7 +10,11 @@
 
 ; The UART's kinds: a PL011, whose registers are 4096 bytes, its transmit
 ; interrupt unmasked once, in UARTIMSC, raised as each byte goes, and
-; cleared in UARTICR; or a 16550, whose are 256, and whose transmit
+; cleared in UARTICR, once its FIFOs are off: with them on, as a Pi 5's
+; firmware leaves them, it is raised only as the FIFO drains through its
+; trigger level, which one byte at a time never does, so the driver waits
+; for the UART to be idle and turns them off in UARTLCR_H first; or a
+; 16550, whose are 256, and whose transmit
 ; interrupt says the holding register is empty: turned on in IER after
 ; each byte is written, which raises it once the byte has gone, its cause
 ; read from IIR, and turned off again, since a byte written while it is on
@@ -20,8 +24,18 @@
 (def uart_len ((k Uart)) int
   (match k ((Pl011) 4096) ((Ns16550) 256)))
 
+; Until UARTFR says the transmit FIFO is empty (TXFE, 0x80) and the UART
+; not busy (BUSY, 0x08).
+(def idle ((u int)) int
+  (if (eq (bit_and (region_read32 u 24) 136) 128) 0 (idle u)))
+
 (def tx_on ((k Uart) (u int)) int
-  (match k ((Pl011) (region_write32 u 56 32)) ((Ns16550) 0)))
+  (match k
+    ((Pl011)
+      (let i (idle u)
+        (let f (region_write32 u 44 (bit_and (region_read32 u 44) 4294967279))   ; FEN off
+          (region_write32 u 56 32))))
+    ((Ns16550) 0)))
 
 (def sent_on ((k Uart) (u int)) int
   (match k ((Pl011) 0) ((Ns16550) (region_write8 u 1 2))))
