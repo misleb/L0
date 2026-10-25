@@ -1,7 +1,7 @@
 # 0110: the checks 0098 left for a Pi 5, run on one
 
 Kind: program
-Status: active
+Status: done
 Needs: 0108
 
 ## Why
@@ -111,6 +111,43 @@ From 0098's Log, 0102, 0103, and 0105, in the order of what the next needs:
   device's DMA (0103's coherence, which no test of QEMU's can show), the
   system timer's four interrupts, BL31's pages, whether SYSTEM_OFF or the
   firmware halted, and the 4, 8, and 16 GB models, which need a board this
-  host does not have. The Pi's board file for these tests is in
+  host does not have.
+- 2026-10-25: RP1 read (0114): its chip ID through the window once the
+  controller is set. SYSTEM_OFF: passed. After a program's output the log
+  shows the board restarted into the bootloader with `BOOTMODE ... partition
+  63`, `PM_RSTS 00000575`, and `POWER_OFF_ON_HALT: 0`, then `Halt:
+  power_off: 0`: BL31 carried out PSCI's SYSTEM_OFF as a reset into the
+  bootloader's halt, which does not cut power because the EEPROM's
+  POWER_OFF_ON_HALT is 0. BL31's pages: passed. The device tree reserves 0
+  to 0x80000 (`atf@0`, `no-map`), and `frames.l0`'s lowest frame was
+  0x1D8000. The HVS: `tmp/0110/hvs.l0`'s first read, at 0x107C580000, hung
+  the board, with nothing printed and no reset. The firmware's log says
+  `Select resolution HDMI0/2 hotplug 0` and `HDMI0: Unable to read EDID
+  block 0`, so there may be no monitor, and the HVS may be unclocked;
+  spec 10.3's "scanning out HDMI0 as the firmware leaves it" is not shown.
+- 2026-10-25: the HVS, again, with a monitor plugged into HDMI0: the log
+  said `hotplug 1`, and `hvs.l0` printed its sixteen words, the first
+  register 0x00002454 and the display list's first word 0x80000000. So the
+  HVS reads only after a boot with a monitor; `hdmi_force_hotplug=1` does
+  not keep it up. Spec 10.3 and the changelog ("The Pi 5's HVS answers only
+  with a monitor on HDMI0") corrected. Left: the system timer's four
+  interrupts, DMA coherence.
+- 2026-10-25: DMA coherence: passed. `tmp/0110/mbox.l0` wrote a property
+  request (board revision, firmware revision) into a frame at 0x1D8000,
+  synced it for the device, sent its address on the mailbox's channel 8,
+  waited for the reply, synced for the CPU, and read: code 0x80000000,
+  board revision 0x00B04171 (the log's `boardrev b04171`), firmware
+  revision 0x6A15B5C5 (the log's `BUILD_TIMESTAMP=1779807685`). The frame's
+  address is the VideoCore's bus address, as the firmware node's empty
+  `dma-ranges` says. A run without the syncs was not made, so this shows
+  that the syncs suffice, not that they are needed.
+- 2026-10-25: the system timer's four interrupts: passed.
+  `tmp/0110/systimer.l0` set each compare register 1 ms on, in the order
+  1, 3, 0, 2: `interrupt_wait` gave 97, 99, 96, 98, each after its compare
+  value, and each `interrupt_done` returned 0. Channels 0 and 2, which the
+  VideoCore uses on earlier Pis, were free here.
+- Done: every check but the 4, 8, and 16 GB models, which need a board this
+  host does not have.
+  The Pi's board file for these tests is in
   `tmp/0110/pi5board.l0`; it belongs in `tests/virt/board/` if they are to
   be run again.

@@ -7,6 +7,56 @@ New entries go at the top.
 
 ---
 
+## The Pi 5's HVS answers only with a monitor on HDMI0
+
+**Corrected:** spec 10.3 no longer says `hdmi_force_hotplug=1` has the
+firmware leave the HVS scanning out with no monitor. It says the HVS is
+readable when a monitor was on HDMI0 at boot, and that a read hangs the
+board otherwise.
+
+*Evidence*, roadmap 0110, a 2 GB Pi 5 through `tools/pi5-run`,
+`tmp/0110/hvs.l0` reading the HVS's first eight registers and display list
+words: with no monitor, `config.txt` saying `hdmi_force_hotplug=1`, the
+firmware logged `Select resolution HDMI0/2 hotplug 0` and `HDMI0: Unable
+to read EDID block 0`, and the first read, at 0x107C580000, hung the board
+with nothing printed and no reset. With a monitor on HDMI0 the log said
+`hotplug 1` and the same program printed all sixteen words, the first
+0x00002454, and display list words such as 0x80000000 and 0x07EBFC00.
+
+*Not decided:* why. An unclocked block that stalls the bus is the likely
+reading, not shown. `l0 card` still writes `hdmi_force_hotplug=1`; this run
+shows only that it is not enough for the HVS.
+
+---
+
+## RP1's window answers once the controller is set (roadmap 0114)
+
+**Corrected:** spec 10.3 on the Pi 5 says what is behind the `0xDEADDEAD`
+in RP1's window, where the previous entry left it open: the firmware does
+not leave the window and RP1's BAR where the device tree's ranges, and the
+region, put them.
+
+*Evidence*, `tmp/0114`, a 2 GB Pi 5, through the controller's region and the
+2711 driver's registers (`EXT_CFG_INDEX` 0x9000, `EXT_CFG_DATA` 0x8000): the
+root port is 14e4:2712 with bus numbers 0, and with them every read behind
+it was `ffffffff`. Set to 0, 1, 1, bus 1 device 0 was 1de4:0001, RP1, with
+memory space and bus master on, BAR0 0x80410000 and BAR1 0x80000000. The
+outbound window registers, by the Linux driver's names, read PCI
+0x80000000 from CPU 0x1C_00000000 for 1 GB, so RP1 would have answered at
+0x1C00000000, which no region covers. Moving RP1's BAR1 to 0 alone left
+the window `deaddead`; also setting the window's CPU high words, 0x4080 and
+0x4084, to 0x1F and its PCI address, 0x400C, to 0, made 0x1F00000000 read
+0x20001927 and 0x00000002, the chip ID the firmware's log gives and a
+platform word.
+
+*Decided:* the region stays at 0x1F00000000, the device tree's, and the
+spec says what a driver sets, rather than the board's part setting it: a
+region is an address range, and the host sets nothing of PCIe up. The
+register offsets are the 2711's and now seen to work on the bcm2712 for
+these registers.
+
+---
+
 ## The Raspberry Pi 5's PCIe controller for RP1 is a region
 
 **New:** on the Raspberry Pi 5, the PCIe controller RP1 is behind,

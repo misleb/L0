@@ -151,15 +151,22 @@ None queued.
 
 ## Other open items
 
-- [0110](0110-pi5-board-checks.md) program: the checks 0098 left for a
-  Pi 5, run on one — active; run on a 2 GB board: RP1's and the HVS's
-  regions, arguments (0112), standard input, the clock, `/memory`, the
-  frame pool, user mode, `frame_sync`, and the timer's and UART's
-  interrupts; RP1 reads 0xdeaddead with the PCIe link up (0113); not yet:
-  reads from the HVS, DMA coherence
+None.
 
 ## Done and dropped
 
+- [0110](0110-pi5-board-checks.md) program: the checks 0098 left for a
+  Pi 5, run on one — done on a 2 GB board: RP1's and the HVS's regions,
+  arguments (0112), standard input, the clock, `/memory`, the frame pool,
+  user mode, `frame_sync` and DMA through the mailbox, the virtual timer's,
+  the UART's, and the system timer's four interrupts, SYSTEM_OFF, BL31's
+  pages; RP1 reads its chip ID once the controller is set (0113, 0114);
+  the HVS reads after a boot with a monitor and hangs without. Not run:
+  the 4, 8, and 16 GB models, which need a board this host does not have
+
+- [0114](0114-pi5-rp1-window.md) make RP1 answer on the Pi 5 — done,
+  changelog "RP1's window answers once the controller is set"; run on a
+  Pi 5: RP1's chip ID, 0x20001927, read through the window
 - [0113](0113-pi5-pcie-controller-region.md) the Pi 5's PCIe controller for
   RP1 is a region — done, changelog "The Raspberry Pi 5's PCIe controller
   for RP1 is a region"; run on a Pi 5: the link is up, and RP1's window
@@ -423,7 +430,8 @@ None queued.
   arm64
 - [0098](0098-raspberry-pi-5.md) the Raspberry Pi 5 — done, changelog "The
   Raspberry Pi 5"; first run on a board 2026-10-24 (UART, EL2 entry,
-  firmware load by TFTP), the rest of the checks are 0110
+  firmware load by TFTP), the rest of the checks run by 0110 on a 2 GB
+  board
 - [0099](0099-release-heap-pages.md) a process's runtime hands free heap
   pages back to its kernel — done, changelog "A process hands free heap
   pages back to its kernel"; passed on Linux arm64
@@ -434,16 +442,19 @@ None queued.
   ECAM and MMIO window are regions"
 - [0102](0102-pi5-rp1-region.md) the Raspberry Pi 5's RP1 is a region —
   done, changelog "The Raspberry Pi 5's RP1 is a region"; run on a board:
-  it opens, but reads in it return 0xdeaddead, see 0113
+  it opens, and reads RP1's chip ID once the PCIe controller is set
+  (0113, 0114)
 - [0103](0103-frame-sync.md) `frame_sync` — done, changelog "A frame's
   bytes made to agree between the CPU's caches and memory"; passed on
-  Linux arm64; no run on a Pi, 0110 runs it
+  Linux arm64; run on a Pi 5 (0110): a mailbox call through a frame,
+  synced both ways, got the board and firmware revisions back
 - [0104](0104-board-layout-sizes.md) a board program sizes its heap and
   stack, or brings its own layout — done, changelog "A board program sizes
   its heap and stack, or brings its own layout"
 - [0105](0105-pi5-hvs-regions.md) the Raspberry Pi 5's HVS and its IOMMU
   are regions — done, changelog "The Raspberry Pi 5's HVS and its IOMMU
-  are regions"; no run on a board, 0110 runs it
+  are regions"; run on a Pi 5 (0110): they open, and the HVS reads only
+  after a boot with a monitor on HDMI0
 - [0106](0106-virt-pcie-interrupts.md) the aarch64 virt board gives PCIe's
   interrupts, INTx and MSI — done, changelog "The aarch64 virt board gives
   PCIe's interrupts, INTx and MSI"

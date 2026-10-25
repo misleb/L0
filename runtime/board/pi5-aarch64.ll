@@ -3,10 +3,12 @@
 ; it. runtime/board/pi5-aarch64.ld lays out its memory, and
 ; runtime/targets/pi5-aarch64.target lists the parts linked with this one. It
 ; carries no triple, but its descriptors are arm64's, since a board has one
-; CPU. Nothing in it has run on a board: QEMU has no Raspberry Pi 5.
+; CPU. QEMU has no Raspberry Pi 5, so it runs only on a board, through
+; tools/pi5-run.
 ;
-; Memory, on a board with 2 GB or more (RAM from 0, and 0x3F800000 to
-; 0x40000000 and BL31's below 0x80000 are not in the device tree's /memory):
+; Memory, on a board with 2 GB or more (RAM from 0; on a 2 GB board the
+; device tree's /memory is 0 to 0x3FC00000 and 0x40000000 to 0x80000000, and
+; reserves BL31's pages below 0x80000 apart, in /reserved-memory/atf@0):
 ;   0x00000000  BL31, the firmware's resident secure monitor, to 0x80000
 ;   0x00080000  the image: code, data, bss, which the boot code zeroes; the
 ;               firmware loads it there, kernel_address, and enters it at EL2

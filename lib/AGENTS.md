@@ -116,7 +116,9 @@ is not 0 is written there, and the board is powered off. It has run on a
 Pi 5 (changelog, "The Raspberry Pi 5"), and its DMA is not coherent, so
 `frame_sync` matters there. RP1's peripherals, its USB controllers among
 them, are a region, but on a Pi 5 its registers read as `0xdeaddead`
-until a driver sets up the PCIe link, which no region lets it do yet.
+until a driver sets the PCIe controller's bus numbers, RP1's BAR1, and the
+outbound window, through the controller's region (changelog, "RP1's window
+answers once the controller is set").
 
 `l0 build --target proc` builds a program as a process for a kernel on
 aarch64, or riscv64 with `--arch riscv64`, in an address space of its own, reaching the kernel through the
