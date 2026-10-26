@@ -1,0 +1,29 @@
+; Spec section 10.3 on the Raspberry Pi 5: HDMI0's blocks, the HD block,
+; pixel valve 0 and DDC0 are regions, as L0S's probes/display asked. This
+; is built by tools/test.sh --virt and not run, since no emulator has this
+; board; on a Pi 5 whose serial line is read, its output is hdmi.out. Each
+; opens whole, and the PHY alone opens within HDMI0's run; a range past the
+; run's end, one past the HD block's, one past the pixel valve's, one past
+; DDC0's, and aon_intr, which is none, are no region. Nothing is
+; read, since the blocks stall the CPU while their clock is at 0.
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def inside () int
+  (let a (code (region_open 70807191552 18432))   ; 0x107C700000, HDMI0's blocks
+    (let b (code (region_open 70807198976 768))   ; 0x107C701D00, the PHY
+      (let c (code (region_open 70807322624 256)) ; 0x107C720000, the HD block
+        (let d (code (region_open 70804111360 256)) ; 0x107C410000, pixel valve 0
+          (code (region_open 70821904896 88)))))))  ; 0x107D508200, DDC0
+
+(def outside () int
+  (let a (code (region_open 70807191552 18433))   ; past the run's end
+    (let b (code (region_open 70807322624 257)) ; past the HD block's
+      (let c (code (region_open 70804111360 257)) ; past the pixel valve's
+        (let d (code (region_open 70821904896 89)) ; past DDC0's
+          (code (region_open 70821938688 48)))))))  ; 0x107D510600, aon_intr
+
+(def main () int
+  (let a (inside)
+    (outside)))

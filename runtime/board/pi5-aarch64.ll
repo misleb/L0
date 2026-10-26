@@ -236,7 +236,9 @@ entry:
 ; puts them, at PCI 0x400000 and 0x410000. Anything else, RAM and the
 ; runtime's heap among it, is no region, and so are the GIC and mip0,
 ; which this file drives, and so are iommu2 and iommu5, beside iommu4.
-@devices = private constant [16 x i64] [
+; HDMI0's mode set takes four more, all in block 65: its blocks, the HD
+; block, pixel valve 0, and DDC0 (roadmap 0120).
+@devices = private constant [24 x i64] [
   i64 70816632832, i64 4096,      ; 0x107D001000, the debug UART, a PL011
   i64 70799863808, i64 4096,      ; 0x107C003000, the 1 MHz system timer
   i64 70799931520, i64 64,        ; 0x107C013880, the VideoCore mailbox
@@ -244,11 +246,15 @@ entry:
   i64 70805618688, i64 106496,    ; 0x107C580000, the HVS
   i64 68719497728, i64 128,       ; 0x1000005200, iommu4, the HVS's IOMMU
   i64 68719500032, i64 128,       ; 0x1000005B00, iommuc, the IOMMUs' cache
-  i64 68720656384, i64 37648 ]    ; 0x1000120000, the PCIe controller of RP1
+  i64 68720656384, i64 37648,     ; 0x1000120000, the PCIe controller of RP1
+  i64 70807191552, i64 18432,     ; 0x107C700000, HDMI0's blocks, one run
+  i64 70807322624, i64 256,       ; 0x107C720000, the HD block
+  i64 70804111360, i64 256,       ; 0x107C410000, pixel valve 0
+  i64 70821904896, i64 88 ]       ; 0x107D508200, DDC0
 
 define i64 @l0_board_device_count() {
 entry:
-  ret i64 8
+  ret i64 12
 }
 
 define i64 @l0_board_device_base(i64 %k) {

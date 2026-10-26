@@ -7,6 +7,34 @@ New entries go at the top.
 
 ---
 
+## The Raspberry Pi 5's HDMI0 mode set is regions (roadmap 0120)
+
+**New:** four more devices on the Pi 5 are regions (spec 10.3), all in the
+boot map's block 65: HDMI0's blocks in one run, 0x107C700000 and 0x4800
+bytes (DVP controller, CSC, DVP, HDMI core, PHY, rate manager, packet RAM,
+metadata); the HD block, 0x107C720000, 0x100; pixel valve 0, 0x107C410000,
+0x100; and DDC0, 0x107D508200, 0x58. Addresses are from `bcm2712.dtsi`
+(rpi-6.12.y).
+
+*Why:* L0S asked (its `probes/display/REQUEST-pi5-hdmi-mode.md`). Its `hvs`
+driver took the mode the firmware leaves, always 1920x1080, and a 4K
+monitor's EDID prefers 3840x2160 at 60 Hz. The one workaround, the
+firmware's `SET_TIMING` over the mailbox, re-times HDMI0 but leaves the
+firmware rewriting the HVS channel's display list pointers every frame, so
+the pointer flickers and lists show stale. A mode set of its own, in
+Linux's `vc4` order, never leaves the firmware that state.
+
+*Decided:* one run for HDMI0's blocks, as asked, not seven: they are one
+SoC peripheral window, and the driver gains nothing from finer grain. The
+hotplug and DDC interrupts (`aon_intr`, `bsc_irq`) are not offered; polling
+DDC is enough at first, and a monitor plugged in after boot is a later
+request. The clocks stay the firmware's, over the mailbox. No deliberate
+restriction is broken: they are devices reached through registers, like
+the HVS. No emulator has this board; the regions are checked by building,
+and a first run is the user's.
+
+---
+
 ## A program can restart its board (roadmap 0119)
 
 **Added:** `(board_reset)` (spec 6.12), an int builtin of no arguments.
