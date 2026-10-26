@@ -100,6 +100,16 @@ entry:
   ret void
 }
 
+; Another CPU, as it starts: its own CPU interface, banked at the same
+; address, and its own virtual timer's interrupt, banked in the
+; distributor, which is on already.
+define void @l0_board_cpu_init() {
+entry:
+  call void @l0_gicv2_init(i64 70866931712, i64 70866935808)
+  call void @l0_gicv2_enable(i64 70866931712, i64 27)
+  ret void
+}
+
 ; Adds the 1 GB blocks of the RAM from lo to hi to the boot map, but for the
 ; user range, which no RAM is in, and for the blocks past the 16th, which
 ; are none of the board's, and makes the stores seen before any is used.

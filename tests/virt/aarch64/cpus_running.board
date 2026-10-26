@@ -1,0 +1,1 @@
+Needs the board: it hands a thread to another CPU, which a process has not, and two CPUs, which cpus_running.qemu gives.

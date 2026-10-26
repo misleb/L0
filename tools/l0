@@ -67,7 +67,8 @@
 # installed ones. The board's virtio-mmio transports are modern, and
 # L0_QEMU_ARGS, split at spaces, is added to QEMU's command line, to give
 # the board devices beyond its own: L0_QEMU_ARGS="-device virtio-gpu-device"
-# puts a display on a transport.
+# puts a display on a transport, and L0_QEMU_ARGS="-smp 4" gives it four
+# CPUs to run threads on (spec section 6.18).
 #
 # With --target proc, l0 build writes a process's image as its kernel loads
 # it: a static ELF whose segments, the code, the rodata, and the data, a

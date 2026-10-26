@@ -7,6 +7,70 @@ New entries go at the top.
 
 ---
 
+## Threads run on the other CPUs (roadmap 0121)
+
+**Added:** section 6.18, four builtins: `(cpu_count)`, `(cpu_run c s ctx
+deadline tag)`, `(cpu_trapped)`, and `(cpu_wait)`, and two runtime errors,
+`not a CPU` and `space still running`. The program still runs on CPU 0
+alone; the others run user threads it hands them, each until it traps or
+its deadline passes on that CPU's own timer, and hand them back. The
+aarch64 boards start the CPUs their device tree lists by PSCI's `CPU_ON`
+(QEMU's with `-smp N`, given through `L0_QEMU_ARGS`, and the Pi 5's
+four); every other host has one.
+
+*Why:* L0S's `probes/smp/REQUEST-multiple-cpus.md`. L0S runs a
+compositor, a terminal, a shell, its drivers, and its file system on one
+core, while the Pi 5's other three sit in BL31. Its `want.l0`, CPU 0's
+loop that drains every trap the other CPUs posted, hands each thread that
+may go on back to a CPU, and fills every CPU from one ready queue, could
+not be written: no builtin starts a CPU, `user_run` runs one thread at a
+time on the CPU that calls it, and a second CPU could not run L0 code,
+since the heap and its reference counts serve one CPU and L0 has no
+atomics.
+
+*Decided:* the request's shape, which breaks nothing a program can see:
+no value is ever on another CPU, since the runtime copies a context in
+and out, so section 8's guarantee and the heap's single owner stand.
+Rings in memory rather than inter-processor interrupts, so that a system
+call costs no interrupt on either side and CPU 0 takes traps in batches.
+Where it chose:
+
+- `cpu_run` reads its context without consuming it. It copies the words
+  into the ring anyway, so consuming would buy nothing, and `want.l0`
+  hands one context to the next CPU when a ring is full, which a consumed
+  one would make a copy for.
+- A `c` that is not another CPU is the runtime error `not a CPU`, and
+  there is no -3. The request asked for -3 where there is no user mode,
+  but such a host has one CPU, so no `c` is valid there, and a kernel
+  reads `cpu_count` first, as it reads `space_new`'s -3. One error for
+  every host keeps the order of checks one list.
+- `space_free` is refused while a thread of the space is handed over and
+  not yet taken back by `cpu_trapped`, not merely while it runs: only
+  CPU 0's count of what it handed and took is exact without asking the
+  other CPU, and a kernel knows that count too.
+- A CPU's run ring and trap ring are one ring of 4 slots with three
+  counters, handed, run, and taken, each written by one CPU: a slot is
+  written by CPU 0, run in place by its CPU, and read back by CPU 0, so a
+  context is copied twice in all, and a CPU's traps come back in the order
+  its threads were handed, as the request asks.
+- `cpu_wait` polls the rings and the GIC, with `wfe` between: the CPU
+  that posts sends `sev`, and the generic timer's event stream bounds the
+  wait for an interrupt, since whether a masked interrupt ends `wfe` is
+  not something the runtime should depend on. QEMU's `wfe` does not sleep,
+  so on QEMU an idle CPU spins; on a board it sleeps.
+- No `L0_SMP`: `L0_QEMU_ARGS="-smp 4"` already reaches QEMU, and a test's
+  `.qemu` file gives the same.
+- The riscv64 virt board starts no other hart yet, so has one CPU, which
+  section 6.18 allows. Starting them is SBI's `hart_start`, and its
+  timer is the SBI's, per hart; nothing here can run that board's QEMU, so
+  it waits for a request that needs it.
+
+*Not decided:* a kernel on every CPU, interrupts between CPUs, stopping a
+thread on another CPU early, and devices' interrupts on other CPUs, which
+the request leaves out on purpose.
+
+---
+
 ## The Raspberry Pi 5's HDMI0 mode set is regions (roadmap 0120)
 
 **New:** four more devices on the Pi 5 are regions (spec 10.3), all in the

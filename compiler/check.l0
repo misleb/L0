@@ -261,14 +261,15 @@
 (def bi_bool_bool ((i int)) (list (list int)) (split_spaces "and or"))
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
 
-; The effects of spec 6.2 to 6.4, 6.7, and 6.12 to 6.14, 6.16's machine, and 6.12's board_reset,
+; The effects of spec 6.2 to 6.4, 6.7, and 6.12 to 6.14, 6.16's machine, 6.12's board_reset, and
+; 6.18's cpu_count and cpu_wait,
 ; which asks the host as they do. Those in bi_io
 ; take and return only ints, so need_all checks them; bi_path take only byte
 ; lists, paths or bytes to read, and return an int; bi_to_list take an int
 ; and return a byte list; bi_user take bytes or a context, and
 ; check_user_builtin checks them.
 (def bi_io ((i int)) (list (list int))
-  (names_then (split_spaces "read_byte write_byte read_from write_to close flush arg_count open_buffer clock_ns machine board_reset")
+  (names_then (split_spaces "read_byte write_byte read_from write_to close flush arg_count open_buffer clock_ns machine board_reset cpu_count cpu_wait")
               (names_then (bi_region 0)
                 (names_then (bi_user_ints 0) (bi_interrupt 0)))))
 (def bi_interrupt ((i int)) (list (list int))
@@ -278,7 +279,7 @@
 (def bi_user_ints ((i int)) (list (list int))
   (split_spaces "space_new frame_new space_map space_map_device frame_address frame_sync space_unmap space_free frame_free frame_free_count"))
 (def bi_user ((i int)) (list (list int))
-  (split_spaces "space_read space_write user_run supervisor_send supervisor_receive"))
+  (split_spaces "space_read space_write user_run supervisor_send supervisor_receive cpu_run cpu_trapped"))
 (def bi_path ((i int)) (list (list int))
   (split_spaces "open_read open_write open_append rename open_bytes remove"))
 (def bi_to_list ((i int)) (list (list int)) (split_spaces "arg buffer_bytes"))
@@ -320,7 +321,7 @@
   (if (is_empty xs) ys (cons (head xs) (names_then (tail xs) ys))))
 
 (def builtin_arity ((n (list int))) int
-  (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns barrier space_new frame_new interrupt_wait machine board_reset frame_free_count"))
+  (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns barrier space_new frame_new interrupt_wait machine board_reset frame_free_count cpu_count cpu_trapped cpu_wait"))
       0
       (if (any_eq n (split_spaces
             "float_neg float_sqrt float_from_int float_to_int float_bits float_from_bits neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes remove buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list bytes_concat timer_at interrupt_enable interrupt_done frame_address space_free frame_free region_close"))
@@ -332,7 +333,7 @@
 (def builtin_arity_wide ((n (list int))) int
   (if (any_eq n (split_spaces "write_bytes space_map space_map_device supervisor_call"))
       4
-      (if (any_eq n (split_spaces "space_write supervisor_send")) 5 2)))
+      (if (any_eq n (split_spaces "space_write supervisor_send cpu_run")) 5 2)))
 
 (def plural ((n int) (word (list int))) (list int)
   (if (eq n 1) word (append word "s")))
@@ -392,8 +393,9 @@
           (check_list_builtin n ats o))))
 
 ; space_read and supervisor_receive give bytes for three ints, space_write
-; and supervisor_send take bytes and a range of them, and user_run takes
-; and gives a context, an (array int). Spec 6.13 and 6.15.
+; and supervisor_send take bytes and a range of them, user_run takes
+; and gives a context, an (array int), cpu_run takes one between two ints
+; and two more, and cpu_trapped gives one. Spec 6.13, 6.15, and 6.18.
 (def check_user_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
   (if (any_eq n (split_spaces "space_read supervisor_receive"))
       (need_each n ats o (cons (TyInt) (cons (TyInt) (cons (TyInt) (nil Ty)))) (TyBytes))
@@ -401,6 +403,15 @@
           (need_each n ats o
             (cons (TyInt) (cons (TyInt) (cons (TyBytes) (cons (TyInt) (cons (TyInt) (nil Ty))))))
             (TyInt))
+          (check_cpu_builtin n ats o))))
+
+(def check_cpu_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
+  (if (eq n "cpu_run")
+      (need_each n ats o
+        (cons (TyInt) (cons (TyInt) (cons (TyArray (TyInt)) (cons (TyInt) (cons (TyInt) (nil Ty))))))
+        (TyInt))
+      (if (eq n "cpu_trapped")
+          (need_each n ats o (nil Ty) (TyArray (TyInt)))
           (need_each n ats o (cons (TyInt) (cons (TyArray (TyInt)) (nil Ty)))
             (TyArray (TyInt))))))
 

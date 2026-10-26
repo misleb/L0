@@ -681,3 +681,36 @@ page:
 done:
   ret void
 }
+
+; ------------------------------------------------------------- other CPUs
+;
+; Spec section 10.3: this part starts no other hart, which would be SBI's
+; hart_start, so the program's is the one CPU, and nothing below is
+; called but to say so.
+
+define i64 @l0_arch_cpu_self() {
+entry:
+  ret i64 -1
+}
+
+define i64 @l0_arch_cpu_start(i64 %k, i64 %id) {
+entry:
+  ret i64 -1
+}
+
+define void @l0_arch_idle() {
+entry:
+  call void asm sideeffect "wfi", "~{memory}"()
+  ret void
+}
+
+define void @l0_arch_notify() {
+entry:
+  call void asm sideeffect "fence rw, rw", "~{memory}"()
+  ret void
+}
+
+define void @l0_arch_space_home() {
+entry:
+  ret void
+}

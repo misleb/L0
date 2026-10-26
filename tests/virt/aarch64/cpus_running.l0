@@ -1,0 +1,10 @@
+; Spec sections 6.13 and 6.18: a space whose thread is handed to another
+; CPU stays in use until cpu_trapped takes the thread back, so freeing it
+; is a runtime error, though its thread, b . for ever, has a deadline.
+(def main () int
+  (let s (space_new)
+    (let f (frame_new)
+      (let m (space_map s 3221225472 f 2)
+        (let w (space_write s 3221225472 (bytes_from_list (cons 0 (cons 0 (cons 0 (cons 20 (nil int)))))) 0 4)
+          (let r (write_line (digits (cpu_run 1 s (user_context 3221225472 0) (add (clock_ns) 1000000) 0)))
+            (space_free s)))))))

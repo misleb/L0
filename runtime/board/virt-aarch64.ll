@@ -53,6 +53,16 @@ entry:
   ret void
 }
 
+; Another CPU, as it starts: its own CPU interface, banked at the same
+; address, and its own virtual timer's interrupt, banked in the
+; distributor, which is on already.
+define void @l0_board_cpu_init() {
+entry:
+  call void @l0_gicv2_init(i64 134217728, i64 134283264)
+  call void @l0_gicv2_enable(i64 134217728, i64 27)
+  ret void
+}
+
 ; The RAM the device tree describes is all in the boot map already.
 define void @l0_board_map_ram(i64 %lo, i64 %hi) {
 entry:

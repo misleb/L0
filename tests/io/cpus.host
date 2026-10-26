@@ -1,0 +1,1 @@
+Needs a host with no interrupts: on the virt board cpu_wait with none enabled is -5, which tests/virt/cpu_none and tests/virt/aarch64/cpus check.

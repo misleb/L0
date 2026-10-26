@@ -1,0 +1,8 @@
+; Spec sections 6.18 and 9.2: an operating system runs threads on no other
+; CPU, so there is one, nothing to take back, waiting is interrupt_wait's,
+; -3, and no CPU can be handed a thread, whatever the CPU asked for.
+(def main () int
+  (let n (write_line (digits (cpu_count)))
+    (let t (write_line (digits (array_len (cpu_trapped))))
+      (let w (write_line (digits (cpu_wait)))
+        (cpu_run 0 0 (array_new 104 0) -1 0)))))

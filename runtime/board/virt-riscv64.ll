@@ -70,6 +70,12 @@ entry:
   ret void
 }
 
+; No other hart is started (spec section 10.3), so none is set up.
+define void @l0_board_cpu_init() {
+entry:
+  ret void
+}
+
 define void @l0_board_console_put(i8 %c) {
 entry:
   call void @l0_ns16550_put(i64 268435456, i64 0, i8 %c)

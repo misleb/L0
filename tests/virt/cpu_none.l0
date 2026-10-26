@@ -1,0 +1,9 @@
+; Spec sections 6.18 and 9.2: a board run with one CPU, as l0 boot runs it
+; unless told otherwise, and a process, run threads on no other: one CPU,
+; nothing to take back, and no CPU to hand a thread to, even with a space
+; and a context to hand.
+(def main () int
+  (let n (write_line (digits (cpu_count)))
+    (let t (write_line (digits (array_len (cpu_trapped))))
+      (let s (space_new)
+        (cpu_run 1 s (user_context 3221225472 0) -1 0)))))

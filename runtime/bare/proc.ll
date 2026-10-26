@@ -292,6 +292,28 @@ entry:
   ret i64 -3
 }
 
+; A process runs threads on no other CPU (spec section 6.18).
+define i64 @l0_host_cpu_count() {
+entry:
+  ret i64 1
+}
+
+define i64 @l0_host_cpu_run(i64 %c, i64 %s, ptr %words, i64 %n, i64 %deadline, i64 %tag) {
+entry:
+  ret i64 11
+}
+
+define i64 @l0_host_cpu_trapped(ptr %out) {
+entry:
+  ret i64 0
+}
+
+define i64 @l0_host_cpu_wait() {
+entry:
+  %r = call i64 @l0_host_interrupt_wait()
+  ret i64 %r
+}
+
 define i64 @l0_host_space_unmap(i64 %s, i64 %va) {
 entry:
   ret i64 1

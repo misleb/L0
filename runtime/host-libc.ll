@@ -573,6 +573,29 @@ entry:
   ret i64 -3
 }
 
+; Spec section 6.18: threads run on no other CPU, so there is one, no CPU
+; to hand a thread to, none to take back, and waiting is for interrupts.
+define i64 @l0_host_cpu_count() {
+entry:
+  ret i64 1
+}
+
+define i64 @l0_host_cpu_run(i64 %c, i64 %s, ptr %words, i64 %n, i64 %deadline, i64 %tag) {
+entry:
+  ret i64 11
+}
+
+define i64 @l0_host_cpu_trapped(ptr %out) {
+entry:
+  ret i64 0
+}
+
+define i64 @l0_host_cpu_wait() {
+entry:
+  %r = call i64 @l0_host_interrupt_wait()
+  ret i64 %r
+}
+
 ; ------------------------------------------------------------- entry point
 
 ; Before the program's thread starts, spec section 6.3. A write to a pipe

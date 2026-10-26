@@ -1,0 +1,96 @@
+; Spec section 6.18 on the aarch64 board with four CPUs (cpus.qemu): three
+; threads at once, one on each other CPU, one of which spins until another
+; sets a word they share, so that both come back only if they run at the
+; same time; then a ring filled, its fifth thread refused, and each of the
+; four ended by its deadline on CPU 1's own timer, in the order handed.
+
+(def show ((n int)) int
+  (write_line (digits n)))
+
+(def say ((t Trap)) (list int)
+  (match t
+    ((TrapCall n) (append "call " (digits n)))
+    ((TrapMissing va) (append "missing " (hex_digits va 1)))
+    ((TrapFault esr far) (append "fault " (hex_digits esr 1)))
+    ((TrapInterrupt n) (append "interrupt " (digits n)))))
+
+(def lo () int 3221225472)                          ; 0xC0000000, the code
+(def flag () int 3221229568)                        ; 0xC0001000, the word shared
+
+; The 4 bytes of each word of ws, little endian.
+(def words ((ws (list int))) bytes
+  (bytes_from_list (word_bytes ws)))
+
+(def word_bytes ((ws (list int))) (list int)
+  (if (is_empty ws)
+      (nil int)
+      (let w (head ws)
+        (cons (bit_and w 255)
+          (cons (bit_and (bit_shr w 8) 255)
+            (cons (bit_and (bit_shr w 16) 255)
+              (cons (bit_shr w 24) (word_bytes (tail ws)))))))))
+
+; At lo: ldr x1, [x0]; cbz x1, back to it; svc #0, a spin until the word
+; at x0 is set. At lo + 16: mov x1, #1; str x1, [x0]; svc #0, which sets
+; it. At lo + 32: b ., a spin for ever.
+(def code () bytes
+  (words (cons 4181721089 (cons 3036676065 (cons 3556769793 (cons 0
+         (cons 3531604001 (cons 4177526785 (cons 3556769793 (cons 0
+         (cons 335544320 (nil int))))))))))))
+
+; A thread from pc, its x0 the shared word and its x8, the call's number, n.
+(def thread ((pc int) (n int)) (array int)
+  (array_set (array_set (user_context pc 0) 0 (flag)) 8 n))
+
+; The traps of n threads, each as its CPU, its tag, and what it came back
+; for, gathered as cpu_trapped gives them, waiting while none is back.
+(def gather ((n int) (acc (list (list int)))) (list (list int))
+  (if (eq n 0)
+      (rev acc)
+      (let t (cpu_trapped)
+        (if (eq (array_len t) 0)
+            (let w (cpu_wait) (gather n acc))
+            (gather (sub n 1)
+              (cons (append (digits (array_get t 104))
+                      (append " " (append (digits (array_get t 105))
+                        (append " " (append (digits (array_len t))
+                          (append " " (say (trap_of t))))))))
+                    acc))))))
+
+(def lines ((ls (list (list int)))) int
+  (if (is_empty ls) 0 (let w (write_line (head ls)) (lines (tail ls)))))
+
+; Three at once: the spinner on CPU 1, given 2 s before its deadline ends
+; it, the setter on CPU 2, and a plain call on CPU 3, sorted by CPU, since
+; which comes back first is theirs.
+(def at_once ((i int)) int
+  (let d (add (clock_ns) 2000000000)
+    (let a (show (cpu_run 1 0 (thread (lo) 41) d 101))
+      (let b (show (cpu_run 2 0 (thread (add (lo) 16) 42) d 102))
+        (let c (show (cpu_run 3 0 (thread (add (lo) 8) 43) -1 103))
+          (lines (sort (gather 3 (nil (list int))))))))))
+
+; Four spinning for ever on CPU 1, each until 20 ms from now: the ring's 4
+; slots, so a fifth is refused, and then all four end by the deadline.
+(def deadlines ((i int)) int
+  (let d (add (clock_ns) 20000000)
+    (let a (show (cpu_run 1 0 (thread (add (lo) 32) 0) d 1))
+      (let b (show (cpu_run 1 0 (thread (add (lo) 32) 0) d 2))
+        (let c (show (cpu_run 1 0 (thread (add (lo) 32) 0) d 3))
+          (let e (show (cpu_run 1 0 (thread (add (lo) 32) 0) d 4))
+            (let f (show (cpu_run 1 0 (thread (add (lo) 32) 0) d 5))
+              (lines (gather 4 (nil (list int)))))))))))
+
+(def main () int
+  (let n (show (cpu_count))
+    (let s (space_new)
+      (let f (frame_new)
+        (let g (frame_new)
+          (let m (space_map s (lo) f 2)
+            (let m2 (space_map s (flag) g 1)
+              (let w (space_write s (lo) (code) 0 36)
+                (let a (at_once 0)
+                  (let e (show (array_len (cpu_trapped)))
+                    (let d (deadlines 0)
+                      (let q (show (cpu_wait))
+                        (show (space_free s))))))))))))))

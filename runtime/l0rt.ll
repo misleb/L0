@@ -48,6 +48,10 @@ declare i64 @l0_host_interrupt_enable(i64)
 declare i64 @l0_host_interrupt_wait()
 declare i64 @l0_host_interrupt_done(i64)
 declare i64 @l0_host_supervisor(i64, i64, i64, i64)
+declare i64 @l0_host_cpu_count()
+declare i64 @l0_host_cpu_run(i64, i64, ptr, i64, i64, i64)
+declare i64 @l0_host_cpu_trapped(ptr)
+declare i64 @l0_host_cpu_wait()
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
@@ -2809,6 +2813,8 @@ entry:
 @m_taken = private constant [19 x i8] c"interrupt not taken"
 @m_still = private constant [18 x i8] c"frame still mapped"
 @m_notmapped = private constant [20 x i8] c"user page not mapped"
+@m_notcpu = private constant [9 x i8] c"not a CPU"
+@m_running = private constant [19 x i8] c"space still running"
 
 define internal void @user_check(i64 %k) {
 entry:
@@ -2821,7 +2827,9 @@ entry:
                              i64 7, label %context
                              i64 8, label %taken
                              i64 9, label %still
-                             i64 10, label %notmapped ]
+                             i64 10, label %notmapped
+                             i64 11, label %notcpu
+                             i64 12, label %running ]
 space:
   call void @rt_error(ptr @m_space, i64 11)
   unreachable
@@ -2851,6 +2859,12 @@ still:
   unreachable
 notmapped:
   call void @rt_error(ptr @m_notmapped, i64 20)
+  unreachable
+notcpu:
+  call void @rt_error(ptr @m_notcpu, i64 9)
+  unreachable
+running:
+  call void @rt_error(ptr @m_running, i64 19)
   unreachable
 ok:
   ret void
@@ -3003,6 +3017,55 @@ entry:
   %k = call i64 @l0_host_user_run(i64 %s, ptr %w, i64 %n)
   call void @user_check(i64 %k)
   ret i64 %c1
+}
+
+; ---------------------------------------------------------------- other CPUs
+;
+; Spec section 6.18. The host keeps the CPUs and their rings; a context is
+; copied into a ring and back out, so no value of the program's is ever on
+; another CPU.
+
+define i64 @l0_cpu_count() {
+entry:
+  %r = call i64 @l0_host_cpu_count()
+  ret i64 %r
+}
+
+; c is read, not consumed: the host copies its words. 0 or -5.
+define i64 @l0_cpu_run(i64 %c, i64 %s, i64 %ctx, i64 %deadline, i64 %tag) {
+entry:
+  %q = inttoptr i64 %ctx to ptr
+  %n = load i64, ptr %q
+  %w = getelementptr i64, ptr %q, i64 1
+  %k = call i64 @l0_host_cpu_run(i64 %c, i64 %s, ptr %w, i64 %n, i64 %deadline, i64 %tag)
+  call void @user_check(i64 %k)
+  ret i64 %k
+}
+
+; The next thread another CPU gives back, its context and then its CPU and
+; tag, or an empty array; the array is built only for a thread there is.
+; Every host with other CPUs has user mode, whose contexts are 104 words.
+define i64 @l0_cpu_trapped() {
+entry:
+  %any = call i64 @l0_host_cpu_trapped(ptr null)
+  %none = icmp eq i64 %any, 0
+  br i1 %none, label %empty, label %take
+empty:
+  %e = call i64 @arr_alloc(i64 0, i64 0)
+  ret i64 %e
+take:
+  %a = call i64 @arr_alloc(i64 106, i64 0)
+  %q = inttoptr i64 %a to ptr
+  %w = getelementptr i64, ptr %q, i64 1
+  %got = call i64 @l0_host_cpu_trapped(ptr %w)
+  ret i64 %a
+}
+
+define i64 @l0_cpu_wait() {
+entry:
+  call void @flush_std()
+  %r = call i64 @l0_host_cpu_wait()
+  ret i64 %r
 }
 
 ; -------------------------------------------------------------- interrupts

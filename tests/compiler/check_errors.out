@@ -100,6 +100,13 @@ ok
 35: space_free takes 1 argument, but got 0
 35: an argument of frame_free must be int, but this is (list int)
 35: machine takes 0 arguments, but got 1
+35: cpu_wait takes 0 arguments, but got 1
+35: cpu_trapped takes 0 arguments, but got 1
+35: head must be a list, but this is (array int)
+35: head must be a list, but this is int
+35: an argument of cpu_run must be (array int), but this is (array bool)
+35: cpu_run takes 5 arguments, but got 4
+35: cpu_count takes 0 arguments, but got 1
 35: head must be a list, but this is int
 35: an argument of frame_sync must be int, but this is bool
 35: frame_sync takes 2 arguments, but got 1

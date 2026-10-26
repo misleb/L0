@@ -30,6 +30,8 @@
 ;     indices, which arm64's 4 KB granule and RISC-V's Sv39 both are
 ;   - the interrupts' bookkeeping, over the board's controller, and the
 ;     clock and timer, over the CPU's counter
+;   - the other CPUs the device tree lists, which the CPU's part starts,
+;     each running the threads handed to it through a ring of its own
 ;
 ; The hooks each other part defines are declared below, by the part.
 
@@ -70,6 +72,11 @@ declare void @l0_arch_mapped(i64)
 declare void @l0_arch_tlb_page(i64, i64)
 declare void @l0_arch_space_leave()
 declare void @l0_arch_user_run(ptr, i64, i64)
+declare i64 @l0_arch_cpu_self()
+declare i64 @l0_arch_cpu_start(i64, i64)
+declare void @l0_arch_idle()
+declare void @l0_arch_notify()
+declare void @l0_arch_space_home()
 
 ; The board's part, runtime/board/BOARD.ll.
 declare void @l0_board_init(i64, i64)
@@ -89,6 +96,7 @@ declare i1 @l0_board_irq_exists(i64)
 declare void @l0_board_irq_enable(i64)
 declare i64 @l0_board_irq_take()
 declare void @l0_board_irq_end(i64)
+declare void @l0_board_cpu_init()
 
 ; ------------------------------------------------------------------- entry
 
@@ -96,15 +104,18 @@ declare void @l0_board_irq_end(i64)
 ; device tree's address and the booting CPU's number. The arguments and
 ; the place of standard input are copied out of the tree before anything
 ; else, since the tree is wherever the firmware put it, and the pool is
-; built from it and from standard input's count. l0_rt_run's frame is a
-; little below the top, so the size it is given leaves 64 KB for what lies
-; above it.
+; built from it and from standard input's count, and the other CPUs it
+; lists are found, and started once the board is set up. l0_rt_run's
+; frame is a little below the top, so the size it is given leaves 64 KB
+; for what lies above it.
 define void @l0_bare_main(i64 %dtb, i64 %hart) noreturn {
 entry:
   call void @boot_args(i64 %dtb)
+  call void @boot_cpus(i64 %dtb)
   call void @input_init()
   call void @pool_init(i64 %dtb)
   call void @l0_board_init(i64 %dtb, i64 %hart)
+  call void @cpus_start()
   %top = ptrtoint ptr @__stack_top to i64
   %bottom = ptrtoint ptr @__stack_bottom to i64
   %all = sub i64 %top, %bottom
@@ -331,6 +342,14 @@ arm:
 out:
   ret i64 -3
 set:
+  %cval = call i64 @count_at(i64 %t, i64 %frq)
+  call void @l0_arch_timer_set(i64 %cval)
+  ret i64 0
+}
+
+; The counter's value for t nanoseconds at frq counts a second, rounded up.
+define internal i64 @count_at(i64 %t, i64 %frq) {
+entry:
   %sec = udiv i64 %t, 1000000000
   %rem = urem i64 %t, 1000000000
   %whole = mul i64 %sec, %frq
@@ -338,8 +357,7 @@ set:
   %part1 = add i64 %part0, 999999999
   %part = udiv i64 %part1, 1000000000
   %cval = add i64 %whole, %part
-  call void @l0_arch_timer_set(i64 %cval)
-  ret i64 0
+  ret i64 %cval
 }
 
 ; ---------------------------------------------------------- the arguments
@@ -1583,16 +1601,25 @@ e10:
   ret i64 10
 }
 
-; Gives back space s, 1 if it is not one: every mapping counted off its
-; frame, its tables freed, and its slot. The host runs on the last thread's
-; tables between traps, so it goes back to the boot map first, and the
-; whole TLB is flushed, the ASID's entries and any walk cached through the
-; tables, before a table page is written again.
+; Gives back space s, 1 if it is not one, 12 if a thread of it is handed
+; to another CPU and not taken back: every mapping counted off its frame,
+; its tables freed, and its slot. The host runs on the last thread's
+; tables between traps, so it goes back to the boot map first, as every
+; other CPU does before it gives a thread back, and the whole TLB is
+; flushed, on every CPU, the ASID's entries and any walk cached through
+; the tables, before a table page is written again.
 define i64 @l0_host_space_free(i64 %s) {
 entry:
   %l1 = call i64 @space_l1(i64 %s)
   %nos = icmp eq i64 %l1, 0
-  br i1 %nos, label %e1, label %off
+  br i1 %nos, label %e1, label %busy
+busy:
+  %bp = getelementptr [255 x i64], ptr @space_out, i64 0, i64 %s
+  %bn = load i64, ptr %bp
+  %running = icmp ne i64 %bn, 0
+  br i1 %running, label %e12, label %off
+e12:
+  ret i64 12
 off:
   call void @l0_arch_space_leave()
   %e3 = call ptr @user_entry(i64 %l1)
@@ -1672,7 +1699,9 @@ entry:
 
 ; The address of the leaf for the user address va in the space whose root
 ; table is l1, making its table of pages if make is true: 0 if the table
-; is missing and not made, or no page is left to make it.
+; is missing and not made, or no page is left to make it. A table made is
+; zeroed, and the zeros seen, before it is linked, since another CPU may
+; be walking the space's tables meanwhile.
 define internal i64 @l3_entry(i64 %l1, i64 %va, i1 %make) {
 entry:
   %p3 = call ptr @user_entry(i64 %l1)
@@ -1693,6 +1722,7 @@ alloc:
   %nopage = icmp eq i64 %t, 0
   br i1 %nopage, label %none, label %link
 link:
+  call void @l0_arch_tables_written()
   %dt = call i64 @l0_arch_pte_table(i64 %t)
   store i64 %dt, ptr %p2
   br label %have
@@ -2075,4 +2105,485 @@ e8:
 define i64 @l0_host_supervisor(i64 %n, i64 %a, i64 %b, i64 %c) {
 entry:
   ret i64 -3
+}
+
+; -------------------------------------------------------------- other CPUs
+;
+; Spec sections 6.18 and 10.3. The CPUs the device tree's /cpus lists with
+; PSCI as their enable-method, at most 8 found, are started in its order,
+; but the booting one, by the CPU's part, and numbered from 1 as each says
+; it runs; a CPU that does not, or that its part could not start, stops
+; the starting, so a number is never given twice. Each CPU k from 1 has a
+; ring of 4 slots: words 0, 8, and 16 count the threads handed to it by
+; CPU 0, those it has run until they trapped, and those CPU 0 took back,
+; each written by one CPU alone, on lines of their own; the slots follow
+; from word 24, 112 words each, slot i holding thread i mod 4: its 104
+; words of context, the root table and ASID of its space, its deadline as
+; a count or -1, its tag, and its space. CPU 0 writes a slot and then the
+; handed count, by a release store; CPU k reads that count by an acquire
+; load, runs the slot in place, and writes its run count the same way; and
+; CPU 0 copies the slot back out, so neither ever waits on the other. A
+; CPU runs no L0 code and touches nothing of CPU 0's but its ring.
+
+@cpu_n = internal global i64 1                      ; CPUs threads run on
+@cpu_found = internal global i64 0
+@cpu_ids = internal global [8 x i64] zeroinitializer  ; the tree's, in order
+@cpu_alive = internal global [8 x i64] zeroinitializer
+@cpu_out = internal global i64 0                    ; handed, not taken back
+@space_out = internal global [255 x i64] zeroinitializer  ; the same, a space's
+@rings = internal global [8 x [472 x i64]] zeroinitializer, align 64
+@s_cpus = private constant [5 x i8] c"cpus\00"
+@s_device_type = private constant [12 x i8] c"device_type\00"
+@s_cpu = private constant [4 x i8] c"cpu\00"
+@s_enable = private constant [14 x i8] c"enable-method\00"
+@s_psci = private constant [5 x i8] c"psci\00"
+
+define internal ptr @ring(i64 %c) {
+entry:
+  %r = getelementptr [8 x [472 x i64]], ptr @rings, i64 0, i64 %c, i64 0
+  ret ptr %r
+}
+
+define internal ptr @slot(ptr %r, i64 %i) {
+entry:
+  %m = and i64 %i, 3
+  %o0 = mul i64 %m, 112
+  %o = add i64 %o0, 24
+  %p = getelementptr i64, ptr %r, i64 %o
+  ret ptr %p
+}
+
+; Finds the CPUs under the device tree's /cpus at dtb: each node there whose
+; device_type is cpu, whose enable-method is psci, and whose reg, its
+; firmware's number for it, is given. The tree is read as boot_memory
+; reads it.
+define internal void @boot_cpus(i64 %dtb) {
+entry:
+  %pp = alloca i64
+  %dp = alloca i64
+  %inp = alloca i1
+  %cpup = alloca i1
+  %pscip = alloca i1
+  %regp = alloca i64
+  %total = call i64 @dt_size(i64 %dtb)
+  %null = icmp eq i64 %total, 0
+  br i1 %null, label %done, label %head
+head:
+  %sa = add i64 %dtb, 8
+  %ostruct = call i64 @be32(i64 %sa)
+  %na = add i64 %dtb, 12
+  %ostr = call i64 @be32(i64 %na)
+  %p0 = add i64 %dtb, %ostruct
+  %end = add i64 %dtb, %total
+  %strings = add i64 %dtb, %ostr
+  store i64 %p0, ptr %pp
+  store i64 0, ptr %dp
+  store i1 false, ptr %inp
+  store i1 false, ptr %cpup
+  store i1 false, ptr %pscip
+  store i64 -1, ptr %regp
+  br label %loop
+loop:
+  %p = load i64, ptr %pp
+  %depth = load i64, ptr %dp
+  %over = icmp uge i64 %p, %end
+  br i1 %over, label %done, label %token
+token:
+  %tok = call i64 @be32(i64 %p)
+  switch i64 %tok, label %done [ i64 1, label %begin
+                                 i64 2, label %endnode
+                                 i64 3, label %prop
+                                 i64 4, label %nop ]
+begin:
+  %name = add i64 %p, 4
+  %np8 = inttoptr i64 %name to ptr
+  %nlen = call i64 @strlen(ptr %np8)
+  %top = icmp eq i64 %depth, 1
+  %iscpus = call i1 @dt_name_is(i64 %name, ptr @s_cpus)
+  %enter = and i1 %top, %iscpus
+  br i1 %enter, label %setin, label %node
+setin:
+  store i1 true, ptr %inp
+  br label %advance
+node:
+  %in = load i1, ptr %inp
+  %d2 = icmp eq i64 %depth, 2
+  %fresh = and i1 %in, %d2
+  br i1 %fresh, label %reset, label %advance
+reset:
+  store i1 false, ptr %cpup
+  store i1 false, ptr %pscip
+  store i64 -1, ptr %regp
+  br label %advance
+advance:
+  %nl1 = add i64 %nlen, 1
+  %npad = call i64 @pad4(i64 %nl1)
+  %bp0 = add i64 %p, 4
+  %bp = add i64 %bp0, %npad
+  store i64 %bp, ptr %pp
+  %bd = add i64 %depth, 1
+  store i64 %bd, ptr %dp
+  br label %loop
+endnode:
+  %ein = load i1, ptr %inp
+  %d3 = icmp eq i64 %depth, 3
+  %leaving = and i1 %ein, %d3
+  br i1 %leaving, label %record, label %close
+record:
+  %c = load i1, ptr %cpup
+  %ps = load i1, ptr %pscip
+  %r = load i64, ptr %regp
+  %hasreg = icmp sge i64 %r, 0
+  %ok0 = and i1 %c, %ps
+  %ok = and i1 %ok0, %hasreg
+  %n = load i64, ptr @cpu_found
+  %room = icmp ult i64 %n, 8
+  %keep = and i1 %ok, %room
+  br i1 %keep, label %put, label %close
+put:
+  %ip = getelementptr [8 x i64], ptr @cpu_ids, i64 0, i64 %n
+  store i64 %r, ptr %ip
+  %n1 = add i64 %n, 1
+  store i64 %n1, ptr @cpu_found
+  br label %close
+close:
+  %out2 = icmp eq i64 %depth, 2
+  %stay = select i1 %out2, i1 false, i1 %ein
+  store i1 %stay, ptr %inp
+  %ep = add i64 %p, 4
+  store i64 %ep, ptr %pp
+  %ed = sub i64 %depth, 1
+  store i64 %ed, ptr %dp
+  br label %loop
+prop:
+  %la = add i64 %p, 4
+  %len = call i64 @be32(i64 %la)
+  %oa = add i64 %p, 8
+  %noff = call i64 @be32(i64 %oa)
+  %val = add i64 %p, 12
+  %pin = load i1, ptr %inp
+  %pd3 = icmp eq i64 %depth, 3
+  %ours = and i1 %pin, %pd3
+  br i1 %ours, label %named, label %skip
+named:
+  %pname = add i64 %strings, %noff
+  %isdt = call i1 @dt_name_is(i64 %pname, ptr @s_device_type)
+  br i1 %isdt, label %devtype, label %notdt
+devtype:
+  %iscpu = call i1 @dt_name_is(i64 %val, ptr @s_cpu)
+  %wascpu = load i1, ptr %cpup
+  %nowcpu = or i1 %wascpu, %iscpu
+  store i1 %nowcpu, ptr %cpup
+  br label %skip
+notdt:
+  %isem = call i1 @dt_name_is(i64 %pname, ptr @s_enable)
+  br i1 %isem, label %method, label %notem
+method:
+  %ispsci = call i1 @dt_name_is(i64 %val, ptr @s_psci)
+  %waspsci = load i1, ptr %pscip
+  %nowpsci = or i1 %waspsci, %ispsci
+  store i1 %nowpsci, ptr %pscip
+  br label %skip
+notem:
+  %isreg = call i1 @dt_name_is(i64 %pname, ptr @s_reg)
+  br i1 %isreg, label %reg, label %skip
+reg:
+  %rv = call i64 @dt_prop_num(i64 %val, i64 %len)
+  store i64 %rv, ptr %regp
+  br label %skip
+skip:
+  %lpad = call i64 @pad4(i64 %len)
+  %pp0 = add i64 %p, 12
+  %pp1 = add i64 %pp0, %lpad
+  store i64 %pp1, ptr %pp
+  br label %loop
+nop:
+  %np = add i64 %p, 4
+  store i64 %np, ptr %pp
+  br label %loop
+done:
+  ret void
+}
+
+; Starts each CPU boot_cpus found but this one, numbering them from 1, and
+; waits up to 100 ms for each to say it runs.
+define internal void @cpus_start() {
+entry:
+  %self = call i64 @l0_arch_cpu_self()
+  %found = load i64, ptr @cpu_found
+  br label %loop
+loop:
+  %i = phi i64 [ 0, %entry ], [ %i1, %next ]
+  %end = icmp uge i64 %i, %found
+  br i1 %end, label %done, label %look
+look:
+  %ip = getelementptr [8 x i64], ptr @cpu_ids, i64 0, i64 %i
+  %id = load i64, ptr %ip
+  %me = icmp eq i64 %id, %self
+  br i1 %me, label %next, label %room
+room:
+  %k = load i64, ptr @cpu_n
+  %full = icmp uge i64 %k, 8
+  br i1 %full, label %done, label %start
+start:
+  %st = call i64 @l0_arch_cpu_start(i64 %k, i64 %id)
+  %refused = icmp ne i64 %st, 0
+  br i1 %refused, label %done, label %clock
+clock:
+  %frq = call i64 @l0_arch_counter_hz()
+  %t0 = call i64 @l0_arch_counter()
+  %tenth = udiv i64 %frq, 10
+  %limit = add i64 %t0, %tenth
+  %ap = getelementptr [8 x i64], ptr @cpu_alive, i64 0, i64 %k
+  br label %wait
+wait:
+  %a = load atomic i64, ptr %ap acquire, align 8
+  %up = icmp ne i64 %a, 0
+  br i1 %up, label %count, label %late
+late:
+  %now = call i64 @l0_arch_counter()
+  %gone = icmp uge i64 %now, %limit
+  br i1 %gone, label %done, label %wait
+count:
+  %k1 = add i64 %k, 1
+  store i64 %k1, ptr @cpu_n
+  br label %next
+next:
+  %i1 = add i64 %i, 1
+  br label %loop
+done:
+  ret void
+}
+
+; CPU k from 1, entered by the CPU's part on a stack of its own once its
+; MMU is on with the boot map: it sets up its interrupt controller and
+; timer, says it runs, and then runs the threads of its ring for ever. A
+; thread runs until it traps; an interrupt is its own timer's, ended here,
+; whose number, 0, the thread's context records, or a spurious one or
+; another, after which the thread runs on. Before it gives the thread back
+; it disarms the timer and leaves the space's tables, which CPU 0 may then
+; free.
+define void @l0_bare_cpu_main(i64 %k) noreturn {
+entry:
+  call void @l0_board_cpu_init()
+  call void @l0_arch_timer_off()
+  %ap = getelementptr [8 x i64], ptr @cpu_alive, i64 0, i64 %k
+  store atomic i64 1, ptr %ap release, align 8
+  %r = call ptr @ring(i64 %k)
+  %rp = getelementptr i64, ptr %r, i64 8
+  br label %loop
+loop:
+  %d = phi i64 [ 0, %entry ], [ %d, %idle ], [ %d1, %back ]
+  %h = load atomic i64, ptr %r acquire, align 8
+  %empty = icmp eq i64 %h, %d
+  br i1 %empty, label %idle, label %start
+idle:
+  call void @l0_arch_idle()
+  br label %loop
+start:
+  %sl = call ptr @slot(ptr %r, i64 %d)
+  %cvp = getelementptr i64, ptr %sl, i64 106
+  %cv = load i64, ptr %cvp
+  %none = icmp slt i64 %cv, 0
+  br i1 %none, label %notimer, label %settimer
+notimer:
+  call void @l0_arch_timer_off()
+  br label %run
+settimer:
+  call void @l0_arch_timer_set(i64 %cv)
+  br label %run
+run:
+  %rootp = getelementptr i64, ptr %sl, i64 104
+  %root = load i64, ptr %rootp
+  %asidp = getelementptr i64, ptr %sl, i64 105
+  %asid = load i64, ptr %asidp
+  call void @l0_arch_user_run(ptr %sl, i64 %root, i64 %asid)
+  %kp = getelementptr i64, ptr %sl, i64 35
+  %kind = load i64, ptr %kp
+  %irq = icmp eq i64 %kind, 1
+  br i1 %irq, label %take, label %back
+take:
+  %n = call i64 @l0_board_irq_take()
+  %spurious = icmp slt i64 %n, 0
+  br i1 %spurious, label %run, label %which
+which:
+  %timer = icmp eq i64 %n, 0
+  br i1 %timer, label %expired, label %other
+other:
+  call void @l0_board_irq_end(i64 %n)
+  br label %run
+expired:
+  call void @l0_arch_timer_off()
+  call void @l0_board_irq_end(i64 0)
+  %np = getelementptr i64, ptr %sl, i64 36
+  store i64 0, ptr %np
+  br label %back
+back:
+  call void @l0_arch_timer_off()
+  call void @l0_arch_space_home()
+  %d1 = add i64 %d, 1
+  store atomic i64 %d1, ptr %rp release, align 8
+  call void @l0_arch_notify()
+  br label %loop
+}
+
+define i64 @l0_host_cpu_count() {
+entry:
+  %n = load i64, ptr @cpu_n
+  ret i64 %n
+}
+
+; Hands CPU c the thread of the n words at words, in space s: 11 if c is
+; not one of the others, 1 if s is not a space, 7 if n is not a context's
+; length, in that order, -5 if c's ring is full, else 0, once CPU c may
+; see it.
+define i64 @l0_host_cpu_run(i64 %c, i64 %s, ptr %words, i64 %n, i64 %deadline, i64 %tag) {
+entry:
+  %cn = load i64, ptr @cpu_n
+  %lo = icmp slt i64 %c, 1
+  %hi = icmp sge i64 %c, %cn
+  %bad = or i1 %lo, %hi
+  br i1 %bad, label %e11, label %space
+space:
+  %l1 = call i64 @space_l1(i64 %s)
+  %nos = icmp eq i64 %l1, 0
+  br i1 %nos, label %e1, label %len
+len:
+  %right = icmp eq i64 %n, 104
+  br i1 %right, label %room, label %e7
+room:
+  %r = call ptr @ring(i64 %c)
+  %h = load atomic i64, ptr %r monotonic, align 8
+  %tp = getelementptr i64, ptr %r, i64 16
+  %t = load i64, ptr %tp
+  %held = sub i64 %h, %t
+  %full = icmp uge i64 %held, 4
+  br i1 %full, label %none, label %hand
+hand:
+  %sl = call ptr @slot(ptr %r, i64 %h)
+  %x = call ptr @memcpy(ptr %sl, ptr %words, i64 832)
+  %p104 = getelementptr i64, ptr %sl, i64 104
+  store i64 %l1, ptr %p104
+  %asid = add i64 %s, 1
+  %p105 = getelementptr i64, ptr %sl, i64 105
+  store i64 %asid, ptr %p105
+  %frq = call i64 @l0_arch_counter_hz()
+  %count = call i64 @count_at(i64 %deadline, i64 %frq)
+  %never = icmp slt i64 %deadline, 0
+  %cv = select i1 %never, i64 -1, i64 %count
+  %p106 = getelementptr i64, ptr %sl, i64 106
+  store i64 %cv, ptr %p106
+  %p107 = getelementptr i64, ptr %sl, i64 107
+  store i64 %tag, ptr %p107
+  %p108 = getelementptr i64, ptr %sl, i64 108
+  store i64 %s, ptr %p108
+  %bp = getelementptr [255 x i64], ptr @space_out, i64 0, i64 %s
+  %b = load i64, ptr %bp
+  %b1 = add i64 %b, 1
+  store i64 %b1, ptr %bp
+  %o = load i64, ptr @cpu_out
+  %o1 = add i64 %o, 1
+  store i64 %o1, ptr @cpu_out
+  %h1 = add i64 %h, 1
+  store atomic i64 %h1, ptr %r release, align 8
+  call void @l0_arch_notify()
+  ret i64 0
+none:
+  ret i64 -5
+e11:
+  ret i64 11
+e1:
+  ret i64 1
+e7:
+  ret i64 7
+}
+
+; Whether a CPU has a thread to give back, with out null; else takes back
+; the oldest of the first CPU that has one, its context, CPU, and tag
+; written at out, and returns 1, or 0 if none has one.
+define i64 @l0_host_cpu_trapped(ptr %out) {
+entry:
+  %cn = load i64, ptr @cpu_n
+  br label %loop
+loop:
+  %c = phi i64 [ 1, %entry ], [ %c1, %next ]
+  %end = icmp sge i64 %c, %cn
+  br i1 %end, label %none, label %look
+look:
+  %r = call ptr @ring(i64 %c)
+  %tp = getelementptr i64, ptr %r, i64 16
+  %t = load i64, ptr %tp
+  %rp = getelementptr i64, ptr %r, i64 8
+  %d = load atomic i64, ptr %rp acquire, align 8
+  %has = icmp ne i64 %d, %t
+  br i1 %has, label %found, label %next
+next:
+  %c1 = add i64 %c, 1
+  br label %loop
+found:
+  %ask = icmp eq ptr %out, null
+  br i1 %ask, label %yes, label %take
+yes:
+  ret i64 1
+take:
+  %sl = call ptr @slot(ptr %r, i64 %t)
+  %x = call ptr @memcpy(ptr %out, ptr %sl, i64 832)
+  %o104 = getelementptr i64, ptr %out, i64 104
+  store i64 %c, ptr %o104
+  %p107 = getelementptr i64, ptr %sl, i64 107
+  %tag = load i64, ptr %p107
+  %o105 = getelementptr i64, ptr %out, i64 105
+  store i64 %tag, ptr %o105
+  %p108 = getelementptr i64, ptr %sl, i64 108
+  %s = load i64, ptr %p108
+  %bp = getelementptr [255 x i64], ptr @space_out, i64 0, i64 %s
+  %b = load i64, ptr %bp
+  %b1 = sub i64 %b, 1
+  store i64 %b1, ptr %bp
+  %o = load i64, ptr @cpu_out
+  %o1 = sub i64 %o, 1
+  store i64 %o1, ptr @cpu_out
+  %t1 = add i64 %t, 1
+  store i64 %t1, ptr %tp
+  ret i64 1
+none:
+  ret i64 0
+}
+
+; interrupt_wait alone with one CPU; with others, a trap to give back, -1,
+; first, then an interrupt, each looked for in turn, waiting between by
+; the CPU's part, which a CPU that gives a thread back, or the counter's
+; events, end.
+define i64 @l0_host_cpu_wait() {
+entry:
+  %cn = load i64, ptr @cpu_n
+  %alone = icmp eq i64 %cn, 1
+  br i1 %alone, label %one, label %loop
+one:
+  %w = call i64 @l0_host_interrupt_wait()
+  ret i64 %w
+loop:
+  %any = call i64 @l0_host_cpu_trapped(ptr null)
+  %has = icmp ne i64 %any, 0
+  br i1 %has, label %back, label %look
+back:
+  ret i64 -1
+look:
+  %ic = load i64, ptr @irq_count
+  %o = load i64, ptr @cpu_out
+  %noirq = icmp eq i64 %ic, 0
+  %noout = icmp eq i64 %o, 0
+  %never = and i1 %noirq, %noout
+  br i1 %never, label %e5, label %poll
+e5:
+  ret i64 -5
+poll:
+  %n = call i64 @irq_take()
+  %got = icmp sge i64 %n, 0
+  br i1 %got, label %taken, label %idle
+taken:
+  ret i64 %n
+idle:
+  call void @l0_arch_idle()
+  br label %loop
 }

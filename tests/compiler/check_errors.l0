@@ -152,7 +152,14 @@
           (push (check_source (m "(head (region_close 0))"))
           (push (check_source (m "(frame_sync 0)"))
           (push (check_source (m "(frame_sync 0 true)"))
-          (push (check_source (m "(head (frame_sync 0 1))")) cz)))))))))))))))))))))))))))))
+          (push (check_source (m "(head (frame_sync 0 1))"))
+          (push (check_source (m "(cpu_count 1)"))
+          (push (check_source (m "(cpu_run 1 0 (array_new 104 0) 0)"))
+          (push (check_source (m "(cpu_run 1 0 (array_new 104 true) 0 0)"))
+          (push (check_source (m "(head (cpu_run 1 0 (array_new 104 0) 0 0))"))
+          (push (check_source (m "(head (cpu_trapped))"))
+          (push (check_source (m "(cpu_trapped 1)"))
+          (push (check_source (m "(cpu_wait true)")) cz))))))))))))))))))))))))))))))))))))
     (rev da)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.

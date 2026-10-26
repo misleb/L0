@@ -158,6 +158,10 @@ None.
 
 ## Done and dropped
 
+- [0121](0121-other-cpus.md) user threads on the other CPUs — done,
+  changelog "Threads run on the other CPUs"; aarch64 `--virt` green
+  under `-smp 4`; not run on a Pi 5, Linux, or riscv64's half of `--virt`
+
 - [0120](0120-pi5-hdmi-regions.md) the Pi 5's HDMI0 mode set (controller,
   PHY, pixel valve, DDC) is regions — done, changelog "The Raspberry Pi
   5's HDMI0 mode set is regions"; not run on a Pi 5

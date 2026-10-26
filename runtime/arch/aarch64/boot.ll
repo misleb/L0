@@ -38,8 +38,16 @@ target triple = "aarch64-unknown-none-elf"
 ; attribute 0 Device-nGnRnE and 1
 ; normal write-back). It also lets EL0 read the virtual counter, and sets
 ; the SCTLR bits that let it read CTR_EL0 and zero by cache line, which LLVM
-; may emit for a thread. Then it zeroes the bss and calls l0_bare_main with
-; the device tree and CPU 0.
+; may emit for a thread, and turns on the virtual counter's event stream,
+; at bit 12, which ends a wfe at least every 8,192 counts. Then it zeroes
+; the bss and calls l0_bare_main with the device tree and CPU 0.
+;
+; Another CPU, which l0_arch_cpu_start starts by PSCI's CPU_ON, enters at
+; l0_aarch64_secondary, at EL2 or EL1 as the booting one did, with its
+; block (below) in x0, and boots the same way, but for the bss, then runs
+; l0_bare_cpu_main on the stack its block gives. Each CPU's TPIDR_EL1
+; holds its block: the stack l0_aarch64_user_enter saved and the context
+; it runs, then, for another CPU, its stack's top and its number.
 module asm ".section .text.boot,\22ax\22"
 module asm ".global _start"
 module asm "_start:"
@@ -52,8 +60,15 @@ module asm "  .quad 0, 0"
 module asm "  .quad __l0_board"
 module asm "  .word 0x644d5241"
 module asm "  .word 0"
+module asm ".global l0_aarch64_secondary"
+module asm "l0_aarch64_secondary:"
+module asm "  mov x20, x0"
+module asm "  mov x21, #1"
+module asm "  b 7f"
 module asm "l0_aarch64_boot:"
 module asm "  mov x20, x0"
+module asm "  mov x21, #0"
+module asm "7:"
 module asm "  mrs x0, currentel"
 module asm "  cmp x0, #8"
 module asm "  b.ne 6f"
@@ -80,11 +95,9 @@ module asm "6:"
 module asm "  mov x0, #(3 << 20)"
 module asm "  msr cpacr_el1, x0"
 module asm "  isb"
-module asm "  ldr x0, =__stack_top"
-module asm "  mov sp, x0"
 module asm "  ldr x0, =l0_aarch64_vectors"
 module asm "  msr vbar_el1, x0"
-module asm "  mov x0, #3"
+module asm "  mov x0, #0xc7"
 module asm "  msr cntkctl_el1, x0"
 module asm "  mov x0, #0xff00"
 module asm "  msr mair_el1, x0"
@@ -102,6 +115,11 @@ module asm "  orr x0, x0, x1"
 module asm "  bic x0, x0, #2"
 module asm "  msr sctlr_el1, x0"
 module asm "  isb"
+module asm "  cbnz x21, 8f"
+module asm "  ldr x0, =__stack_top"
+module asm "  mov sp, x0"
+module asm "  ldr x0, =l0_aarch64_cpu"
+module asm "  msr tpidr_el1, x0"
 module asm "  ldr x1, =__bss_start"
 module asm "  ldr x2, =__bss_end"
 module asm "4:"
@@ -114,6 +132,13 @@ module asm "  mov x0, x20"
 module asm "  mov x1, #0"
 module asm "  bl l0_bare_main"
 module asm "1: b 1b"
+module asm "8:"
+module asm "  msr tpidr_el1, x20"
+module asm "  ldr x0, [x20, #16]"
+module asm "  mov sp, x0"
+module asm "  ldr x0, [x20, #24]"
+module asm "  bl l0_bare_cpu_main"
+module asm "  b 1b"
 
 ; An exception at EL1 is the runtime's own bug. From EL0, at 0x400 (a
 ; synchronous exception: a system call or a fault) and 0x480 (an IRQ), it
@@ -141,7 +166,7 @@ module asm "2: b 2b"
 
 ; l0_aarch64_user_enter(words, ttbr): saves what its caller expects kept
 ; (x19 to x30, d8 to d15) on this stack, records the stack and the
-; context's words, switches to the thread's space, loads its registers from
+; context's words in this CPU's block, switches to the thread's space, loads its registers from
 ; the words, and erets to EL0. Spec section 10.3 lays the words out, in
 ; bytes: x0 to x30 at 0, sp 248, pc 256, pstate 264, tpidr_el0 272, the
 ; trap's kind 280, its syndrome 288 and address 296, q0 to q31 from 304,
@@ -160,11 +185,10 @@ module asm "  stp d8, d9, [sp, #96]"
 module asm "  stp d10, d11, [sp, #112]"
 module asm "  stp d12, d13, [sp, #128]"
 module asm "  stp d14, d15, [sp, #144]"
-module asm "  adrp x9, l0_aarch64_user_sp"
+module asm "  mrs x9, tpidr_el1"
 module asm "  mov x10, sp"
-module asm "  str x10, [x9, :lo12:l0_aarch64_user_sp]"
-module asm "  adrp x9, l0_aarch64_user_ctx"
-module asm "  str x0, [x9, :lo12:l0_aarch64_user_ctx]"
+module asm "  str x10, [x9, #0]"
+module asm "  str x0, [x9, #8]"
 module asm "  msr ttbr0_el1, x1"
 module asm "  isb"
 module asm "  ldr x10, [x0, #248]"
@@ -225,8 +249,8 @@ module asm "l0_aarch64_user_irq:"
 module asm "  stp x0, x1, [sp, #-16]!"
 module asm "  mov x1, #1"
 module asm "l0_aarch64_user_save:"
-module asm "  adrp x0, l0_aarch64_user_ctx"
-module asm "  ldr x0, [x0, :lo12:l0_aarch64_user_ctx]"
+module asm "  mrs x0, tpidr_el1"
+module asm "  ldr x0, [x0, #8]"
 module asm "  stp x2, x3, [x0, #16]"
 module asm "  stp x4, x5, [x0, #32]"
 module asm "  stp x6, x7, [x0, #48]"
@@ -282,8 +306,8 @@ module asm "  stp q24, q25, [x3, #384]"
 module asm "  stp q26, q27, [x3, #416]"
 module asm "  stp q28, q29, [x3, #448]"
 module asm "  stp q30, q31, [x3, #480]"
-module asm "  adrp x9, l0_aarch64_user_sp"
-module asm "  ldr x9, [x9, :lo12:l0_aarch64_user_sp]"
+module asm "  mrs x9, tpidr_el1"
+module asm "  ldr x9, [x9, #0]"
 module asm "  mov sp, x9"
 module asm "  ldp x19, x20, [sp, #0]"
 module asm "  ldp x21, x22, [sp, #16]"
@@ -307,10 +331,13 @@ declare i64 @l0_host_write(i64, ptr, i64)
 declare void @l0_host_exit(i64) noreturn
 
 declare void @l0_aarch64_user_enter(ptr, i64)
+declare void @l0_aarch64_secondary()
 
-; Read and written by l0_aarch64_user_enter and its trap path.
-@l0_aarch64_user_ctx = global i64 0
-@l0_aarch64_user_sp = global i64 0
+; Each CPU's block, which its TPIDR_EL1 holds: the stack and the context
+; l0_aarch64_user_enter and its trap path keep, and for CPU k from 1 its
+; stack's top and k. Its stack is the (k - 1)th of l0_aarch64_stacks.
+@l0_aarch64_cpu = global [8 x [4 x i64]] zeroinitializer, align 16
+@l0_aarch64_stacks = global [7 x [16384 x i8]] zeroinitializer, align 16
 
 @m_trap = private constant [29 x i8] c"l0: machine exception: esr = "
 @m_elr = private constant [8 x i8] c", elr = "
@@ -466,8 +493,8 @@ entry:
 }
 
 ; Cleans the data cache to the point of unification over [pa, pa + n), and
-; then invalidates the instruction cache, so that bytes copied into a
-; space can be run there.
+; then invalidates the instruction cache of every CPU, so that bytes copied
+; into a space can be run there, on whichever CPU runs its thread.
 define void @l0_arch_code_sync(i64 %pa, i64 %n) {
 entry:
   %ctr = call i64 asm "mrs $0, ctr_el0", "=r"()
@@ -487,7 +514,7 @@ body:
   %a1 = add i64 %a, %line
   br label %loop
 done:
-  call void asm sideeffect "dsb ish\0Aic iallu\0Adsb ish\0Aisb", "~{memory}"()
+  call void asm sideeffect "dsb ish\0Aic ialluis\0Adsb ish\0Aisb", "~{memory}"()
   ret void
 }
 
@@ -543,5 +570,64 @@ entry:
   %flags = and i64 %ps, 4026531840
   store i64 %flags, ptr %pp
   call void @l0_aarch64_user_enter(ptr %words, i64 %ttbr)
+  ret void
+}
+
+; Back on the boot map, flushing nothing, so that a space this CPU ran a
+; thread in can be freed by another: every entry the space's root holds
+; outside the user range is the boot map's own, global.
+define void @l0_arch_space_home() {
+entry:
+  %boot = ptrtoint ptr @l0_board_boot_map to i64
+  call void asm sideeffect "msr ttbr0_el1, $0\0Aisb", "r,~{memory}"(i64 %boot)
+  ret void
+}
+
+; ------------------------------------------------------------- other CPUs
+
+; This CPU's number as the firmware and the device tree give it: MPIDR_EL1's
+; affinity fields, Aff3 and Aff2 to Aff0.
+define i64 @l0_arch_cpu_self() {
+entry:
+  %m = call i64 asm "mrs $0, mpidr_el1", "=r"()
+  %a = and i64 %m, 1095233372159
+  ret i64 %a
+}
+
+; Starts the CPU the firmware calls id as CPU k, from 1, by PSCI's CPU_ON,
+; function 0xC4000003, by SMC, at l0_aarch64_secondary with its block in
+; x0, and returns PSCI's answer, 0 if it is starting. Its stack is the
+; (k - 1)th, its top in the block, which it reads once its caches are on,
+; and so sees.
+define i64 @l0_arch_cpu_start(i64 %k, i64 %id) {
+entry:
+  %b = getelementptr [8 x [4 x i64]], ptr @l0_aarch64_cpu, i64 0, i64 %k, i64 0
+  %k0 = sub i64 %k, 1
+  %sb = getelementptr [7 x [16384 x i8]], ptr @l0_aarch64_stacks, i64 0, i64 %k0, i64 0
+  %sbi = ptrtoint ptr %sb to i64
+  %top = add i64 %sbi, 16384
+  %p2 = getelementptr i64, ptr %b, i64 2
+  store i64 %top, ptr %p2
+  %p3 = getelementptr i64, ptr %b, i64 3
+  store i64 %k, ptr %p3
+  call void asm sideeffect "dsb sy", "~{memory}"()
+  %at = ptrtoint ptr @l0_aarch64_secondary to i64
+  %bv = ptrtoint ptr %b to i64
+  %res = call { i64, i64, i64, i64 } asm sideeffect "smc #0", "={x0},={x1},={x2},={x3},0,1,2,3,~{x4},~{x5},~{x6},~{x7},~{x8},~{x9},~{x10},~{x11},~{x12},~{x13},~{x14},~{x15},~{x16},~{x17},~{memory}"(i64 3288334339, i64 %id, i64 %at, i64 %bv)
+  %r = extractvalue { i64, i64, i64, i64 } %res, 0
+  ret i64 %r
+}
+
+; Waits for an event: another CPU's sev, or the counter's event stream.
+define void @l0_arch_idle() {
+entry:
+  call void asm sideeffect "wfe", "~{memory}"()
+  ret void
+}
+
+; Makes this CPU's stores seen by every other, then wakes any in wfe.
+define void @l0_arch_notify() {
+entry:
+  call void asm sideeffect "dsb ish\0Asev", "~{memory}"()
   ret void
 }
