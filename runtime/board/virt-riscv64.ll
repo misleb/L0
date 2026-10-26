@@ -70,8 +70,19 @@ entry:
   ret void
 }
 
-; No other hart is started (spec section 10.3), so none is set up.
+; No other hart is started (spec section 10.3), so none is set up, and
+; none is woken.
 define void @l0_board_cpu_init() {
+entry:
+  ret void
+}
+
+define i64 @l0_board_cpu_target() {
+entry:
+  ret i64 0
+}
+
+define void @l0_board_cpu_wake(i64 %t) {
 entry:
   ret void
 }

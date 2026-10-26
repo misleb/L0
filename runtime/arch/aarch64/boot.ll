@@ -38,8 +38,7 @@ target triple = "aarch64-unknown-none-elf"
 ; attribute 0 Device-nGnRnE and 1
 ; normal write-back). It also lets EL0 read the virtual counter, and sets
 ; the SCTLR bits that let it read CTR_EL0 and zero by cache line, which LLVM
-; may emit for a thread, and turns on the virtual counter's event stream,
-; at bit 12, which ends a wfe at least every 8,192 counts. Then it zeroes
+; may emit for a thread. Then it zeroes
 ; the bss and calls l0_bare_main with the device tree and CPU 0.
 ;
 ; Another CPU, which l0_arch_cpu_start starts by PSCI's CPU_ON, enters at
@@ -97,7 +96,7 @@ module asm "  msr cpacr_el1, x0"
 module asm "  isb"
 module asm "  ldr x0, =l0_aarch64_vectors"
 module asm "  msr vbar_el1, x0"
-module asm "  mov x0, #0xc7"
+module asm "  mov x0, #0x3"
 module asm "  msr cntkctl_el1, x0"
 module asm "  mov x0, #0xff00"
 module asm "  msr mair_el1, x0"
@@ -618,16 +617,12 @@ entry:
   ret i64 %r
 }
 
-; Waits for an event: another CPU's sev, or the counter's event stream.
-define void @l0_arch_idle() {
+; Whether an interrupt is pending at this CPU, masked as it runs: ISR_EL1's
+; I bit, which asks nothing of the interrupt controller.
+define i1 @l0_arch_irq_pending() {
 entry:
-  call void asm sideeffect "wfe", "~{memory}"()
-  ret void
-}
-
-; Makes this CPU's stores seen by every other, then wakes any in wfe.
-define void @l0_arch_notify() {
-entry:
-  call void asm sideeffect "dsb ish\0Asev", "~{memory}"()
-  ret void
+  %isr = call i64 asm sideeffect "mrs $0, isr_el1", "=r,~{memory}"()
+  %i = and i64 %isr, 128
+  %p = icmp ne i64 %i, 0
+  ret i1 %p
 }

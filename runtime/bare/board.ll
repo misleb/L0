@@ -74,8 +74,7 @@ declare void @l0_arch_space_leave()
 declare void @l0_arch_user_run(ptr, i64, i64)
 declare i64 @l0_arch_cpu_self()
 declare i64 @l0_arch_cpu_start(i64, i64)
-declare void @l0_arch_idle()
-declare void @l0_arch_notify()
+declare i1 @l0_arch_irq_pending()
 declare void @l0_arch_space_home()
 
 ; The board's part, runtime/board/BOARD.ll.
@@ -97,6 +96,8 @@ declare void @l0_board_irq_enable(i64)
 declare i64 @l0_board_irq_take()
 declare void @l0_board_irq_end(i64)
 declare void @l0_board_cpu_init()
+declare i64 @l0_board_cpu_target()
+declare void @l0_board_cpu_wake(i64)
 
 ; ------------------------------------------------------------------- entry
 
@@ -2123,9 +2124,21 @@ entry:
 ; handed count, by a release store; CPU k reads that count by an acquire
 ; load, runs the slot in place, and writes its run count the same way; and
 ; CPU 0 copies the slot back out, so neither ever waits on the other. A
-; CPU runs no L0 code and touches nothing of CPU 0's but its ring.
+; CPU runs no L0 code and touches nothing of CPU 0's but its ring and the
+; two words below that say whether CPU 0 sleeps and how to wake it.
+;
+; A CPU with nothing to do polls for a while (quiet), and then sleeps:
+; it sets its word saying so, word 9 of its ring or @cpu0_asleep, and,
+; after a full fence, looks once more, and waits by the CPU's part only
+; if there is still nothing. The CPU that gives it something stores its
+; count, fences the same way, and then reads that word, and wakes it by
+; the board's part if it is set. One of the two always sees the other's
+; store, so a sleeper cannot miss its work, and a CPU that is busy, or
+; polling, is sent nothing.
 
 @cpu_n = internal global i64 1                      ; CPUs threads run on
+@cpu_target = internal global [8 x i64] zeroinitializer  ; the board's, to wake
+@cpu0_asleep = internal global i64 0, align 64
 @cpu_found = internal global i64 0
 @cpu_ids = internal global [8 x i64] zeroinitializer  ; the tree's, in order
 @cpu_alive = internal global [8 x i64] zeroinitializer
@@ -2142,6 +2155,32 @@ define internal ptr @ring(i64 %c) {
 entry:
   %r = getelementptr [8 x [472 x i64]], ptr @rings, i64 0, i64 %c, i64 0
   ret ptr %r
+}
+
+; The counts of the generic counter a CPU polls before it sleeps: 100
+; microseconds of it.
+define internal i64 @quiet() {
+entry:
+  %frq = call i64 @l0_arch_counter_hz()
+  %q = udiv i64 %frq, 10000
+  ret i64 %q
+}
+
+; Wakes CPU c if the word at asleep says it sleeps, once the caller has
+; stored what it was given.
+define internal void @wake(ptr %asleep, i64 %c) {
+entry:
+  fence seq_cst
+  %z = load atomic i64, ptr %asleep monotonic, align 8
+  %sleeps = icmp ne i64 %z, 0
+  br i1 %sleeps, label %send, label %done
+send:
+  %tp = getelementptr [8 x i64], ptr @cpu_target, i64 0, i64 %c
+  %t = load i64, ptr %tp
+  call void @l0_board_cpu_wake(i64 %t)
+  br label %done
+done:
+  ret void
 }
 
 define internal ptr @slot(ptr %r, i64 %i) {
@@ -2309,6 +2348,8 @@ done:
 ; waits up to 100 ms for each to say it runs.
 define internal void @cpus_start() {
 entry:
+  %me0 = call i64 @l0_board_cpu_target()
+  store i64 %me0, ptr @cpu_target
   %self = call i64 @l0_arch_cpu_self()
   %found = load i64, ptr @cpu_found
   br label %loop
@@ -2357,28 +2398,67 @@ done:
 
 ; CPU k from 1, entered by the CPU's part on a stack of its own once its
 ; MMU is on with the boot map: it sets up its interrupt controller and
-; timer, says it runs, and then runs the threads of its ring for ever. A
-; thread runs until it traps; an interrupt is its own timer's, ended here,
-; whose number, 0, the thread's context records, or a spurious one or
-; another, after which the thread runs on. Before it gives the thread back
-; it disarms the timer and leaves the space's tables, which CPU 0 may then
-; free.
+; timer, says it runs, and then runs the threads of its ring for ever,
+; sleeping, as above, when there are none. A thread runs until it traps;
+; an interrupt is its own timer's, ended here, whose number, 0, the
+; thread's context records, or a spurious one or another, after which the
+; thread runs on. Before it gives the thread back it disarms the timer and
+; leaves the space's tables, which CPU 0 may then free.
 define void @l0_bare_cpu_main(i64 %k) noreturn {
 entry:
   call void @l0_board_cpu_init()
   call void @l0_arch_timer_off()
+  %me = call i64 @l0_board_cpu_target()
+  %mp = getelementptr [8 x i64], ptr @cpu_target, i64 0, i64 %k
+  store i64 %me, ptr %mp
+  %q = call i64 @quiet()
   %ap = getelementptr [8 x i64], ptr @cpu_alive, i64 0, i64 %k
   store atomic i64 1, ptr %ap release, align 8
   %r = call ptr @ring(i64 %k)
   %rp = getelementptr i64, ptr %r, i64 8
+  %zp = getelementptr i64, ptr %r, i64 9
   br label %loop
 loop:
-  %d = phi i64 [ 0, %entry ], [ %d, %idle ], [ %d1, %back ]
+  %d = phi i64 [ 0, %entry ], [ %d, %woke ], [ %d, %stray ], [ %d1, %back ]
   %h = load atomic i64, ptr %r acquire, align 8
   %empty = icmp eq i64 %h, %d
-  br i1 %empty, label %idle, label %start
-idle:
-  call void @l0_arch_idle()
+  br i1 %empty, label %quiet, label %start
+quiet:
+  %t0 = call i64 @l0_arch_counter()
+  %limit = add i64 %t0, %q
+  br label %poll
+poll:
+  %i = phi i64 [ 0, %quiet ], [ %i1, %spin ], [ %i1, %clock ]
+  %hp = load atomic i64, ptr %r acquire, align 8
+  %still = icmp eq i64 %hp, %d
+  br i1 %still, label %count, label %start
+count:
+  %i1 = add i64 %i, 1
+  %turn = and i64 %i1, 255
+  %look = icmp eq i64 %turn, 0
+  br i1 %look, label %clock, label %spin
+spin:
+  br label %poll
+clock:
+  %now = call i64 @l0_arch_counter()
+  %over = icmp uge i64 %now, %limit
+  br i1 %over, label %sleep, label %poll
+sleep:
+  store atomic i64 1, ptr %zp monotonic, align 8
+  fence seq_cst
+  %hs = load atomic i64, ptr %r acquire, align 8
+  %idle = icmp eq i64 %hs, %d
+  br i1 %idle, label %halt, label %woke
+halt:
+  call void @l0_arch_wait()
+  br label %woke
+woke:
+  store atomic i64 0, ptr %zp monotonic, align 8
+  %w = call i64 @l0_board_irq_take()
+  %lone = icmp slt i64 %w, 0
+  br i1 %lone, label %loop, label %stray
+stray:
+  call void @l0_board_irq_end(i64 %w)
   br label %loop
 start:
   %sl = call ptr @slot(ptr %r, i64 %d)
@@ -2423,7 +2503,7 @@ back:
   call void @l0_arch_space_home()
   %d1 = add i64 %d, 1
   store atomic i64 %d1, ptr %rp release, align 8
-  call void @l0_arch_notify()
+  call void @wake(ptr @cpu0_asleep, i64 0)
   br label %loop
 }
 
@@ -2486,7 +2566,8 @@ hand:
   store i64 %o1, ptr @cpu_out
   %h1 = add i64 %h, 1
   store atomic i64 %h1, ptr %r release, align 8
-  call void @l0_arch_notify()
+  %zp = getelementptr i64, ptr %r, i64 9
+  call void @wake(ptr %zp, i64 %c)
   ret i64 0
 none:
   ret i64 -5
@@ -2551,18 +2632,25 @@ none:
 }
 
 ; interrupt_wait alone with one CPU; with others, a trap to give back, -1,
-; first, then an interrupt, each looked for in turn, waiting between by
-; the CPU's part, which a CPU that gives a thread back, or the counter's
-; events, end.
+; first, then an interrupt, each looked for in turn, the controller asked
+; only once the CPU says one is pending, and sleeping, as above, once
+; neither has come for a while: a CPU that gives a thread back wakes it,
+; and so does any interrupt.
 define i64 @l0_host_cpu_wait() {
 entry:
   %cn = load i64, ptr @cpu_n
   %alone = icmp eq i64 %cn, 1
-  br i1 %alone, label %one, label %loop
+  br i1 %alone, label %one, label %begin
 one:
   %w = call i64 @l0_host_interrupt_wait()
   ret i64 %w
+begin:
+  %q = call i64 @quiet()
+  %t0 = call i64 @l0_arch_counter()
+  %limit = add i64 %t0, %q
+  br label %loop
 loop:
+  %i = phi i64 [ 0, %begin ], [ %i1, %idle ], [ %i1, %clock ]
   %any = call i64 @l0_host_cpu_trapped(ptr null)
   %has = icmp ne i64 %any, 0
   br i1 %has, label %back, label %look
@@ -2574,9 +2662,12 @@ look:
   %noirq = icmp eq i64 %ic, 0
   %noout = icmp eq i64 %o, 0
   %never = and i1 %noirq, %noout
-  br i1 %never, label %e5, label %poll
+  br i1 %never, label %e5, label %pending
 e5:
   ret i64 -5
+pending:
+  %pend = call i1 @l0_arch_irq_pending()
+  br i1 %pend, label %poll, label %idle
 poll:
   %n = call i64 @irq_take()
   %got = icmp sge i64 %n, 0
@@ -2584,6 +2675,24 @@ poll:
 taken:
   ret i64 %n
 idle:
-  call void @l0_arch_idle()
-  br label %loop
+  %i1 = add i64 %i, 1
+  %turn = and i64 %i1, 255
+  %check = icmp eq i64 %turn, 0
+  br i1 %check, label %clock, label %loop
+clock:
+  %now = call i64 @l0_arch_counter()
+  %over = icmp uge i64 %now, %limit
+  br i1 %over, label %sleep, label %loop
+sleep:
+  store atomic i64 1, ptr @cpu0_asleep monotonic, align 8
+  fence seq_cst
+  %late = call i64 @l0_host_cpu_trapped(ptr null)
+  %came = icmp ne i64 %late, 0
+  br i1 %came, label %woke, label %halt
+halt:
+  call void @l0_arch_wait()
+  br label %woke
+woke:
+  store atomic i64 0, ptr @cpu0_asleep monotonic, align 8
+  br label %begin
 }

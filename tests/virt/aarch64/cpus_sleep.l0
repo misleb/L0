@@ -1,0 +1,70 @@
+; Spec sections 6.18 and 10.3 on the aarch64 board with four CPUs
+; (cpus_sleep.qemu): a CPU with nothing to do sleeps once it has polled
+; for 100 microseconds, and is woken by the one that gives it something.
+; Each round waits a millisecond, so every other CPU has gone to sleep,
+; and hands each a thread; then CPU 0 waits in cpu_wait for a thread that
+; spins until its deadline, 2 ms on, so CPU 0 sleeps too, and is woken by
+; that CPU. A wake-up missed would leave the board waiting for ever.
+
+(def show ((n int)) int
+  (write_line (digits n)))
+
+(def lo () int 3221225472)                          ; 0xC0000000, the code
+
+; At lo: svc #0, at lo + 4: b ., a spin for ever. Little endian.
+(def code () bytes
+  (bytes_from_list (cons 1 (cons 0 (cons 0 (cons 212
+    (cons 0 (cons 0 (cons 0 (cons 20 (nil int)))))))))))
+
+(def thread ((pc int)) (array int)
+  (user_context pc 0))
+
+; Spins on CPU 0 until clock_ns reaches t.
+(def until ((t int)) int
+  (if (lt (clock_ns) t) (until t) 0))
+
+; Takes back n threads, waiting while none is back, and counts those that
+; came back for the trap want, 0 a call and 1 an interrupt.
+(def gather ((n int) (want int) (ok int)) int
+  (if (eq n 0)
+      ok
+      (let t (cpu_trapped)
+        (if (eq (array_len t) 0)
+            (let w (cpu_wait) (gather n want ok))
+            (gather (sub n 1) want (add ok (if (eq (kind (trap_of t)) want) 1 0)))))))
+
+(def kind ((t Trap)) int
+  (match t
+    ((TrapCall n) 0)
+    ((TrapMissing va) 2)
+    ((TrapFault esr far) 3)
+    ((TrapInterrupt n) 1)))
+
+; A call handed to each of CPUs 1 to 3, a millisecond after the last came
+; back, r times; the count of those that came back by their call.
+(def calls ((r int) (ok int)) int
+  (if (eq r 0)
+      ok
+      (let u (until (add (clock_ns) 1000000))
+        (let a (cpu_run 1 0 (thread (lo)) -1 0)
+          (let b (cpu_run 2 0 (thread (lo)) -1 0)
+            (let c (cpu_run 3 0 (thread (lo)) -1 0)
+              (calls (sub r 1) (add ok (gather 3 0 0)))))))))
+
+; A spin until 2 ms on, handed to CPU 1 + r mod 3, r times; the count of
+; those that came back by their deadline.
+(def spins ((r int) (ok int)) int
+  (if (eq r 0)
+      ok
+      (let a (cpu_run (add 1 (mod r 3)) 0 (thread (add (lo) 4)) (add (clock_ns) 2000000) 0)
+        (spins (sub r 1) (add ok (gather 1 1 0))))))
+
+(def main () int
+  (let n (show (cpu_count))
+    (let s (space_new)
+      (let f (frame_new)
+        (let m (space_map s (lo) f 2)
+          (let w (space_write s (lo) (code) 0 8)
+            (let c (show (calls 100 0))
+              (let p (show (spins 60 0))
+                (show (space_free s))))))))))

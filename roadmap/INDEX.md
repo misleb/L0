@@ -158,6 +158,10 @@ None.
 
 ## Done and dropped
 
+- [0123](0123-idle-cpus-halt.md) idle CPUs halt, woken by the host's own
+  SGI — done, changelog "Idle CPUs halt"; aarch64 `--virt` green; not run
+  on a Pi 5, Linux, or riscv64's half of `--virt`
+
 - [0122](0122-pi5-dma40-channel.md) the Pi 5's `dma40` channel 6 is a
   region, with its interrupt, 118 — done, changelog "The Raspberry Pi 5's
   dma40 channel 6 is a region, with its interrupt"; not run on a Pi 5

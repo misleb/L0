@@ -55,6 +55,8 @@ declare void @l0_gicv2_enable(i64, i64)
 declare void @l0_gicv2_edge(i64, i64)
 declare i64 @l0_gicv2_take(i64)
 declare void @l0_gicv2_end(i64, i64)
+declare i64 @l0_gicv2_self(i64)
+declare void @l0_gicv2_wake(i64, i64)
 declare void @l0_psci_off() noreturn
 declare void @l0_psci_reset() noreturn
 
@@ -107,6 +109,19 @@ define void @l0_board_cpu_init() {
 entry:
   call void @l0_gicv2_init(i64 70866931712, i64 70866935808)
   call void @l0_gicv2_enable(i64 70866931712, i64 27)
+  ret void
+}
+
+; How the calling CPU is woken, and waking one: the GIC's SGI 0.
+define i64 @l0_board_cpu_target() {
+entry:
+  %t = call i64 @l0_gicv2_self(i64 70866931712)
+  ret i64 %t
+}
+
+define void @l0_board_cpu_wake(i64 %t) {
+entry:
+  call void @l0_gicv2_wake(i64 70866931712, i64 %t)
   ret void
 }
 

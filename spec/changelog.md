@@ -7,6 +7,72 @@ New entries go at the top.
 
 ---
 
+## Idle CPUs halt (roadmap 0123)
+
+**Changed:** on the aarch64 boards, a CPU with nothing to do, another CPU
+whose ring is empty or CPU 0 in `cpu_wait`, polls for 100 microseconds
+and then says it sleeps and waits by `wfi`, instead of by `wfe` for
+ever. The CPU that hands it a thread, or gives CPU 0 one back, sends a
+sleeping CPU the GIC's SGI 0. Section 6.18's "no interrupt sent between
+the CPUs" is now "between CPUs that are busy". Nothing a program can
+call changed.
+
+*Why:* L0S's `probes/smp/REQUEST-idle-cpus.md`. With 0121 its kernel
+runs processes on every CPU, but on QEMU four CPUs made its e2e case
+`rootboot_tmpfs` take 222 s against one CPU's 47 s, 204 s of it in the
+host's kernel, so it booted everything with one CPU. QEMU's TCG runs
+`wfe` as a yield through its main loop, which takes its global lock: an
+idle vCPU spun on that lock thousands of times a second, and the vCPU
+with work waited for it at every device access. A vCPU in `wfi` QEMU
+halts until an interrupt is pending, masked or not.
+
+*Decided:*
+
+- Poll first, then sleep, so a CPU busy with threads, or briefly between
+  them, costs no interrupt, which is what 0121 chose rings for. The
+  poll is a plain loop of loads and counter reads, neither of which
+  takes QEMU's lock.
+- 100 microseconds of polling, the request's "a few microseconds" with
+  room for QEMU's slower turns between a trap and the next thread. A
+  millisecond measured the same (L0S's `rootboot_tmpfs` on four CPUs:
+  98 s at 100 µs, 100 s at 1 ms), so the length is not what is left of
+  the cost.
+- The sleeper stores its flag and then reads the ring; the waker stores
+  the ring's count and then reads the flag, both sequentially
+  consistent, so at least one sees the other's store: either the
+  sleeper finds its work, or the waker sends the SGI, which, pending,
+  ends a `wfi` begun after it. A spare SGI, sent to a CPU that woke on
+  its own, only ends one later `wfi` early.
+- The SGI is taken and ended by the GIC's driver itself, wherever it is
+  signalled, and given as spurious, which every caller already handles:
+  a thread an SGI interrupts runs on, and `interrupt_wait` waits on.
+  No program number names it, so section 6.14's table is unchanged.
+- `cpu_wait` reads `GICC_IAR` only when `ISR_EL1` says an interrupt is
+  pending: the read is a device access, which on QEMU takes the lock,
+  and it was made on every turn of the old loop.
+- Each CPU learns its GIC CPU interface from its banked
+  `GICD_ITARGETSR0`, rather than assuming it is its number, since PSCI
+  and the device tree number CPUs by affinity and the GIC by interface.
+- `wfe`, `sev`, and the counter's event stream, which only ended a
+  `wfe`, are gone from the runtime.
+
+*Measured:* L0S's `rootboot_tmpfs`, without its 60 s limit, on four CPUs
+went from 222 s (204 s of it in the host's kernel) to 98 s (15 s); on two
+from 113 s to 96 s; on one it is unchanged, 48 s. So the lock is no longer
+the cost, but four CPUs are still twice as slow as one there. A call
+handed to CPU 1 and back costs 7.9 µs against `user_run`'s 1.5 µs, too
+little to account for it at that case's tens of thousands of calls;
+`space_map` and `space_unmap` of a page together cost 11.1 µs under
+`-smp 4` against 1.6 µs under one CPU, since QEMU stops every vCPU for an
+inner-shareable TLB invalidation, and `space_write` 1.07 µs against
+0.55 µs. Which of these, or the kernel's own work, the rest is, L0S has
+not yet said.
+
+*Not decided:* `cpu_wait` still gives back a trap before it takes an
+interrupt, which the request leaves out on purpose.
+
+---
+
 ## Threads run on the other CPUs (roadmap 0121)
 
 **Added:** section 6.18, four builtins: `(cpu_count)`, `(cpu_run c s ctx

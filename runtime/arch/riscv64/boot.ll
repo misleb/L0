@@ -698,16 +698,11 @@ entry:
   ret i64 -1
 }
 
-define void @l0_arch_idle() {
+; Asked only by cpu_wait with other CPUs, which this one has not, so it
+; always says to look.
+define i1 @l0_arch_irq_pending() {
 entry:
-  call void asm sideeffect "wfi", "~{memory}"()
-  ret void
-}
-
-define void @l0_arch_notify() {
-entry:
-  call void asm sideeffect "fence rw, rw", "~{memory}"()
-  ret void
+  ret i1 true
 }
 
 define void @l0_arch_space_home() {
