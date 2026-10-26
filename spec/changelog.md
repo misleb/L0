@@ -71,6 +71,34 @@ the request leaves out on purpose.
 
 ---
 
+## The Raspberry Pi 5's dma40 channel 6 is a region, with its interrupt (roadmap 0122)
+
+**New:** on the Pi 5, channel 6 of `dma40`, the BCM2712's 40-bit DMA
+controller, is a region (spec 10.3), 0x1000010600 and 0x100 bytes, in the
+boot map's block 64, and its interrupt, the GIC's SPI 86, is interrupt
+118, level. From `bcm2712-ds.dtsi` (rpi-6.12.y), node `dma40: dma@10600`.
+
+*Why:* L0S asked (its `probes/audio/REQUEST-pi5-dma40.md`), to play sound
+on HDMI0. The regions of 0120 already reach every audio register, the MAI
+in the HD block and the packet, clock-regeneration and infoframe
+registers in HDMI0's run, but nothing could write `MAI_DATA` without the
+CPU. The FIFO holds well under a millisecond of sound and the MAI raises
+no interrupt, so a CPU feeding it from a process underruns whenever
+another process has a 10 ms slice. With DMA the CPU refills a page every
+10 ms or so.
+
+*Decided:* one channel, as asked first, not channels 6 to 10: one is what
+a driver uses, and more is a later request. Channel 6 because the device
+tree gives Linux 6 to 10 and keeps 11 for the firmware's VCHIQ, so 6 is
+none of the firmware's. Its interrupt is offered, unlike 0120's, because a
+driver that sleeps between periods is the point of the channel. No
+deliberate restriction is broken: a channel can write any memory, but so
+can the HVS through `iommu4`, and on a board only a program trusted with
+devices opens a region. No emulator has this board; the region is checked
+by building, and a first run is the user's.
+
+---
+
 ## The Raspberry Pi 5's HDMI0 mode set is regions (roadmap 0120)
 
 **New:** four more devices on the Pi 5 are regions (spec 10.3), all in the

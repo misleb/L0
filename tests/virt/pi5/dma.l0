@@ -1,0 +1,28 @@
+; Spec section 10.3 on the Raspberry Pi 5: channel 6 of dma40 is a region
+; and its interrupt is 118, as L0S's probes/audio asked. This is built by
+; tools/test.sh --virt and not run, since no emulator has this board; on a
+; Pi 5 whose serial line is read, its output is dma.out. The channel opens
+; whole; a range past its end, channel 5 before it, and channel 7 after it
+; are no region. Interrupt 118 enables, and 117 and 119 are none. Nothing
+; is read, since no board run has yet said what the firmware leaves there.
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def show ((n int)) int
+  (write_line (digits n)))
+
+(def regions () int
+  (let a (code (region_open 68719543808 256))   ; 0x1000010600, channel 6
+    (let b (code (region_open 68719543808 257)) ; past its end
+      (let c (code (region_open 68719543552 256)) ; 0x1000010500, channel 5
+        (code (region_open 68719544064 256))))))  ; 0x1000010700, channel 7
+
+(def interrupts () int
+  (let a (show (interrupt_enable 118))
+    (let b (show (interrupt_enable 117))
+      (show (interrupt_enable 119)))))
+
+(def main () int
+  (let a (regions)
+    (interrupts)))

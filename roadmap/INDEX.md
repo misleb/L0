@@ -158,6 +158,10 @@ None.
 
 ## Done and dropped
 
+- [0122](0122-pi5-dma40-channel.md) the Pi 5's `dma40` channel 6 is a
+  region, with its interrupt, 118 — done, changelog "The Raspberry Pi 5's
+  dma40 channel 6 is a region, with its interrupt"; not run on a Pi 5
+
 - [0121](0121-other-cpus.md) user threads on the other CPUs — done,
   changelog "Threads run on the other CPUs"; aarch64 `--virt` green
   under `-smp 4`; not run on a Pi 5, Linux, or riscv64's half of `--virt`
