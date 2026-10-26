@@ -387,6 +387,92 @@ scratch_base() {
     fi
 }
 
+# ------------------------------------------------- l0 init's AGENTS.md
+
+# l0 init owns the part of a project's AGENTS.md between two lines, and the
+# rest is the project's, kept when l0 init runs again. The first line
+# records the part's checksum as l0 init wrote it, so that a part edited
+# since is never replaced: the new one is written beside it instead.
+AGENTS_BEGIN='<!-- l0 init: begin'
+AGENTS_END='<!-- l0 init: end -->'
+AGENTS_HEADING='# Working with L0 in this project'
+
+agents_sum() { cksum | awk '{ print $1 "-" $2 }'; }
+
+# The part l0 init writes, on stdout.
+agents_part() {
+    body=$(awk 1 "$LIB/AGENTS.md" | agents_sum)
+    echo "$AGENTS_BEGIN $body; l0 init replaces what is between these lines -->"
+    awk 1 "$LIB/AGENTS.md"
+    echo "$AGENTS_END"
+}
+
+# init_agents FILE: write l0 init's part into FILE, keeping the rest of it,
+# and say on stdout what was done.
+init_agents() {
+    f=$1
+    new=$(mktemp "$f.XXXXXX")
+    agents_part > "$new"
+    if [ ! -e "$f" ]; then
+        mv "$new" "$f"
+        echo "AGENTS.md: written"
+        return
+    fi
+    # The line numbers of every begin line, and of every end line.
+    begins=$(awk -v b="$AGENTS_BEGIN " 'index($0, b) == 1 { print NR }' "$f")
+    ends=$(awk -v e="$AGENTS_END" '$0 == e { print NR }' "$f")
+    if [ -z "$begins" ] && [ -z "$ends" ]; then
+        if [ "$(sed -n 1p "$f")" = "$AGENTS_HEADING" ]; then
+            # A copy from an l0 init that wrote the whole file, edited or
+            # not: there is nothing to tell its lines from the project's.
+            mv "$new" "$f.l0-new"
+            echo "AGENTS.md: kept, as l0 init wrote it before it marked its part;"
+            echo "  the new part is in AGENTS.md.l0-new: move what the project"
+            echo "  added into it, outside its marker lines, and replace AGENTS.md"
+            return
+        fi
+        # The project's own, from before L0: the part goes after it.
+        { cat "$f"; echo; cat "$new"; } > "$new.all"
+        rm -f "$new"
+        mv "$new.all" "$f"
+        echo "AGENTS.md: l0's part added after the project's own"
+        return
+    fi
+    ok=no
+    if [ "$(echo $begins $ends | wc -w)" -eq 2 ] && [ -n "$begins" ] &&
+        [ -n "$ends" ] && [ "$begins" -lt "$ends" ]; then
+        ok=yes
+    fi
+    if [ "$ok" = yes ]; then
+        recorded=$(sed -n "${begins}s/^$AGENTS_BEGIN \([0-9-]*\);.*/\1/p" "$f")
+        found=$(awk -v b="$begins" -v e="$ends" 'NR > b && NR < e' "$f" |
+            agents_sum)
+        [ "$recorded" = "$found" ] || ok=edited
+    fi
+    if [ "$ok" != yes ]; then
+        mv "$new" "$f.l0-new"
+        if [ "$ok" = edited ]; then
+            echo "AGENTS.md: kept, since l0's part was edited since l0 init wrote it;"
+        else
+            echo "AGENTS.md: kept, since its marker lines are not one begin and one end;"
+        fi
+        echo "  the new part is in AGENTS.md.l0-new, to merge by hand"
+        return
+    fi
+    awk -v b="$begins" -v e="$ends" -v part="$new" '
+        NR == b { while ((getline line < part) > 0) print line; next }
+        NR > b && NR <= e { next }
+        { print }' "$f" > "$new.all"
+    rm -f "$new"
+    if cmp -s "$new.all" "$f"; then
+        rm -f "$new.all"
+        echo "AGENTS.md: already current"
+    else
+        mv "$new.all" "$f"
+        echo "AGENTS.md: l0's part replaced, the rest kept"
+    fi
+}
+
 # ------------------------------------------------- hosts without libc
 
 # The targets without libc are described by manifests, runtime/targets/
@@ -1226,11 +1312,13 @@ case "$cmd" in
         # they always describe the compiler that builds the project.
         mkdir -p "$dir/.cursor/skills"
         cp -R "$LIB/skills/." "$dir/.cursor/skills/"
-        cp "$LIB/AGENTS.md" "$dir/AGENTS.md"
+        init_agents "$dir/AGENTS.md"
         cat <<EOF
 Scaffolded an L0 project in $dir:
 
-  AGENTS.md                           always-on invariants
+  AGENTS.md                           always-on invariants, between the
+                                      lines l0 init marks; the rest of the
+                                      file is the project's, and kept
   .cursor/skills/l0-code/SKILL.md     how to read, write, and edit L0
 
 The rest comes from the installed toolchain, so it matches the compiler:

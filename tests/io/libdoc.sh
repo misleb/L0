@@ -53,3 +53,48 @@ l0 init proj > /dev/null
 found=$(cd proj && find . -type f | LC_ALL=C sort | tr '\n' ' ')
 [ "$found" = "./.cursor/skills/l0-code/SKILL.md ./AGENTS.md " ] ||
     fail "l0 init copied more than AGENTS.md and the skill: $found"
+
+# Run again, l0 init changes only its own part of AGENTS.md, between its
+# marker lines, and never a part edited since it wrote it.
+begin='<!-- l0 init: begin'
+end='<!-- l0 init: end -->'
+init_says() { l0 init proj | sed -n 1p; }
+cp proj/AGENTS.md part.md
+[ "$(init_says)" = "AGENTS.md: already current" ] ||
+    fail "l0 init did not see its part was current"
+cmp -s part.md proj/AGENTS.md || fail "l0 init changed a current AGENTS.md"
+
+# A stale part, as an older toolchain would have written it, is replaced,
+# and the project's lines around it are kept.
+sum=$(echo "an older part" | cksum | awk '{ print $1 "-" $2 }')
+{ echo "# Our project"; echo "$begin $sum; old -->"; echo "an older part"
+  echo "$end"; echo "Our own rule."; } > proj/AGENTS.md
+[ "$(init_says)" = "AGENTS.md: l0's part replaced, the rest kept" ] ||
+    fail "l0 init did not replace a stale part"
+{ echo "# Our project"; cat part.md; echo "Our own rule."; } > want.md
+cmp -s want.md proj/AGENTS.md || fail "l0 init lost the project's lines"
+
+# An edited part is kept, and the new one written beside it.
+sed "s/^## Commands\$/## Commands, edited/" want.md > proj/AGENTS.md
+cp proj/AGENTS.md edited.md
+case "$(init_says)" in "AGENTS.md: kept"*) ;; *) fail "l0 init missed an edit" ;; esac
+cmp -s edited.md proj/AGENTS.md || fail "l0 init replaced an edited part"
+cmp -s part.md proj/AGENTS.md.l0-new || fail "no AGENTS.md.l0-new beside it"
+rm proj/AGENTS.md.l0-new
+
+# A project's own AGENTS.md, with no part, gets one after its lines; one
+# l0 init wrote whole, before it marked its part, is kept.
+echo "Our own rule." > proj/AGENTS.md
+[ "$(init_says)" = "AGENTS.md: l0's part added after the project's own" ] ||
+    fail "l0 init did not add its part to the project's AGENTS.md"
+{ echo "Our own rule."; echo; cat part.md; } > want.md
+cmp -s want.md proj/AGENTS.md || fail "l0 init added its part wrongly"
+sed '1d;$d' part.md > proj/AGENTS.md
+cp proj/AGENTS.md whole.md
+case "$(init_says)" in "AGENTS.md: kept"*) ;; *) fail "l0 init missed an old copy" ;; esac
+cmp -s whole.md proj/AGENTS.md || fail "l0 init replaced an old copy"
+cmp -s part.md proj/AGENTS.md.l0-new || fail "no AGENTS.md.l0-new beside an old copy"
+rm proj/AGENTS.md.l0-new
+found=$(cd proj && find . -type f | LC_ALL=C sort | tr '\n' ' ')
+[ "$found" = "./.cursor/skills/l0-code/SKILL.md ./AGENTS.md " ] ||
+    fail "l0 init left files behind: $found"
