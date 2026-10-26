@@ -286,6 +286,12 @@ entry:
   ret i64 -3
 }
 
+; A process has no board to reset (spec section 6.12).
+define i64 @l0_host_board_reset() {
+entry:
+  ret i64 -3
+}
+
 define i64 @l0_host_space_unmap(i64 %s, i64 %va) {
 entry:
   ret i64 1

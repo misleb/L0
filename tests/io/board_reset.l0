@@ -1,0 +1,6 @@
+; Spec sections 6.12 and 9.2: a host with an operating system has no board
+; for a program to reset, so board_reset is -3, and it changes nothing: the
+; program goes on.
+(def main ((input (list int))) (list int)
+  (let r (board_reset)
+    (append (digits r) (cons 10 (digits (board_reset))))))

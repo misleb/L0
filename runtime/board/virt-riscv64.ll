@@ -82,6 +82,12 @@ entry:
   ret i64 %r
 }
 
+; Spec section 6.12: this board has no reset to ask for.
+define i64 @l0_board_restart() {
+entry:
+  ret i64 -3
+}
+
 define void @l0_board_exit(i64 %status) noreturn {
 entry:
   call void @l0_semihost_exit(i64 %status)

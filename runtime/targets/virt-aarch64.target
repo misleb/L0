@@ -6,7 +6,7 @@ T_KIND=board
 T_ARCH=aarch64
 T_TRIPLE=aarch64-none-elf
 T_CFLAGS=""
-T_PARTS="bare/board.ll bare/semihost.ll dev/gicv2.ll dev/pl011.ll board/virt-aarch64.ll arch/aarch64/boot.ll"
+T_PARTS="bare/board.ll bare/semihost.ll bare/psci.ll dev/gicv2.ll dev/pl011.ll board/virt-aarch64.ll arch/aarch64/boot.ll"
 T_LAYOUT=board/virt-aarch64.ld
 T_HEAP_MB=1024
 T_STACK_MB=256
@@ -14,7 +14,7 @@ T_ROOM_MB=1664
 T_LDFLAGS="--oformat binary"
 T_MAGIC=41524d64
 T_QEMU=qemu-system-aarch64
-T_QEMU_ARGS="-M virt,virtualization=on -cpu cortex-a72 -m 2G -semihosting -global virtio-mmio.force-legacy=false"
+T_QEMU_ARGS="-M virt,virtualization=on -cpu cortex-a72 -m 2G -no-reboot -semihosting -global virtio-mmio.force-legacy=false"
 T_SERIAL=stdio
 T_INPUT_LEN_AT=0x4FFFFFF8
 T_INPUT_AT=0x50000000

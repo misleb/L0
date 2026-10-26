@@ -33,6 +33,7 @@ declare void @l0_gicv2_edge(i64, i64)
 declare i64 @l0_gicv2_take(i64)
 declare void @l0_gicv2_end(i64, i64)
 declare void @l0_semihost_exit(i64) noreturn
+declare void @l0_psci_reset() noreturn
 declare i64 @l0_semihost_err_write(ptr, i64)
 
 ; The boot map, which the boot code turns the MMU on with: the identity
@@ -73,6 +74,15 @@ entry:
 define void @l0_board_exit(i64 %status) noreturn {
 entry:
   call void @l0_semihost_exit(i64 %status)
+  unreachable
+}
+
+; Spec section 6.12: PSCI's SYSTEM_RESET, which QEMU's virt board with
+; virtualization=on answers by SMC; QEMU resets the machine, or exits under
+; -no-reboot, which the manifest gives. It does not return.
+define i64 @l0_board_restart() {
+entry:
+  call void @l0_psci_reset()
   unreachable
 }
 

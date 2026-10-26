@@ -56,6 +56,7 @@ declare void @l0_gicv2_edge(i64, i64)
 declare i64 @l0_gicv2_take(i64)
 declare void @l0_gicv2_end(i64, i64)
 declare void @l0_psci_off() noreturn
+declare void @l0_psci_reset() noreturn
 
 ; The boot map, which the boot code turns the MMU on with: the identity map
 ; in 1 GB blocks at level 1 (TCR T0SZ 25, 4 KB granule, 512 entries). Block
@@ -212,6 +213,15 @@ report:
 off:
   call void @l0_pl011_drain(i64 70816632832)
   call void @l0_psci_off()
+  unreachable
+}
+
+; Spec section 6.12: the serial line drained, as an exit does, and the
+; firmware asked to reset the board. It does not return.
+define i64 @l0_board_restart() {
+entry:
+  call void @l0_pl011_drain(i64 70816632832)
+  call void @l0_psci_reset()
   unreachable
 }
 

@@ -1,0 +1,8 @@
+; Spec section 6.12: board_reset restarts the board and does not return.
+; QEMU's virt board is run with -no-reboot, so the restart ends the
+; emulator, with status 0, and nothing after the call runs.
+(def main ((input (list int))) (list int)
+  (let a (write_line "before")
+    (let b (flush 1)
+      (let r (board_reset)
+        (append "returned " (digits r))))))

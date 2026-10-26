@@ -566,6 +566,13 @@ entry:
   ret i64 0
 }
 
+; Spec section 6.12: an operating system has no board for a program to
+; reset.
+define i64 @l0_host_board_reset() {
+entry:
+  ret i64 -3
+}
+
 ; ------------------------------------------------------------- entry point
 
 ; Before the program's thread starts, spec section 6.3. A write to a pipe

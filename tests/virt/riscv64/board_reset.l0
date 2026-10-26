@@ -1,0 +1,4 @@
+; Spec section 6.12: QEMU's riscv64 virt board has no reset to ask for, so
+; board_reset is -3 and the program goes on.
+(def main ((input (list int))) (list int)
+  (append (digits (board_reset)) (cons 10 (nil int))))

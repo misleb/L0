@@ -76,6 +76,7 @@ declare void @l0_board_init(i64, i64)
 declare void @l0_board_console_put(i8)
 declare i64 @l0_board_err_write(ptr, i64)
 declare void @l0_board_exit(i64) noreturn
+declare i64 @l0_board_restart()
 declare i64 @l0_board_device_count()
 declare i64 @l0_board_device_base(i64)
 declare i64 @l0_board_device_len(i64)
@@ -117,6 +118,13 @@ define void @l0_host_exit(i64 %status) noreturn {
 entry:
   call void @l0_board_exit(i64 %status)
   unreachable
+}
+
+; Spec section 6.12: the board's part restarts the board, or says -3.
+define i64 @l0_host_board_reset() {
+entry:
+  %r = call i64 @l0_board_restart()
+  ret i64 %r
 }
 
 ; Pages freestanding.ll's allocator has freed: a board has no kernel to

@@ -261,14 +261,14 @@
 (def bi_bool_bool ((i int)) (list (list int)) (split_spaces "and or"))
 (def bi_list_ops ((i int)) (list (list int)) (split_spaces "cons head tail is_empty"))
 
-; The effects of spec 6.2 to 6.4, 6.7, and 6.12 to 6.14, and 6.16's machine,
+; The effects of spec 6.2 to 6.4, 6.7, and 6.12 to 6.14, 6.16's machine, and 6.12's board_reset,
 ; which asks the host as they do. Those in bi_io
 ; take and return only ints, so need_all checks them; bi_path take only byte
 ; lists, paths or bytes to read, and return an int; bi_to_list take an int
 ; and return a byte list; bi_user take bytes or a context, and
 ; check_user_builtin checks them.
 (def bi_io ((i int)) (list (list int))
-  (names_then (split_spaces "read_byte write_byte read_from write_to close flush arg_count open_buffer clock_ns machine")
+  (names_then (split_spaces "read_byte write_byte read_from write_to close flush arg_count open_buffer clock_ns machine board_reset")
               (names_then (bi_region 0)
                 (names_then (bi_user_ints 0) (bi_interrupt 0)))))
 (def bi_interrupt ((i int)) (list (list int))
@@ -320,7 +320,7 @@
   (if (is_empty xs) ys (cons (head xs) (names_then (tail xs) ys))))
 
 (def builtin_arity ((n (list int))) int
-  (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns barrier space_new frame_new interrupt_wait machine frame_free_count"))
+  (if (any_eq n (split_spaces "read_byte arg_count open_buffer clock_ns barrier space_new frame_new interrupt_wait machine board_reset frame_free_count"))
       0
       (if (any_eq n (split_spaces
             "float_neg float_sqrt float_from_int float_to_int float_bits float_from_bits neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes remove buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list bytes_concat timer_at interrupt_enable interrupt_done frame_address space_free frame_free region_close"))

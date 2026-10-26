@@ -158,6 +158,10 @@ None.
 
 ## Done and dropped
 
+- [0119](0119-board-reset.md) a program can restart its board — done,
+  changelog "A program can restart its board"; aarch64 `--virt` green; not
+  run on a Pi 5, Linux, or riscv64's half of `--virt`
+
 - [0116](0116-pi5-pcie-interrupts.md) the Pi 5's PCIe interrupts, RP1's
   among them — done, changelog "The Raspberry Pi 5 gives PCIe's MSIs,
   RP1's among them"; run on a Pi 5: RP1's test bit as 161, and its GPIO

@@ -18,3 +18,18 @@ hang:
   call void asm sideeffect "wfi", ""()
   br label %hang
 }
+
+; SYSTEM_RESET, function 0x84000009, which does not return either. On the
+; Raspberry Pi 5 BL31 resets the board through the power manager's watchdog,
+; without telling the bootloader to stop, so the board boots again as at
+; power-on. A board with PSCI by SMC that is not a Pi, QEMU's virt board
+; with virtualization=on, resets or, under -no-reboot, exits. If the call
+; does come back, the CPU waits for an interrupt, with them masked, forever.
+define void @l0_psci_reset() noreturn {
+entry:
+  call void asm sideeffect "mov x0, #0x9\0Amovk x0, #0x8400, lsl #16\0Asmc #0", "~{x0},~{x1},~{x2},~{x3},~{memory}"()
+  br label %hang
+hang:
+  call void asm sideeffect "wfi", ""()
+  br label %hang
+}

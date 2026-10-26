@@ -23,6 +23,7 @@ declare i64 @l0_host_rename(ptr, ptr)
 declare i64 @l0_host_remove(ptr)
 declare i64 @l0_host_clock_ns()
 declare i64 @l0_host_machine()
+declare i64 @l0_host_board_reset()
 declare i64 @l0_host_arg_count()
 declare ptr @l0_host_arg(i64)
 declare ptr @l0_host_setting(ptr)
@@ -2604,6 +2605,13 @@ define i64 @l0_machine() {
 entry:
   %m = call i64 @l0_host_machine()
   ret i64 %m
+}
+
+; Spec section 6.12: the board starts again, or -3.
+define i64 @l0_board_reset() {
+entry:
+  %r = call i64 @l0_host_board_reset()
+  ret i64 %r
 }
 
 ; ----------------------------------------------------------------- regions

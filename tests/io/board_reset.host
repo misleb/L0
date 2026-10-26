@@ -1,0 +1,1 @@
+Needs a host with an operating system: on the aarch64 virt board board_reset restarts the board, which tests/virt/aarch64/board_reset checks.

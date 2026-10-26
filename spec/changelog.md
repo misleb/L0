@@ -7,6 +7,38 @@ New entries go at the top.
 
 ---
 
+## A program can restart its board (roadmap 0119)
+
+**Added:** `(board_reset)` (spec 6.12), an int builtin of no arguments.
+It restarts the board, never returning, after standard output and error
+are delivered, or returns -3 where the host has no board to restart. The
+Raspberry Pi 5 and the aarch64 virt board do it by PSCI's `SYSTEM_RESET`
+by SMC; the riscv64 virt board, an operating system, and a process of a
+kernel give -3. The aarch64 virt board is now run with `-no-reboot`, so
+that a restart ends QEMU with status 0 and a test can see it.
+
+*Why:* L0S's `probes/driver/REQUEST-pi5-reboot.md`. Every test boot on its
+Pi 5 needed a person to pull the power, because `exit` halts the board
+(`SYSTEM_OFF` is a watchdog reset that tells the bootloader to stop, by
+partition 63) and nothing in L0 could start it again. TF-A's Raspberry Pi
+platform makes `SYSTEM_RESET` the same watchdog reset without that
+partition, so the bootloader boots as at power-on, over the network.
+
+*Decided:* a builtin, not an exit status and not the power manager as a
+region. A status that means reset would mix a program's answer with what
+the board does after it, and section 10.3 already gives every nonzero
+status one meaning. A region of the power manager would also give a
+program the board's power domains, which a wrong write switches off, and
+would be a Pi-only path with nothing to test on QEMU; it may still come
+as its own request, for the watchdog. The builtin returns -3 rather than
+being refused on hosts without a board, as `frame_new` does, so a program
+can try it and fall back to `exit`.
+
+*Not decided:* the riscv64 virt board, whose reset would be SBI's system
+reset extension; nothing asks for it.
+
+---
+
 ## The Raspberry Pi 5 gives PCIe's MSIs, RP1's among them (roadmap 0116)
 
 **Added:** spec 10.3's interrupt table for the Pi 5 gains 160 to 223,
