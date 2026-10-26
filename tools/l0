@@ -59,8 +59,9 @@
 # standard output on the board's serial line, and its standard error and
 # exit status passed back as the program's own. l0 boot IMAGE ARG ... does
 # the same for a built image, on the board its boot header names. The
-# image is linked by L0_VIRT_LD, an ld.lld, if set, and otherwise by ld.lld
-# in a container built from tools/virt/Dockerfile the first time; L0_QEMU
+# image is linked by L0_VIRT_LD, an ld.lld, if set, else by ld.lld on PATH,
+# and otherwise by ld.lld in a container built from tools/virt/Dockerfile
+# the first time; L0_QEMU
 # names the emulator, and L0_RUNTIMES a directory of the targets'
 # runtimes, one for each runtime/targets/NAME.target, which defaults to the
 # installed ones. The board's virtio-mmio transports are modern, and
@@ -447,8 +448,8 @@ tail_words_ok() {
 # compiles the program with the target's parts linked into it, so all are
 # optimized as one module, and only a linker that places sections is
 # needed after. That is ld.lld: L0_VIRT_LD if it names one, or else the one
-# in a container, which never sees bitcode, so its LLVM may be older than
-# clang's.
+# on PATH, or else the one in a container. It never sees bitcode, so its
+# LLVM may be older than clang's.
 bare_link() {
     load_target
     tail_words_ok "$1" || exit 1
@@ -463,13 +464,14 @@ bare_link() {
     # Each image is as its loader loads it (spec section 10.3), by the
     # manifest's T_LDFLAGS: a board's raw, for its CPU's boot protocol, and
     # a process's an ELF, whose segments its kernel maps.
-    if [ -n "${L0_VIRT_LD:-}" ]; then
+    ld=${L0_VIRT_LD:-$(command -v ld.lld || true)}
+    if [ -n "$ld" ]; then
         # shellcheck disable=SC2086
-        "$L0_VIRT_LD" -T "$TMP/layout.ld" $T_LDFLAGS "$TMP/bare.o" -o "$2"
+        "$ld" -T "$TMP/layout.ld" $T_LDFLAGS "$TMP/bare.o" -o "$2"
         return
     fi
     if ! command -v docker > /dev/null 2>&1; then
-        echo "l0: --target $TARGET links with ld.lld; set L0_VIRT_LD to one, or install Docker" >&2
+        echo "l0: --target $TARGET links with ld.lld; put one on PATH, set L0_VIRT_LD to one, or install Docker" >&2
         exit 2
     fi
     if ! docker image inspect l0-virt-link > /dev/null 2>&1; then

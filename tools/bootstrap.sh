@@ -13,7 +13,7 @@
 #                    tests/virt/user (spec sections 6.13 and 9.2), for each
 #                    CPU with a virt board, or those L0_VIRT_ARCHS names.
 #                    Needs qemu-system-aarch64 and qemu-system-riscv64, and
-#                    Docker or L0_VIRT_LD.
+#                    ld.lld (L0_VIRT_LD, on PATH, or in Docker).
 #
 # Self-hosting is verified by a byte-for-byte fixpoint, not by judgment:
 #

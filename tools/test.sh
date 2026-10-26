@@ -16,7 +16,8 @@
 #                  as processes of a kernel, through --target proc, once for
 #                  each CPU with a board, aarch64 and riscv64, or those
 #                  L0_VIRT_ARCHS names; needs qemu-system-aarch64 and
-#                  qemu-system-riscv64, and Docker or L0_VIRT_LD
+#                  qemu-system-riscv64, and ld.lld (L0_VIRT_LD, on PATH,
+#                  or in Docker)
 #   name-filter    a substring of a test's file name without its directory or
 #                  extension, such as bundle_prelude, matched in every suite.
 #                  A filter that matches nothing passes, with "0 tests".
@@ -378,12 +379,15 @@ layout_of() {
 #
 # Every image is linked by one container, started once and given each link
 # by docker exec, rather than a docker run per image, unless L0_VIRT_LD
-# already names a linker.
+# already names a linker or ld.lld is on PATH.
 
 if [ "$VIRT" = 1 ]; then
     vstart=$(date +%s)
     vcc=$(current_compiler)
     if [ -z "${L0_VIRT_LD:-}" ]; then
+        L0_VIRT_LD=$(command -v ld.lld || true)
+    fi
+    if [ -z "$L0_VIRT_LD" ]; then
         if ! docker image inspect l0-virt-link > /dev/null 2>&1; then
             docker build -q -t l0-virt-link tools/virt > /dev/null
         fi

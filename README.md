@@ -154,7 +154,8 @@ its manifest in `runtime/targets/`: `lib/l0/virt-aarch64/` for QEMU's aarch64
 parts as bitcode, the image layout, and the Dockerfile of the container that
 links images, and `lib/l0/virt-riscv64/` the same for QEMU's riscv64 one.
 `l0 build --target virt` and `l0 boot` need `qemu-system-aarch64` or
-`qemu-system-riscv64`, and Docker, or an `ld.lld` named by `L0_VIRT_LD`.
+`qemu-system-riscv64`, and an `ld.lld`: the one `L0_VIRT_LD` names, or
+else the one on `PATH`, or else one in Docker.
 Beside them, `lib/l0/proc-aarch64/` and `proc-riscv64/` hold the same for `l0 build --target
 proc`, which makes an image for a program run as a process by a kernel; no
 kernel comes with the toolchain.

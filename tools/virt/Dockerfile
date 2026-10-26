@@ -1,5 +1,5 @@
 # The image tools/l0 links QEMU virt board images in, for --target virt,
-# when no ld.lld that runs is named by L0_VIRT_LD. Built locally the first
+# when L0_VIRT_LD names no ld.lld and none is on PATH. Built locally the first
 # time it is needed and never pushed. It holds only the linker: clang on the
 # host compiles and optimizes the whole program into one object, so the
 # container's older LLVM never reads the host's bitcode.
