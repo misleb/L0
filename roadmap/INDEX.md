@@ -158,6 +158,11 @@ None.
 
 ## Done and dropped
 
+- [0125](0125-pi5-sdio1.md) the Pi 5's SD host controller, `sdio1`, is a
+  region, with its interrupt, 305 — done, changelog "The Raspberry Pi 5's
+  SD host controller, sdio1, is a region, with its interrupt"; aarch64
+  `--virt` green; not run on a Pi 5 or riscv64's half of `--virt`
+
 - [0124](0124-heap-left.md) how much of its heap a program has left —
   done, changelog "A program can ask how much of its heap is left";
   aarch64 `--virt` green; not run on macOS, a Pi 5, or riscv64's half of

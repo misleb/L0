@@ -66,7 +66,7 @@ declare void @l0_psci_reset() noreturn
 ; write-back, inner shareable, readable and writable at EL1 alone and never
 ; executable at EL0. Block 65, 0x1040000000, holds every device the board's
 ; part drives or opens but those in block 64, 0x1000000000, the IOMMUs, the
-; PCIe controller, dma40, and mip0, and RP1's, in block 124, 0x1F00000000: all
+; PCIe controller, dma40, mip0, and sdio1, and RP1's, in block 124, 0x1F00000000: all
 ; three attribute 0, Device-nGnRnE, never executable. Block
 ; 3, the user range, is left empty, and only a space maps it; so is every
 ; block with no RAM in it until l0_board_map_ram adds it.
@@ -263,8 +263,10 @@ entry:
 ; which this file drives, and so are iommu2 and iommu5, beside iommu4.
 ; HDMI0's mode set takes four more, all in block 65: its blocks, the HD
 ; block, pixel valve 0, and DDC0 (roadmap 0120). HDMI0's audio takes
-; channel 6 of dma40, in block 64, to feed the MAI (roadmap 0122).
-@devices = private constant [26 x i64] [
+; channel 6 of dma40, in block 64, to feed the MAI (roadmap 0122). The
+; microSD slot takes sdio1, its SDHCI and cfg block in one run, in block
+; 64 (roadmap 0125).
+@devices = private constant [28 x i64] [
   i64 70816632832, i64 4096,      ; 0x107D001000, the debug UART, a PL011
   i64 70799863808, i64 4096,      ; 0x107C003000, the 1 MHz system timer
   i64 70799931520, i64 64,        ; 0x107C013880, the VideoCore mailbox
@@ -277,11 +279,12 @@ entry:
   i64 70807322624, i64 256,       ; 0x107C720000, the HD block
   i64 70804111360, i64 256,       ; 0x107C410000, pixel valve 0
   i64 70821904896, i64 88,        ; 0x107D508200, DDC0
-  i64 68719543808, i64 256 ]      ; 0x1000010600, dma40's channel 6
+  i64 68719543808, i64 256,       ; 0x1000010600, dma40's channel 6
+  i64 68736249856, i64 1536 ]     ; 0x1000FFF000, sdio1, SDHCI and cfg
 
 define i64 @l0_board_device_count() {
 entry:
-  ret i64 13
+  ret i64 14
 }
 
 define i64 @l0_board_device_base(i64 %k) {
@@ -353,7 +356,8 @@ entry:
 ; are its 96 to 99; the debug UART's is 153, which is 152 on the later
 ; silicon, so both are enabled, the one that fires is remembered, and it is
 ; reported as 153; PCIe's MSIs are 160 to 223, mip0's vectors, which are
-; made edge-triggered as they are enabled; dma40's channel 6's is 118.
+; made edge-triggered as they are enabled; dma40's channel 6's is 118;
+; sdio1's is 305.
 
 define internal i1 @is_msi(i64 %n) {
 entry:
@@ -368,12 +372,14 @@ entry:
   %timer = icmp eq i64 %n, 0
   %uart = icmp eq i64 %n, 153
   %dma = icmp eq i64 %n, 118
+  %sd = icmp eq i64 %n, 305
   %lo = icmp sge i64 %n, 96
   %hi = icmp sle i64 %n, 99
   %sys = and i1 %lo, %hi
   %msi = call i1 @is_msi(i64 %n)
   %a0 = or i1 %timer, %uart
-  %a = or i1 %a0, %dma
+  %a1 = or i1 %a0, %dma
+  %a = or i1 %a1, %sd
   %b = or i1 %sys, %msi
   %ok = or i1 %a, %b
   ret i1 %ok

@@ -7,6 +7,36 @@ New entries go at the top.
 
 ---
 
+## The Raspberry Pi 5's SD host controller, sdio1, is a region, with its interrupt (roadmap 0125)
+
+**New:** on the Pi 5, `sdio1`, the BCM2712's SD host controller behind
+the microSD slot, is a region (spec 10.3), 0x1000FFF000 and 0x600 bytes,
+in the boot map's block 64: SDHCI's standard registers, then at 0x400
+the brcmstb `cfg` block. Its interrupt, the GIC's SPI 273, is interrupt
+305, level. From the board's device tree, `bcm2712-rpi-5-b.dtb`, node
+`sdio1: mmc@fff000`.
+
+*Why:* L0S asked (its `probes/storage/REQUEST-pi5-sdio.md`), to keep its
+files on the board's own card rather than in memory lost at every power
+cut. Its `sdhci` driver already drives a standard SDHCI on QEMU; nothing
+reached the Pi's. RP1's two SDHCIs are reachable through RP1's region,
+but the device tree disables both, and neither is the slot's.
+
+*Decided:* one region over both of the node's blocks, since they share a
+page nothing else uses and a driver needs both. Its interrupt is offered
+from the start, as dma40's was, though a driver may poll at first. The
+card's power, its signalling voltage, and its detect pin are in
+`gio_aon`, which is left out: that block also holds `RP1_RUN` and the
+PMIC's lines, and the firmware leaves the card powered at 3.3 V. If a
+board run finds otherwise after a network boot, a narrower region for
+those pins is a later request. No deliberate restriction is broken: the
+controller's SDMA and ADMA2 can write memory, but so can dma40 and the
+HVS, and on a board only a program trusted with devices opens a region.
+No emulator has this board; the region is checked by building, and a
+first run is the user's.
+
+---
+
 ## A program can ask how much of its heap is left (roadmap 0124)
 
 **Changed:** a builtin, `(heap_left)`, section 6.19: how many bytes of

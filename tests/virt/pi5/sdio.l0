@@ -1,0 +1,29 @@
+; Spec section 10.3 on the Raspberry Pi 5: sdio1, the SD host controller,
+; is a region and its interrupt is 305, as L0S's probes/storage asked.
+; This is built by tools/test.sh --virt and not run, since no emulator has
+; this board; on a Pi 5 whose serial line is read, its output is sdio.out.
+; The controller opens whole; a range past its end, the page before it,
+; and the bytes after its cfg block are no region. Interrupt 305 enables,
+; and 304 and 306 are none. Nothing is read, since no board run has yet
+; said what the firmware leaves there.
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def show ((n int)) int
+  (write_line (digits n)))
+
+(def regions () int
+  (let a (code (region_open 68736249856 1536))   ; 0x1000FFF000, sdio1
+    (let b (code (region_open 68736249856 1537)) ; past its end
+      (let c (code (region_open 68736245760 4096)) ; 0x1000FFE000, before
+        (code (region_open 68736251392 256))))))   ; 0x1000FFF600, after
+
+(def interrupts () int
+  (let a (show (interrupt_enable 305))
+    (let b (show (interrupt_enable 304))
+      (show (interrupt_enable 306)))))
+
+(def main () int
+  (let a (regions)
+    (interrupts)))
