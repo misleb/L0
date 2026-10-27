@@ -159,7 +159,9 @@
           (push (check_source (m "(head (cpu_run 1 0 (array_new 104 0) 0 0))"))
           (push (check_source (m "(head (cpu_trapped))"))
           (push (check_source (m "(cpu_trapped 1)"))
-          (push (check_source (m "(cpu_wait true)")) cz))))))))))))))))))))))))))))))))))))
+          (push (check_source (m "(cpu_wait true)"))
+          (push (check_source (m "(heap_left 1)"))
+          (push (check_source (m "(head (heap_left))")) cz))))))))))))))))))))))))))))))))))))))
     (rev da)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.

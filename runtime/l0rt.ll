@@ -52,6 +52,7 @@ declare i64 @l0_host_cpu_count()
 declare i64 @l0_host_cpu_run(i64, i64, ptr, i64, i64, i64)
 declare i64 @l0_host_cpu_trapped(ptr)
 declare i64 @l0_host_cpu_wait()
+declare i64 @l0_host_heap_left()
 declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
@@ -195,8 +196,9 @@ entry:
 ;
 ; A freed block goes on the free list for its size, threaded through its
 ; header word, which allocation takes from before the current chunk, so
-; taking and giving a block touch only that list and the block. Nothing
-; counts as blocks come and go. A sweep counts instead: it adds up, chunk by
+; taking and giving a block touch only that list, the block, and
+; @free_bytes, the bytes on all the lists, which heap_left reads. Nothing
+; else counts as blocks come and go. A sweep counts instead: it adds up, chunk by
 ; chunk, the bytes on the free lists, and a chunk other than the current one
 ; whose count is how far it was cut has every block free. It takes those
 ; blocks off their lists and gives those chunks back. A sweep walks every
@@ -211,6 +213,7 @@ entry:
 ; are kept. Spec section 10.3.
 
 @free_lists = internal global [257 x i64] zeroinitializer
+@free_bytes = internal global i64 0
 @chunk = internal global i64 0
 @chunk_cur = internal global i64 0
 @chunk_end = internal global i64 0
@@ -451,6 +454,9 @@ pkeep:
   br label %ploop
 ptake:
   store i64 -1, ptr %cq
+  %fb = load i64, ptr @free_bytes
+  %fb1 = sub i64 %fb, %cext
+  store i64 %fb1, ptr @free_bytes
   %sq = inttoptr i64 %slot to ptr
   store i64 %cn, ptr %sq
   %tnp = getelementptr i64, ptr %cq, i64 3
@@ -571,6 +577,9 @@ reuse:
   %tq = inttoptr i64 %top to ptr
   %next = load i64, ptr %tq
   store i64 %next, ptr %flp
+  %fb = load i64, ptr @free_bytes
+  %fb1 = sub i64 %fb, %bytes
+  store i64 %fb1, ptr @free_bytes
   br label %init
 cut:
   %cur = load i64, ptr @chunk_cur
@@ -804,6 +813,10 @@ recycle:
   %top = load i64, ptr %fp
   store i64 %top, ptr %hq
   store i64 %hp, ptr %fp
+  %fb = load i64, ptr @free_bytes
+  %tb = mul i64 %total, 8
+  %fb1 = add i64 %fb, %tb
+  store i64 %fb1, ptr @free_bytes
   br label %out
 out:
   ret void
@@ -2887,6 +2900,29 @@ define i64 @l0_frame_free_count() {
 entry:
   %r = call i64 @l0_host_frame_free_count()
   ret i64 %r
+}
+
+; Spec section 6.19: what the host's heap has free, and what the runtime
+; could give again without asking it, the free lists, the current chunk's
+; uncut rest, and the chunks kept; it never sweeps.
+define i64 @l0_heap_left() {
+entry:
+  %h = call i64 @l0_host_heap_left()
+  %none = icmp slt i64 %h, 0
+  br i1 %none, label %out, label %count
+count:
+  %fb = load i64, ptr @free_bytes
+  %cur = load i64, ptr @chunk_cur
+  %end = load i64, ptr @chunk_end
+  %uncut = sub i64 %end, %cur
+  %ec = load i64, ptr @empty_count
+  %kept = mul i64 %ec, 1048512
+  %a = add i64 %h, %fb
+  %b = add i64 %a, %uncut
+  %c = add i64 %b, %kept
+  ret i64 %c
+out:
+  ret i64 %h
 }
 
 ; The address, a multiple of 4096 and so never a code, or -3, or 2, not a

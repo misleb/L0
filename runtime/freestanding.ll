@@ -1,6 +1,6 @@
 ; freestanding.ll -- what a host without libc needs beneath runtime/l0rt.ll,
 ; spec section 10.3: the allocator, l0_host_alloc, l0_host_alloc_aligned,
-; l0_host_resize, and l0_host_free, and memcpy, memmove, memset, memcmp, bcmp, and strlen. It is linked
+; l0_host_resize, l0_host_free, and l0_host_heap_left, and memcpy, memmove, memset, memcmp, bcmp, and strlen. It is linked
 ; beside a host that has no libc, a board's (runtime/bare/board.ll and its
 ; parts) or a process's (runtime/bare/proc.ll and its CPU's part), and the
 ; layout that host's linker script gives names the heap, __heap_start to
@@ -40,6 +40,10 @@ declare void @l0_heap_release(i64, i64)
 
 @heap_ready = internal global i1 false
 @bins = internal global [64 x i64] zeroinitializer
+; The bytes of every free block, headers and footers included, which
+; l0_host_heap_left gives: take subtracts what it marks used, and
+; l0_host_free adds the block freed, before it merges.
+@heap_free = internal global i64 0
 
 define internal i64 @bin_of(i64 %size) {
 entry:
@@ -129,6 +133,7 @@ entry:
   %size = sub i64 %last, %first
   call void @set_tags(i64 %first, i64 %size, i64 0)
   call void @bin_insert(i64 %first)
+  store i64 %size, ptr @heap_free
   %ep = inttoptr i64 %last to ptr
   store i64 1, ptr %ep
   store i1 true, ptr @heap_ready
@@ -147,7 +152,8 @@ entry:
 }
 
 ; Marks free block b, of size have, used at size need, freeing what is left
-; when it is a block of its own. b is already off its bin.
+; when it is a block of its own. b is already off its bin, and have is
+; counted free.
 define internal void @take(i64 %b, i64 %have, i64 %need) {
 entry:
   %left = sub i64 %have, %need
@@ -158,9 +164,15 @@ cut:
   %r = add i64 %b, %need
   call void @set_tags(i64 %r, i64 %left, i64 0)
   call void @bin_insert(i64 %r)
-  ret void
+  br label %count
 whole:
   call void @set_tags(i64 %b, i64 %have, i64 1)
+  br label %count
+count:
+  %used = phi i64 [ %need, %cut ], [ %have, %whole ]
+  %f = load i64, ptr @heap_free
+  %f1 = sub i64 %f, %used
+  store i64 %f1, ptr @heap_free
   ret void
 }
 
@@ -221,6 +233,9 @@ go:
   %h0p = inttoptr i64 %b0 to ptr
   %t0 = load i64, ptr %h0p
   %s0 = and i64 %t0, -16
+  %f = load i64, ptr @heap_free
+  %f1 = add i64 %f, %s0
+  store i64 %f1, ptr @heap_free
   %nb = add i64 %b0, %s0
   %nhp = inttoptr i64 %nb to ptr
   %nt = load i64, ptr %nhp
@@ -387,6 +402,9 @@ grow:
   br i1 %absorb, label %extend, label %move
 extend:
   call void @bin_remove(i64 %nb)
+  %hf = load i64, ptr @heap_free
+  %hf1 = add i64 %hf, %s
+  store i64 %hf1, ptr @heap_free
   call void @take(i64 %b, i64 %both, i64 %need)
   ret ptr %p
 move:
@@ -399,6 +417,19 @@ copy:
   ret ptr %q
 fail:
   ret ptr null
+}
+
+; Spec section 6.19: the bytes of the free blocks.
+define i64 @l0_host_heap_left() {
+entry:
+  %ready = load i1, ptr @heap_ready
+  br i1 %ready, label %count, label %init
+init:
+  call void @heap_init()
+  br label %count
+count:
+  %f = load i64, ptr @heap_free
+  ret i64 %f
 }
 
 ; --------------------------------------------- what a C environment provides

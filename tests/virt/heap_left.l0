@@ -1,0 +1,28 @@
+; Spec section 6.19, on the board and as a process: the heap's free bytes
+; are counted, fall by what a million cons cells of 24 bytes take while
+; they are held, and rise by about as much at once as they are freed,
+; before any sweep, less what the runtime keeps to free them with, and
+; come back to within a chunk of where they started.
+
+(def build ((n int) (acc (list int))) (list int)
+  (if (eq n 0) acc (build (sub n 1) (cons n acc))))
+
+(def yn ((ok bool) (rest (list int))) (list int)
+  (cons (if ok 121 110) rest))
+
+(def checks ((a int) (b int) (n int) (c int)) (list int)
+  (yn (gt a 0)
+  (yn (ge (sub a b) 24000000)
+  (yn (eq n 1000000)
+  (yn (ge (sub c b) 23000000)
+  (yn (lt (sub a c) 1048576)
+  (yn (lt (sub c a) 1048576)
+  "\n")))))))
+
+(def main ((input (list int))) (list int)
+  (let a (heap_left)
+    (let xs (build 1000000 (nil int))
+      (let b (heap_left)
+        (let n (length xs)
+          (let c (heap_left)
+            (checks a b n c)))))))

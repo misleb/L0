@@ -1,0 +1,5 @@
+; Spec sections 6.19 and 9.2: under an operating system the heap is the
+; C library's, with no fixed size, so heap_left is -3.
+(def main () int
+  (let h (write_line (digits (heap_left)))
+    0))

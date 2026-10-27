@@ -92,6 +92,7 @@ declare i64 @l0_cpu_count()
 declare i64 @l0_cpu_run(i64, i64, i64, i64, i64)
 declare i64 @l0_cpu_trapped()
 declare i64 @l0_cpu_wait()
+declare i64 @l0_heap_left()
 
 @l0_main_ret_kind = global i64 0
 

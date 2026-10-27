@@ -100,7 +100,11 @@ aarch64 board, for a driver that finds and sets up a PCIe device
 itself. `(frame_free_count)` says how
 many pages are left for frames and tables, so it can refuse work that would
 not fit; the pages standard input was loaded into join them once a read
-reaches its end. `(board_reset)` restarts the board, on the
+reaches its end. `(heap_left)` says the same of its own heap, how many
+bytes are free, counting what it freed at once, so a kernel can refuse
+work before `heap exhausted` ends it; keep a few megabytes in reserve,
+since free bytes in pieces may not make one value. It is -3 under an
+operating system. `(board_reset)` restarts the board, on the
 Pi 5 and the aarch64 board, and is -3 elsewhere, where `exit` is all there
 is. A kernel can run threads on the other CPUs too, with the builtins of
 the spec's section 6.18: `(cpu_count)` says how many there are, its own

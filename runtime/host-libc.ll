@@ -596,6 +596,12 @@ entry:
   ret i64 %r
 }
 
+; Spec section 6.19: the heap is malloc's, which has no fixed size.
+define i64 @l0_host_heap_left() {
+entry:
+  ret i64 -3
+}
+
 ; ------------------------------------------------------------- entry point
 
 ; Before the program's thread starts, spec section 6.3. A write to a pipe

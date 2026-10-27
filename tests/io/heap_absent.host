@@ -1,0 +1,1 @@
+Needs a host whose heap is an operating system's: the virt board and a process have one of a fixed size, so their heap_left is not -3, which tests/virt/heap_left checks.

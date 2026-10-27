@@ -158,6 +158,11 @@ None.
 
 ## Done and dropped
 
+- [0124](0124-heap-left.md) how much of its heap a program has left —
+  done, changelog "A program can ask how much of its heap is left";
+  aarch64 `--virt` green; not run on macOS, a Pi 5, or riscv64's half of
+  `--virt`
+
 - [0123](0123-idle-cpus-halt.md) idle CPUs halt, woken by the host's own
   SGI — done, changelog "Idle CPUs halt"; aarch64 `--virt` green; not run
   on a Pi 5, Linux, or riscv64's half of `--virt`

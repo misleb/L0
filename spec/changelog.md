@@ -7,6 +7,62 @@ New entries go at the top.
 
 ---
 
+## A program can ask how much of its heap is left (roadmap 0124)
+
+**Changed:** a builtin, `(heap_left)`, section 6.19: how many bytes of
+the program's heap are free, or -3 where the heap is an operating
+system's. The runtime gains `l0_heap_left` and the host interface
+`l0_host_heap_left`. The runtime now counts the bytes on its free lists
+as blocks go on and come off them, and `freestanding.ll` the bytes in its
+free blocks.
+
+*Why:* L0S's `probes/memory/REQUEST-heap-left.md`. Its kernel records
+every page it gives a process in its own heap, and its rule is that
+nothing a process does can crash it. With a 96 MB kernel heap, its board
+test `test_frames_run_out`, four processes taking 2,112 MB of a
+1,839.5 MB pool, ends in `heap exhausted` before the frames run out, and
+the board stops; with 192 MB the frames run out first and the test
+passes. On a Pi 5 the kernel's heap is sized for 2 GB of RAM, and on a
+board of more, processes can take more pages than it can record.
+`frame_free_count` already lets the kernel refuse a page when frames run
+out; nothing told it the same of its heap, whose size is fixed when it is
+linked and whose state only the runtime sees. An estimate in L0S, about
+285 bytes per page given, misses messages, maps, and the initramfs's
+copy, and an estimate that is wrong stops the board.
+
+*Decided:*
+
+- Free bytes, not the largest value that can be made. The request
+  accepts either for a kernel that allocates in small pieces, and free
+  bytes is one number a program can reason about: what it frees comes
+  back, what it makes goes. The largest block would need a walk of the
+  host's bins or the free lists on every call, and would still not say
+  whether a chunk could be made, which is when `heap exhausted` comes.
+  6.19 says the count can overstate what one allocation gets, and that a
+  reserve of a few megabytes is how a program stays clear.
+- Blocks on the free lists count. Without them, a kernel that ends a
+  process and frees its records would see nothing come back until a
+  sweep, and sweeps run only as chunks are made, which a kernel that
+  refuses work because its count is low never does: it would refuse for
+  ever. Counting them costs an addition as a block is freed and a
+  subtraction as one is reused, beside the stores to the list head those
+  already make, so 10.3's "nothing is counted as blocks come and go" is
+  now "only the free lists' bytes are". A sweep subtracts the bytes of
+  the chunks it takes, which then count whole, as a chunk kept or as the
+  host's free bytes, so a sweep never lowers the count.
+- Asking never sweeps. A sweep walks every free list, and a kernel asks
+  on every page it maps; the count is already right without one.
+- `freestanding.ll` counts its free blocks' bytes, headers included, as
+  blocks are taken and freed. The bytes it counts are what its bins hold,
+  so the count is exact for its heap, whatever pages `l0_heap_release`
+  has handed a process's kernel, since those are still the heap's.
+- -3 on an operating system, whose `malloc` has no fixed size. 9.2 gains
+  "a heap of its own" among what a host may lack.
+- Under `L0_RC_CHECK` a freed block is never reused, so it is not
+  counted.
+
+---
+
 ## Idle CPUs halt (roadmap 0123)
 
 **Changed:** on the aarch64 boards, a CPU with nothing to do, another CPU
