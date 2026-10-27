@@ -12,7 +12,7 @@ SECTIONS
   . = 0x40080000;
   .text : { *(.text.boot) *(.text*) }
   .rodata : { *(.rodata*) }
-  .data : { *(.data*) }
+  .data : { *(.data*) *(.got) *(.got.plt) }
   . = ALIGN(8);
   __bss_start = .;
   .bss : { *(.bss*) *(COMMON) }

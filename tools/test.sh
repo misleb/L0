@@ -701,7 +701,8 @@ if [ "$VIRT" = 1 ]; then
     # lists it, for this CPU, saying why not if it is not: an ELF64 ET_EXEC
     # for the machine, entered at 0xC0000000, whose PT_LOADs, page-aligned,
     # are the code, the rodata, and the data, in that order, the last two
-    # each left out when empty, so none is writable and executable.
+    # each left out when empty, so none is writable and executable, and
+    # whose bss is in none of the file.
     elf_ok() {
         mach=183                                    # EM_AARCH64
         [ "$VARCH" = riscv64 ] && mach=243          # EM_RISCV
@@ -739,6 +740,32 @@ if [ "$VIRT" = 1 ]; then
                 return 1
                 ;;
         esac
+        # The data's p_memsz past its p_filesz is the bss, so no section
+        # loaded from the file lies past the bss's start: a section proc.ld
+        # does not name, which ld.lld puts after .bss, would write .bss's
+        # zeros into the file and lie past __image_end, under the heap.
+        shoff=$(elf_word "$1" 40 8)
+        shnum=$(elf_word "$1" 60 2)
+        bss=""
+        loaded=""
+        k=0
+        while [ "$k" -lt "$shnum" ]; do
+            sh=$((shoff + k * 64))
+            if [ $(($(elf_word "$1" $((sh + 8)) 8) & 2)) != 0 ] &&    # SHF_ALLOC
+                [ "$(elf_word "$1" $((sh + 32)) 8)" != 0 ]; then
+                addr=$(elf_word "$1" $((sh + 16)) 8)
+                if [ "$(elf_word "$1" $((sh + 4)) 4)" = 8 ]; then    # SHT_NOBITS
+                    { [ -z "$bss" ] || [ "$addr" -lt "$bss" ]; } && bss=$addr
+                else
+                    { [ -z "$loaded" ] || [ "$addr" -gt "$loaded" ]; } && loaded=$addr
+                fi
+            fi
+            k=$((k + 1))
+        done
+        if [ -n "$bss" ] && [ -n "$loaded" ] && [ "$loaded" -ge "$bss" ]; then
+            echo "a section loaded from the file lies past the bss's start"
+            return 1
+        fi
     }
 
     # proc_build SUITE NAME SRC STEM [IMG] builds SRC as a process image,

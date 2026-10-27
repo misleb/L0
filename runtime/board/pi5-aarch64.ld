@@ -16,7 +16,7 @@ SECTIONS
   . = 0x80000;
   .text : { *(.text.boot) *(.text*) }
   .rodata : { *(.rodata*) }
-  .data : { *(.data*) }
+  .data : { *(.data*) *(.got) *(.got.plt) }
   .input_len : { . = ALIGN(8); __input_len = .; QUAD(0) }
   . = ALIGN(8);
   __bss_start = .;

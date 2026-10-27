@@ -5,7 +5,9 @@
    kernel's to choose. The image is an ELF with a PT_LOAD for each
    permission, which the target's manifest links with
    -z max-page-size=4096, so each segment is page-aligned in the file as in
-   memory, and the heap starts at the first page after the image. */
+   memory, and the heap starts at the first page after the image. The GOT
+   is named in .data, since ld.lld puts an unnamed one after .bss, which
+   writes .bss's zeros into the file and leaves the GOT past __image_end. */
 ENTRY(_start)
 PHDRS
 {
@@ -20,7 +22,7 @@ SECTIONS
   . = ALIGN(4096);
   .rodata : { *(.rodata*) *(.srodata*) } :rodata
   . = ALIGN(4096);
-  .data : { *(.data*) *(.sdata*) } :data
+  .data : { *(.data*) *(.sdata*) *(.got) *(.got.plt) } :data
   .bss : { *(.sbss*) *(.bss*) *(COMMON) } :data
   __image_end = .;
   __heap_start = ALIGN(__image_end, 4096);
