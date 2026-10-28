@@ -401,7 +401,8 @@
 
 ;; A range of a device's memory, its registers, opened with open_device.
 ;; Read it with device_read8 to device_read64 and write it with
-;; device_write8 to device_write64, at offsets from the range's start.
+;; device_write8 to device_write64, at offsets from the range's start, or
+;; copy bytes out and in with device_read_bytes and device_write_bytes.
 (data IoDevice
   (IoDevice int))
 
@@ -473,6 +474,19 @@
 ;; Writes all 64 bits of v at off in d, and returns 0.
 (def device_write64 ((d IoDevice) (off int) (v int)) int
   (match d ((IoDevice r) (region_write64 r off v))))
+
+;; A copy of the n bytes at off in d, as bytes: for a range over memory,
+;; such as pages shared or given a device, not over registers, since each
+;; byte is read once, lowest first, but at widths the host chooses. A
+;; negative n, or a range past either end of d, is a runtime error.
+(def device_read_bytes ((d IoDevice) (off int) (n int)) bytes
+  (match d ((IoDevice r) (region_read_bytes r off n))))
+
+;; Copies bytes i up to j of b into d from off, as device_read_bytes reads
+;; them, and returns 0. A range not within b, as write_bytes takes one, or
+;; past either end of d, is a runtime error.
+(def device_write_bytes ((d IoDevice) (off int) (b bytes) (i int) (j int)) int
+  (match d ((IoDevice r) (region_write_bytes r off b i j))))
 
 ; A thread's trap, over the user-mode builtins of spec section 6.13, read
 ; from its context as section 10.3 lays one out for the CPU machine names

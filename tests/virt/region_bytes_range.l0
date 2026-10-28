@@ -1,0 +1,8 @@
+; Spec section 6.12: a copy that would end past its region is a runtime
+; error, before anything is read: 4 bytes at 21 of 24 end at 25. An
+; empty copy at the end is not, and no copy has an alignment to break.
+
+(def main () int
+  (let fw (region_open (board_fw_cfg) 24)
+    (let e (write_line (digits (bytes_len (region_read_bytes fw 24 0))))
+      (bytes_len (region_read_bytes fw 21 4)))))

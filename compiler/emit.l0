@@ -494,7 +494,7 @@
   (fn_sym n (env_prelude env)))
 
 (def is_borrowing ((n (list int))) bool
-  (any_eq n (split_spaces "head tail is_empty eq hash compare open_read open_write open_append rename remove open_bytes array_len array_get bytes_len bytes_get write_bytes bytes_slice bytes_concat space_write supervisor_send cpu_run")))
+  (any_eq n (split_spaces "head tail is_empty eq hash compare open_read open_write open_append rename remove open_bytes array_len array_get bytes_len bytes_get write_bytes bytes_slice bytes_concat region_write_bytes space_write supervisor_send cpu_run")))
 
 ; Borrowing builtins whose result is new, with a reference of its own, not a
 ; part of an argument. Spec 10.3.
@@ -770,8 +770,8 @@
     st))
 
 ; head, tail, is_empty, eq, hash, array_len, array_get, open_bytes, bytes_len,
-; bytes_get, write_bytes, bytes_slice, bytes_concat, space_write,
-; supervisor_send, and the builtins taking paths read their list, data,
+; bytes_get, write_bytes, bytes_slice, bytes_concat, region_write_bytes,
+; space_write, supervisor_send, and the builtins taking paths read their list, data,
 ; array, and bytes arguments without consuming them.
 ; Their result gains a reference if it is a pointer to a part of an argument,
 ; and then each argument that came with a reference is released, in order:
@@ -813,7 +813,7 @@
           (TyFloat)
       (if (eq n "array_new")
           (TyArray (head (tail ts)))
-          (if (any_eq n (split_spaces "read_bytes read_some bytes_from_list bytes_slice bytes_concat space_read supervisor_receive"))
+          (if (any_eq n (split_spaces "read_bytes read_some bytes_from_list bytes_slice bytes_concat region_read_bytes space_read supervisor_receive"))
               (TyBytes)
               (if (eq n "bytes_to_list")
                   (TyList (TyInt))
@@ -1070,7 +1070,7 @@
 ; Spec 10.3.
 (def io_names ((i int)) (list (list int))
   (split_spaces
-    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes bytes_slice bytes_concat clock_ns remove read_some region_open region_close region_read8 region_read16 region_read32 region_read64 region_write8 region_write16 region_write32 region_write64 barrier space_new frame_new space_map space_map_device space_read space_write user_run timer_at interrupt_enable interrupt_wait interrupt_done supervisor_call supervisor_send supervisor_receive frame_address space_unmap space_free frame_free machine frame_free_count frame_sync board_reset cpu_count cpu_run cpu_trapped cpu_wait heap_left"))
+    "read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes bytes_slice bytes_concat clock_ns remove read_some region_open region_close region_read8 region_read16 region_read32 region_read64 region_write8 region_write16 region_write32 region_write64 barrier space_new frame_new space_map space_map_device space_read space_write user_run timer_at interrupt_enable interrupt_wait interrupt_done supervisor_call supervisor_send supervisor_receive frame_address space_unmap space_free frame_free machine frame_free_count frame_sync board_reset cpu_count cpu_run cpu_trapped cpu_wait heap_left region_read_bytes region_write_bytes"))
 
 (def rt_names ((i int)) (list (list int))
   (append (split_spaces "div mod head tail is_empty array_len array_get array_set bit_shl bit_shr bit_count")
@@ -1973,8 +1973,10 @@
               (append "declare i64 @l0_region_write16(i64, i64, i64)\n"
                 (append "declare i64 @l0_region_write32(i64, i64, i64)\n"
                   (append "declare i64 @l0_region_write64(i64, i64, i64)\n"
+                    (append "declare i64 @l0_region_read_bytes(i64, i64, i64)\n"
+                    (append "declare i64 @l0_region_write_bytes(i64, i64, i64, i64, i64)\n"
                     (append "declare i64 @l0_barrier()\n"
-                      (append "declare i64 @l0_array_take(i64, i64)\n" (user_decls 0))))))))))))))
+                      (append "declare i64 @l0_array_take(i64, i64)\n" (user_decls 0))))))))))))))))
 
 (def user_decls ((i int)) (list int)
   (append "declare i64 @l0_space_new()\n"

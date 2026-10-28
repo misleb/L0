@@ -7,6 +7,41 @@ New entries go at the top.
 
 ---
 
+## A region's bytes are copied out as bytes, and bytes into it (roadmap 0126)
+
+**New:** `(region_read_bytes r off n)` returns the `n` bytes of region `r`
+from `off` as bytes, and `(region_write_bytes r off b i j)` copies bytes
+`i` up to `j` of `b` into `r` from `off` (spec 6.12). Each byte is read
+or written once, lowest address first, in accesses of widths the host
+chooses, so neither has an alignment rule. A negative count is `byte
+count out of range`, a bad range of `b` is `byte index out of range`, and
+both are checked after `not a region` and before `region offset out of
+range`, as `space_read` and `space_write` check theirs after `not a
+space`.
+
+*Why:* L0S asked (its `probes/bytes/REQUEST-region-bytes.md`). Its file
+server and drivers move bulk data through shared and DMA pages, which a
+process reaches only as a region: a 64 KB write through a file window
+was 65,536 `region_read8` calls and as many cons cells for
+`bytes_from_list`, and going back the other way a `region_write8` a
+byte. A kernel already had `space_read` and `space_write` for the same
+job; a process had nothing alike.
+
+*Decided:* the two take the shapes of `space_read` and `space_write`, a
+count to read and a range of bytes to write, so a program that copies
+through a space and one that copies through a region read alike. They are
+for memory, not registers, and say so: a register's width is part of what
+it means, and these give no width. The runtime copies a byte at a time,
+each access volatile so that no copy is merged, left out, or turned into
+a library call the host may not have, and wide or unaligned accesses
+never reach memory mapped as a device's, which faults on aarch64 when
+they are unaligned. The spec leaves the widths to the host so that
+copying a word at a time can come later without a language change. 6.12's
+paragraph that no region builtin yields bytes now says what does, and why
+it still points nowhere: the bytes are a copy, as `space_read`'s are.
+
+---
+
 ## The Raspberry Pi 5's SD host controller, sdio1, is a region, with its interrupt (roadmap 0125)
 
 **New:** on the Pi 5, `sdio1`, the BCM2712's SD host controller behind

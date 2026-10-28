@@ -1,0 +1,7 @@
+; Spec section 6.12: copying into a region the program has not opened is
+; a runtime error on every host, checked before the range of the bytes,
+; which here is no range either, and after the bytes already written.
+
+(def main () int
+  (let w (write_byte 111)
+    (region_write_bytes 3 0 (bytes_from_list "ab") 2 1)))

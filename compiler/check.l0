@@ -279,7 +279,7 @@
 (def bi_user_ints ((i int)) (list (list int))
   (split_spaces "space_new frame_new space_map space_map_device frame_address frame_sync space_unmap space_free frame_free frame_free_count"))
 (def bi_user ((i int)) (list (list int))
-  (split_spaces "space_read space_write user_run supervisor_send supervisor_receive cpu_run cpu_trapped"))
+  (split_spaces "space_read space_write user_run supervisor_send supervisor_receive cpu_run cpu_trapped region_read_bytes region_write_bytes"))
 (def bi_path ((i int)) (list (list int))
   (split_spaces "open_read open_write open_append rename open_bytes remove"))
 (def bi_to_list ((i int)) (list (list int)) (split_spaces "arg buffer_bytes"))
@@ -326,14 +326,14 @@
       (if (any_eq n (split_spaces
             "float_neg float_sqrt float_from_int float_to_int float_bits float_from_bits neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes remove buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list bytes_concat timer_at interrupt_enable interrupt_done frame_address space_free frame_free region_close"))
           1
-          (if (any_eq n (split_spaces "array_set region_write8 region_write16 region_write32 region_write64 space_read supervisor_receive bytes_slice"))
+          (if (any_eq n (split_spaces "array_set region_write8 region_write16 region_write32 region_write64 space_read supervisor_receive bytes_slice region_read_bytes"))
               3
               (builtin_arity_wide n)))))
 
 (def builtin_arity_wide ((n (list int))) int
   (if (any_eq n (split_spaces "write_bytes space_map space_map_device supervisor_call"))
       4
-      (if (any_eq n (split_spaces "space_write supervisor_send cpu_run")) 5 2)))
+      (if (any_eq n (split_spaces "space_write supervisor_send cpu_run region_write_bytes")) 5 2)))
 
 (def plural ((n int) (word (list int))) (list int)
   (if (eq n 1) word (append word "s")))
@@ -392,14 +392,15 @@
           (check_user_builtin n ats o)
           (check_list_builtin n ats o))))
 
-; space_read and supervisor_receive give bytes for three ints, space_write
-; and supervisor_send take bytes and a range of them, user_run takes
-; and gives a context, an (array int), cpu_run takes one between two ints
-; and two more, and cpu_trapped gives one. Spec 6.13, 6.15, and 6.18.
+; space_read, supervisor_receive, and region_read_bytes give bytes for
+; three ints, space_write, supervisor_send, and region_write_bytes take
+; bytes and a range of them, user_run takes and gives a context, an
+; (array int), cpu_run takes one between two ints and two more, and
+; cpu_trapped gives one. Spec 6.12, 6.13, 6.15, and 6.18.
 (def check_user_builtin ((n (list int)) (ats (list Ty)) (o int)) (Checked Ty)
-  (if (any_eq n (split_spaces "space_read supervisor_receive"))
+  (if (any_eq n (split_spaces "space_read supervisor_receive region_read_bytes"))
       (need_each n ats o (cons (TyInt) (cons (TyInt) (cons (TyInt) (nil Ty)))) (TyBytes))
-      (if (any_eq n (split_spaces "space_write supervisor_send"))
+      (if (any_eq n (split_spaces "space_write supervisor_send region_write_bytes"))
           (need_each n ats o
             (cons (TyInt) (cons (TyInt) (cons (TyBytes) (cons (TyInt) (cons (TyInt) (nil Ty))))))
             (TyInt))

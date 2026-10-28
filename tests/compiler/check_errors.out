@@ -100,6 +100,9 @@ ok
 35: space_free takes 1 argument, but got 0
 35: an argument of frame_free must be int, but this is (list int)
 35: machine takes 0 arguments, but got 1
+35: region_write_bytes takes 5 arguments, but got 4
+35: an argument of region_write_bytes must be bytes, but this is (list int)
+46: an argument of region_read_bytes must be int, but this is bool
 35: head must be a list, but this is int
 35: heap_left takes 0 arguments, but got 1
 35: cpu_wait takes 0 arguments, but got 1

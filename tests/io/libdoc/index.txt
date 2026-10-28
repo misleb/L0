@@ -185,6 +185,10 @@
       Writes the low 32 bits of v at off in d, and returns 0.
   device_write64 ((d IoDevice) (off int) (v int)) int
       Writes all 64 bits of v at off in d, and returns 0.
+  device_read_bytes ((d IoDevice) (off int) (n int)) bytes
+      A copy of the n bytes at off in d, as bytes: for a range over memory, such as pages shared or given a device, not over registers, since each byte is read once, lowest first, but at widths the host chooses.
+  device_write_bytes ((d IoDevice) (off int) (b bytes) (i int) (j int)) int
+      Copies bytes i up to j of b into d from off, as device_read_bytes reads them, and returns 0.
   (data Trap (TrapCall int) (TrapMissing int) (TrapFault int int) (TrapInterrupt int))
       Why a thread came back from user_run: (TrapCall n), a system call with number n, which call_number reads; (TrapMissing va), a fault at the user address va where nothing is mapped, which a kernel answers by mapping a page there or ending the thread; (TrapFault why va), any other fault, with what the CPU said of it, its syndrome or cause, and the address; or (TrapInterrupt n), interrupt n, taken, which interrupt_done ends (spec section 6.14).
   trap_of ((c (array int))) Trap

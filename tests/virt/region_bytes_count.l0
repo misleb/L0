@@ -1,0 +1,6 @@
+; Spec section 6.12: a negative count to region_read_bytes is a runtime
+; error, checked before its offset, so -1 bytes at -1 is the count's.
+
+(def main () int
+  (let fw (region_open (board_fw_cfg) 24)
+    (bytes_len (region_read_bytes fw -1 -1))))

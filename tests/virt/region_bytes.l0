@@ -1,0 +1,34 @@
+; Spec section 6.12 on the board: region_read_bytes copies a region's
+; bytes out as bytes, and region_write_bytes copies a range of bytes in.
+; The firmware configuration interface's data register, at 0, gives the
+; selected item a byte per byte read, and takes reads only there, so with
+; item 0, the signature, selected (its selector is a 16-bit register at
+; 8), four copies of the byte at 0 are "QEMU". The serial port's data
+; register is its byte at 0, so each write here is of one byte of a longer
+; value, from where its range starts. An empty range may start at the
+; region's end. tests/virt/aarch64/region_bytes copies more than a byte.
+
+; The next k bytes of the item, each copied before the rest are.
+(def sig ((fw int) (k int)) (list bytes)
+  (if (eq k 0)
+      (nil bytes)
+      (let b (region_read_bytes fw 0 1)
+        (cons b (sig fw (sub k 1))))))
+
+(def put ((u int) (b bytes) (i int)) int
+  (region_write_bytes u 0 b i (add i 1)))
+
+; The serial port is written first, before anything is written to
+; standard output, since under a kernel a flush hands bytes to the kernel,
+; which may hold them still.
+(def main () int
+  (let u (region_open (board_uart) 4)
+    (let ok (bytes_from_list "-ok\n")
+      (let p (put u ok 1)
+        (let q (put u ok 2)
+          (let r (put u ok 3)
+            (let z (region_write_bytes u 4 ok 2 2)
+              (let fw (region_open (board_fw_cfg) 24)
+                (let s (region_write16 fw 8 0)
+                  (let a (write_line (bytes_to_list (bytes_concat (sig fw 4))))
+                    (write_line (digits (bytes_len (region_read_bytes fw 24 0))))))))))))))

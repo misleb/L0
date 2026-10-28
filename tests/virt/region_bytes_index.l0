@@ -1,0 +1,7 @@
+; Spec section 6.12: region_write_bytes given a range that is not one of
+; its bytes' is a runtime error, checked before its offset, so 2 up to 1
+; at -1 is the range's, and nothing is written.
+
+(def main () int
+  (let u (region_open (board_uart) 4)
+    (region_write_bytes u -1 (bytes_from_list "abc") 2 1)))

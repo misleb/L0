@@ -158,6 +158,11 @@ None.
 
 ## Done and dropped
 
+- [0126](0126-region-bytes.md) a region's bytes copied out as bytes, and
+  bytes into a region — done, changelog "A region's bytes are copied out
+  as bytes, and bytes into it"; aarch64 `--virt` green; not run on macOS,
+  a Pi 5, or riscv64's half of `--virt`
+
 - [0125](0125-pi5-sdio1.md) the Pi 5's SD host controller, `sdio1`, is a
   region, with its interrupt, 305 — done, changelog "The Raspberry Pi 5's
   SD host controller, sdio1, is a region, with its interrupt"; aarch64

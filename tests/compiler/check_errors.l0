@@ -161,7 +161,10 @@
           (push (check_source (m "(cpu_trapped 1)"))
           (push (check_source (m "(cpu_wait true)"))
           (push (check_source (m "(heap_left 1)"))
-          (push (check_source (m "(head (heap_left))")) cz))))))))))))))))))))))))))))))))))))))
+          (push (check_source (m "(head (heap_left))"))
+          (push (check_source (m "(bytes_len (region_read_bytes 1 2 true))"))
+          (push (check_source (m "(region_write_bytes 1 2 \"a\" 0 1)"))
+          (push (check_source (m "(region_write_bytes 1 2 (bytes_from_list \"a\") 0)")) cz)))))))))))))))))))))))))))))))))))))))))
     (rev da)))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))
 
 ; A data declaration whose one constructor has n int fields.

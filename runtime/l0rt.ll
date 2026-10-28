@@ -2804,6 +2804,94 @@ entry:
   ret i64 0
 }
 
+; The address n bytes at off in region r start at, once region_slot has
+; said r is open: the offset check of spec section 6.12, with no alignment.
+define internal ptr @region_span(i64 %r, i64 %off, i64 %n) {
+entry:
+  %lp = getelementptr [64 x i64], ptr @rg_len, i64 0, i64 %r
+  %len = load i64, ptr %lp
+  %neg = icmp slt i64 %off, 0
+  %room = sub i64 %len, %n
+  %past = icmp sgt i64 %off, %room
+  %out = or i1 %neg, %past
+  br i1 %out, label %outside, label %ok
+outside:
+  call void @rt_error(ptr @m_rrange, i64 26)
+  unreachable
+ok:
+  %ap = getelementptr [64 x i64], ptr @rg_addr, i64 0, i64 %r
+  %base = load i64, ptr %ap
+  %at = add i64 %base, %off
+  %p = inttoptr i64 %at to ptr
+  ret ptr %p
+}
+
+; A byte at a time, each region access volatile: no wider or unaligned
+; access reaches memory a host may map as a device's, and the loop is never
+; made a call to memcpy, which a host without libc may not have.
+define i64 @l0_region_read_bytes(i64 %r, i64 %off, i64 %n) {
+entry:
+  %lp = call ptr @region_slot(i64 %r)
+  %neg = icmp slt i64 %n, 0
+  br i1 %neg, label %err, label %span
+err:
+  call void @rt_error(ptr @m_bcount, i64 23)
+  unreachable
+span:
+  %src = call ptr @region_span(i64 %r, i64 %off, i64 %n)
+  %b = call i64 @bytes_alloc(i64 %n)
+  %bi = add i64 %b, 8
+  %dst = inttoptr i64 %bi to ptr
+  br label %loop
+loop:
+  %k = phi i64 [ 0, %span ], [ %k1, %copy ]
+  %done = icmp eq i64 %k, %n
+  br i1 %done, label %out, label %copy
+copy:
+  %sp = getelementptr i8, ptr %src, i64 %k
+  %v = load volatile i8, ptr %sp, align 1
+  %dp = getelementptr i8, ptr %dst, i64 %k
+  store i8 %v, ptr %dp, align 1
+  %k1 = add i64 %k, 1
+  br label %loop
+out:
+  ret i64 %b
+}
+
+; b is read, not consumed, as write_bytes reads its bytes.
+define i64 @l0_region_write_bytes(i64 %r, i64 %off, i64 %b, i64 %i, i64 %j) {
+entry:
+  %lp = call ptr @region_slot(i64 %r)
+  %q = inttoptr i64 %b to ptr
+  %n = load i64, ptr %q
+  %lo = icmp ule i64 %i, %j
+  %hi = icmp ule i64 %j, %n
+  %in = and i1 %lo, %hi
+  br i1 %in, label %span, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+span:
+  %len = sub i64 %j, %i
+  %dst = call ptr @region_span(i64 %r, i64 %off, i64 %len)
+  %o = add i64 %i, 8
+  %src = getelementptr i8, ptr %q, i64 %o
+  br label %loop
+loop:
+  %k = phi i64 [ 0, %span ], [ %k1, %copy ]
+  %done = icmp eq i64 %k, %len
+  br i1 %done, label %out, label %copy
+copy:
+  %sp = getelementptr i8, ptr %src, i64 %k
+  %v = load i8, ptr %sp, align 1
+  %dp = getelementptr i8, ptr %dst, i64 %k
+  store volatile i8 %v, ptr %dp, align 1
+  %k1 = add i64 %k, 1
+  br label %loop
+out:
+  ret i64 0
+}
+
 define i64 @l0_barrier() {
 entry:
   call void @l0_host_barrier()
