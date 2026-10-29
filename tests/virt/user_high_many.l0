@@ -1,0 +1,25 @@
+; Spec section 10.3 on the board: more than the 384 MB a process has above
+; its stack in the low user range, mapped in the high one. One frame is
+; mapped at 131,072 pages, 512 MB from 0x20F0000000, across the 132nd and
+; 133rd gigabytes, written past their boundary and read back, and the space
+; given back takes every table with it.
+(def map_from ((s int) (va int) (f int) (n int)) int
+  (if (eq n 0)
+      0
+      (let r (space_map s va f 1)
+        (if (eq r 0)
+            (map_from s (add va 4096) f (sub n 1))
+            r))))
+
+(def across () int 141733920768)                    ; 0x2100000000
+
+(def main () int
+  (let before (frame_free_count)
+    (let s (space_new)
+      (let f (frame_new)
+        (let a (write_line (digits (map_from s 141465485312 f 131072)))   ; 0x20F0000000
+          (let w (space_write s (across) (bytes_from_list "many") 0 4)
+            (let b (write_line (bytes_to_list (space_read s (sub (across) 4096) 4)))
+              (let u (write_line (digits (space_free s)))
+                (let v (frame_free f)
+                  (write_line (digits (sub before (frame_free_count)))))))))))))

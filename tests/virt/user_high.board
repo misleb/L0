@@ -1,0 +1,2 @@
+A kernel's own test: it makes spaces and runs threads, which only the board's
+host gives, so it is not run again as a process, which has no user mode.

@@ -150,13 +150,22 @@ reaches (0116): a driver there need not poll.
 
 Changes to the language, strictly in order. At most one is active.
 
-None.
+1. [0129](0129-fast-frame-zero.md) `frame_new` zeroes at memory
+   bandwidth — queued
+2. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
+   it grows — queued
 
 ## Other open items
 
-None.
+- [0131](0131-whole-copy-trap.md) tooling: the hidden whole copy of a map
+  or array, shown before it bites — queued
 
 ## Done and dropped
+
+- [0128](0128-wide-user-range.md) a space has a high user range, 128 GB
+  from 0x2000000000 — done, changelog "A space has a high user range,
+  128 GB past the 4th gigabyte"; aarch64 `--virt` green; not run on a
+  Pi 5 or riscv64's half of `--virt`
 
 - [0127](0127-pi5-hvs-eof.md) the Pi 5's display interrupt controller,
   `disp_intr`, is a region, with its interrupt, 129 — done, changelog

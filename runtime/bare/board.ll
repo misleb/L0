@@ -717,10 +717,14 @@ entry:
 ;
 ; Each space's root table maps what the board's boot map does, for the
 ; host alone, since the host runs on the thread's tables between traps, and
-; its 4th entry, the user range, 0xC0000000 up to 0x100000000, through a
-; table of its own, whose entries are tables of 4 KB pages made as pages
-; are mapped. Every user page is tagged with the space's ASID. A leaf maps
-; a frame when its address is in the pool, and a device's page otherwise.
+; the user range through tables of its own: its 4th entry, the low user
+; range, 0xC0000000 up to 0x100000000, through a table made with the space,
+; and its entries 128 to 255, the high user range, 0x2000000000 up to
+; 0x4000000000, which no board's boot map uses, through tables made as
+; pages are mapped there. Their entries are tables of 4 KB pages, made as
+; pages are mapped too. Every user page is tagged with the space's ASID. A
+; leaf maps a frame when its address is in the pool, and a device's page
+; otherwise.
 
 @pool_lo = internal global i64 0
 @pool_hi = internal global i64 0
@@ -1560,12 +1564,77 @@ out:
   ret i64 -5
 }
 
-; The root table's entry for the user range, its 4th.
-define internal ptr @user_entry(i64 %l1) {
+; The root table's entry for the gigabyte the user address va is in: the
+; 4th, the low user range's, or one of the 129th to the 256th, the high
+; one's.
+define internal ptr @user_entry(i64 %l1, i64 %va) {
 entry:
-  %e3 = add i64 %l1, 24
-  %p3 = inttoptr i64 %e3 to ptr
-  ret ptr %p3
+  %g = lshr i64 %va, 30
+  %o = shl i64 %g, 3
+  %e = add i64 %l1, %o
+  %p = inttoptr i64 %e to ptr
+  ret ptr %p
+}
+
+; The end of the part of the user range va is in, 0x100000000 for the low
+; one or 0x4000000000 for the high one, or 0 if va is in neither.
+define internal i64 @user_part_end(i64 %va) {
+entry:
+  %lo1 = icmp uge i64 %va, 3221225472                       ; 0xC0000000
+  %hi1 = icmp ult i64 %va, 4294967296                       ; 0x100000000
+  %in1 = and i1 %lo1, %hi1
+  %lo2 = icmp uge i64 %va, 137438953472                     ; 0x2000000000
+  %hi2 = icmp ult i64 %va, 274877906944                     ; 0x4000000000
+  %in2 = and i1 %lo2, %hi2
+  %r2 = select i1 %in2, i64 274877906944, i64 0
+  %r = select i1 %in1, i64 4294967296, i64 %r2
+  ret i64 %r
+}
+
+; Gives back the table at l2, of one gigabyte of a space's user range, and
+; the tables of pages it holds, every mapping in them counted off its
+; frame.
+define internal void @free_l2(i64 %l2) {
+entry:
+  %l2q = inttoptr i64 %l2 to ptr
+  br label %outer
+outer:
+  %i = phi i64 [ 0, %entry ], [ %i1, %onext ]
+  %odone = icmp eq i64 %i, 512
+  br i1 %odone, label %done, label %olook
+olook:
+  %p2 = getelementptr i64, ptr %l2q, i64 %i
+  %d2 = load i64, ptr %p2
+  %has = icmp ne i64 %d2, 0
+  br i1 %has, label %l3, label %onext
+l3:
+  %t3 = call i64 @l0_arch_pte_pa(i64 %d2)
+  %t3q = inttoptr i64 %t3 to ptr
+  br label %inner
+inner:
+  %j = phi i64 [ 0, %l3 ], [ %j1, %inext ]
+  %idone = icmp eq i64 %j, 512
+  br i1 %idone, label %l3done, label %ilook
+ilook:
+  %p3 = getelementptr i64, ptr %t3q, i64 %j
+  %d = load i64, ptr %p3
+  %mapped = icmp ne i64 %d, 0
+  br i1 %mapped, label %count, label %inext
+count:
+  call void @frame_mapped(i64 %d, i32 -1)
+  br label %inext
+inext:
+  %j1 = add i64 %j, 1
+  br label %inner
+l3done:
+  call void @table_give(i64 %t3)
+  br label %onext
+onext:
+  %i1 = add i64 %i, 1
+  br label %outer
+done:
+  call void @table_give(i64 %l2)
+  ret void
 }
 
 ; Removes the mapping at user page va of space s: 1 if s is not a space, 4
@@ -1623,47 +1692,29 @@ e12:
   ret i64 12
 off:
   call void @l0_arch_space_leave()
-  %e3 = call ptr @user_entry(i64 %l1)
+  %e3 = call ptr @user_entry(i64 %l1, i64 3221225472)
   %d3 = load i64, ptr %e3
   %l2 = call i64 @l0_arch_pte_pa(i64 %d3)
-  %l2q = inttoptr i64 %l2 to ptr
-  br label %outer
-outer:
-  %i = phi i64 [ 0, %off ], [ %i1, %onext ]
-  %odone = icmp eq i64 %i, 512
-  br i1 %odone, label %tables, label %olook
-olook:
-  %p2 = getelementptr i64, ptr %l2q, i64 %i
-  %d2 = load i64, ptr %p2
-  %has = icmp ne i64 %d2, 0
-  br i1 %has, label %l3, label %onext
-l3:
-  %t3 = call i64 @l0_arch_pte_pa(i64 %d2)
-  %t3q = inttoptr i64 %t3 to ptr
-  br label %inner
-inner:
-  %j = phi i64 [ 0, %l3 ], [ %j1, %inext ]
-  %idone = icmp eq i64 %j, 512
-  br i1 %idone, label %l3done, label %ilook
-ilook:
-  %p3 = getelementptr i64, ptr %t3q, i64 %j
-  %d = load i64, ptr %p3
-  %mapped = icmp ne i64 %d, 0
-  br i1 %mapped, label %count, label %inext
-count:
-  call void @frame_mapped(i64 %d, i32 -1)
-  br label %inext
-inext:
-  %j1 = add i64 %j, 1
-  br label %inner
-l3done:
-  call void @table_give(i64 %t3)
-  br label %onext
-onext:
-  %i1 = add i64 %i, 1
-  br label %outer
+  call void @free_l2(i64 %l2)
+  %root = inttoptr i64 %l1 to ptr
+  br label %high
+high:
+  %g = phi i64 [ 128, %off ], [ %g1, %hnext ]
+  %hdone = icmp eq i64 %g, 256
+  br i1 %hdone, label %tables, label %hlook
+hlook:
+  %pg = getelementptr i64, ptr %root, i64 %g
+  %dg = load i64, ptr %pg
+  %hhas = icmp ne i64 %dg, 0
+  br i1 %hhas, label %hfree, label %hnext
+hfree:
+  %lg = call i64 @l0_arch_pte_pa(i64 %dg)
+  call void @free_l2(i64 %lg)
+  br label %hnext
+hnext:
+  %g1 = add i64 %g, 1
+  br label %high
 tables:
-  call void @table_give(i64 %l2)
   call void @table_give(i64 %l1)
   %sp = getelementptr [255 x i64], ptr @sp_l1, i64 0, i64 %s
   store i64 0, ptr %sp
@@ -1686,27 +1737,42 @@ no:
   ret i64 0
 }
 
-; Whether va is a page of the user range, 0xC0000000 up to 0x100000000.
+; Whether va is a page of the user range, in either part.
 define internal i1 @user_page(i64 %va) {
 entry:
   %off = and i64 %va, 4095
   %aligned = icmp eq i64 %off, 0
-  %lo = icmp uge i64 %va, 3221225472
-  %hi = icmp ult i64 %va, 4294967296
-  %in = and i1 %lo, %hi
+  %end = call i64 @user_part_end(i64 %va)
+  %in = icmp ne i64 %end, 0
   %r = and i1 %aligned, %in
   ret i1 %r
 }
 
 ; The address of the leaf for the user address va in the space whose root
-; table is l1, making its table of pages if make is true: 0 if the table
-; is missing and not made, or no page is left to make it. A table made is
-; zeroed, and the zeros seen, before it is linked, since another CPU may
-; be walking the space's tables meanwhile.
+; table is l1, making its tables if make is true: 0 if a table is missing
+; and not made, or no page is left to make it. A table made is zeroed, and
+; the zeros seen, before it is linked, since another CPU may be walking the
+; space's tables meanwhile. The low user range's table is made with the
+; space; a high gigabyte's is made here.
 define internal i64 @l3_entry(i64 %l1, i64 %va, i1 %make) {
 entry:
-  %p3 = call ptr @user_entry(i64 %l1)
-  %d3 = load i64, ptr %p3
+  %p3 = call ptr @user_entry(i64 %l1, i64 %va)
+  %d30 = load i64, ptr %p3
+  %has3 = icmp ne i64 %d30, 0
+  br i1 %has3, label %top, label %missing3
+missing3:
+  br i1 %make, label %alloc3, label %none
+alloc3:
+  %t2 = call i64 @pool_page()
+  %nopage3 = icmp eq i64 %t2, 0
+  br i1 %nopage3, label %none, label %link3
+link3:
+  call void @l0_arch_tables_written()
+  %dt2 = call i64 @l0_arch_pte_table(i64 %t2)
+  store i64 %dt2, ptr %p3
+  br label %top
+top:
+  %d3 = phi i64 [ %d30, %entry ], [ %dt2, %link3 ]
   %l2 = call i64 @l0_arch_pte_pa(i64 %d3)
   %s2 = lshr i64 %va, 21
   %i2 = and i64 %s2, 511
@@ -1728,7 +1794,7 @@ link:
   store i64 %dt, ptr %p2
   br label %have
 have:
-  %d = phi i64 [ %d2, %entry ], [ %dt, %link ]
+  %d = phi i64 [ %d2, %top ], [ %dt, %link ]
   %l3 = call i64 @l0_arch_pte_pa(i64 %d)
   %s3 = lshr i64 %va, 12
   %i3 = and i64 %s3, 511
@@ -1813,7 +1879,11 @@ count:
   %top0 = shl i64 %n0, 12
   %top = add i64 %va, %top0
   %okt = call i1 @user_page(i64 %top)
-  %ok = and i1 %okv, %okt
+  %endv = call i64 @user_part_end(i64 %va)
+  %endt = call i64 @user_part_end(i64 %top)
+  %onepart = icmp eq i64 %endv, %endt
+  %ok0 = and i1 %okv, %okt
+  %ok = and i1 %ok0, %onepart
   br i1 %ok, label %check, label %e4
 check:
   %k = phi i64 [ 0, %count ], [ %k1, %clear ]
@@ -1895,9 +1965,8 @@ no:
 ; itself say whether anything was mapped there.
 define i1 @l0_bare_user_mapped(i64 %root, i64 %va) {
 entry:
-  %lo = icmp uge i64 %va, 3221225472
-  %hi = icmp ult i64 %va, 4294967296
-  %in = and i1 %lo, %hi
+  %end = call i64 @user_part_end(i64 %va)
+  %in = icmp ne i64 %end, 0
   br i1 %in, label %walk, label %no
 walk:
   %page = and i64 %va, -4096
@@ -1926,11 +1995,10 @@ empty:
   %zero = icmp eq i64 %n, 0
   br i1 %zero, label %done, label %range
 range:
-  %lo = icmp uge i64 %va, 3221225472
-  %hi = icmp ult i64 %va, 4294967296
-  %room = sub i64 4294967296, %va
+  %pend = call i64 @user_part_end(i64 %va)
+  %in0 = icmp ne i64 %pend, 0
+  %room = sub i64 %pend, %va
   %fits = icmp ule i64 %n, %room
-  %in0 = and i1 %lo, %hi
   %in = and i1 %in0, %fits
   br i1 %in, label %check, label %e6
 check:

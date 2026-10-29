@@ -1,0 +1,7 @@
+; Spec section 10.3: the high user range ends at 0x4000000000, so mapping
+; the page there, past its last, is a runtime error.
+(def main () int
+  (let s (space_new)
+    (let f (frame_new)
+      (let a (write_line (digits (space_map s 274877902848 f 0)))   ; 0x3FFFFFF000, the last
+        (space_map s 274877906944 f 0)))))

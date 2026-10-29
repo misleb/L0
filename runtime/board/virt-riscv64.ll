@@ -17,7 +17,8 @@
 ;   0xBC000000  frames and tables, but for the device tree, which QEMU puts
 ;               at 0xBFE00000; the arguments are copied out of it before
 ;               the program starts
-;   0xC0000000  to 0x100000000, the user range, mapped by each space alone:
+;   0xC0000000  to 0x100000000, the low user range, mapped by each space
+;               alone, as the high one is, 0x2000000000 to 0x4000000000:
 ;               the RAM there is never used
 ;   0x100000000 frames and the spaces' page tables, to 0x140000000
 ; Frames and tables come from all the RAM but the user range, OpenSBI, the
@@ -48,7 +49,8 @@ declare i64 @l0_arch_pte_table(i64)
 ; Gigapage 0 holds the devices, read and write; 2 is the RAM below the user
 ; range, read, write, and execute; 4 the RAM above it, which the pool is in,
 ; read and write. Gigapage 1, the PCIe window, is not mapped, and 3, the 4th
-; gigabyte, is the user range, which only a space maps.
+; gigabyte, is the low user range, and 128 to 255 the high one, which only a
+; space maps; 255 is the last below Sv39's sign bit.
 @l0_board_boot_map = global <{ i64, i64, i64, i64, i64, [507 x i64] }> <{ i64 231, i64 0, i64 536871151, i64 0, i64 1073742055, [507 x i64] zeroinitializer }>, align 4096
 
 ; The PLIC's context for the booting hart's S-mode, 2 hart + 1 on QEMU,
@@ -152,8 +154,9 @@ entry:
 }
 
 ; A new space's root table, at l1: gigapages 0, 2, and 4 as the boot map
-; has them, for S-mode alone, and 3, the user range, through the table at
-; l2.
+; has them, for S-mode alone, and 3, the low user range, through the table
+; at l2. Gigapages 128 to 255, the high user range, stay empty until
+; runtime/bare/board.ll maps a page there.
 define void @l0_board_space_init(i64 %l1, i64 %l2) {
 entry:
   %p0 = inttoptr i64 %l1 to ptr
@@ -169,7 +172,7 @@ entry:
 }
 
 ; The frame windows, spec section 10.3: the RAM the boot map reaches but
-; the user range, 0x80000000 up to 0xC0000000 and the 5th gigabyte.
+; the low user range, 0x80000000 up to 0xC0000000 and the 5th gigabyte.
 ; runtime/bare/board.ll cuts out OpenSBI and the image, below the image's
 ; end, the heap, the stack, the device tree, and standard input, wherever
 ; the layout puts them.

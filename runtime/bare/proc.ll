@@ -30,7 +30,8 @@
 ;               ending below 0xD0000000
 ;   __heap_start  the heap, from the first page after them, to 0xD8000000
 ;   0xD8000000  the stack, 256 MB, growing down from 0xE8000000
-;   0xE8000000  and above, the kernel's: where it maps regions
+;   0xE8000000  to 0x100000000, the kernel's: where it maps regions
+;   0x2000000000  to 0x4000000000, the kernel's too, on a board's host
 
 @__stack_top = external global i8
 @__stack_bottom = external global i8

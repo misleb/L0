@@ -7,6 +7,41 @@ New entries go at the top.
 
 ---
 
+## A space has a high user range, 128 GB past the 4th gigabyte (roadmap 0128)
+
+**New:** on the boards' hosts the user range (spec 6.13, 10.3) is two
+parts: the low user range, 0xC0000000 up to 0x100000000, as before, and
+the high user range, 0x2000000000 up to 0x4000000000, 128 GB, the root
+table's entries 128 to 255. A space makes the tables for the high part
+only as pages there are mapped. A process's layout keeps its image, heap,
+and stack where they were, and the high part is the kernel's to map into,
+beside 0xE8000000 up to 0x100000000. A `space_read` or `space_write`
+lies within one part.
+
+*Why:* L0S asked (its `build/l0-requests.md`, request 2, for its roadmap
+0038). At 3840x2160 and scale 2 its compositor maps every window's
+buffers, a few tens of MB each, into the 384 MB a process had above its
+stack. With five windows open, 84,000 of its 98,304 pages there were in
+use, the largest free run 5,592 pages, and the next window's buffer of
+11,387 pages could not be shared with it, so the window froze. More room
+there is what any compositor or file cache needs, not only this one.
+
+*Decided:* a second part rather than one range moved or grown. Growing
+the 4th gigabyte upward runs into RAM, which the host maps from the 5th
+gigabyte on the riscv64 board and to the 16th on the Pi 5; moving the
+whole range would move every process's image, heap, and stack, and break
+every process built so far and every kernel that loads one. Entries 128
+to 255 are free on every board: the aarch64 board's map uses 0 to 2 and
+256, the riscv64 one's 0, 2, and 4, and the Pi 5's up to 15, 64, 65, and
+124. 0x4000000000 is also the end of Sv39's lower half, past which a
+riscv64 address must be sign-extended, so the part is the most all three
+CPUs' three-level tables can give alike. 128 GB is 340 times what the
+compositor needed; up to 512 GB was asked, which Sv39 cannot give below
+its sign bit. A kernel that maps nothing there pays nothing: no table is
+made until a page is.
+
+---
+
 ## The Raspberry Pi 5's display interrupt controller, disp_intr, is a region, with its interrupt (roadmap 0127)
 
 **New:** on the Pi 5, `disp_intr`, the display's level-triggered L2

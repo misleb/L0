@@ -1,0 +1,41 @@
+; Spec section 10.3 on the board: the high user range, 0x2000000000 up to
+; 0x4000000000, as the low one is. A frame mapped at its first and its last
+; page, copied into and out of, a thread run there until a system call and
+; a page not mapped, and the space given back with every table it took.
+(def show ((n int)) int
+  (write_line (digits n)))
+
+(def say ((t Trap)) int
+  (match t
+    ((TrapCall n) (write_line (append "call " (digits n))))
+    ((TrapMissing va) (write_line (append "missing " (hex_digits va 1))))
+    ((TrapFault esr far) (write_line (append "fault " (hex_digits far 1))))
+    ((TrapInterrupt n) (write_line (append "interrupt " (digits n))))))
+
+(def hi () int 137438953472)                        ; 0x2000000000
+(def last () int 274877902848)                      ; 0x3FFFFFF000
+
+(def copies ((s int)) int
+  (let a (show (space_map s (hi) 0 2))              ; code: read, execute
+    (let b (show (space_map s (last) 1 1))          ; data: read, write
+      (let w (show (space_write s (hi) (board_call_code) 0 4))
+        (let x (show (space_write s (last) (bytes_from_list "high") 0 4))
+          (write_line (bytes_to_list (space_read s (last) 4))))))))
+
+(def traps ((s int)) int
+  (let c (user_run s (array_set (user_context (hi) (add (last) 4096)) (board_call_word) 42))
+    (let a (say (trap_of c))
+      (let b (write_line (hex_digits (array_get c 32) 1))
+        (say (trap_of (user_run s (user_context (add (hi) 1073741824) 0))))))))   ; 0x2040000000
+
+(def main () int
+  (let before (frame_free_count)
+    (let s (space_new)
+      (let f (frame_new)
+        (let g (frame_new)
+          (let m (copies s)
+            (let t (traps s)
+              (let u (show (space_free s))
+                (let v (frame_free f)
+                  (let w (frame_free g)
+                    (show (sub before (frame_free_count)))))))))))))

@@ -24,8 +24,9 @@
 ;   0x70000000  the stack, 256 MB unless --stack-mb gives its size, growing
 ;               down from 0x80000000
 ;   0x80000000  more frames, when there is RAM there, to the user range
-;   0xC0000000  to 0x100000000, the user range, mapped by each space alone:
-;               the RAM there is never used
+;   0xC0000000  to 0x100000000, the low user range, mapped by each space
+;               alone, as the high one is, 0x2000000000 to 0x4000000000,
+;               past every device: the RAM there is never used
 ;   0x100000000 frames and the spaces' page tables, to 0x400000000, where
 ;               there is RAM; the board has up to 16 GB
 ; Frames and tables come from all the RAM but the user range, BL31, the
@@ -68,8 +69,9 @@ declare void @l0_psci_reset() noreturn
 ; part drives or opens but those in block 64, 0x1000000000, the IOMMUs, the
 ; PCIe controller, dma40, mip0, and sdio1, and RP1's, in block 124, 0x1F00000000: all
 ; three attribute 0, Device-nGnRnE, never executable. Block
-; 3, the user range, is left empty, and only a space maps it; so is every
-; block with no RAM in it until l0_board_map_ram adds it.
+; 3, the low user range, and blocks 128 to 255, the high one, are left
+; empty, and only a space maps them; so is every block with no RAM in it
+; until l0_board_map_ram adds it, which adds none past the 64th.
 @l0_board_boot_map = global <{ i64, i64, [62 x i64], i64, i64, [58 x i64], i64, [387 x i64] }> <{ i64 18014398509483781, i64 18014399583225605, [62 x i64] zeroinitializer, i64 27021666483700737, i64 27021667557442561, [58 x i64] zeroinitializer, i64 27021730908210177, [387 x i64] zeroinitializer }>, align 4096
 
 ; The debug UART, and the GIC's distributor and CPU interface.
@@ -126,7 +128,7 @@ entry:
 }
 
 ; Adds the 1 GB blocks of the RAM from lo to hi to the boot map, but for the
-; user range, which no RAM is in, and for the blocks past the 16th, which
+; low user range, which no RAM is in, and for the blocks past the 64th, which
 ; are none of the board's, and makes the stores seen before any is used.
 ; Going from invalid to valid needs no TLB maintenance.
 define void @l0_board_map_ram(i64 %lo, i64 %hi) {
@@ -307,7 +309,9 @@ entry:
 }
 
 ; A new space's root table, at l1: every entry of the boot map, which is for
-; EL1 alone, but the 4th, the user range, which is the table at l2.
+; EL1 alone, but the 4th, the low user range, which is the table at l2.
+; The high user range's, empty in the boot map, stay empty until
+; runtime/bare/board.ll maps a page there.
 define void @l0_board_space_init(i64 %l1, i64 %l2) {
 entry:
   %root = inttoptr i64 %l1 to ptr
@@ -329,7 +333,7 @@ done:
 }
 
 ; The frame windows, spec section 10.3: the RAM the boot map may reach but
-; the user range, from 0 up to 0xC0000000 and from the 5th gigabyte to the
+; the low user range, from 0 up to 0xC0000000 and from the 5th gigabyte to the
 ; 16th, where the device tree says there is RAM. runtime/bare/board.ll
 ; cuts out BL31 and the image, below the image's end, the heap, the stack,
 ; the device tree, and standard input, wherever the layout puts them.

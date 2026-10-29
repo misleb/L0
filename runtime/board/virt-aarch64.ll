@@ -16,7 +16,8 @@
 ;   ...         frames and the spaces' page tables
 ;   0xB0000000  the stack, 256 MB unless --stack-mb gives its size, growing
 ;               down from 0xC0000000
-;   0xC0000000  to 0x100000000, the user range, mapped by each space alone
+;   0xC0000000  to 0x100000000, the low user range, mapped by each space
+;               alone, as the high one is, 0x2000000000 to 0x4000000000
 ; Frames and tables come from all the RAM below the user range but the
 ; image and what lies below it, the heap, the stack, the device tree, and,
 ; until a read reaches their end, standard input's bytes.
@@ -43,7 +44,8 @@ declare i64 @l0_semihost_err_write(ptr, i64)
 ; Block 0 holds the devices, MAIR attribute 0, Device-nGnRnE; blocks 1 and 2
 ; are the RAM, attribute 1, normal write-back. With the MMU off every
 ; access would be to device memory, where an unaligned one faults. Block 3,
-; the 4th gigabyte, is the user range, which only a space maps. Block 256,
+; the 4th gigabyte, is the low user range, and blocks 128 to 255 the high
+; one, which only a space maps. Block 256,
 ; 0x4000000000, holds the PCIe ECAM, and is device memory as block 0 is.
 ; The rest, which the 39-bit translation reaches and this board has nothing
 ; the host gives in, is empty.
@@ -152,8 +154,9 @@ entry:
 
 ; A new space's root table, at l1: blocks 0 to 2 as the boot map has them,
 ; but for EL1 alone and never executable at EL0, and the devices' never at
-; EL1 either, and block 3, the user range, through the table at l2. Block
-; 256, the ECAM's, is as block 0.
+; EL1 either, and block 3, the low user range, through the table at l2.
+; Block 256, the ECAM's, is as block 0. Blocks 128 to 255, the high user
+; range, stay empty until runtime/bare/board.ll maps a page there.
 define void @l0_board_space_init(i64 %l1, i64 %l2) {
 entry:
   %p0 = inttoptr i64 %l1 to ptr
@@ -171,7 +174,7 @@ entry:
 }
 
 ; The frame windows, spec section 10.3: the RAM the boot map reaches below
-; the user range, 0x40000000 up to 0xC0000000. runtime/bare/board.ll cuts
+; the low user range, 0x40000000 up to 0xC0000000. runtime/bare/board.ll cuts
 ; out the image and what lies below it, the heap, the stack, the device
 ; tree, and standard input, wherever the layout puts them.
 define i64 @l0_board_window_count() {

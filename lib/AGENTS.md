@@ -195,7 +195,10 @@ system calls the spec's section 10.3 fixes. The kernel decides what the
 program gets: files, arguments, and devices, or none. The image is a
 static ELF, which section 10.3 lists: its code, rodata, and data are
 segments a kernel maps from 0xC0000000, each with its own permissions,
-and its heap starts at the page after them. A kernel written in L0 can
+and its heap starts at the page after them. What a kernel shares with a
+process it maps from 0xE8000000 up to 0x100000000, or, for more than
+that 384 MB, in the high user range, 128 GB from 0x2000000000 to
+0x4000000000, which no image, heap, or stack uses. A kernel written in L0 can
 take its processes' images from its own standard input, in a layout of
 its choosing, read their headers as bytes, and be booted with them by
 `l0 boot`. No kernel comes with the toolchain. Such a program also makes

@@ -1,0 +1,8 @@
+; Spec section 10.3: between the low user range's end, 0x100000000, and the
+; high one's start, 0x2000000000, no address is a user page, so mapping
+; the first page past the low range is a runtime error.
+(def main () int
+  (let s (space_new)
+    (let f (frame_new)
+      (let a (write_line (digits (space_map s 4294963200 f 0)))     ; 0xFFFFF000
+        (space_map s 4294967296 f 0)))))
