@@ -7,6 +7,35 @@ New entries go at the top.
 
 ---
 
+## The Raspberry Pi 5's display interrupt controller, disp_intr, is a region, with its interrupt (roadmap 0127)
+
+**New:** on the Pi 5, `disp_intr`, the display's level-triggered L2
+interrupt controller (`brcm,bcm2711-l2-intc`), is a region (spec 10.3),
+0x107C502000 and 0x30 bytes, in the boot map's block 65. Its interrupt,
+the GIC's SPI 97, is interrupt 129, level. From `bcm2712.dtsi`, node
+`disp_intr: interrupt-controller@7c502000`; the `hvs` node names it as
+its interrupt parent, with lines 2, 9, and 16 its channels' ends of frame.
+
+*Why:* L0S asked (its `probes/display/REQUEST-pi5-hvs-eof.md`). Its
+`hvs` driver could tell a display list had been taken only by polling
+the channel's `DL` register for up to 50 ms after each restack, and its
+paced display queue needs to change lists between frames and say which
+frame showed a change. On SCALER6 the HVS has no end-of-frame register:
+Linux's `vc4_hvs.c` enables and disables the line at this controller.
+
+*Decided:* the controller and its interrupt, as asked, rather than the
+smaller alternative the request named, pixel valve 0's own interrupt,
+SPI 101. That one marks HDMI0's vertical blank, not the HVS taking a
+list, which is what swapping lists safely needs; it can be given later
+if a driver wants vblank too. The controller has a page to itself, so
+the region reaches nothing else. Its clock is the display's, so the
+HVS's rule, read only on a board that booted with a monitor, covers it.
+No deliberate restriction is broken: these are a device's registers and
+its interrupt, and reach no memory. No emulator has this board; it is
+checked by building, and a first run is the user's.
+
+---
+
 ## A region's bytes are copied out as bytes, and bytes into it (roadmap 0126)
 
 **New:** `(region_read_bytes r off n)` returns the `n` bytes of region `r`

@@ -158,6 +158,12 @@ None.
 
 ## Done and dropped
 
+- [0127](0127-pi5-hvs-eof.md) the Pi 5's display interrupt controller,
+  `disp_intr`, is a region, with its interrupt, 129 — done, changelog
+  "The Raspberry Pi 5's display interrupt controller, disp_intr, is a
+  region, with its interrupt"; aarch64 `--virt` green; not run on a Pi 5
+  or riscv64's half of `--virt`
+
 - [0126](0126-region-bytes.md) a region's bytes copied out as bytes, and
   bytes into a region — done, changelog "A region's bytes are copied out
   as bytes, and bytes into it"; aarch64 `--virt` green; not run on macOS,

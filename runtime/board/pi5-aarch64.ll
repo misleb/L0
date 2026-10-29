@@ -265,8 +265,9 @@ entry:
 ; block, pixel valve 0, and DDC0 (roadmap 0120). HDMI0's audio takes
 ; channel 6 of dma40, in block 64, to feed the MAI (roadmap 0122). The
 ; microSD slot takes sdio1, its SDHCI and cfg block in one run, in block
-; 64 (roadmap 0125).
-@devices = private constant [28 x i64] [
+; 64 (roadmap 0125). The HVS's end of frame takes disp_intr, the display's
+; interrupt controller, in block 65 (roadmap 0127).
+@devices = private constant [30 x i64] [
   i64 70816632832, i64 4096,      ; 0x107D001000, the debug UART, a PL011
   i64 70799863808, i64 4096,      ; 0x107C003000, the 1 MHz system timer
   i64 70799931520, i64 64,        ; 0x107C013880, the VideoCore mailbox
@@ -280,11 +281,12 @@ entry:
   i64 70804111360, i64 256,       ; 0x107C410000, pixel valve 0
   i64 70821904896, i64 88,        ; 0x107D508200, DDC0
   i64 68719543808, i64 256,       ; 0x1000010600, dma40's channel 6
-  i64 68736249856, i64 1536 ]     ; 0x1000FFF000, sdio1, SDHCI and cfg
+  i64 68736249856, i64 1536,      ; 0x1000FFF000, sdio1, SDHCI and cfg
+  i64 70805102592, i64 48 ]       ; 0x107C502000, disp_intr
 
 define i64 @l0_board_device_count() {
 entry:
-  ret i64 14
+  ret i64 15
 }
 
 define i64 @l0_board_device_base(i64 %k) {
@@ -357,7 +359,8 @@ entry:
 ; silicon, so both are enabled, the one that fires is remembered, and it is
 ; reported as 153; PCIe's MSIs are 160 to 223, mip0's vectors, which are
 ; made edge-triggered as they are enabled; dma40's channel 6's is 118;
-; sdio1's is 305.
+; disp_intr's, the HVS's end of frame among its lines, is 129; sdio1's is
+; 305.
 
 define internal i1 @is_msi(i64 %n) {
 entry:
@@ -373,13 +376,15 @@ entry:
   %uart = icmp eq i64 %n, 153
   %dma = icmp eq i64 %n, 118
   %sd = icmp eq i64 %n, 305
+  %disp = icmp eq i64 %n, 129
   %lo = icmp sge i64 %n, 96
   %hi = icmp sle i64 %n, 99
   %sys = and i1 %lo, %hi
   %msi = call i1 @is_msi(i64 %n)
   %a0 = or i1 %timer, %uart
   %a1 = or i1 %a0, %dma
-  %a = or i1 %a1, %sd
+  %a2 = or i1 %a1, %sd
+  %a = or i1 %a2, %disp
   %b = or i1 %sys, %msi
   %ok = or i1 %a, %b
   ret i1 %ok

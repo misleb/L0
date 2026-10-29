@@ -1,0 +1,29 @@
+; Spec section 10.3 on the Raspberry Pi 5: disp_intr, the display's
+; interrupt controller, through which the HVS raises its channels' ends of
+; frame, is a region and its interrupt is 129, as L0S's probes/display
+; asked. This is built by tools/test.sh --virt and not run, since no
+; emulator has this board; on a Pi 5 whose serial line is read, its output
+; is hvs_eof.out. The controller opens whole; a range past its end, and
+; moplet's page before it, are no region. Interrupt 129 enables, and 128
+; and 130 are none. Nothing is read, since the controller is unclocked on
+; a board that booted with no monitor.
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def show ((n int)) int
+  (write_line (digits n)))
+
+(def regions () int
+  (let a (code (region_open 70805102592 48))      ; 0x107C502000, disp_intr
+    (let b (code (region_open 70805102592 49))    ; past its end
+      (code (region_open 70805098496 4096)))))    ; 0x107C501000, moplet
+
+(def interrupts () int
+  (let a (show (interrupt_enable 129))
+    (let b (show (interrupt_enable 128))
+      (show (interrupt_enable 130)))))
+
+(def main () int
+  (let a (regions)
+    (interrupts)))
