@@ -196,6 +196,31 @@ backwards, so one `rev` at the very end puts it right:
 
 Never call `rev` in a loop or per chunk. Exactly once, at the end.
 
+## The hidden whole copy
+
+The second way to go quadratic unseen. `map_put`, `map_remove`, and
+`array_set` update in place only when nothing else still holds the map or
+array, and otherwise copy it whole first (spec section 6.5), with the same
+results. Two shapes do it with no second name in sight, and a worker hit
+both in one session:
+
+```
+(Seen (map_put m k true) (if (map_has m k) n (add n 1)))   ; copies m: read after the put
+(let fresh (not (map_has m k))                             ; right: read, then put
+  (Seen (map_put m k true) (if fresh (add n 1) n)))
+
+(let t (space_put s page frame)                            ; copies s's map: s used after
+  (Mapped t (digits (space_number s))))
+(let id (space_number s)                                   ; right: read s first
+  (Mapped (space_put s page frame) (digits id)))
+```
+
+A read inside the update's own call, as in `(map_put m k (map_size m))`, is
+fine, since an operand that is the variable itself is taken last (10.3).
+`L0_ARRAY_STATS=1` on a run reports how many updates copied; maps count, as
+arrays. `lib/examples.l0`'s `see_key` and `map_logged` are the fixes, and
+`lib/skills/l0-code/SKILL.md` has the trap in full.
+
 ## Keep nesting shallow, or you will miscount parentheses
 
 This is the most common way to waste time writing L0, and it was the cause of

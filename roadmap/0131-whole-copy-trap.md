@@ -1,7 +1,8 @@
 # 0131: the hidden whole copy of a map or array, shown before it bites
 
 Kind: tooling, then perhaps language
-Status: queued
+Status: done, changelog "The hidden whole copy, named where an agent will
+see it"; a checker warning left for a program that earns it
 Needs: nothing
 
 ## Why
@@ -38,3 +39,16 @@ the `l0-code` skill show the trap with an example.
 ## Log
 
 - 2026-10-29: opened from L0S's request 4. Next: the docs and skill.
+- 2026-10-29: the tooling half done, by a worker for the skills,
+  `lib/AGENTS.md` ("Three traps specific to L0"), and `lib/examples.l0`'s
+  `see_key`, `new_keys`, and `map_logged` with their tests, and here for
+  the comments of Map, `map_put`, and `map_remove`, `array_set`'s row in
+  section 6's table, and spec 6.5's sentence on a value used after a call
+  that updates inside it; changelog "The hidden whole copy, named where an
+  agent will see it". Measured with `L0_ARRAY_STATS=1`, 20,000 puts: both
+  shapes 39,998 copies, 1.2 billion words, 1.6 s; read first, none, 5 ms.
+  `(map_put m i (add 1 (map_size m)))` made none, so the variable-operand
+  rule of 10.3 covers prelude calls, as 6.5 says. `l0 doc` shows no
+  builtin, so `array_set` is documented by the spec alone. Left open: a
+  checker warning, which would be L0's first, and needs a program that
+  the docs did not save from the trap to earn it.

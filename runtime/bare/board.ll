@@ -63,6 +63,7 @@ declare void @l0_arch_barrier()
 declare void @l0_arch_wait()
 declare void @l0_arch_code_sync(i64, i64)
 declare void @l0_arch_dma_sync(i64, i64, i64)
+declare void @l0_arch_zero_page(i64)
 declare i64 @l0_arch_pte_table(i64)
 declare i64 @l0_arch_pte_page(i64, i64)
 declare i64 @l0_arch_pte_device(i64)
@@ -1406,8 +1407,7 @@ done:
 
 define internal void @zero_page(i64 %pa) {
 entry:
-  %p = inttoptr i64 %pa to ptr
-  call void @llvm.memset.p0.i64(ptr align 4096 %p, i8 0, i64 4096, i1 false)
+  call void @l0_arch_zero_page(i64 %pa)
   ret void
 }
 

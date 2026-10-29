@@ -372,6 +372,7 @@ declare i64 @l0_board_timebase_hz()
 
 declare void @l0_riscv64_user_enter(ptr, i64, i64)
 declare i64 @l0_riscv64_semi(i64, ptr)
+declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 
 ; Read and written by the boot code and l0_riscv64_user_enter's trap path.
 @l0_riscv64_host_sp = global i64 0
@@ -585,6 +586,15 @@ entry:
 define void @l0_arch_code_sync(i64 %pa, i64 %n) {
 entry:
   call void asm sideeffect "fence.i", "~{memory}"()
+  ret void
+}
+
+; Zeroes the page at pa by whole-word stores, memset's: RV64GC has no
+; instruction that zeroes a cache block.
+define void @l0_arch_zero_page(i64 %pa) {
+entry:
+  %p = inttoptr i64 %pa to ptr
+  call void @llvm.memset.p0.i64(ptr align 4096 %p, i8 0, i64 4096, i1 false)
   ret void
 }
 

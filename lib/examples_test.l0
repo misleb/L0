@@ -90,6 +90,18 @@
     (add (check_true "one more" (not (same_elements (split_spaces "a b") (split_spaces "a b c"))))
          (check_true "ints" (same_elements (cons 3 (cons 1 (nil int))) (cons 1 (cons 3 (cons 3 (nil int)))))))))
 
+(def test_new_keys () int
+  (add (check_int "repeats" (new_keys (cons 1 (cons 2 (cons 1 (cons 3 (nil int)))))
+                                      (Seen ((MapEmpty int bool)) 0)) 3)
+       (check_int "none" (new_keys (nil int) (Seen ((MapEmpty int bool)) 0)) 0)))
+
+(def test_map_logged () int
+  (match (map_logged (Space 7 ((MapEmpty int int))) 16 3)
+    ((Mapped s line)
+      (add (check_str "line" line "mapped in space 7")
+           (match s
+             ((Space id pages) (check_int "frame" (match (map_get pages 16) ((None) -1) ((Some f) f)) 3)))))))
+
 (def test_by_frequency () int
   (check_true "most frequent first, then by word"
     (eq (by_frequency "b a c b a b") (split_spaces "b a c"))))

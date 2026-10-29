@@ -260,6 +260,54 @@
 (def (slot_of K) ((key K) (n int)) int
   (mod (hash key) n))
 
+; A map, like an array, is copied whole by an update while anything else
+; still holds it, and the results are the same either way: the only sign is
+; a program that slows as the map grows, each put costing the whole map. Two
+; shapes copy with no second name in sight. One reads the map in a later
+; operand of the expression that puts into it:
+;
+;   (Seen (map_put m k true) (if (map_has m k) n (add n 1)))
+;
+; The other uses a value after a call that updates a map inside it, here
+; space_put, which puts into a Space's pages:
+;
+;   (let t (space_put s page frame)
+;     (Mapped t (digits (space_number s))))
+;
+; Each is quadratic over a loop: 20,000 puts of new keys the first way copied
+; 1.2 billion words and took 1.6 s, where the form below copied none and took
+; 5 ms.
+; The fix is the same for both: read first, with let, and update last.
+(data Seen
+  (Seen (Map int bool) int))                ; the keys seen, how many were new
+
+(def see_key ((s Seen) (k int)) Seen
+  (match s
+    ((Seen m n)
+      (let fresh (not (map_has m k))
+        (Seen (map_put m k true) (if fresh (add n 1) n))))))
+
+(def new_keys ((ks (list int)) (s Seen)) int
+  (if (is_empty ks)
+      (match s ((Seen m n) n))
+      (new_keys (tail ks) (see_key s (head ks)))))
+
+(data Space
+  (Space int (Map int int)))                ; its number, its pages' frames
+
+(def space_number ((s Space)) int
+  (match s ((Space id pages) id)))
+
+(def space_put ((s Space) (page int) (frame int)) Space
+  (match s ((Space id pages) (Space id (map_put pages page frame)))))
+
+(data Mapped
+  (Mapped Space (list int)))                ; the space, a line saying which
+
+(def map_logged ((s Space) (page int) (frame int)) Mapped
+  (let id (space_number s)
+    (Mapped (space_put s page frame) (append "mapped in space " (digits id)))))
+
 ; ---------------------------------------------------------------- ordering
 
 ; compare orders two values of any type by what they hold (spec section

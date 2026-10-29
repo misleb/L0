@@ -150,17 +150,27 @@ reaches (0116): a driver there need not poll.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0129](0129-fast-frame-zero.md) `frame_new` zeroes at memory
-   bandwidth — queued
-2. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
-   it grows — queued
+1. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
+   it grows — queued, left for now: hysteresis breaks spec 6.9's promise
+   that a map's table depends only on its entries, and a trie that keeps
+   it is the way if taken up
 
 ## Other open items
 
-- [0131](0131-whole-copy-trap.md) tooling: the hidden whole copy of a map
-  or array, shown before it bites — queued
+None.
 
 ## Done and dropped
+
+- [0129](0129-fast-frame-zero.md) a frame zeroed a cache block at a time,
+  by `dc zva` on aarch64 — done, changelog "A frame is zeroed a cache
+  block at a time, by dc zva on aarch64"; measured on a Pi 5, where past
+  the caches DRAM's write-back, about 1.5 GB/s, is the bound; not run on
+  riscv64's half of `--virt`
+
+- [0131](0131-whole-copy-trap.md) the hidden whole copy of a map or
+  array, named in the skills, `lib/AGENTS.md`, the Map's comments, the
+  examples, and spec 6.5 — done, changelog "The hidden whole copy, named
+  where an agent will see it"; a checker warning left open
 
 - [0128](0128-wide-user-range.md) a space has a high user range, 128 GB
   from 0x2000000000 — done, changelog "A space has a high user range,

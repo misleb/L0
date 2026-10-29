@@ -330,6 +330,7 @@ declare i64 @l0_host_write(i64, ptr, i64)
 declare void @l0_host_exit(i64) noreturn
 
 declare void @l0_aarch64_user_enter(ptr, i64)
+declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @l0_aarch64_secondary()
 
 ; Each CPU's block, which its TPIDR_EL1 holds: the stack and the context
@@ -514,6 +515,35 @@ body:
   br label %loop
 done:
   call void asm sideeffect "dsb ish\0Aic ialluis\0Adsb ish\0Aisb", "~{memory}"()
+  ret void
+}
+
+; Zeroes the page at pa, normal memory in the host's identity map, a block
+; at a time by dc zva, whose size DCZID_EL0 gives as 4 << BS bytes, at most
+; 2 KB, so that no line is read only to be overwritten; by stores if
+; DCZID_EL0's DZP says dc zva is prohibited.
+define void @l0_arch_zero_page(i64 %pa) {
+entry:
+  %id = call i64 asm sideeffect "mrs $0, dczid_el0", "=r"()
+  %dzp = and i64 %id, 16
+  %no = icmp ne i64 %dzp, 0
+  br i1 %no, label %stores, label %blocks
+stores:
+  %p = inttoptr i64 %pa to ptr
+  call void @llvm.memset.p0.i64(ptr align 4096 %p, i8 0, i64 4096, i1 false)
+  ret void
+blocks:
+  %bs = and i64 %id, 15
+  %size = shl i64 4, %bs
+  %end = add i64 %pa, 4096
+  br label %loop
+loop:
+  %a = phi i64 [ %pa, %blocks ], [ %a1, %loop ]
+  call void asm sideeffect "dc zva, $0", "r,~{memory}"(i64 %a)
+  %a1 = add i64 %a, %size
+  %more = icmp ult i64 %a1, %end
+  br i1 %more, label %loop, label %done
+done:
   ret void
 }
 

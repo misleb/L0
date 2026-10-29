@@ -7,6 +7,68 @@ New entries go at the top.
 
 ---
 
+## The hidden whole copy, named where an agent will see it (roadmap 0131)
+
+**New:** nothing in the language. Spec 6.5 now names the case of a value
+used after a call that updates an array or map inside it, which followed
+from its rules but only by reading two of them across a call, and
+section 6's table says `array_set` copies when something else holds the
+array. The `l0-code` skills, `lib/AGENTS.md`, the Map's and `map_put`'s
+and `map_remove`'s comments, and `lib/examples.l0` show both shapes.
+
+*Why:* L0S asked (its `build/l0-requests.md`, request 4). It hit the copy
+twice in one session, both seen only as a slowdown on real data:
+`(Pages (map_put m va f) (if (map_has m va) ...))`, which copied the map
+on every put and made a test of 12 s not end in an hour, and a process
+value used after a call that updated a map inside it. Measured here with
+`L0_ARRAY_STATS=1`, 20,000 puts of the first shape made 39,998 copies of
+1.2 billion words in 1.6 s, against none in 5 ms read first.
+
+*Decided:* the documentation first, as the request offered. Whether
+`l0 check` should warn of an update that a later use makes copy is left
+open in roadmap 0131: it would be L0's first warning.
+
+---
+
+## A frame is zeroed a cache block at a time, by dc zva on aarch64 (roadmap 0129)
+
+**New:** the boards' hosts zero a page for a frame or a table through a
+hook of the CPU's part: on aarch64 by `dc zva`, a block at a time, the
+size `DCZID_EL0` gives, or by stores if it says `dc zva` is prohibited;
+on riscv64 by stores. The freestanding `memset` stores whole words from
+the first aligned address. Spec 6.13 says that a new frame's zeros, like
+any CPU write, reach a device that does not go through the caches only
+after `frame_sync` with 1 or 3.
+
+*Why:* L0S asked (its `build/l0-requests.md`, request 1). On a Pi 5,
+8,192 `frame_new` calls took 22.4 ms, 2.75 us a frame, about 1.5 GB/s,
+against 0.05 us for each `space_map`; a 4K compositor's buffers of 8,000
+to 13,000 pages cost 22 to 35 ms of it while every CPU's system calls
+wait on CPU 0, and L0S had to keep a pool of frames zeroed while idle.
+
+*Found:* the request supposed zeroing went a byte at a time. It did not:
+LLVM vectorizes `memset`'s byte loop at `-O2`, and the page was zeroed by
+32-byte `stp q0, q0` stores already. What stores cannot avoid is reading
+each line from memory before it is overwritten, for a page not in the
+cache, which is every new frame. `dc zva` makes the line zero in the
+cache without reading it, which is why Linux's `clear_page` uses it.
+`memset`'s word stores matter only where LLVM does not vectorize, and
+make its tail no longer a byte at a time.
+
+*Measured:* on QEMU's aarch64 virt board, which emulates `dc zva` with a
+helper call and has no cache to miss, `frame_new` went from about 990 ns
+to about 1,790 ns, and with stores alone stays about 1,000 ns: QEMU says
+nothing of the board. On a Pi 5, in ns a `frame_new`, `dc zva` against
+stores alone: 256 fresh frames, 243 against 281; the same 256 again, in
+the cache, 101 against 137; 8,192 fresh, 32 MB, 2,669 against 2,709. So
+zeroing is fast until the caches fill, and then costs what writing the
+lines back to DRAM does, about 1.5 GB/s, by any instruction: L0S's 8,192
+frames were past every cache. `dc zva` is kept for being faster within
+them and no slower past them; a kernel that needs many frames at once
+keeps zeroing them while idle, as L0S does.
+
+---
+
 ## A space has a high user range, 128 GB past the 4th gigabyte (roadmap 0128)
 
 **New:** on the boards' hosts the user range (spec 6.13, 10.3) is two

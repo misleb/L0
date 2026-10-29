@@ -179,7 +179,12 @@
 ;; holds, so a map can be a key, be sorted, or be a field of a value
 ;; compared with eq. A map is changed in place unless something else still
 ;; holds it, in which case it is copied whole, as an array is (spec section
-;; 6.5): keep one name for it.
+;; 6.5), with the same result in time proportional to its size: keep one
+;; name for it, and read it before updating it, never after. Both
+;; (Seen (map_put m k v) (map_has m k)) and (let t (f s) (g s)), where f
+;; puts into a map inside s, copy that map on every update, so a loop of
+;; them is quadratic; bind (map_has m k) or (g s) with let first. A run with
+;; L0_ARRAY_STATS=1 says how many updates copied.
 (data (Map K V)
   (MapEmpty)
   (MapTable (array int) (array (MapSlot K V)) int))   ; marks, slots, count
@@ -193,7 +198,9 @@
 ;; a put that takes the count past 4, 8, 16, or any larger power of two
 ;; doubles the table, and a remove that takes it back halves it, each in
 ;; time proportional to the count, so a key put and removed over and over
-;; at one of those counts takes that time every time.
+;; at one of those counts takes that time every time. If anything still
+;; holds m, the put copies it whole first, so read m before the put, never
+;; after; Map says how.
 (def (map_put K V) ((m (Map K V)) (k K) (v V)) (Map K V)
   (match m
     ((MapEmpty)
@@ -224,7 +231,8 @@
     ((MapTable ms es n) n)))
 
 ;; m without k, or m as it was if k has no value. Amortized constant time,
-;; as map_put says.
+;; as map_put says, and like it, a copy of m whole first if anything still
+;; holds m.
 (def (map_remove K V) ((m (Map K V)) (k K)) (Map K V)
   (match m
     ((MapEmpty) m)

@@ -40,10 +40,10 @@ sort.
 **Read the examples before writing anything substantial.** `l0 examples
 --path` names two files: working programs covering recursion, strings, data
 types, `match`, returning several values, reporting failure, type
-parameters, maps and hashing, reading and writing, files and telling their
-failures apart, replacing and deleting files, reading in pieces, arrays and
-grids, bytes, bits, floats, ordering and sorting, timing, and driving a device,
-and tests of them.
+parameters, maps and hashing, updating a map without copying it, reading
+and writing, files and telling their failures apart, replacing and
+deleting files, reading in pieces, arrays and grids, bytes, bits, floats,
+ordering and sorting, timing, and driving a device, and tests of them.
 
 Everything these commands show comes from the installed toolchain, so it
 always describes the compiler that builds this project. Nothing of it is
@@ -244,16 +244,26 @@ were; values of any type can be compared, ordered, hashed, and sorted; and
 `float_sin` and `float_cos` in the library. A network, the environment, listing or
 creating directories do not exist yet. Floating point does, as `float`.
 
-## Two traps specific to L0
+## Three traps specific to L0
 
 **Quadratic output.** Building output by appending is quadratic; it passes
 every small test and then appears to hang on real input. Accumulate with
 `push` onto a reversed list and call `rev` exactly once at the end.
+
+**The hidden whole copy.** `map_put`, `map_remove`, and `array_set` update
+in place only when nothing else still holds the map or array, and otherwise
+copy it whole, with the same results, so a loop of them turns quadratic
+unseen. Two shapes do it with no second name in sight: reading the map in a
+later operand of the expression that updates it, as in `(Seen (map_put m k
+true) (if (map_has m k) ...))`, and using a value after a call that updates
+a map inside it, as in `(let t (space_put s ...) (... (space_number s)))`.
+Read first, with `let`, and update last; `L0_ARRAY_STATS=1` on a run counts
+the copies.
 
 **Deep nesting and parentheses.** Long `if` and `or` chains end in a dozen
 closing parens and are the most common source of parse errors. Use
 `split_spaces` with `any_eq` for membership tests, and split any function
 nesting more than about four levels deep.
 
-The `l0-code` skill covers both in detail, along with the syntax that differs
-from what other languages would lead you to expect.
+The `l0-code` skill covers all three in detail, along with the syntax that
+differs from what other languages would lead you to expect.

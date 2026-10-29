@@ -437,8 +437,9 @@ count:
 ; memcpy, memmove, memset, and memcmp, which l0rt.ll and LLVM's memory
 ; intrinsics call (spec section 10.3), and bcmp and strlen, which LLVM may
 ; make of a memcmp whose result is only compared with 0 and of a loop that
-; finds a NUL. Whole words when every
-; address and the count allow it, bytes otherwise. "no-builtins" keeps LLVM
+; finds a NUL. memcpy copies whole words when every address and the count
+; allow it, and bytes otherwise; memset stores whole words from the first
+; aligned address. "no-builtins" keeps LLVM
 ; from recognizing their loops as calls to themselves.
 
 define ptr @memcpy(ptr %d, ptr %s, i64 %n) #0 {
@@ -502,19 +503,47 @@ done:
   ret ptr %d
 }
 
+; Bytes until d is a word's address, whole words while a word is left, and
+; bytes for the rest.
 define ptr @memset(ptr %d, i32 %v, i64 %n) #0 {
 entry:
   %b = trunc i32 %v to i8
-  br label %loop
-loop:
-  %i = phi i64 [ 0, %entry ], [ %i1, %body ]
-  %more = icmp ult i64 %i, %n
-  br i1 %more, label %body, label %done
-body:
-  %dp = getelementptr i8, ptr %d, i64 %i
-  store i8 %b, ptr %dp
+  %bz = zext i8 %b to i64
+  %w = mul i64 %bz, 72340172838076673                       ; 0x0101010101010101
+  %di = ptrtoint ptr %d to i64
+  br label %head
+head:
+  %i = phi i64 [ 0, %entry ], [ %i1, %hbody ]
+  %hmore = icmp ult i64 %i, %n
+  %at = add i64 %di, %i
+  %ato = and i64 %at, 7
+  %unaligned = icmp ne i64 %ato, 0
+  %hgo = and i1 %hmore, %unaligned
+  br i1 %hgo, label %hbody, label %words
+hbody:
+  %hp = getelementptr i8, ptr %d, i64 %i
+  store i8 %b, ptr %hp
   %i1 = add i64 %i, 1
-  br label %loop
+  br label %head
+words:
+  %j = phi i64 [ %i, %head ], [ %j1, %wbody ]
+  %left = sub i64 %n, %j
+  %wmore = icmp uge i64 %left, 8
+  br i1 %wmore, label %wbody, label %tail
+wbody:
+  %wp = getelementptr i8, ptr %d, i64 %j
+  store i64 %w, ptr %wp
+  %j1 = add i64 %j, 8
+  br label %words
+tail:
+  %k = phi i64 [ %j, %words ], [ %k1, %tbody ]
+  %tmore = icmp ult i64 %k, %n
+  br i1 %tmore, label %tbody, label %done
+tbody:
+  %tp = getelementptr i8, ptr %d, i64 %k
+  store i8 %b, ptr %tp
+  %k1 = add i64 %k, 1
+  br label %tail
 done:
   ret ptr %d
 }
