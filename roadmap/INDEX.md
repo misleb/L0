@@ -36,16 +36,15 @@ The order above is the review's suggestion; the user decides it.
 
 From the review of 2026-10-30:
 
-- [0146](0146-runtime-structure.md) tooling: the runtime's structure —
-  active: steps 3 (the Pi 5 table's type, and a check that the boards'
-  two address lists agree), 1 (`bare/absent.ll`, the default host
-  functions), and 2 (one device-tree walker) done; step 5 (retire the IR
-  harness kernels) recorded as not worth it, kept as an independent
-  oracle; step 4 left
 - [0147](0147-verification.md) tooling: CI on both CPUs, and the suite's
   own loose ends — proposed; left out of this run by the user's choice
 
 ## Done and dropped
+
+- [0146](0146-runtime-structure.md) tooling: the runtime's structure —
+  done: `bare/absent.ll`, one device-tree walker, the Pi 5 table's type,
+  each board's devices from one table by `tools/boards.l0`; the IR
+  harness kernels kept as an independent oracle; not run on a Pi 5
 
 - [0142](0142-spec-tables.md) tooling: the spec's ordered checks and 9.2
   as tables — done; nothing changed in meaning

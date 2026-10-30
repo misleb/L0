@@ -1,0 +1,10 @@
+; QEMU's riscv64 virt board's devices, the one table of them: each line a
+; base, a length, the name tests/virt/board calls it, board_NAME, or - for
+; none, and what it is. tools/boards.l0 writes virt-riscv64-devices.ll and
+; tests/virt/board/virt-riscv64-devices.l0 from it, and spec
+; boards/virt-riscv64.md lists the same. tools/test.sh --virt fails when
+; either written file is not what this table gives.
+0x10000000 0x100 uart the 16550
+0x00101000 0x1000 rtc the goldfish RTC
+0x10100000 0x18 fw_cfg firmware configuration
+0x10001000 0x8000 virtio 8 virtio-mmio transports

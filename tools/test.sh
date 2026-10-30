@@ -381,11 +381,38 @@ layout_of() {
 # by docker exec, rather than a docker run per image, unless L0_VIRT_LD
 # already names a linker or ld.lld is on PATH.
 
-# board_table_check ARCH: the devices tests/virt/board/virt-ARCH.l0 names,
-# board_uart, board_rtc, board_fw_cfg, and board_virtio, each begin within
-# a device of runtime/board/virt-ARCH.ll's table, and those it says are no
-# device, board_no_device, board_ram, and board_intc, lie in none, so the
-# two copies of the board's addresses cannot drift apart unseen.
+# board_files_check BOARDS: each board's runtime/board/BOARD-devices.ll,
+# and for a virt board tests/virt/board/BOARD-devices.l0, are what
+# tools/boards.l0 writes from runtime/board/BOARD.devices, built with the
+# compiler $vcc, so that the one table and its two copies cannot drift
+# apart unseen.
+board_files_check() {
+    bgen="$TMP/boards"
+    if ! L0_COMPILER="$vcc" ./tools/l0 build tools/boards.l0 -o "$bgen" > "$TMP/boards.err" 2>&1; then
+        echo "FAIL board tables: tools/boards.l0 did not build"
+        sed 's/^/    /' "$TMP/boards.err"
+        return 1
+    fi
+    for b in "$@"; do
+        "$bgen" ir "$b" < "runtime/board/$b.devices" > "$TMP/$b-devices.ll"
+        if ! cmp -s "$TMP/$b-devices.ll" "runtime/board/$b-devices.ll"; then
+            echo "FAIL board tables: runtime/board/$b-devices.ll is not what $b.devices gives;"
+            echo "    tools/l0 run tools/boards.l0 -- ir $b < runtime/board/$b.devices > runtime/board/$b-devices.ll"
+            return 1
+        fi
+        [ -f "tests/virt/board/$b.l0" ] || continue
+        "$bgen" l0 "$b" < "runtime/board/$b.devices" > "$TMP/$b-devices.l0"
+        if ! cmp -s "$TMP/$b-devices.l0" "tests/virt/board/$b-devices.l0"; then
+            echo "FAIL board tables: tests/virt/board/$b-devices.l0 is not what $b.devices gives;"
+            echo "    tools/l0 run tools/boards.l0 -- l0 $b < runtime/board/$b.devices > tests/virt/board/$b-devices.l0"
+            return 1
+        fi
+    done
+}
+
+# board_table_check ARCH: what tests/virt/board/virt-ARCH.l0 says is no
+# device, board_no_device, board_ram, and board_intc, lies in no device of
+# the board's table, runtime/board/virt-ARCH-devices.ll.
 board_table_check() {
     awk -v arch="$1" '
         BEGIN { n = 0; bad = 0 }
@@ -402,23 +429,21 @@ board_table_check() {
             name = $2; v = $5 + 0
             inside = 0
             for (i = 0; i < n; i++) if (v >= base[i] && v < base[i] + len[i]) inside = 1
-            if (name ~ /^board_(uart|rtc|fw_cfg|virtio)$/ && !inside) {
-                print "board " arch ": " name " is in no device of the runtime table"; bad = 1
-            }
             if (name ~ /^board_(no_device|ram|intc)$/ && inside) {
                 print "board " arch ": " name " is in a device of the runtime table"; bad = 1
             }
         }
         END { exit bad }
-    ' "runtime/board/virt-$1.ll" "tests/virt/board/virt-$1.l0"
+    ' "runtime/board/virt-$1-devices.ll" "tests/virt/board/virt-$1.l0"
 }
 
 if [ "$VIRT" = 1 ]; then
     vstart=$(date +%s)
+    vcc=$(current_compiler)
+    board_files_check virt-aarch64 virt-riscv64 pi5-aarch64 || exit 1
     for a in aarch64 riscv64; do
         board_table_check "$a" || { echo "FAIL board tables: virt-$a"; exit 1; }
     done
-    vcc=$(current_compiler)
     if [ -z "${L0_VIRT_LD:-}" ]; then
         L0_VIRT_LD=$(command -v ld.lld || true)
     fi
@@ -528,7 +553,7 @@ if [ "$VIRT" = 1 ]; then
     # The extra sources of a tests/virt program, NAME.extra's and the
     # board's constants.
     virt_extra() {
-        echo "$(extra_sources "$1") tests/virt/board/virt-$VARCH.l0"
+        echo "$(extra_sources "$1") tests/virt/board/virt-$VARCH.l0 tests/virt/board/virt-$VARCH-devices.l0"
     }
 
     # virt_arch ARCH runs the suite on ARCH's board.

@@ -83,7 +83,12 @@ silent and converts a caught bug into a permanent one.
   Raspberry Pi 5, which has no emulator and runs only on a board, by
   `tools/pi5-run`; a test's expectations for one
   CPU, where they differ, are `<stem>.ARCH.out` and the like, and board
-  constants for tests are `tests/virt/board/virt-ARCH.l0`. A change to any
+  constants for tests are `tests/virt/board/virt-ARCH.l0`. A board's
+  devices are one table, `runtime/board/BOARD.devices`; `tools/boards.l0`
+  writes `runtime/board/BOARD-devices.ll` and
+  `tests/virt/board/virt-ARCH-devices.l0` from it, and `--virt` fails
+  when either is stale, so a device is added to the table and both
+  written again, never one edited by hand. A change to any
   part, to `l0rt.ll`, or to the emitter needs `tools/test.sh --virt`, which
   checks the fixpoint on each board and runs the compiled suite's programs
   and `tests/virt` there, about six minutes for both

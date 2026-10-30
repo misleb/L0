@@ -119,39 +119,13 @@ entry:
   ret i64 10000000
 }
 
-; The board's devices, spec section 10.3's table, as QEMU's virt board
-; places them: a base and a length each. All are in gigapage 0 of the boot
-; map, where the board's physical memory attributes make every access go to
-; the device at its width and in order. Anything else is no region: RAM, the
-; flash, the PCIe windows, the gaps between devices, and the PLIC and the
-; CLINT, which the host and the SBI drive.
-@devices = private constant [8 x i64] [
-  i64 268435456, i64 256,         ; 0x10000000, the 16550
-  i64 1052672, i64 4096,          ; 0x00101000, the goldfish RTC
-  i64 269484032, i64 24,          ; 0x10100000, firmware configuration
-  i64 268439552, i64 32768 ]      ; 0x10001000, 8 virtio-mmio transports
-
-define i64 @l0_board_device_count() {
-entry:
-  ret i64 4
-}
-
-define i64 @l0_board_device_base(i64 %k) {
-entry:
-  %i = mul i64 %k, 2
-  %p = getelementptr [8 x i64], ptr @devices, i64 0, i64 %i
-  %v = load i64, ptr %p
-  ret i64 %v
-}
-
-define i64 @l0_board_device_len(i64 %k) {
-entry:
-  %i0 = mul i64 %k, 2
-  %i = add i64 %i0, 1
-  %p = getelementptr [8 x i64], ptr @devices, i64 0, i64 %i
-  %v = load i64, ptr %p
-  ret i64 %v
-}
+; The board's devices, spec boards/virt-riscv64.md's table, are
+; virt-riscv64-devices.ll, which tools/boards.l0 writes from
+; virt-riscv64.devices. All are in gigapage 0 of the boot map, where the
+; board's physical memory attributes make every access go to the device at
+; its width and in order. Anything else is no region: RAM, the flash, the
+; PCIe windows, the gaps between devices, and the PLIC and the CLINT, which
+; the host and the SBI drive.
 
 ; A new space's root table, at l1: gigapages 0, 2, and 4 as the boot map
 ; has them, for S-mode alone, and 3, the low user range, through the table

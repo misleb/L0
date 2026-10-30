@@ -1,0 +1,12 @@
+; virt-riscv64-devices.l0 -- the board's devices, written by tools/boards.l0 from
+; runtime/board/virt-riscv64.devices; change that, never this, and write it again:
+;   tools/l0 run tools/boards.l0 -- l0 virt-riscv64 < runtime/board/virt-riscv64.devices
+
+(def board_uart () int 268435456)  ; 0x10000000, the 16550
+(def board_uart_len () int 256)
+(def board_rtc () int 1052672)  ; 0x00101000, the goldfish RTC
+(def board_rtc_len () int 4096)
+(def board_fw_cfg () int 269484032)  ; 0x10100000, firmware configuration
+(def board_fw_cfg_len () int 24)
+(def board_virtio () int 268439552)  ; 0x10001000, 8 virtio-mmio transports
+(def board_virtio_len () int 32768)

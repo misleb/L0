@@ -1,0 +1,12 @@
+; virt-aarch64-devices.l0 -- the board's devices, written by tools/boards.l0 from
+; runtime/board/virt-aarch64.devices; change that, never this, and write it again:
+;   tools/l0 run tools/boards.l0 -- l0 virt-aarch64 < runtime/board/virt-aarch64.devices
+
+(def board_uart () int 150994944)  ; 0x09000000, the PL011
+(def board_uart_len () int 4096)
+(def board_rtc () int 151060480)  ; 0x09010000, the PL031
+(def board_rtc_len () int 4096)
+(def board_fw_cfg () int 151126016)  ; 0x09020000, firmware configuration
+(def board_fw_cfg_len () int 24)
+(def board_virtio () int 167772160)  ; 0x0A000000, 32 virtio-mmio transports
+(def board_virtio_len () int 16384)

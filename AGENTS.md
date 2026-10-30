@@ -108,7 +108,8 @@ tests/         backend (hand-written IR), lang (must run), check (must fail),
                in virt/proc/harness, in IR, and virt/user, in L0)
 tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
                l0c, l0check, l0ll, install.sh, linux-test.sh, targets.sh
-               (builds a target's runtime from its manifest); virt/, the
+               (builds a target's runtime from its manifest), boards.l0
+               (a board's device files from its table); virt/, the
                container that links virt board images
 seeds/         the original seed spec, kept for history, superseded by spec/
 roadmap/       plans and status for work in progress (see l0-roadmap)

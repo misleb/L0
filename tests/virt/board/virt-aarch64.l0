@@ -4,10 +4,12 @@
 ; tests/virt program it builds, on the board and as a process, so that a
 ; test names a device by what it is rather than by where.
 
-; The serial port, a PL011: its base, its length, a part of it, and its
-; interrupt.
-(def board_uart () int 150994944)                 ; 0x09000000
-(def board_uart_len () int 4096)
+; Each device's base and length, board_uart and board_uart_len and the
+; rest, are in virt-aarch64-devices.l0, which tools/boards.l0 writes from
+; runtime/board/virt-aarch64.devices, the table the runtime's comes from
+; too, and tools/test.sh --virt adds it beside this file.
+
+; The serial port, a PL011: a part of it, and its interrupt.
 (def board_uart_part () int 150995968)            ; 0x09000400
 (def board_uart_irq () int 33)
 
@@ -15,10 +17,6 @@
 (def board_uart_tx_on ((u int)) int (region_write32 u 56 32))   ; UARTIMSC
 (def board_uart_tx_clear ((u int)) int (region_write32 u 68 32)) ; UARTICR
 (def board_uart_tx_off ((u int)) int (region_write32 u 56 0))
-
-(def board_rtc () int 151060480)                  ; 0x09010000, the PL031
-(def board_fw_cfg () int 151126016)               ; 0x09020000
-(def board_virtio () int 167772160)               ; 0x0A000000, transport 0
 
 ; What is no region: an address between devices, RAM, and the interrupt
 ; controller, which the host drives (spec section 6.14).

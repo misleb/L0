@@ -1,0 +1,132 @@
+; boards.l0 -- a board's device table, runtime/board/NAME.devices, written
+; as the two files that must agree with it: the runtime's part that lists
+; the devices a region may cover, and the constants tests/virt programs
+; name them by.
+;
+;   tools/l0 run tools/boards.l0 -- ir NAME < runtime/board/NAME.devices \
+;       > runtime/board/NAME-devices.ll
+;   tools/l0 run tools/boards.l0 -- l0 NAME < runtime/board/NAME.devices \
+;       > tests/virt/board/NAME-devices.l0
+;
+; A table's line is a base and a length, in hexadecimal with 0x, a name, or
+; - for none, and what the device is, the rest of the line; a line that is
+; empty or starts with ; is a comment. tools/test.sh --virt writes both
+; files again and fails if either differs from the one checked in.
+
+(data Device
+  (Device (base int) (len int) (hex (list int)) (name (list int)) (what (list int))))
+
+; ------------------------------------------------------------ the table
+
+(def devices ((ls (list (list int))) (acc (list Device))) (list Device)
+  (if (is_empty ls)
+      (rev acc)
+      (devices (tail ls)
+        (if (is_comment (head ls)) acc (cons (device_of (head ls)) acc)))))
+
+(def is_comment ((l (list int))) bool
+  (if (is_empty l) true (eq (head l) 59)))
+
+; base len name what...
+(def device_of ((l (list int))) Device
+  (let (ws (split_spaces l)
+        b (head ws)
+        n (head (tail ws))
+        nm (head (tail (tail ws))))
+    (Device (hex_of b) (hex_of n) b nm (rest_after l 3))))
+
+; l with its first k words and the spaces after them dropped.
+(def rest_after ((l (list int)) (k int)) (list int)
+  (if (eq k 0)
+      l
+      (rest_after (drop_spaces (drop_word l)) (sub k 1))))
+
+(def drop_word ((l (list int))) (list int)
+  (if (is_empty l) l (if (eq (head l) 32) l (drop_word (tail l)))))
+
+(def drop_spaces ((l (list int))) (list int)
+  (if (is_empty l) l (if (eq (head l) 32) (drop_spaces (tail l)) l)))
+
+; The number written 0x and hexadecimal digits.
+(def hex_of ((s (list int))) int
+  (hex_onto (tail (tail s)) 0))
+
+(def hex_onto ((s (list int)) (acc int)) int
+  (if (is_empty s) acc (hex_onto (tail s) (add (mul acc 16) (hex_val (head s))))))
+
+(def lines_of ((s (list int)) (cur (list int)) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty s)
+      (rev (if (is_empty cur) acc (cons (rev cur) acc)))
+      (if (eq (head s) 10)
+          (lines_of (tail s) (nil int) (cons (rev cur) acc))
+          (lines_of (tail s) (cons (head s) cur) acc))))
+
+; --------------------------------------------------------- the runtime's
+
+(def ir_file ((board (list int)) (ds (list Device))) (list int)
+  (let (n (length ds)
+        ty (append "[" (append (digits (mul n 2)) " x i64]")))
+    (rev
+      (push (ir_fns n ty)
+        (ir_rows ds
+          (push (append "@devices = private constant " (append ty " [\n"))
+            (push (header board ".ll" "ir") (nil int))))))))
+
+(def header ((board (list int)) (ext (list int)) (mode (list int))) (list int)
+  (append "; " (append board (append "-devices" (append ext
+    (append " -- the board's devices, written by tools/boards.l0 from\n; runtime/board/"
+      (append board (append ".devices; change that, never this, and write it again:\n;   tools/l0 run tools/boards.l0 -- "
+        (append mode (append " " (append board (append " < runtime/board/"
+          (append board ".devices\n\n")))))))))))))
+
+(def ir_rows ((ds (list Device)) (acc (list int))) (list int)
+  (if (is_empty ds)
+      acc
+      (let d (head ds)
+        (ir_rows (tail ds)
+          (push (append "  i64 " (append (digits (.base d)) (append ", i64 "
+                  (append (digits (.len d))
+                    (append (if (is_empty (tail ds)) " ]" ",")
+                      (append "  ; " (append (.hex d) (append ", " (append (.what d) "\n")))))))))
+                acc)))))
+
+(def ir_fns ((n int) (ty (list int))) (list int)
+  (append "\ndefine i64 @l0_board_device_count() {\nentry:\n  ret i64 "
+    (append (digits n)
+      (append "\n}\n\ndefine i64 @l0_board_device_base(i64 %k) {\nentry:\n  %i = mul i64 %k, 2\n  %p = getelementptr "
+        (append ty
+          (append ", ptr @devices, i64 0, i64 %i\n  %v = load i64, ptr %p\n  ret i64 %v\n}\n\ndefine i64 @l0_board_device_len(i64 %k) {\nentry:\n  %i0 = mul i64 %k, 2\n  %i = add i64 %i0, 1\n  %p = getelementptr "
+            (append ty ", ptr @devices, i64 0, i64 %i\n  %v = load i64, ptr %p\n  ret i64 %v\n}\n")))))))
+
+; ----------------------------------------------------------- the tests'
+
+(def l0_file ((board (list int)) (ds (list Device))) (list int)
+  (rev (l0_rows ds (push (header board ".l0" "l0") (nil int)))))
+
+(def l0_rows ((ds (list Device)) (acc (list int))) (list int)
+  (if (is_empty ds)
+      acc
+      (let d (head ds)
+        (l0_rows (tail ds)
+          (if (eq (.name d) "-")
+              acc
+              (push (append "(def board_" (append (.name d) (append "_len () int "
+                      (append (digits (.len d)) ")\n"))))
+                (push (append "(def board_" (append (.name d) (append " () int "
+                        (append (digits (.base d)) (append ")  ; " (append (.hex d)
+                          (append ", " (append (.what d) "\n"))))))))
+                  acc)))))))
+
+(def main () int
+  (match (read_input)
+    ((IoReadFailed code) (let w (write_err "boards: cannot read the table\n") 2))
+    ((IoBytes b)
+      (let (ds (devices (lines_of (bytes_to_list b) (nil int) (nil (list int))) (nil Device))
+            mode (arg 0)
+            board (arg 1))
+        (if (eq mode "ir")
+            (let w (write_str (ir_file board ds)) 0)
+            (if (eq mode "l0")
+                (let w (write_str (l0_file board ds)) 0)
+                (let w (write_err "usage: boards.l0 -- ir|l0 BOARD < BOARD.devices\n") 2)))))))

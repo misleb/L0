@@ -1,7 +1,7 @@
 # 0146: the runtime's structure
 
 Kind: tooling
-Status: active
+Status: done
 Needs: nothing
 
 ## Why
@@ -129,3 +129,22 @@ the board, which only the user can do.
   is therefore recorded as not worth it, for that reason; the space gap
   stays named above. `--virt` green on both boards after the test.sh
   change.
+- 2026-10-30: step 4 done, for the devices. Each board's devices are one
+  table, `runtime/board/BOARD.devices`: base, length, the tests' name,
+  and what it is. `tools/boards.l0`, an L0 program, writes from it the
+  runtime's part, `runtime/board/BOARD-devices.ll` (the table and
+  `l0_board_device_count`, `_base`, `_len`, each manifest linking it), and
+  for a virt board the tests' constants,
+  `tests/virt/board/virt-ARCH-devices.l0` (`board_uart` and
+  `board_uart_len` and the rest), which `tools/test.sh` adds beside
+  `virt-ARCH.l0`. Both are checked in, and `--virt` first rebuilds the
+  generator with the current compiler and fails, naming the command,
+  when either differs from what its table gives (tried: a one-digit edit
+  is caught); step 3's check is left checking only that the non-devices
+  lie in none. The 26 generated devices were checked equal to the
+  hand-written tables they replace. Left by hand: spec
+  `boards/*.md`'s device tables, which carry prose per device, and each
+  board's interrupts, which have one copy each in the runtime besides the
+  spec. `--virt` and both suites green; the Pi 5 image builds, not run on
+  a board. 0146 is done: steps 1 to 4 done, step 5 recorded as not worth
+  it.

@@ -113,44 +113,15 @@ entry:
   unreachable
 }
 
-; The board's devices, spec section 10.3's table, as QEMU's virt board
-; places them: a base and a length each. All are in block 0 of the boot
-; map but the ECAM, in block 256, and both are device memory,
-; Device-nGnRnE, so an access goes to the device at its width and in
-; order. Anything else, RAM and the runtime's heap among it, is no region,
-; and so is any range of the flash, the PCIe port-I/O and 64-bit windows,
-; or the gaps between devices, where QEMU would answer an access with an
-; external abort, and so is the GIC, which this file drives.
-@devices = private constant [14 x i64] [
-  i64 150994944, i64 4096,        ; 0x09000000, the PL011
-  i64 151060480, i64 4096,        ; 0x09010000, the PL031
-  i64 151126016, i64 24,          ; 0x09020000, firmware configuration
-  i64 151191552, i64 4096,        ; 0x09030000, the PL061
-  i64 167772160, i64 16384,       ; 0x0A000000, 32 virtio-mmio transports
-  i64 268435456, i64 788463616,   ; 0x10000000, the PCIe 32-bit MMIO window
-  i64 275146342400, i64 268435456 ] ; 0x4010000000, the PCIe ECAM
-
-define i64 @l0_board_device_count() {
-entry:
-  ret i64 7
-}
-
-define i64 @l0_board_device_base(i64 %k) {
-entry:
-  %i = mul i64 %k, 2
-  %p = getelementptr [14 x i64], ptr @devices, i64 0, i64 %i
-  %v = load i64, ptr %p
-  ret i64 %v
-}
-
-define i64 @l0_board_device_len(i64 %k) {
-entry:
-  %i0 = mul i64 %k, 2
-  %i = add i64 %i0, 1
-  %p = getelementptr [14 x i64], ptr @devices, i64 0, i64 %i
-  %v = load i64, ptr %p
-  ret i64 %v
-}
+; The board's devices, spec boards/virt-aarch64.md's table, are
+; virt-aarch64-devices.ll, which tools/boards.l0 writes from
+; virt-aarch64.devices. All are in block 0 of the boot map but the ECAM, in
+; block 256, and both are device memory, Device-nGnRnE, so an access goes
+; to the device at its width and in order. Anything else, RAM and the
+; runtime's heap among it, is no region, and so is any range of the flash,
+; the PCIe port-I/O and 64-bit windows, or the gaps between devices, where
+; QEMU would answer an access with an external abort, and so is the GIC,
+; which this file drives.
 
 ; A new space's root table, at l1: blocks 0 to 2 as the boot map has them,
 ; but for EL1 alone and never executable at EL0, and the devices' never at

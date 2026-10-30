@@ -1,12 +1,11 @@
 ; QEMU's riscv64 virt board, for the tests that drive its devices: what
 ; spec section 10.3 says it has and where, and what its CPU's code is, as
 ; tests/virt/board/virt-aarch64.l0 says for the aarch64 board, by the same
-; names.
+; names. Each device's base and length are in virt-riscv64-devices.l0,
+; which tools/boards.l0 writes from runtime/board/virt-riscv64.devices.
 
-; The serial port, a 16550, its registers a byte apart: its base, its
-; length, a part of it, and its interrupt.
-(def board_uart () int 268435456)                 ; 0x10000000
-(def board_uart_len () int 256)
+; The serial port, a 16550, its registers a byte apart: a part of it, and
+; its interrupt.
 (def board_uart_part () int 268435520)            ; 0x10000040
 (def board_uart_irq () int 10)
 
@@ -16,10 +15,6 @@
 (def board_uart_tx_on ((u int)) int (region_write8 u 1 2))      ; IER: ETBEI
 (def board_uart_tx_clear ((u int)) int (region_read8 u 2))      ; IIR
 (def board_uart_tx_off ((u int)) int (region_write8 u 1 0))
-
-(def board_rtc () int 1052672)                    ; 0x00101000, goldfish
-(def board_fw_cfg () int 269484032)               ; 0x10100000
-(def board_virtio () int 268439552)               ; 0x10001000, transport 0
 
 ; What is no region: an address past the last transport, RAM, and the
 ; interrupt controller, which the host drives (spec section 6.14).

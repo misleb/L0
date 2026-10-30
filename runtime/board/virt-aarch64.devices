@@ -1,0 +1,13 @@
+; QEMU's aarch64 virt board's devices, the one table of them: each line a
+; base, a length, the name tests/virt/board calls it, board_NAME, or - for
+; none, and what it is. tools/boards.l0 writes virt-aarch64-devices.ll and
+; tests/virt/board/virt-aarch64-devices.l0 from it, and spec
+; boards/virt-aarch64.md lists the same. tools/test.sh --virt fails when
+; either written file is not what this table gives.
+0x09000000 0x1000 uart the PL011
+0x09010000 0x1000 rtc the PL031
+0x09020000 0x18 fw_cfg firmware configuration
+0x09030000 0x1000 - the PL061
+0x0A000000 0x4000 virtio 32 virtio-mmio transports
+0x10000000 0x2EFF0000 - the PCIe 32-bit MMIO window
+0x4010000000 0x10000000 - the PCIe ECAM
