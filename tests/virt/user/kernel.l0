@@ -70,8 +70,14 @@
 ; just made a call of the kernel's own, and -6 just interrupted by a
 ; device, for the scheduler to answer; or the status it ended with.
 (data Proc
-  (Proc (space int) (ctx (array int)) (pages (array int)) (window int)
+  (Proc (space Space) (ctx (array int)) (pages (array int)) (window int)
         (state int)))
+
+; A space, as space_new numbers it: a type of its own, so no other int is
+; taken for one, and a word, so it costs nothing (spec 10.1). (.id s) is
+; what the user-mode builtins take; -1 is none.
+(data Space
+  (Space (id int)))
 
 ; A field of a process is read by name, (.state p) and the rest, and
 ; replaced by name. A field that is an array updated through a function and
@@ -151,7 +157,7 @@
 ; Maps a fresh frame at each page from p, page-aligned, below end that has
 ; none yet, with perm, as space_map takes it. A page's entry in m is 0 while
 ; it has no frame, and then its frame times 8 plus its perm plus 1.
-(def ensure ((s int) (m (array int)) (p int) (end int) (perm int)) Mem
+(def ensure ((s Space) (m (array int)) (p int) (end int) (perm int)) Mem
   (if (ge p end)
       (Mem m)
       (let i (page_of p)
@@ -159,7 +165,7 @@
             (let f (frame_new)
               (if (lt f 0)
                   (NoFrames m)
-                  (let r (space_map s p f perm)
+                  (let r (space_map (.id s) p f perm)
                     (if (lt r 0)
                         (NoFrames m)
                         (ensure s (array_set m i (add (mul f 8) (add perm 1))) (add p 4096) end perm)))))
@@ -167,14 +173,14 @@
 
 ; Unmaps each page from p, page-aligned, below end that has a frame mapped
 ; readable and writable only, as the heap's are, and frees the frame.
-(def release ((s int) (m (array int)) (p int) (end int)) (array int)
+(def release ((s Space) (m (array int)) (p int) (end int)) (array int)
   (if (ge p end)
       m
       (let i (page_of p)
         (let st (array_get m i)
           (if (if (eq st 0) true (not (eq (bit_and (sub st 1) 7) 1)))
               (release s m (add p 4096) end)
-              (let u (space_unmap s p)
+              (let u (space_unmap (.id s) p)
                 (let f (frame_free (bit_shr st 3))
                   (release s (array_set m i 0) (add p 4096) end))))))))
 
@@ -230,14 +236,14 @@
 
 ; Copies the next left bytes of standard input into the space from va,
 ; whose pages are mapped.
-(def copy_in ((s int) (va int) (left int)) int
+(def copy_in ((s Space) (va int) (left int)) int
   (if (le left 0)
       0
       (let b (read_some 0 (if (lt left 65536) left 65536))
         (let n (bytes_len b)
           (if (eq n 0)
               0
-              (let w (space_write s va b 0 n)
+              (let w (space_write (.id s) va b 0 n)
                 (copy_in s (add va n) (sub left n))))))))
 
 ; Reads and drops the next n bytes of standard input.
@@ -268,8 +274,8 @@
 (def new_proc ((i int)) Proc
   (let size (read_number 0)
     (let hd (read_exact (if (lt size 64) size 64))
-      (let s (space_new)
-        (if (lt s 0)
+      (let s (Space (space_new))
+        (if (lt (.id s) 0)
             (let k (skip (sub size (bytes_len hd)))
               (Proc s (array_new 0 0) (array_new 0 0) 0 (no_user_mode i)))
             (if (is_elf hd)
@@ -369,7 +375,7 @@
 
 ; Maps each of segs with its perm, from the file position pos, reading
 ; its file bytes into it; the rest of its pages are a fresh frame's zeros.
-(def load_segs ((s int) (m (array int)) (segs (list Seg)) (pos int)) Load
+(def load_segs ((s Space) (m (array int)) (segs (list Seg)) (pos int)) Load
   (if (is_empty segs)
       (Load m pos true)
       (match (head segs)
@@ -383,7 +389,7 @@
 
 ; An ELF image, whose first 64 bytes, hd, are read: its segments mapped,
 ; and its entry e_entry.
-(def new_elf ((i int) (s int) (size int) (hd bytes)) Proc
+(def new_elf ((i int) (s Space) (size int) (hd bytes)) Proc
   (if (header_ok hd size)
       (let phoff (le_at hd 32 8)
         (let phnum (le_at hd 56 2)
@@ -395,7 +401,7 @@
                   ((BadSegs) (refused i s (skip (sub size pos))))))))))
       (refused i s (skip (sub size (bytes_len hd))))))
 
-(def new_loaded ((i int) (s int) (size int) (hd bytes) (segs (list Seg)) (pos int)) Proc
+(def new_loaded ((i int) (s Space) (size int) (hd bytes) (segs (list Seg)) (pos int)) Proc
   (match (load_segs s (array_new (page_count) 0) segs pos)
     ((Load m ended ok)
       (let k (skip (sub size ended))
@@ -405,11 +411,11 @@
 
 ; A process whose image the kernel cannot load, in space s, which nothing
 ; is mapped in yet, once its bytes are read.
-(def refused ((i int) (s int) (skipped int)) Proc
-  (let f (space_free s)
+(def refused ((i int) (s Space) (skipped int)) Proc
+  (let f (space_free (.id s))
     (let a (say_proc i)
       (let b (write_err " not started: not an image it loads\n")
-        (Proc -1 (array_new 0 0) (array_new 0 0) 0 99)))))
+        (Proc (Space -1) (array_new 0 0) (array_new 0 0) 0 99)))))
 
 (def new_procs ((ps (array Proc)) (i int) (n int)) (array Proc)
   (if (ge i n)
@@ -518,8 +524,8 @@
 
 ; Runs process i until its next trap, and answers it: a host call or a
 ; missing page in place, and anything else by ending its turn.
-(def step ((i int) (s int) (m (array int)) (w int) (c (array int))) Proc
-  (let r (user_run s c)
+(def step ((i int) (s Space) (m (array int)) (w int) (c (array int))) Proc
+  (let r (user_run (.id s) c)
     (match (trap_of r)
       ((TrapCall n) (syscall i s m w r n))
       ((TrapMissing va) (demand i s m w r va))
@@ -530,10 +536,10 @@
             (Proc s r m w -6))))))
 
 ; Gives process i v as its system call's result, and runs it on.
-(def answer ((i int) (s int) (m (array int)) (w int) (c (array int)) (v int)) Proc
+(def answer ((i int) (s Space) (m (array int)) (w int) (c (array int)) (v int)) Proc
   (step i s m w (call_result c v)))
 
-(def demand ((i int) (s int) (m (array int)) (w int) (c (array int)) (va int)) Proc
+(def demand ((i int) (s Space) (m (array int)) (w int) (c (array int)) (va int)) Proc
   (if (if (ge va (user_lo)) (lt va (user_top)) false)
       (match (ensure s m (page_floor va) (add va 1) 1)
         ((Mem m1) (step i s m1 w c))
@@ -621,7 +627,7 @@
   (.taken (.queue k (join (.queue k) (.taken k) b)) 0))
 
 (def kread ((k Kern) (i int) (va int) (n int)) bytes
-  (space_read (.space (array_get (.procs k) i)) va n))
+  (space_read (.id (.space (array_get (.procs k) i))) va n))
 
 ; send(_, bytes)
 (def k_send ((k Kern) (i int)) int
@@ -655,7 +661,7 @@
 ; k is read first, and replaced last, so the replacements store in place.
 (def give ((k Kern) (r int) (buf int) (n int)) Kern
   (let (qo (.taken k)
-        w (space_write (.space (array_get (.procs k) r)) buf (.queue k) qo (add qo n)))
+        w (space_write (.id (.space (array_get (.procs k) r))) buf (.queue k) qo (add qo n)))
     (.taken (.procs k (update_at resume (.procs k) r n)) (add qo n))))
 
 ; receive(_, room)
@@ -715,7 +721,7 @@
 ; the registers the CPU passes them in. A number from 256 is the kernel's
 ; own, and 8 and 9 ask for the arguments, which the kernel holds: the
 ; scheduler answers those.
-(def syscall ((i int) (s int) (m (array int)) (w int) (c (array int)) (n int)) Proc
+(def syscall ((i int) (s Space) (m (array int)) (w int) (c (array int)) (n int)) Proc
   (if (if (ge n 256) true (if (eq n 8) true (eq n 9)))
       (Proc s c m w -4)
       (let a (call_arg c 0)
@@ -729,7 +735,7 @@
                         (Proc s c m w (bit_and a 255))
                         (sys_rest i s m w c n a b d)))))))))
 
-(def sys_rest ((i int) (s int) (m (array int)) (w int) (c (array int)) (n int)
+(def sys_rest ((i int) (s Space) (m (array int)) (w int) (c (array int)) (n int)
                (a int) (b int) (d int)) Proc
   (if (eq n 4)
       (answer i s m w c (if (user_ok a b) (if (eq d 1) -3 -9) -5))
@@ -750,7 +756,7 @@
 ; unregion(addr, len): the window's pages the region over len bytes at addr
 ; took are unmapped, and if they were the last the window gave, it takes
 ; them back. A range not in the window's used pages is ignored.
-(def sys_unregion ((i int) (s int) (m (array int)) (w int) (c (array int))
+(def sys_unregion ((i int) (s Space) (m (array int)) (w int) (c (array int))
                    (addr int) (len int)) Proc
   (let first (page_floor addr)
     (let end (add (page_floor (sub (add addr len) 1)) 4096)
@@ -761,15 +767,15 @@
               (answer i s m (if (eq end top) (bit_shr (sub first (window)) 12) w) c 0)))))))
 
 ; Unmaps the device pages from p below end.
-(def unmap_window ((s int) (p int) (end int)) int
+(def unmap_window ((s Space) (p int) (end int)) int
   (if (ge p end)
       0
-      (let u (space_unmap s p)
+      (let u (space_unmap (.id s) p)
         (unmap_window s (add p 4096) end))))
 
 ; release(base, len): the whole pages of the heap in the range, below the
 ; stack, given back.
-(def sys_release ((i int) (s int) (m (array int)) (w int) (c (array int))
+(def sys_release ((i int) (s Space) (m (array int)) (w int) (c (array int))
                   (base int) (len int)) Proc
   (if (user_ok base len)
       (let hi (page_floor (add base len))
@@ -780,7 +786,7 @@
 
 ; read(stream, buf, len): standard input, into the process, at most 64 KB,
 ; and only where it may write.
-(def sys_read ((i int) (s int) (m (array int)) (w int) (c (array int))
+(def sys_read ((i int) (s Space) (m (array int)) (w int) (c (array int))
                (h int) (buf int) (len int)) Proc
   (if (if (eq h 0) (user_ok buf len) false)
       (if (eq len 0)
@@ -791,21 +797,21 @@
                   ((Mem m1)
                     (let bs (read_some 0 k)
                       (let got (bytes_len bs)
-                        (let r (space_write s buf bs 0 got)
+                        (let r (space_write (.id s) buf bs 0 got)
                           (answer i s m1 w c got)))))
                   ((NoFrames m1) (Proc s c m1 w (out_of_memory i))))
                 (answer i s m w c -5))))
       (answer i s m w c -5)))
 
 ; write(stream, buf, len): standard output or error, out of the process.
-(def sys_write ((i int) (s int) (m (array int)) (w int) (c (array int))
+(def sys_write ((i int) (s Space) (m (array int)) (w int) (c (array int))
                 (h int) (buf int) (len int)) Proc
   (if (if (if (eq h 1) true (eq h 2)) (user_ok buf len) false)
       (if (eq len 0)
           (answer i s m w c 0)
           (match (ensure s m (page_floor buf) (add buf len) 1)
             ((Mem m1)
-              (let r (write_bytes h (space_read s buf len) 0 len)
+              (let r (write_bytes h (space_read (.id s) buf len) 0 len)
                 (answer i s m1 w c (if (lt r 0) r len))))
             ((NoFrames m1) (Proc s c m1 w (out_of_memory i)))))
       (answer i s m w c -5)))
@@ -813,7 +819,7 @@
 ; region(base, len): the device's pages at the next pages of the window
 ; above the stack. The host decides what is a device; a range too long for
 ; what is left of the window is -5, before the host is asked.
-(def sys_region ((i int) (s int) (m (array int)) (w int) (c (array int))
+(def sys_region ((i int) (s Space) (m (array int)) (w int) (c (array int))
                  (base int) (len int)) Proc
   (if (if (lt len 1) true (lt base 0))
       (answer i s m w c -3)
@@ -822,7 +828,7 @@
           (if (gt pages (sub (window_pages) w))
               (answer i s m w c -5)
               (let va (add (window) (mul w 4096))
-                (let r (space_map_device s va base len)
+                (let r (space_map_device (.id s) va base len)
                   (if (lt r 0)
                       (answer i s m w c r)
                       (answer i s m (add w pages) c
@@ -892,17 +898,17 @@
 (def k_arg_copy ((k Kern) (i int) (buf int) (a bytes) (w int) (len int)) int
   (if (ge (kstate k i) 0)
       (after k i)
-      (let c (space_write (proc_space_of k i) buf a 0 w)
+      (let c (space_write (.id (proc_space_of k i)) buf a 0 w)
         (schedule (kresume k i len) i))))
 
-(def proc_space_of ((k Kern) (i int)) int
+(def proc_space_of ((k Kern) (i int)) Space
   (.space (array_get (.procs k) i)))
 
 (def main () int
   (let n (read_number 0)
     (if (lt n 1)
         (let e (write_err "kernel: no process to run\n") 99)
-        (let ended (Proc -1 (array_new 0 0) (array_new 0 0) 0 99)
+        (let ended (Proc (Space -1) (array_new 0 0) (array_new 0 0) 0 99)
           (let e (interrupt_enable 0)                   ; the timer
             (let ps (new_procs (array_new n ended) 0 n)
               (let pa (proc_args (array_new n (nil (list int))) 0)

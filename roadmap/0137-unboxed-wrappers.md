@@ -1,7 +1,7 @@
 # 0137: a one-field wrapper costs nothing
 
 Kind: language
-Status: active
+Status: done
 Needs: nothing
 
 ## Why
@@ -51,4 +51,14 @@ process ABI, which passes words and bytes.
   `eq`, `compare`, `hash`, a map key, lists, arrays, and a generic call.
   L0S's five `hash` calls hash records used as cache keys or a sequence
   number, none pinned in a test. Both suites, the fixpoint, and `--virt`
-  on both boards green; seed refreshed; self-compile 0.69 s.
+  on both boards green; seed refreshed; self-compile 0.71 s, from 0.69.
+- 2026-10-30: step 2 done. The L0 kernel's spaces are a `Space` wrapper:
+  `Proc`'s field and the 18 functions that took a space as `int`, with
+  `(.id s)` at each of its 11 user-mode builtin calls, which the checker
+  found by type. Frames stay `int` in the kernel, since its page table
+  packs a frame with its permissions in one word. The library does not
+  offer typed spaces and frames: the builtins take ints, which the process
+  ABI and every host pass, a typed copy of 6.13's builtins would be a
+  second interface to keep in step, and a program's own one-line wrapper
+  now costs nothing; the l0-code skill and the adoption guide's section 8
+  say so. `--virt` on both boards green. Done.

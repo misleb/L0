@@ -247,6 +247,8 @@ instead of reporting the unclosed form.
    still live at exit, and any use of a freed one.
 6. Functions as arguments (section 7), loop by loop, where two functions
    differ only in what they do to each element.
+7. Word wrappers (section 8) for the handles a wrong int could be passed
+   for, starting with spaces and frames.
 
 ## 7. Functions as arguments (roadmap 0135)
 
@@ -295,3 +297,39 @@ keep a one-line `def` per old name only where callers are many. What to
 leave alone: a loop whose element work needs the caller's state, which a
 closure would carry; pass that state as an argument instead only where it
 reads naturally.
+
+## 8. Word wrappers cost nothing (roadmap 0137)
+
+A data type declared without type parameters, with one constructor of one
+`int`, `bool`, or `float` field, is that word at run time (spec 10.1):
+construction, `match`, and its field are the identity, and nothing about
+it is counted. `IoFile` and `IoDevice` in the library are such types
+already, and so is any of L0S's, with nothing to change. From
+`tests/virt/user/kernel.l0`, whose spaces are now typed:
+
+```
+(data Space
+  (Space (id int)))
+
+(let s (Space (space_new))
+  (if (lt (.id s) 0) ... (space_map (.id s) va f perm)))
+```
+
+**What changes.** `hash` of such a value is its field's, without the tag
+item, and so is the hash of anything holding one. L0S's five `hash` calls
+(`files.l0`, `tcpstack.l0`, `widget.l0` twice, `process.l0`) hash records
+used as cache keys or a sequence number, and no test pins one, so nothing
+depends on the values; a stored hash from before is not equal to one from
+after.
+
+**Where L0S gains.** Every handle kept as a bare `int` that a wrong one
+could be passed for: spaces, frames, regions, interrupts, process and
+window ids. Wrapping one is a `data` line and `(.id x)` at the builtins.
+The library does not wrap the user-mode builtins itself: they take ints,
+which are what the process ABI and every host pass, and a typed copy of
+6.13's nineteen builtins would be a second interface to keep in step,
+where a program's own one-line type costs nothing. L0S's existing wrappers:
+
+```bash
+grep -rnE '\(data ([A-Z][A-Za-z0-9_]*)[[:space:]]*\(([A-Z][A-Za-z0-9_]*)[[:space:]]+(\([a-z_0-9]+[[:space:]]+)?(int|bool|float)\)?\)\)' --include='*.l0' .
+```

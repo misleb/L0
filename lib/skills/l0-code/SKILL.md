@@ -156,6 +156,13 @@ returned or bound with `let`. Each function passed makes a copy of the
 callee, so the call through it is a direct call, and a tail call through
 one uses no stack.
 
+**Give a number that means one thing a type of its own.** A data type of
+one constructor of one `int`, `bool`, or `float` field, `(data Space
+(Space (id int)))`, is represented as the word itself (spec 10.1), so it
+costs nothing, and the checker then tells a space from a frame or a count:
+`(space_map (.id s) ...)` at the builtin, `Space` everywhere else. Its
+`eq` and `compare` are its field's, and so is its `hash`.
+
 **There are no tuples.** A function returning two things declares a small
 `data` type; see `Split` in `l0 examples`.
 

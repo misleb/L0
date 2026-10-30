@@ -52,6 +52,14 @@ kernel whose spaces and frames are different types.
   in a test, so a record holding a wrapper hashes differently and nothing
   depends on which.
 
+*Used:* the L0 kernel's spaces are a `Space` wrapper, and the checker
+found each of the 11 user-mode builtin calls that was given one. The
+library adds no typed spaces or frames: the builtins take what the process
+ABI and every host pass, a typed copy of them would be a second interface,
+and a program's own wrapper is a line that now costs nothing. Self-compile
+went from 0.69 s to 0.71 s, for the new code, since the compiler has no
+wrapper of its own.
+
 ---
 
 ## A field goes through a function and back in place (roadmap 0136)

@@ -25,13 +25,10 @@ display interrupts beyond those given, and the VisionFive 2 and Pi 4.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0137](0137-unboxed-wrappers.md) a one-field wrapper of a word costs
-   nothing, so spaces and frames can be types — active; changes such a
-   type's hash
-2. [0138](0138-short-circuit.md) `and` and `or` evaluate their second
-   operand only when it matters — proposed; one test leaves the
+1. [0138](0138-short-circuit.md) `and` and `or` evaluate their second
+   operand only when it matters — active; one test leaves the
    differential suite
-3. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
+2. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
    it grows — queued, left for now: hysteresis breaks spec 6.9's promise
    that a map's table depends only on its entries, and a trie that keeps
    it is the way if taken up
@@ -60,6 +57,12 @@ From the review of 2026-10-30, each proposed and not started:
   own loose ends
 
 ## Done and dropped
+
+- [0137](0137-unboxed-wrappers.md) a one-field wrapper of a word is the
+  word — done, changelog "A one-field wrapper of a word is the word";
+  `hash` of one is its field's; the kernel's spaces are typed; both
+  suites, the fixpoint, and `--virt` on both boards green; not run on
+  macOS or a Pi 5
 
 - [0136](0136-field-take-out.md) a field taken out for a function and put
   back in place — done, changelog "A field goes through a function and
