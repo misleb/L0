@@ -37,8 +37,9 @@ The order above is the review's suggestion; the user decides it.
 From the review of 2026-10-30:
 
 - [0146](0146-runtime-structure.md) tooling: the runtime's structure —
-  active: step 3 done (the Pi 5 table's type, and a check that the boards'
-  two address lists agree); step 1, the default host stubs, next
+  active: steps 3 (the Pi 5 table's type, and a check that the boards'
+  two address lists agree) and 1 (`bare/absent.ll`, the default host
+  functions) done; step 2, one device-tree walker, next
 - [0147](0147-verification.md) tooling: CI on both CPUs, and the suite's
   own loose ends — proposed; left out of this run by the user's choice
 

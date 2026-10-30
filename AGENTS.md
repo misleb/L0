@@ -87,7 +87,8 @@ spec/          L0.md (the language), runtime.md (section 10, the target and
 runtime/       l0rt.ll, the runtime every compiled program links, as LLVM IR,
                and host-libc.ll, its host file, the only one calling libc;
                for a host without an operating system, its parts: bare/
-               (board.ll and proc.ll, what no machine decides, for a board
+               (absent.ll, each host function as a host without it gives
+               it; board.ll and proc.ll, what no machine decides, for a board
                and for a process of a kernel, semihost.ll, and psci.ll, for
                a board with no emulator), arch/ARCH/
                (a CPU's boot.ll and proc.ll), board/ (a board's part and

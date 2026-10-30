@@ -69,3 +69,15 @@ the board, which only the user can do.
   2 (one device-tree walker), 4 (board files generated from a table), and
   5 (the IR harness kernels retired) wait behind it; 5 needs a list of
   what the harness runs that `kernel.l0` does not.
+- 2026-10-30: step 1 done. `runtime/bare/absent.ll` defines, `weak`, the
+  27 host functions as a host lacking each facility gives them (spec 9.2),
+  and every manifest links it last; `board.ll` lost its 6 such stubs and
+  `proc.ll` its 21, keeping 17 definitions, all real. A strong definition
+  in a part replaces the weak one when the parts are linked into the
+  program's module, before optimization; each part is compiled alone at
+  -O2, where a weak body is not inlined. `host-libc.ll` keeps its own,
+  being linked outside the manifests and the same text on both operating
+  systems. `--virt` green on both boards, user mode among it, which shows
+  the boards' own definitions win and a process gets the absent ones; the
+  Pi 5 image builds, not run on a board. Next: step 2, one device-tree
+  walker in `board.ll` for `boot_args`, `boot_memory`, and `boot_cpus`.

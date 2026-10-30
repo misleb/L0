@@ -72,7 +72,10 @@ silent and converts a caught bug into a permanent one.
   `runtime/arch/aarch64/boot.ll`, the CPU's part; `runtime/board/
   virt-aarch64.ll` and `.ld`, QEMU's aarch64 virt board and its layout;
   `runtime/dev/`, the drivers a board's part drives its devices with; and
-  `runtime/bare/semihost.ll`. Each target's manifest,
+  `runtime/bare/semihost.ll`; and `runtime/bare/absent.ll`, every host
+  function as a host lacking its facility gives it (spec 9.2), `weak`, so
+  that a host's own part defines only what it has, and a new host function
+  gets its absent definition there first. Each target's manifest,
   `runtime/targets/NAME.target`, lists its parts, and `tools/targets.sh`
   builds them into `build/NAME/`; a new board or CPU is a new manifest and
   the parts it lacks, and the tools need no change. There are three boards,

@@ -274,37 +274,8 @@ err:
   ret i64 %r
 }
 
-; No stream but the standard three is ever open, and those are not closed.
-define i64 @l0_host_close(i64 %s) {
-entry:
-  ret i64 -5
-}
-
-; ------------------------------------------------------------------- files
-
-; Section 9.2: an empty file system, not even a directory, in which nothing
-; can be made.
-define i64 @l0_host_open(ptr %path, i64 %mode) {
-entry:
-  %rd = icmp eq i64 %mode, 1
-  %r = select i1 %rd, i64 -3, i64 -9
-  ret i64 %r
-}
-
-define i64 @l0_host_rename(ptr %from, ptr %to) {
-entry:
-  ret i64 -3
-}
-
-define i64 @l0_host_remove(ptr %path) {
-entry:
-  ret i64 -3
-}
-
-define ptr @l0_host_setting(ptr %name) {
-entry:
-  ret ptr null
-}
+; A board has no file system, no stream to close but the standard three,
+; no environment, and no kernel beneath: bare/absent.ll gives those.
 
 ; ------------------------------------------------------- the clock, timer
 
@@ -2168,12 +2139,6 @@ end:
   ret i64 0
 e8:
   ret i64 8
-}
-
-; Spec section 9.2: no kernel beneath the program on a bare board.
-define i64 @l0_host_supervisor(i64 %n, i64 %a, i64 %b, i64 %c) {
-entry:
-  ret i64 -3
 }
 
 ; -------------------------------------------------------------- other CPUs

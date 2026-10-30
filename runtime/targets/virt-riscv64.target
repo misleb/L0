@@ -8,7 +8,7 @@ T_ARCH=riscv64
 T_TRIPLE=riscv64-unknown-elf
 T_CFLAGS="-march=rv64gc -mabi=lp64d -mcmodel=medany -mno-relax"
 T_TAIL_WORDS=13
-T_PARTS="bare/board.ll bare/semihost.ll dev/plic.ll dev/ns16550.ll board/virt-riscv64.ll arch/riscv64/boot.ll"
+T_PARTS="bare/board.ll bare/semihost.ll dev/plic.ll dev/ns16550.ll board/virt-riscv64.ll arch/riscv64/boot.ll bare/absent.ll"
 T_LAYOUT=board/virt-riscv64.ld
 T_HEAP_MB=512
 T_STACK_MB=256
