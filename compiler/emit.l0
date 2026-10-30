@@ -58,7 +58,8 @@
 ; signatures, since a def passed may be of either, and what each copy's
 ; function parameters were given, by the copy's name. Spec 10.2.
 (data FnArgs
-  (FA (psigs (list Sig)) (gsigs (list Sig)) (copies (Map (list int) (list FnRef)))))
+  (FA (psigs (Map (list int) Sig)) (gsigs (Map (list int) Sig))
+      (copies (Map (list int) (list FnRef)))))
 
 (data EnvEmit
   (EnvSt Env Emit))
@@ -1074,8 +1075,8 @@
                   (if (any_eq n (split_spaces "user_run cpu_trapped")) (TyArray (TyInt)) (TyInt))))))))
 
 ; The type a function returns, from its signature.
-(def fn_type ((n (list int)) (sigs (list Sig))) Ty
-  (match (find_sig n sigs)
+(def fn_type ((n (list int)) (sigs (Map (list int) Sig))) Ty
+  (match (map_get sigs n)
     ((Some s) (.ret s))
     ((None) (TyInt))))
 
@@ -1092,8 +1093,9 @@
                         ts (.gsigs (.fa env)) env))
       (call_type_in n ts (.sigs (.ctx env)) env)))
 
-(def call_type_in ((n (list int)) (ts (list Ty)) (sigs (list Sig)) (env Env)) Ty
-  (match (find_sig (copy_base n) sigs)
+(def call_type_in ((n (list int)) (ts (list Ty)) (sigs (Map (list int) Sig)) (env Env))
+    Ty
+  (match (map_get sigs (copy_base n))
     ((Some s)
       (match s
         ((S sn tps sps sr)
@@ -1129,8 +1131,7 @@
 ; A def passed, by its @ name, as the argument it was.
 (def ref_arg_ty ((call (list int)) (env Env)) ArgTy
   (let sigs (if (starts_with call "@l0_p_") (.psigs (.fa env)) (.gsigs (.fa env)))
-    (match (find_sig (copy_base (if (eq call "@l0_f_main.body") "main" (drop_n call 6)))
-                     sigs)
+    (match (map_get sigs (copy_base (if (eq call "@l0_f_main.body") "main" (drop_n call 6))))
       ((Some h)
         (if (is_empty (.tparams h))
             (AFn (TyFn (.params h) (.ret h)))

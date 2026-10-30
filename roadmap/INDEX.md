@@ -40,14 +40,16 @@ From the review of 2026-10-30, each proposed and not started:
   the runtime, and the boards
 - [0142](0142-spec-tables.md) tooling: the spec's normative lists as
   tables, after 0141
-- [0145](0145-compiler-internals.md) tooling: the compiler's own structure,
-  after 0135
 - [0146](0146-runtime-structure.md) tooling: the runtime's structure, the
   default host stubs first
 - [0147](0147-verification.md) tooling: CI on both CPUs, and the suite's
   own loose ends
 
 ## Done and dropped
+
+- [0145](0145-compiler-internals.md) tooling: the compiler's own
+  structure — done, changelog "The compiler looks a call's function up in
+  a map"; three bullets recorded as not worth it now
 
 - [0140](0140-string-tables.md) tooling: string literals as byte tables —
   done, changelog "A string literal is a table of its bytes"; the seed is

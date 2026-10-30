@@ -325,8 +325,8 @@
   (if (is_empty bad)
       acc
       (dropped_reports (tail bad)
-        (cons (append "unknown function " (head bad))
-          (cons (append "unknown variable " (head bad)) acc)))))
+        (cons (unknown_fn_msg (head bad))
+          (cons (unknown_var_msg (head bad)) acc)))))
 
 (def keep_known ((ds (list Diag)) (quiet (list (list int))) (acc (list Diag)))
     (list Diag)

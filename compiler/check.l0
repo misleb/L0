@@ -13,6 +13,14 @@
 ; the emitter runs on a program that has already checked: it replaces each
 ; function with type parameters by its copies (spec 10.2), and needs the
 ; checker's types to choose which copy each call reaches.
+;
+; After checking, some facts travel in names no source can write, since no
+; L0 name has a space, a dot, an apostrophe, or an @: a prelude type the
+; program shadows, "prelude's T" (group_upper); a def's type parameter that
+; hides a type, "f's T" (hide_tparams); a word wrapper, "unboxed T"
+; (unbox_words); a copy, "f.01" or "f.Fg" (mono_program); a call through a
+; function parameter, "@" and a symbol; and the emitter's pseudo-calls
+; "array.take" and "data.take".
 
 (data Bind
   (B (name (list int)) (ty Ty)))
@@ -39,7 +47,7 @@
 ; The fourth field is every builtin's name, split once when the context is
 ; built, since a call to any function has to be told apart from a builtin.
 (data Ctx
-  (Cx (sigs (list Sig)) (ctors (list CtorInfo)) (datas (list DataDef))
+  (Cx (sigs (Map (list int) Sig)) (ctors (list CtorInfo)) (datas (list DataDef))
       (builtins (list (list int))) (tparams (list (list int)))))
 
 ; What checking found, or the first error in it, as an offset and a message:
@@ -614,15 +622,15 @@
                                    "passed to a parameter of function type")))
           (COk t)))
     ((None)
-      (if (or (is_builtin_in n ctx) (sig_exists n (.sigs ctx)))
+      (if (or (is_builtin_in n ctx) (map_has (.sigs ctx) n))
           ((CErr Ty) o (append n (append " is a function, and L0 has no function values; "
                                    "a def is passed only to a parameter of function type")))
-          ((CErr Ty) o (append "unknown variable " n))))))
+          ((CErr Ty) o (unknown_var_msg n))))))
 
-(def sig_exists ((n (list int)) (sigs (list Sig))) bool
-  (match (find_sig n sigs)
-    ((Some s) true)
-    ((None) false)))
+; The reports of a name not declared. main.l0's known_only drops these for
+; a def that failed to parse, by these words, so both take them from here.
+(def unknown_fn_msg ((n (list int))) (list int) (append "unknown function " n))
+(def unknown_var_msg ((n (list int))) (list int) (append "unknown variable " n))
 
 (def if_branch_msg ((at Ty) (bt Ty)) (list int)
   (append "the branches of an if must have the same type, but then is "
@@ -680,7 +688,7 @@
       (match (check_args args env ctx (nil Ty))
         ((CErr eo m) ((CErr Ty) eo m))
         ((COk ats) (check_builtin n ats o)))
-      (match (find_sig n (.sigs ctx))
+      (match (ctx_sig n ctx)
         ((None)
           (match (check_args args env ctx (nil Ty))
             ((CErr eo m) ((CErr Ty) eo m))
@@ -787,7 +795,7 @@
 
 (def fn_arg_def ((what (list int)) (an (list int)) (ctx Ctx) (o int))
     (Checked ArgTy)
-  (match (find_sig an (.sigs ctx))
+  (match (ctx_sig an ctx)
     ((Some s)
       (if (is_empty (.tparams s))
           (COk (AFn (TyFn (.params s) (.ret s))))
@@ -796,7 +804,7 @@
       (if (is_builtin_in an ctx)
           ((CErr ArgTy) o (append what (append " is the builtin " (append an
             ", and a builtin is not passed; pass a def that calls it"))))
-          ((CErr ArgTy) o (append "unknown function " an))))))
+          ((CErr ArgTy) o (unknown_fn_msg an))))))
 
 ; What the callee's type parameters stand for: the arguments that are not
 ; functions matched first, left to right, then the functions. For a callee
@@ -859,7 +867,7 @@
   (match (find_bind n env)
     ((Some t)
       ((CErr Ty) o (append n " is a local value, and L0 cannot call a value")))
-    ((None) ((CErr Ty) o (append "unknown function " n)))))
+    ((None) ((CErr Ty) o (unknown_fn_msg n)))))
 
 (def check_user_call ((o int) (n (list int)) (ats (list Ty)) (s Sig))
     (Checked Ty)
@@ -1418,21 +1426,33 @@
 (def build_ctx ((ds (list Decl))) Ctx
   (sigs_ctx (collect_sigs ds (nil Sig)) ds))
 
-; A context whose calls see the functions sigs. A builtin is only what no
-; def among them shadows. Spec 7.
+; A context whose calls see the functions sigs, in a map by name, where the
+; first of a name wins, as a list searched from its front would give it. A
+; builtin is only what no def among them shadows. Spec 7.
 (def sigs_ctx ((sigs (list Sig)) (ds (list Decl))) Ctx
-  (Cx sigs
-      (collect_ctor_infos ds (nil CtorInfo))
-      (collect_datas ds (nil DataDef))
-      (builtins_seen (builtin_names 0) sigs)
-      (nil (list int))))
+  (let m (sig_map sigs ((MapEmpty (list int) Sig)))
+    (Cx m
+        (collect_ctor_infos ds (nil CtorInfo))
+        (collect_datas ds (nil DataDef))
+        (builtins_seen (builtin_names 0) m)
+        (nil (list int)))))
 
-(def builtins_seen ((bs (list (list int))) (sigs (list Sig))) (list (list int))
+(def sig_map ((sigs (list Sig)) (m (Map (list int) Sig))) (Map (list int) Sig)
+  (if (is_empty sigs)
+      m
+      (sig_map (tail sigs)
+        (if (map_has m (.name (head sigs))) m (map_put m (.name (head sigs)) (head sigs))))))
+
+; The signature a call of n in this context reaches, if any.
+(def ctx_sig ((n (list int)) (c Ctx)) (Option Sig)
+  (map_get (.sigs c) n))
+
+(def builtins_seen ((bs (list (list int))) (m (Map (list int) Sig))) (list (list int))
   (if (is_empty bs)
       bs
-      (if (sig_exists (head bs) sigs)
-          (builtins_seen (tail bs) sigs)
-          (cons (head bs) (builtins_seen (tail bs) sigs)))))
+      (if (map_has m (head bs))
+          (builtins_seen (tail bs) m)
+          (cons (head bs) (builtins_seen (tail bs) m)))))
 
 ; ------------------------------------------------------- the two groups
 ;
@@ -2135,7 +2155,7 @@
 
 (def mono_global_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
                        (mc MonoCx) (rs (list Req))) Mono
-  (match (find_sig n (.sigs (.ctx mc)))
+  (match (ctx_sig n (.ctx mc))
     ((Some s)
       (if (if (is_builtin_in n (.ctx mc)) false (tys_have_fn (.params s)))
           (mono_fn_call o n args s env mc rs)
@@ -2151,7 +2171,7 @@
             (Mo (ECall o n args2)
                 (match (check_builtin n ats o) ((COk t) t) ((CErr eo m) (TyInt)))
                 rs2)
-            (match (find_sig n (.sigs ctx))
+            (match (ctx_sig n ctx)
               ((None) (Mo (ECall o n args2) (TyInt) rs2))
               ((Some s)
                 (match s

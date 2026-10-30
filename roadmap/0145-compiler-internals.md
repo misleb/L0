@@ -1,7 +1,7 @@
 # 0145: the compiler's own structure
 
 Kind: tooling
-Status: proposed
+Status: done
 Needs: 0135 for the first item
 
 ## Why
@@ -44,3 +44,15 @@ feature trips over. Each is a contained change in one file.
 ## Log
 
 - 2026-10-30: opened, from the review (its item 3.1); proposed.
+- 2026-10-30: done, a bullet at a time. (1) Lookups: 0135 made the seven
+  one walk, and a context's signatures are now a map, which every
+  per-call lookup reads; self-compile 0.78 s to 0.70 s, the seed
+  1,276,525 to 1,278,018 bytes. (5) The unknown-name messages come from
+  `unknown_fn_msg` and `unknown_var_msg`, which `known_only` uses too.
+  (6) The names that carry facts are listed in check.l0's header, and
+  kept: each is unwritable in source by construction. Not worth it now:
+  (2) one table per builtin, a rewrite of both files with no behaviour to
+  gain; (3) types from the checker on, which needs an annotated tree, for
+  a compile under a second; (4) free variables per `let`, whose cost is
+  bounded by nesting depth, kept shallow. Both suites, the fixpoint, and
+  `--virt` on both boards green.

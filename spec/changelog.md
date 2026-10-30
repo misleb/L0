@@ -15,6 +15,29 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## The compiler looks a call's function up in a map, and no language change for it (roadmap 0145)
+
+**Changed:** a context's signatures are a `(Map (list int) Sig)`, built
+once per view with the first of a name winning, as the list searched from
+its front gave it, and every per-call lookup in the checker, the
+monomorphizer, and the emitter reads it. The words of "unknown function"
+and "unknown variable" come from one function each, which `known_only`
+uses too, so rewording them cannot break its recovery silently.
+Self-compile 0.78 s to 0.70 s; the seed 1,276,525 bytes to 1,278,018.
+
+*Why:* the review of the compiler found every call searching about 730
+signatures linearly, comparing names with `eq`, three times over, and
+diagnostics suppressed by matching message text.
+
+*Left, with the reasons (roadmap 0145's log):* one table per builtin, a
+rewrite of check.l0 and emit.l0 that no new builtin has yet tripped over;
+types handed from the checker on, which needs an annotated tree for a
+compile already under a second; free variables recomputed per `let`,
+bounded by nesting depth, which the skills keep shallow; and facts carried
+in names no source can write, now listed in check.l0's header.
+
+---
+
 ## A string literal is a table of its bytes, and no language change for it (roadmap 0140)
 
 **Changed:** each distinct non-empty string literal of a module is one
