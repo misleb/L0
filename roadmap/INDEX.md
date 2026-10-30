@@ -150,14 +150,46 @@ reaches (0116): a driver there need not poll.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
+1. [0135](0135-function-arguments.md) functions as arguments, by one
+   callee copy per function passed, with no closures and every call still
+   direct — proposed, not started
+2. [0136](0136-field-take-out.md) a field taken out, updated, and put back
+   in place, the field form of 6.5's row form — proposed
+3. [0137](0137-unboxed-wrappers.md) a one-field wrapper of a word costs
+   nothing, so spaces and frames can be types — proposed; changes such a
+   type's hash
+4. [0138](0138-short-circuit.md) `and` and `or` evaluate their second
+   operand only when it matters — proposed; one test leaves the
+   differential suite
+5. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
    it grows — queued, left for now: hysteresis breaks spec 6.9's promise
    that a map's table depends only on its entries, and a trie that keeps
    it is the way if taken up
 
+The order above is the review's suggestion; the user decides it.
+
 ## Other open items
 
-None.
+From the review of 2026-10-30, each proposed and not started:
+
+- [0139](0139-hidden-copy-warning.md) tooling: the checker warns of an
+  update that a later use makes copy, L0's first warning
+- [0140](0140-string-tables.md) tooling: string literals as byte tables,
+  shrinking the seed
+- [0141](0141-spec-split.md) tooling: the spec split into the language,
+  the runtime, and the boards
+- [0142](0142-spec-tables.md) tooling: the spec's normative lists as
+  tables, after 0141
+- [0143](0143-stale-documents.md) tooling: the documents that disagree
+  with the code
+- [0144](0144-library-naming.md) tooling: the library's names made
+  consistent, with aliases for L0S
+- [0145](0145-compiler-internals.md) tooling: the compiler's own structure,
+  after 0135
+- [0146](0146-runtime-structure.md) tooling: the runtime's structure, the
+  default host stubs first
+- [0147](0147-verification.md) tooling: CI on both CPUs, and the suite's
+  own loose ends
 
 ## Done and dropped
 
