@@ -10,6 +10,9 @@
 ;   late     each step reads the record in a later operand of the
 ;            expression that replaces it, the hidden whole copy: a copy
 ;            per step
+;   through  each step updates an array in a record through a function,
+;            (.cells b (bump (.cells b) i)), the field form of 6.5, which
+;            takes the array out for bump and puts it back: no copy
 
 (data Rec
   (Rec (m int) (n int) (tag (list int))))
@@ -33,14 +36,34 @@
 (def total ((r Rec)) int
   (add (.m r) (.n r)))
 
+(data Box
+  (Box (cells (array int)) (count int)))
+
+(def bump ((a (array int)) (i int)) (array int)
+  (array_set a i (add (array_get a i) 1)))
+
+; The count is read first, so the array's replacement is b's last use.
+(def tick ((b Box) (k int)) Box
+  (if (eq k 0)
+      b
+      (let c (.count b)
+        (tick (.count (.cells b (bump (.cells b) (mod k 8))) (add c 1)) (sub k 1)))))
+
+(def box_total ((b Box) (i int) (acc int)) int
+  (if (eq i 8)
+      (add acc (.count b))
+      (box_total b (add i 1) (add acc (array_get (.cells b) i)))))
+
 (def result ((mode (list int)) (k int)) int
   (let r (Rec 0 0 "t")
     (if (eq mode "alone")
         (total (run r k false))
         (if (eq mode "late")
             (total (run r k true))
-            (let keep r
-              (add (total (run r k false)) (sub (total keep) 0)))))))
+            (if (eq mode "through")
+                (box_total (tick (Box (array_new 8 0) 0) k) 0 0)
+                (let keep r
+                  (add (total (run r k false)) (sub (total keep) 0))))))))
 
 (def main () int
   (let w (write_line (digits (result (arg 0) (int_prefix (arg 1) 0))))

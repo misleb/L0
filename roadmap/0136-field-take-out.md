@@ -1,7 +1,7 @@
 # 0136: a field taken out, updated, and put back, in place
 
 Kind: language
-Status: proposed
+Status: active
 Needs: 0132
 
 ## Why
@@ -50,3 +50,14 @@ the emitter's `row_update_of` and `through_args` extended to `EWith`.
 ## Log
 
 - 2026-10-30: opened, from 0132's step 2; proposed.
+- 2026-10-30: active; step 1 done. Spec 5.8, 6.5, and 10.3 say the form;
+  `l0_data_take` in `l0rt.ll`; `field_through` in emit.l0 rewrites the
+  argument to a `data.take` pseudo-call, as `through_args` does for rows.
+  `tests/io/fields_in_place` has a `through` mode: 100,000 steps, 0
+  copies, where the seed copied once per step. The first run found that
+  both forms took the element or field even when the variable was used
+  after the update, which 6.5 counts as another holder; the array form
+  had done so since 0076. Both now take only at the variable's last use,
+  and `array_test` and `fields_test` hold the cases. Both suites, the
+  fixpoint, and `--virt` on both boards green; seed refreshed;
+  self-compile 0.69 s. Next: step 2, the kernel and `space_put`.

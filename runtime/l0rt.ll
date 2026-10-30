@@ -931,6 +931,30 @@ entry:
   ret i64 %v
 }
 
+; The field form of spec 6.5, (.f r (g ... (.f r) ...)): field i of the data
+; block b, a pointer, with a reference the caller owns. When nothing else
+; holds b the field is moved out, leaving 0, which the l0_data_with that
+; puts g's result back releases as the empty list; otherwise it is shared,
+; gaining a reference. As l0_array_take, it allocates nothing.
+define i64 @l0_data_take(i64 %b, i64 %i) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %i1 = add i64 %i, 1
+  %f = getelementptr i64, ptr %q, i64 %i1
+  %v = load i64, ptr %f
+  %hp = getelementptr i64, ptr %q, i64 -1
+  %h = load i64, ptr %hp
+  %rc = lshr i64 %h, 40
+  %alone = icmp eq i64 %rc, 1
+  br i1 %alone, label %take, label %share
+take:
+  store i64 0, ptr %f
+  ret i64 %v
+share:
+  call void @l0_inc(i64 %v)
+  ret i64 %v
+}
+
 ; The field replacement of spec 5.8: b with x as field i, which consumes b
 ; and x. When nothing else holds b the field is stored in place, releasing
 ; the one it replaces if the mask says it is a pointer; otherwise b is

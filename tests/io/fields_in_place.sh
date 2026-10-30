@@ -22,3 +22,4 @@ check() {
 check alone 200000 0
 check shared 200000 1
 check late 199999 100000
+check through 200000 0

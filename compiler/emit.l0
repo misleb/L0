@@ -298,7 +298,8 @@
 ; the runtime stores in place when nothing else holds e.
 (def emit_with ((f (list int)) (e Expr) (v Expr) (env Env)
                 (live (list (list int))) (st Emit)) EmitVal
-  (match (emit_args (cons e (cons v (nil Expr))) env live (nil bool) st)
+  (match (emit_args (cons e (cons (field_through f e v env live) (nil Expr))) env live
+                    (nil bool) st)
     ((Ops ops ts ws st1)
       (.ty (emit_rt_call "l0_data_with"
                 (cons (head ops)
@@ -306,6 +307,77 @@
                            (head (tail ops))))
                 st1)
               (head ts)))))
+
+; The field form of spec 6.5, (.f r (g ... (.f r) ...)), with r one
+; variable that no other argument of g mentions and f a field of a counted
+; type: v with its one argument (.f r) made (data.take r "f"), which
+; emit_call emits as l0_data_take, and which no program can write, since no
+; L0 name has a dot. Anything else is v as written, and so is v when r is
+; used after the replacement, which is another holder. Spec 10.3.
+(def field_through ((f (list int)) (e Expr) (v Expr) (env Env)
+                    (live (list (list int)))) Expr
+  (let r (var_name e)
+    (if (if (is_empty r) true (any_eq r live))
+        v
+        (if (ty_is_ptr (field_ty_of f (lookup_type r (.binds env)) (.ctors (.ctx env))))
+            (match v
+              ((ECall o g gargs)
+                (if (if (eq (count_fields f r gargs 0) 1) (eq (count_mentions r gargs 0) 1) false)
+                    (ECall o g (take_field f r gargs))
+                    v))
+              ((EInt o x) v)
+              ((EFloat o m p s) v)
+              ((EBool o b) v)
+              ((EStr o s) v)
+              ((ENil o t) v)
+              ((EVar o n) v)
+              ((EIf o c a b) v)
+              ((ELet o n x b) v)
+              ((ECtor o n ts a) v)
+              ((EMatch o s a) v)
+              ((EField o h x) v)
+              ((EWith o h x y) v))
+            v))))
+
+(def count_fields ((f (list int)) (r (list int)) (es (list Expr)) (k int)) int
+  (if (is_empty es)
+      k
+      (count_fields f r (tail es) (if (is_field_of f r (head es)) (add k 1) k))))
+
+(def take_field ((f (list int)) (r (list int)) (es (list Expr))) (list Expr)
+  (if (is_empty es)
+      es
+      (if (is_field_of f r (head es))
+          (cons (ECall 0 "data.take" (cons (EVar 0 r) (cons (EStr 0 f) (nil Expr))))
+                (tail es))
+          (cons (head es) (take_field f r (tail es))))))
+
+; Whether e is (.f r).
+(def is_field_of ((f (list int)) (r (list int)) (e Expr)) bool
+  (match e
+    ((EField o h x) (if (eq h f) (eq (var_name x) r) false))
+    ((EInt o v) false)
+    ((EFloat o m p g) false)
+    ((EBool o v) false)
+    ((EStr o s) false)
+    ((ENil o t) false)
+    ((EVar o n) false)
+    ((EIf o c a b) false)
+    ((ELet o n v b) false)
+    ((ECtor o n ts a) false)
+    ((EMatch o s a) false)
+    ((ECall o n a) false)
+    ((EWith o h x v) false)))
+
+; (data.take r "f"): l0_data_take, the field r's type says, with a
+; reference the caller owns.
+(def emit_data_take ((r (list int)) (f (list int)) (env Env) (st Emit)) EmitVal
+  (let t (lookup_type r (.binds env))
+    (let cs (.ctors (.ctx env))
+      (.ty (emit_rt_call "l0_data_take"
+                (two_ops (lookup_operand r (.binds env)) (digits (field_index f t cs)))
+                st)
+              (field_ty_of f t cs)))))
 
 ; The one constructor of the data type t, which the checker found to have
 ; exactly one.
@@ -543,9 +615,28 @@
                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
   (if (eq n "array.take")
       (emit_take (var_name (head args)) (head (tail args)) env st)
-      (match (row_update n args (.ctx env))
-        ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
-        ((NotRowUpdate) (emit_call_plain n (through_args n args env) env live tl st)))))
+      (if (eq n "data.take")
+          (emit_data_take (var_name (head args)) (str_of (head (tail args))) env st)
+          (match (row_update n args (.ctx env))
+            ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
+            ((NotRowUpdate) (emit_call_plain n (through_args n args env live) env live tl st))))))
+
+; A string literal's bytes, or nothing for any other expression.
+(def str_of ((e Expr)) (list int)
+  (match e
+    ((EStr o s) s)
+    ((EVar o n) "")
+    ((EInt o v) "")
+    ((EFloat o m p g) "")
+    ((EBool o v) "")
+    ((ENil o t) "")
+    ((EIf o c a b) "")
+    ((ELet o n v b) "")
+    ((ECtor o n ts a) "")
+    ((EMatch o s a) "")
+    ((ECall o n a) "")
+    ((EField o f x) "")
+    ((EWith o f x v) "")))
 
 ; (array_set g y (array_set (array_get g y) x v)), with g one variable and y
 ; the same variable or integer literal both times: spec 6.5.
@@ -678,12 +769,14 @@
 ; other argument of f mentions and whose elements are counted: the argument
 ; (array_get g y) becomes (array.take g y), which emit_call emits as
 ; l0_array_take, and which no program can write, since no L0 name has a
-; dot. Everything else is emitted as written. Spec 10.3.
-(def through_args ((n (list int)) (args (list Expr)) (env Env)) (list Expr)
+; dot. Everything else is emitted as written. g used after the array_set is
+; another holder, so then the element is shared as written. Spec 10.3.
+(def through_args ((n (list int)) (args (list Expr)) (env Env) (live (list (list int))))
+    (list Expr)
   (if (if (eq n "array_set") (eq (length args) 3) false)
       (if (if (is_builtin_in "array_set" (.ctx env)) (is_builtin_in "array_get" (.ctx env)) false)
           (let g (var_name (head args))
-            (if (is_empty g)
+            (if (if (is_empty g) true (any_eq g live))
                 args
                 (if (counted_elems (lookup_type g (.binds env)))
                     (cons (head args)
@@ -1994,7 +2087,7 @@
                 (append "declare i64 @l0_data_new(i64, i64)\n"
                   (append "declare void @l0_data_set(i64, i64, i64)\n"
                     (append "declare i64 @l0_data_tag(i64)\n"
-                      (append "declare i64 @l0_data_get(i64, i64)\ndeclare i64 @l0_data_with(i64, i64, i64)\n"
+                      (append "declare i64 @l0_data_get(i64, i64)\ndeclare i64 @l0_data_with(i64, i64, i64)\ndeclare i64 @l0_data_take(i64, i64)\n"
                         (append "declare void @l0_stack_check()\n"
                           (append "declare i64 @l0_read_byte()\n"
                             (append "declare i64 @l0_write_byte(i64)\n"

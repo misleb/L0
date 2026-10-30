@@ -88,3 +88,14 @@
   (let a (array_new 2 (cons 1 (cons 2 (nil int))))
     (let b (array_set (array_set a 0 "z") 1 "w")
       (check_str "b" (array_get b 1) "w"))))
+
+; The form of spec 6.5 through any function, with g used after it: that use
+; is another holder, so the element is shared as written and g keeps it.
+; The compiler once took it out of g regardless (roadmap 0136).
+(def push9 ((xs (list int))) (list int) (cons 9 xs))
+
+(def test_through_with_g_used_after () int
+  (let g (array_new 2 (cons 1 (nil int)))
+    (let h (array_set g 0 (push9 (array_get g 0)))
+      (add (check_int "updated" (length (array_get h 0)) 2)
+           (check_int "g keeps its element" (length (array_get g 0)) 1)))))

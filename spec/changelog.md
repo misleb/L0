@@ -15,6 +15,48 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## A field goes through a function and back in place (roadmap 0136)
+
+**New:** `(.f r (g a1 ... (.f r) ... an))`, with `r` one variable that no
+other argument of `g` mentions, takes the field out of `r` for `g` when
+nothing else holds `r`, and puts `g`'s result back, as 6.5's form does for
+an element of an array (spec 5.8, 6.5). One runtime function,
+`l0_data_take(b, i)` (10.3), beside `l0_array_take`, append-only.
+
+*Why:* a field holding an array or a map, updated and put back, copied
+when written with fields: in `(.ctx p (call_result (.ctx p) v))` the read
+held the context while `p` did too, so `call_result`'s `array_set` copied
+its 104 words on every system call. So 0132's step 2 left `match` in the
+L0 kernel's `resume`, `kset`, `kresume`, `kmapped`, `run`, and `give`, and
+in the examples' `space_put`, each with a comment saying why. The smallest
+program that could not be written in place:
+
+```
+(def resume ((p Proc) (v int)) Proc
+  (.state (.ctx p (call_result (.ctx p) v)) -1))
+```
+
+*Decided:*
+- *The row form's rule, not a new one.* Spec 6.5 already said when an
+  element is taken out and put back; a field is that with the index fixed
+  by the name, so the conditions are word for word the row form's, and
+  so is the reason it is safe: nothing can read `r` while `g` runs.
+- *Only a field of a counted type is taken*, since a word that is not a
+  pointer has nothing to share; for those the form is the plain reading.
+- *No new syntax.* The written form is what a reader would write, and
+  what `match` did is now what fields say.
+
+*Also fixed:* the array form, since 0076, took the element out of `g` even
+when `g` was used after the `array_set`, which spec 6.5 counts as another
+holder: in `(let h (array_set g 0 (push9 (array_get g 0))) (array_get g
+0))` the last read gave the empty list where it should give the element.
+The field form's first test hit the same mistake, `fields_test`'s
+`(.tags r (cons "c" (.tags r)))` with `r` read again after. Both forms now
+take only when the outer update is the variable's last use, and
+`array_test` has the case.
+
+---
+
 ## Functions as arguments, by one copy per function passed (roadmap 0135)
 
 **New:** a `def`'s parameter may have a function type, `(fn (P1 ... Pn)
