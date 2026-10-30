@@ -44,6 +44,8 @@ the emitter's `row_update_of` and `through_args` extended to `EWith`.
 - after the seed is refreshed: the kernel's six functions and the
   examples' `space_put` are written with fields, and `--virt` is green
   with `L0_ARRAY_STATS` showing no copies from them
+- `roadmap/l0s-adoption.md` section 2 no longer tells L0S to leave arrays
+  and maps inside records to `match`, and shows the form instead
 
 ## Log
 

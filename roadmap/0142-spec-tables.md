@@ -26,6 +26,7 @@ change that turns out to be a meaning change is a language item of its own.
 - sections 6.12 to 6.19, 9.2, and 10.3's host interface, boards, and
   process contract are tables and lists where they were paragraphs
 - `tests/check`'s `.cerr` files are unchanged, since no message changes
+- `roadmap/l0s-adoption.md` notes that nothing changed in meaning
 
 ## Log
 

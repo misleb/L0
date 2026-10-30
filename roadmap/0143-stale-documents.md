@@ -37,6 +37,8 @@ Found by the review of 2026-10-30:
 - each line above is false
 - `README.md` and the skills are read once through for anything else that
   no longer holds
+- `roadmap/l0s-adoption.md` is read the same way, and anything in it that
+  an item since has made false is fixed
 
 ## Log
 

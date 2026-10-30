@@ -33,6 +33,9 @@ do. Emission is the `if` the writer would have written.
 - a test of each builtin's short circuit, with an effect in the second
   operand, in `tests/io`; `err_and_strict` re-blessed or removed
 - the skills' paragraph on strict `and` and `or` says the opposite
+- `roadmap/l0s-adoption.md` says what changes for a program that relied
+  on both operands being evaluated, with a grep for a second operand that
+  has an effect
 
 ## Log
 

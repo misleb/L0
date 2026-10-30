@@ -49,6 +49,8 @@ the board, which only the user can do.
 - each step above is done or recorded as not worth it
 - a new builtin touches `l0rt.ll` and the hosts that have it, not the ones
   that lack it
+- `roadmap/l0s-adoption.md` says what L0S must rebuild or re-flash after
+  each step that changes a board's image, and what it need not
 
 ## Log
 

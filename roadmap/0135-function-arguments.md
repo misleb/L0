@@ -87,6 +87,9 @@ expresses.
   function parameter among it
 - after the seed is refreshed: the compiler's seven lookups are one, and
   its seven `Expr` walks share a fold where that reads better
+- `roadmap/l0s-adoption.md` has a section on it: the form, a snippet the
+  suite compiles, where L0S gains (its own repeated loops and `l0 test`'s
+  generated `main`), and what to leave alone
 
 ## Log
 

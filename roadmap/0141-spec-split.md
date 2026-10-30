@@ -37,6 +37,8 @@ read for what.
 - `tools/l0 spec`, `tools/install.sh`, `l0 init`'s AGENTS.md, and the
   skills point at the right file
 - `tests/io/libdoc` and anything else reading the spec's path passes
+- `roadmap/l0s-adoption.md` says which file L0S's agents read for what,
+  and that `l0 spec --path` now names several
 
 ## Log
 

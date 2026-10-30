@@ -28,6 +28,8 @@ and changes no program's meaning. The measure: the seed's size and
 - the checklist in the l0-bootstrap skill, the fixpoint among it
 - `bundle_prelude` and `emit_tail` re-blessed and the diff read
 - the seed refreshed, and the changelog records the sizes and times
+- `roadmap/l0s-adoption.md` notes it: nothing to change, builds faster,
+  and process images built before and after mix freely
 
 ## Log
 

@@ -1,9 +1,15 @@
 # Adopting L0's new forms and tools in L0S
 
-For the agent integrating L0 into L0S. L0 gained, on 2026-10-30, named
-fields (roadmap 0132), `l0 fmt` (0133), a `let` of several bindings and an
-`if` of several tests (0134), a crash fix in the lexer, and diagnostics that
-count a declaration's parens. Nothing L0S already compiles stops compiling:
+For the agent integrating L0 into L0S. This guide is kept current: every
+roadmap item that changes what a program can write, what the library
+offers, or what the tools do adds its section here as it lands, with a
+snippet this repository's suite compiles and a grep for where it applies
+in L0S, and the roadmap skill's "Done when" requires it. The sections
+below are in the order the items landed; the newest is last.
+
+L0 gained, on 2026-10-30, named fields (roadmap 0132), `l0 fmt` (0133), a
+`let` of several bindings and an `if` of several tests (0134), a crash fix
+in the lexer, and diagnostics that count a declaration's parens. Nothing L0S already compiles stops compiling:
 every change adds a form or a tool, no name moved, and the runtime gained
 one function, append-only. Every snippet below is copied from a file this
 repository's suite compiles and runs, `lib/examples.l0` or

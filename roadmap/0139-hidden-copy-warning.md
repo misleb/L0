@@ -36,6 +36,8 @@ caught: `(Seen (map_put m k true) (if (map_has m k) n (add n 1)))`.
 - `tests/compiler/warn_copy` holds the cases, both shapes of the trap and
   the in-place reads that must stay quiet
 - the skills say the checker now says it
+- `roadmap/l0s-adoption.md` shows the warning's wording, so L0S's agent
+  can run `l0 check` over its tree and read the list it gets
 
 ## Log
 

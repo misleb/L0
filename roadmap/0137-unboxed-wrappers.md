@@ -35,6 +35,8 @@ process ABI, which passes words and bytes.
   a new builtin
 - after the seed is refreshed: the library offers typed spaces and frames,
   or says why not, and the kernel uses them
+- `roadmap/l0s-adoption.md` says which of L0S's `hash` uses change, if
+  any, and how to wrap its handles
 
 ## Log
 

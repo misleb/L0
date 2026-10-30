@@ -38,6 +38,8 @@ feature trips over. Each is a contained change in one file.
 - self-compile time and the seed's size recorded before and after in the
   changelog, as every performance change has been
 - 0135 first for the lookups, since it removes six of the seven
+- `roadmap/l0s-adoption.md` notes the new build times; nothing else
+  reaches L0S
 
 ## Log
 

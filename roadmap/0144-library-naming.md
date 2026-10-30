@@ -37,6 +37,8 @@ L0S uses the device wrappers in 41 files: 298 `IoDevice`, 200
   `tests/io/libdoc/index.txt` is regenerated and its diff read
 - every test and example uses the new names; a test keeps each alias
 - the changelog records the rule and the renames
+- `roadmap/l0s-adoption.md` has the table of old and new names, a grep for
+  the old ones, and the date the aliases go
 
 ## Log
 

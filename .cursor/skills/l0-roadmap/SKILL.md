@@ -82,7 +82,11 @@ checker's output.
 ## Done when
 
 Concrete and checkable. For a language item, the checklist in the
-l0-bootstrap skill plus whatever this item adds.
+l0-bootstrap skill plus whatever this item adds. For any item that
+changes what a program can write, what the library offers, or what the
+tools do, `roadmap/l0s-adoption.md` says what L0S gains or must change,
+with a snippet the suite compiles and a grep for where it applies; an
+item that reaches no program says so there in a line.
 
 ## Log
 

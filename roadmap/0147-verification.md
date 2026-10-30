@@ -42,6 +42,8 @@ nothing else needs to.
 - the workflow is green on `main` and fails on a deliberately broken
   branch
 - the roadmap skill says CI runs the suites and what it cannot
+- `roadmap/l0s-adoption.md` names the commit CI first went green on, as
+  the one to install from
 
 ## Log
 
