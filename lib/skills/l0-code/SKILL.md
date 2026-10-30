@@ -95,7 +95,11 @@ function with the same name as one of its functions is fine.
 with `_`. Types and constructors start uppercase. This is how the reader tells
 a constructor from a variable, so it is not a style preference.
 
-**`let` binds exactly one name and has a body.** It is not `let*`, and there
+**`let` binds one name, or several in pairs, and has a body.** `(let (a 1 b
+(add a 1)) body)` is `(let a 1 (let b (add a 1) body))`, each value seeing
+the names before it, and closes with two parens rather than one per
+binding (spec 5.3). Likewise `(if c1 e1 c2 e2 else)` is the nested `if`
+chain (spec 5.2), for a run of tests. The one-name `let` is not `let*`, and there
 is no binding list. Sequential bindings are nested lets.
 
 ```
@@ -339,8 +343,23 @@ maps and arrays below list the other ways an array is held.
 ## Keep nesting shallow, or you will miscount parentheses
 
 This is the most common way to waste time writing L0. A chain of six `if`s or
-ten `or`s ends in a run of a dozen `)`, and the resulting error points at the
-start of the form rather than at the mistake.
+ten `or`s ends in a run of a dozen `)`, and counting a run of identical
+tokens against context lines away is what goes wrong.
+
+**Let `l0 fmt` count the ones at the end.** Indent each line under the form
+it belongs to, which is a judgment about one line and its parent, and run
+`l0 fmt FILE.l0` before `l0 check`: where a line dedents below the line a
+form began on, and where a new declaration begins at column 0, it adds the
+closers still missing at the end of the line before, drops closers with
+nothing to close, and changes nothing else; every closer you wrote stays
+where it is. That is the run of a dozen at the end of a `def`, which is
+where the count goes wrong. `l0 fmt --check FILE.l0` only reports what would
+change. A file whose closers already match its indentation comes back
+byte-identical, so it is safe to run on everything. A closer missing inside
+a form whose next line is indented as deep or deeper is left as written,
+since the next line could be the form's continuation; `l0 check` then
+reports it where it is, and when a declaration's count is off, says by how
+many and at which line it probably went wrong.
 
 **Test membership with a word table** instead of an `or` chain:
 

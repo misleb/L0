@@ -1,0 +1,16 @@
+ok
+ok
+ok
+ok
+ok
+parse error at offset 40: a let's bindings are pairs of a name and a value: (let (a 1 b 2) body)
+parse error at offset 46: a let's bindings are pairs of a name and a value: (let (a 1 b 2) body)
+parse error at offset 42: a let's bindings are pairs of a name and a value: (let (a 1 b 2) body)
+parse error at offset 41: a let binding name must be lowercase and not reserved
+parse error at offset 41: a let binding name must be lowercase and not reserved
+parse error at offset 49: let takes exactly 3 parts: (let name value body)
+parse error at offset 35: if takes a condition, a value, and an else, or pairs of them before the else: (if c1 e1 c2 e2 else)
+parse error at offset 35: if takes a condition, a value, and an else, or pairs of them before the else: (if c1 e1 c2 e2 else)
+35: the condition of an if must be bool, but this is int
+35: the condition of an if must be bool, but this is int
+35: the branches of an if must have the same type, but then is (list int) and else is int

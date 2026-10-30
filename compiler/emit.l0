@@ -23,7 +23,7 @@
 ; branch returns, which is what lets a call there be a musttail call.
 
 (data Emit
-  (Em int (list int)))                  ; next name number, reversed output
+  (Em (next int) (out (list int))))     ; next name number, reversed output
 
 ; An expression's value carries its type, computed bottom-up as the checker
 ; computes it, because allocation has to say which words of a block are
@@ -31,7 +31,7 @@
 ; The instruction helpers below produce int; each expression form sets the
 ; type it really has.
 (data EmitVal
-  (Val (list int) Ty Emit))             ; operand text, type, new state
+  (Val (op (list int)) (ty Ty) (st Emit)))   ; operand text, type, new state
 
 (data EmitOps
   (Ops (list (list int)) (list Ty) (list bool) Emit))   ; texts, types, owned, state
@@ -46,33 +46,28 @@
 ; emitter builds the constructor table from the declarations itself, so it
 ; still needs nothing the checker produced.
 (data Env
-  (Ev (list EBind) Ctx (list (list int)) (Map (list int) Pad)))
+  (Ev (binds (list EBind)) (ctx Ctx) (prelude (list (list int)))
+      (pads (Map (list int) Pad))))
 
 (data EnvEmit
   (EnvSt Env Emit))
 
-(def env_binds ((e Env)) (list EBind) (match e ((Ev b c p k) b)))
-(def env_ctx ((e Env)) Ctx (match e ((Ev b c p k) c)))
-(def env_prelude ((e Env)) (list (list int)) (match e ((Ev b c p k) p)))
-(def env_pads ((e Env)) (Map (list int) Pad) (match e ((Ev b c p k) k)))
-
 (def env_bind ((n (list int)) (op (list int)) (t Ty) (e Env)) Env
-  (match e ((Ev b c p k) (Ev (cons (EB n op t false) b) c p k))))
+  (.binds e (cons (EB n op t false) (.binds e))))
 
 ; ------------------------------------------------------------------ output
 
 (def emit_line ((s (list int)) (st Emit)) Emit
-  (match st
-    ((Em n acc) (Em n (push "\n" (push s acc))))))
+  (.out st (push "\n" (push s (.out st)))))
 
 (def emit_text ((st Emit)) (list int)
-  (match st ((Em n acc) (rev acc))))
+  (rev (.out st)))
 
 (def fresh_id ((st Emit)) (list int)
-  (match st ((Em n acc) (digits n))))
+  (digits (.next st)))
 
 (def bump ((st Emit)) Emit
-  (match st ((Em n acc) (Em (add n 1) acc))))
+  (.next st (add (.next st) 1)))
 
 (def lookup_operand ((n (list int)) (binds (list EBind))) (list int)
   (if (is_empty binds)
@@ -96,19 +91,12 @@
           (if (eq n bn) ro (lookup_read_only n (tail binds)))))))
 
 (def is_read_only ((n (list int)) (env Env)) bool
-  (lookup_read_only n (env_binds env)))
+  (lookup_read_only n (.binds env)))
 
 ; Whether a value of type t is a pointer to a heap block rather than a plain
 ; word. Spec 10.1.
 (def ty_is_ptr ((t Ty)) bool
   (or (ty_is_list t) (or (ty_is_data t) (or (ty_is_array t) (ty_is_bytes t)))))
-
-(def val_op ((v EmitVal)) (list int) (match v ((Val o t s) o)))
-(def val_st ((v EmitVal)) Emit (match v ((Val o t s) s)))
-
-; The same value, known to have type t.
-(def retype ((v EmitVal) (t Ty)) EmitVal
-  (match v ((Val o old s) (Val o t s))))
 
 ; "i64 a, i64 b"
 (def fmt_ops ((ops (list (list int)))) (list int)
@@ -137,7 +125,7 @@
   (match (emit_assign (append "icmp " (append pred
             (append " i64 " (append a (append ", " b))))) st)
     ((Val c t st1)
-      (retype (emit_assign (append "zext i1 " (append c " to i64")) st1)
+      (.ty (emit_assign (append "zext i1 " (append c " to i64")) st1)
               (TyBool)))))
 
 (def two_ops ((a (list int)) (b (list int))) (list (list int))
@@ -243,10 +231,10 @@
   (if (is_empty ns)
       st
       (release_names (tail ns) env
-        (if (if (ty_is_ptr (lookup_type (head ns) (env_binds env)))
+        (if (if (ty_is_ptr (lookup_type (head ns) (.binds env)))
                 (not (is_read_only (head ns) env))
                 false)
-            (emit_dec (lookup_operand (head ns) (env_binds env)) st)
+            (emit_dec (lookup_operand (head ns) (.binds env)) st)
             st))))
 
 (def finish ((tl bool) (v EmitVal)) EmitVal
@@ -259,8 +247,8 @@
 
 (def emit_use ((n (list int)) (env Env) (live (list (list int))) (st Emit))
     EmitVal
-  (let op (lookup_operand n (env_binds env))
-    (let t (lookup_type n (env_binds env))
+  (let op (lookup_operand n (.binds env))
+    (let t (lookup_type n (.binds env))
       (Val op t (if (if (ty_is_ptr t) (still_held n env live) false)
                     (emit_inc op st)
                     st)))))
@@ -296,9 +284,9 @@
                  (st Emit)) EmitVal
   (match (emit_args (cons e (nil Expr)) env live (cons true (nil bool)) st)
     ((Ops ops ts ws st1)
-      (let cs (ctx_ctors (env_ctx env))
+      (let cs (.ctors (.ctx env))
         (borrowed ops ts ws
-          (retype (emit_rt_call "l0_data_get"
+          (.ty (emit_rt_call "l0_data_get"
                     (two_ops (head ops) (digits (field_index f (head ts) cs))) st1)
                   (field_ty_of f (head ts) cs))
           false)))))
@@ -309,9 +297,9 @@
                 (live (list (list int))) (st Emit)) EmitVal
   (match (emit_args (cons e (cons v (nil Expr))) env live (nil bool) st)
     ((Ops ops ts ws st1)
-      (retype (emit_rt_call "l0_data_with"
+      (.ty (emit_rt_call "l0_data_with"
                 (cons (head ops)
-                  (two_ops (digits (field_index f (head ts) (ctx_ctors (env_ctx env))))
+                  (two_ops (digits (field_index f (head ts) (.ctors (.ctx env))))
                            (head (tail ops))))
                 st1)
               (head ts)))))
@@ -321,20 +309,20 @@
 (def ctor_of_type ((t Ty) (cs (list CtorInfo))) (Option CtorInfo)
   (if (is_empty cs)
       ((None CtorInfo))
-      (if (eq (ctor_type_name (head cs)) (ty_name t))
+      (if (eq (.type_name (head cs)) (ty_name t))
           (Some (head cs))
           (ctor_of_type t (tail cs)))))
 
 (def field_index ((f (list int)) (t Ty) (cs (list CtorInfo))) int
   (match (ctor_of_type t cs)
-    ((Some ci) (index_of f (ctor_field_names ci)))
+    ((Some ci) (index_of f (.field_names ci)))
     ((None) 0)))
 
 ; The type of field f of a value of type t, with t's arguments in place of
 ; the parameters, which is what says whether the field is a pointer.
 (def field_ty_of ((f (list int)) (t Ty) (cs (list CtorInfo))) Ty
   (match (ctor_of_type t cs)
-    ((Some ci) (nth_ty (ctor_fields_at ci t) (index_of f (ctor_field_names ci))))
+    ((Some ci) (nth_ty (ctor_fields_at ci t) (index_of f (.field_names ci))))
     ((None) (TyInt))))
 
 ; A let binds a name to an operand that already exists, and takes over the
@@ -423,11 +411,11 @@
 (def emit_if_join ((lelse (list int)) (b Expr) (db (list (list int)))
                    (slot (list int)) (lend (list int)) (t Ty) (env Env)
                    (live (list (list int))) (tl bool) (st Emit)) EmitVal
-  (let st4 (val_st (emit_arm lelse b db slot lend env live tl st))
+  (let st4 (.st (emit_arm lelse b db slot lend env live tl st))
     (if tl
         (Val "" t st4)
         (let st5 (emit_line (append lend ":") st4)
-          (retype (emit_assign (append "load i64, ptr " slot) st5) t)))))
+          (.ty (emit_assign (append "load i64, ptr " slot) st5) t)))))
 
 ; One operand: its text, its type, and whether it carries a reference the
 ; call consumes. Only a borrowing builtin is given operands without one.
@@ -522,8 +510,8 @@
 ; variable is used again or is a read-only parameter.
 (def emit_var_arg ((n (list int)) (env Env) (later bool) (borrow bool)
                    (st Emit)) EArgSt
-  (let op (lookup_operand n (env_binds env))
-    (let t (lookup_type n (env_binds env))
+  (let op (lookup_operand n (.binds env))
+    (let t (lookup_type n (.binds env))
       (if (not (ty_is_ptr t))
           (EAS (EA op t false) st)
           (if borrow
@@ -547,7 +535,7 @@
             ((EA o t w) (Ops (cons o os) (cons t ts) (cons w ws) st1)))))))
 
 (def call_sym ((n (list int)) (env Env)) (list int)
-  (fn_sym n (env_prelude env)))
+  (fn_sym n (.prelude env)))
 
 (def is_borrowing ((n (list int))) bool
   (any_eq n (split_spaces "head tail is_empty eq hash compare open_read open_write open_append rename remove open_bytes array_len array_get bytes_len bytes_get write_bytes bytes_slice bytes_concat region_write_bytes space_write supervisor_send cpu_run")))
@@ -568,7 +556,7 @@
                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
   (if (eq n "array.take")
       (emit_take (var_name (head args)) (head (tail args)) env st)
-      (match (row_update n args (env_ctx env))
+      (match (row_update n args (.ctx env))
         ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
         ((NotRowUpdate) (emit_call_plain n (through_args n args env) env live tl st)))))
 
@@ -669,14 +657,14 @@
                       (live (list (list int))) (tl bool) (st Emit)) EmitVal
   (let yop (index_op y env)
     (match (emit_rt_call "l0_array_get"
-             (two_ops (lookup_operand g (env_binds env)) yop) st)
+             (two_ops (lookup_operand g (.binds env)) yop) st)
       ((Val chk ct st1)
         (match (emit_args (cons (EVar 0 g) (cons y (cons x (cons v (nil Expr)))))
                           env live (nil bool) st1)
           ((Ops ops ts ws st2)
             (emit_ret tl
-              (retype (emit_rt_call "l0_array_set_row" ops st2)
-                      (lookup_type g (env_binds env))))))))))
+              (.ty (emit_rt_call "l0_array_set_row" ops st2)
+                      (lookup_type g (.binds env))))))))))
 
 ; The operand for y in a row form: an integer literal, or a variable's
 ; value, read without a reference since it is an int.
@@ -696,7 +684,7 @@
         ((ECall o n a) "0")
         ((EField o f e) "0")
         ((EWith o f e v) "0"))
-      (lookup_operand (var_name y) (env_binds env))))
+      (lookup_operand (var_name y) (.binds env))))
 
 ; The form of spec 6.5 that hands an element through a function and back,
 ; (array_set g y (f ... (array_get g y) ...)), with g one variable that no
@@ -706,11 +694,11 @@
 ; dot. Everything else is emitted as written. Spec 10.3.
 (def through_args ((n (list int)) (args (list Expr)) (env Env)) (list Expr)
   (if (if (eq n "array_set") (eq (length args) 3) false)
-      (if (if (is_builtin_in "array_set" (env_ctx env)) (is_builtin_in "array_get" (env_ctx env)) false)
+      (if (if (is_builtin_in "array_set" (.ctx env)) (is_builtin_in "array_get" (.ctx env)) false)
           (let g (var_name (head args))
             (if (is_empty g)
                 args
-                (if (counted_elems (lookup_type g (env_binds env)))
+                (if (counted_elems (lookup_type g (.binds env)))
                     (cons (head args)
                       (cons (head (tail args))
                         (cons (through_arg g (head (tail args)) (head (tail (tail args))))
@@ -790,10 +778,10 @@
 ; (array.take g y): l0_array_take, y checked where the argument stands, the
 ; element g's type says, with a reference the caller owns.
 (def emit_take ((g (list int)) (y Expr) (env Env) (st Emit)) EmitVal
-  (match (lookup_type g (env_binds env))
+  (match (lookup_type g (.binds env))
     ((TyArray e)
-      (retype (emit_rt_call "l0_array_take"
-                (two_ops (lookup_operand g (env_binds env)) (index_op y env)) st)
+      (.ty (emit_rt_call "l0_array_take"
+                (two_ops (lookup_operand g (.binds env)) (index_op y env)) st)
               e))
     ((TyInt) (emit_rt_call "l0_array_take" (nil (list int)) st))
     ((TyBool) (emit_rt_call "l0_array_take" (nil (list int)) st))
@@ -804,14 +792,14 @@
 
 (def emit_call_plain ((n (list int)) (args (list Expr)) (env Env)
                       (live (list (list int))) (tl bool) (st Emit)) EmitVal
-  (if (is_builtin_in n (env_ctx env))
+  (if (is_builtin_in n (.ctx env))
       (match (emit_args args env live (flags_for (is_borrowing n) args) st)
         ((Ops ops ts ws st1)
           (emit_ret tl
             (after_borrow n ops ts ws
-              (retype (emit_op n ops ts st1) (builtin_type n ts))))))
+              (.ty (emit_op n ops ts st1) (builtin_type n ts))))))
       (let sym (call_sym n env)
-        (let ro (read_only_of sym (env_pads env))
+        (let ro (read_only_of sym (.pads env))
           (match (emit_args args env live ro st)
             ((Ops ops ts ws st1)
               (match (emit_def_call sym ops env tl st1)
@@ -836,7 +824,7 @@
     (append (if tl "musttail call fastcc i64 @" "call fastcc i64 @")
       (append sym
         (append "("
-          (append (fmt_ops (pad_ops ops (pad_of sym (env_pads env)))) ")"))))
+          (append (fmt_ops (pad_ops ops (pad_of sym (.pads env)))) ")"))))
     st))
 
 ; head, tail, is_empty, eq, hash, array_len, array_get, open_bytes, bytes_len,
@@ -898,15 +886,15 @@
 
 ; The type a function returns, from its signature.
 (def fn_type ((n (list int)) (env Env)) Ty
-  (match (find_sig n (ctx_sigs (env_ctx env)))
-    ((Some s) (match s ((S sn tps ps r) r)))
+  (match (find_sig n (.sigs (.ctx env)))
+    ((Some s) (.ret s))
     ((None) (TyInt))))
 
 ; The type of a call's result. A copy's return type is written in kinds, so
 ; a call to one has the type its function's signature gives it for the
 ; arguments' types, which keeps what lies inside a counted type parameter.
 (def call_type ((n (list int)) (ts (list Ty)) (env Env)) Ty
-  (match (find_sig (copy_base n) (ctx_sigs (env_ctx env)))
+  (match (find_sig (copy_base n) (.sigs (.ctx env)))
     ((Some s)
       (match s
         ((S sn tps sps sr)
@@ -928,22 +916,22 @@
 ; A block is sized for the widest constructor of its type, per spec section
 ; 10.1, so every value of a type has the same layout.
 (def ctor_block_width ((ci CtorInfo) (ctx Ctx)) int
-  (match (find_data (ctor_type_name ci) (ctx_datas ctx))
-    ((Some dd) (data_max_fields dd))
+  (match (find_data (.type_name ci) (.datas ctx))
+    ((Some dd) (.width dd))
     ((None) 0)))
 
 ; tys are the type arguments, if the construction wrote them; otherwise the
 ; arguments' types give them, as the checker found. Spec 5.6.
 (def emit_ctor ((n (list int)) (tys (list Ty)) (args (list Expr)) (env Env)
                 (live (list (list int))) (st Emit)) EmitVal
-  (match (find_ctor n (ctx_ctors (env_ctx env)))
+  (match (find_ctor n (.ctors (.ctx env)))
     ((None) (Val "0" (TyInt) st))
     ((Some ci)
       (match (emit_args args env live (nil bool) st)
         ((Ops ops ts ws st1)
           (emit_ctor_block ci
-            (TyData (ctor_type_name ci) (ctor_type_args ci tys ts))
-            ops (env_ctx env) st1))))))
+            (TyData (.type_name ci) (ctor_type_args ci tys ts))
+            ops (.ctx env) st1))))))
 
 ; A data block's layout mask has bit k set when word k is a pointer. Word 0
 ; is the tag, so field i is word i + 1. A field whose declared type is a
@@ -958,7 +946,7 @@
 (def emit_ctor_block ((ci CtorInfo) (dt Ty) (ops (list (list int))) (ctx Ctx)
                       (st Emit)) EmitVal
   (match (emit_rt_call "l0_new_data"
-           (cons (digits (ctor_tag ci))
+           (cons (digits (.tag ci))
              (two_ops (digits (ctor_block_width ci ctx))
                       (digits (ctor_mask (ctor_fields_at ci dt) 2 0)))) st)
     ((Val blk t st1)
@@ -991,9 +979,9 @@
             (let sn (var_name subject)
               (if (if (is_empty sn) false (still_held sn env slive))
                   (emit_match_dispatch id slot
-                    (lookup_operand sn (env_binds env)) arms
+                    (lookup_operand sn (.binds env)) arms
                     (Mx env live tl farms false (is_read_only sn env)
-                        (lookup_type sn (env_binds env))) st1)
+                        (lookup_type sn (.binds env))) st1)
                   (match (emit_expr subject env slive false st1)
                     ((Val sv svt st2)
                       (emit_match_dispatch id slot sv arms
@@ -1005,22 +993,15 @@
 ; parameter, which outlives the whole call, and the subject's type, which
 ; gives the fields theirs.
 (data MatchCx
-  (Mx Env (list (list int)) bool (list (list int)) bool bool Ty))
-
-(def mx_env ((m MatchCx)) Env (match m ((Mx e l t f o r s) e)))
-(def mx_live ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o r s) l)))
-(def mx_tl ((m MatchCx)) bool (match m ((Mx e l t f o r s) t)))
-(def mx_farms ((m MatchCx)) (list (list int)) (match m ((Mx e l t f o r s) f)))
-(def mx_owned ((m MatchCx)) bool (match m ((Mx e l t f o r s) o)))
-(def mx_read_only ((m MatchCx)) bool (match m ((Mx e l t f o r s) r)))
-(def mx_subject_ty ((m MatchCx)) Ty (match m ((Mx e l t f o r s) s)))
+  (Mx (env Env) (live (list (list int))) (tl bool) (farms (list (list int)))
+      (owned bool) (read_only bool) (subject_ty Ty)))
 
 (def arm_label ((id (list int)) (k int)) (list int)
   (append "A" (append id (append "_" (digits k)))))
 
 (def arm_tag ((a Arm) (env Env)) int
-  (match (find_ctor (arm_ctor_name a) (ctx_ctors (env_ctx env)))
-    ((Some ci) (ctor_tag ci))
+  (match (find_ctor (.ctor a) (.ctors (.ctx env)))
+    ((Some ci) (.tag ci))
     ((None) 0)))
 
 (def switch_entries ((arms (list Arm)) (env Env) (id (list int)) (k int))
@@ -1039,7 +1020,7 @@
         (let lnm (append "Ln" id)
           (let st2 (emit_line (append "  switch i64 " (append tg
                       (append ", label %" (append lnm
-                        (append " [" (append (switch_entries arms (mx_env mx) id 0)
+                        (append " [" (append (switch_entries arms (.env mx) id 0)
                           " ]")))))) st1)
             (emit_match_tail id slot sv arms mx lend lnm st2)))))))
 
@@ -1049,10 +1030,10 @@
   (match (emit_match_arms arms mx id 0 slot sv lend (TyInt) st)
     ((Val x t st1)
       (let st3 (emit_line "  unreachable" (emit_line (append lnm ":") st1))
-        (if (mx_tl mx)
+        (if (.tl mx)
             (Val "" t st3)
             (let st4 (emit_line (append lend ":") st3)
-              (retype (emit_assign (append "load i64, ptr " slot) st4) t)))))))
+              (.ty (emit_assign (append "load i64, ptr " slot) st4) t)))))))
 
 ; Every arm has the same type, which the checker proved, so the last one
 ; emitted gives the match its type.
@@ -1077,26 +1058,26 @@
       (let bfv (fv body)
         (let st1 (emit_line (append lbl ":") st)
           (match (emit_field_loads sv names
-                   (arm_field_tys cn (mx_subject_ty mx) (mx_env mx)) 0 bfv
-                   (if (mx_read_only mx) (ReadOnlySubject body) (OtherSubject))
-                   (mx_env mx) st1)
+                   (arm_field_tys cn (.subject_ty mx) (.env mx)) 0 bfv
+                   (if (.read_only mx) (ReadOnlySubject body) (OtherSubject))
+                   (.env mx) st1)
             ((EnvSt env2 st2)
               (let st3 (release_names
-                         (set_minus (mx_farms mx)
-                           (set_union (set_del_all names bfv) (mx_live mx)))
-                         (mx_env mx)
-                         (if (mx_owned mx) (emit_dec sv st2) st2))
-                (match (emit_expr body env2 (set_del_all names (mx_live mx))
-                                  (mx_tl mx) st3)
+                         (set_minus (.farms mx)
+                           (set_union (set_del_all names bfv) (.live mx)))
+                         (.env mx)
+                         (if (.owned mx) (emit_dec sv st2) st2))
+                (match (emit_expr body env2 (set_del_all names (.live mx))
+                                  (.tl mx) st3)
                   ((Val v t st4)
                     (Val "" t
-                      (if (mx_tl mx)
+                      (if (.tl mx)
                           st4
                           (emit_line (append "  br label %" lend)
                             (emit_store v slot st4))))))))))))))
 
 (def arm_field_tys ((cn (list int)) (st Ty) (env Env)) (list Ty)
-  (arm_fields cn st (ctx_ctors (env_ctx env))))
+  (arm_fields cn st (.ctors (.ctx env))))
 
 ; The arm's body, when the subject is a read-only parameter, which outlives
 ; the whole call.
@@ -1132,11 +1113,11 @@
     ((OtherSubject) false)
     ((ReadOnlySubject body)
       (ro_ok n t body
-        (Rx (env_pads env) (ctx_builtins (env_ctx env)) (env_prelude env)
-            (ctx_ctors (env_ctx env)))))))
+        (Rx (.pads env) (.builtins (.ctx env)) (.prelude env)
+            (.ctors (.ctx env)))))))
 
 (def env_bind_read_only ((n (list int)) (op (list int)) (t Ty) (e Env)) Env
-  (match e ((Ev b c p k) (Ev (cons (EB n op t true) b) c p k))))
+  (.binds e (cons (EB n op t true) (.binds e))))
 
 ; ---------------------------------------------------------------- builtins
 
@@ -1326,8 +1307,8 @@
     ((Val q tq st1)
       (if neg
           (match (emit_assign (append "fneg double " q) st1)
-            ((Val r tr st2) (retype (f_encode r st2) (TyFloat))))
-          (retype (f_encode q st1) (TyFloat))))))
+            ((Val r tr st2) (.ty (f_encode r st2) (TyFloat))))
+          (.ty (f_encode q st1) (TyFloat))))))
 
 (def emit_op_more ((n (list int)) (ops (list (list int))) (ts (list Ty))
                    (st Emit)) EmitVal
@@ -1351,7 +1332,8 @@
 ; ones. Spec 8 and 10.2.
 
 (data Pad
-  (Pd (list int) int (list bool)))      ; symbol, parameters it takes, read-only
+  (Pd (sym (list int)) (arity int) (read_only (list bool))))
+                                        ; symbol, parameters it takes, read-only
 
 ; One function: its symbol, its L0 arity, and the symbols it tail-calls.
 (data Node
@@ -1480,7 +1462,7 @@
       (match (head ns)
         ((Nd s k cs)
           (pad_table (tail ns) (tail ks) (tail rs)
-            (cons (Pd s (head ks) (rf_flags (head rs))) acc))))))
+            (cons (Pd s (head ks) (.flags (head rs))) acc))))))
 
 (def module_pads ((ds (list Decl)) (pre int) (ppre (list (list int)))
                   (pprog (list (list int))) (bpre (list (list int)))
@@ -1506,14 +1488,14 @@
 (def pad_of ((s (list int)) (m (Map (list int) Pad))) int
   (match (map_get m s)
     ((None) 0)
-    ((Some p) (match p ((Pd n k ro) k)))))
+    ((Some p) (.arity p))))
 
 ; Which parameters of the function s are read-only, spec 10.3; empty for a
 ; symbol not in the table.
 (def read_only_of ((s (list int)) (m (Map (list int) Pad))) (list bool)
   (match (map_get m s)
     ((None) (nil bool))
-    ((Some p) (match p ((Pd n k ro) ro)))))
+    ((Some p) (.read_only p))))
 
 ; ------------------------------------------------------ read-only parameters
 ;
@@ -1533,13 +1515,12 @@
 ; One function: its symbol, parameters, flags, body, the prelude names its
 ; calls reach, and the builtins no def its calls see shadows.
 (data RoFn
-  (Rf (list int) (list Param) (list bool) Expr (list (list int)) (list (list int))))
+  (Rf (sym (list int)) (params (list Param)) (flags (list bool)) (body Expr)
+      (pn (list (list int))) (bs (list (list int)))))
 
 (data Demote
   (Dm (list int) int))                  ; symbol, parameter position
 
-(def rf_sym ((r RoFn)) (list int) (match r ((Rf s ps fs b pn bs) s)))
-(def rf_flags ((r RoFn)) (list bool) (match r ((Rf s ps fs b pn bs) fs)))
 
 ; bpre and bprog are each group's builtins, as ppre and pprog are its
 ; prelude names.
@@ -1570,7 +1551,7 @@
 (def ro_same ((a (list RoFn)) (b (list RoFn))) bool
   (if (is_empty a)
       true
-      (if (eq (rf_flags (head a)) (rf_flags (head b)))
+      (if (eq (.flags (head a)) (.flags (head b)))
           (ro_same (tail a) (tail b))
           false)))
 
@@ -1594,8 +1575,8 @@
 ; them, the builtins, the prelude names its calls reach, and the
 ; constructors. The emitter builds one too, to bind fields (emit_field_loads).
 (data RoCx
-  (Rx (Map (list int) Pad) (list (list int)) (list (list int))
-      (list CtorInfo)))
+  (Rx (pads (Map (list int) Pad)) (bs (list (list int))) (pn (list (list int)))
+      (cs (list CtorInfo))))
 
 (def ro_table ((fs (list RoFn))) (Map (list int) Pad)
   (pad_map (ro_pads fs) ((MapEmpty (list int) Pad))))
@@ -1603,12 +1584,8 @@
 (def ro_pads ((fs (list RoFn))) (list Pad)
   (if (is_empty fs)
       (nil Pad)
-      (cons (Pd (rf_sym (head fs)) 0 (rf_flags (head fs))) (ro_pads (tail fs)))))
+      (cons (Pd (.sym (head fs)) 0 (.flags (head fs))) (ro_pads (tail fs)))))
 
-(def rx_pads ((x RoCx)) (Map (list int) Pad) (match x ((Rx f b p c) f)))
-(def rx_bs ((x RoCx)) (list (list int)) (match x ((Rx f b p c) b)))
-(def rx_pn ((x RoCx)) (list (list int)) (match x ((Rx f b p c) p)))
-(def rx_cs ((x RoCx)) (list CtorInfo) (match x ((Rx f b p c) c)))
 
 (def ro_own_flags ((ps (list Param)) (flags (list bool)) (body Expr) (x RoCx))
     (list bool)
@@ -1645,13 +1622,13 @@
               (if (ro_ok p t s x) (ro_ok_arms p t arms x) false)))
         ((ECall o n args)
           (ro_ok_args p t args
-            (if (any_eq n (rx_bs x))
+            (if (any_eq n (.bs x))
                 (flags_for (reads_no_pointer n t) args)
-                (read_only_of (fn_sym n (rx_pn x)) (rx_pads x)))
+                (read_only_of (fn_sym n (.pn x)) (.pads x)))
             x))
         ((EField o f e)
           (if (eq (var_name e) p)
-              (not (ty_is_ptr (field_ty_of f t (rx_cs x))))
+              (not (ty_is_ptr (field_ty_of f t (.cs x))))
               (ro_ok p t e x)))
         ((EWith o f e v)
           (if (ro_ok p t e x) (ro_ok p t v x) false)))))
@@ -1690,7 +1667,7 @@
       true
       (match (head arms)
         ((A o cn names body)
-          (if (if (ro_fields_ok names (arm_fields cn t (rx_cs x)) body x)
+          (if (if (ro_fields_ok names (arm_fields cn t (.cs x)) body x)
                   (if (any_eq p names) true (ro_ok p t body x))
                   false)
               (ro_ok_fields p t (tail arms) x)
@@ -1768,7 +1745,7 @@
       (if (any_eq n bs)
           acc
           (let g (fn_sym n pn)
-            (ro_args_demote g args (read_only_of g (rx_pads x)) ok 0 acc))))
+            (ro_args_demote g args (read_only_of g (.pads x)) ok 0 acc))))
     ((EField o f e) acc)
     ((EWith o f e v) acc)))
 
@@ -1797,7 +1774,7 @@
               ((SubjectOther)
                 (ro_tail_demote body (set_del_all names ok) tys fs bs pn x acc))
               ((SubjectOk st)
-                (let fts (arm_fields cn st (rx_cs x))
+                (let fts (arm_fields cn st (.cs x))
                   (ro_tail_demote body
                     (set_union (ro_read_fields names fts body x)
                                (set_del_all names ok))
@@ -1881,12 +1858,8 @@
 ; against, the names among them that land in the prelude, which group it is,
 ; and how many parameters every function takes.
 (data Scope
-  (Sc Ctx (list (list int)) bool (Map (list int) Pad)))
-
-(def sc_ctx ((s Scope)) Ctx (match s ((Sc c p i k) c)))
-(def sc_prelude_names ((s Scope)) (list (list int)) (match s ((Sc c p i k) p)))
-(def sc_is_prelude ((s Scope)) bool (match s ((Sc c p i k) i)))
-(def sc_pads ((s Scope)) (Map (list int) Pad) (match s ((Sc c p i k) k)))
+  (Sc (ctx Ctx) (prelude_names (list (list int))) (is_prelude bool)
+      (pads (Map (list int) Pad))))
 
 ; A program is a closed module, and the runtime reaches into it by name for
 ; exactly one function, so everything else gets internal linkage and LLVM can
@@ -1898,8 +1871,8 @@
   (match d
     ((DData o n tps cs) st)
     ((DDef o n fps ps ret body)
-      (let sym (def_sym n (sc_is_prelude sc))
-        (let k (pad_of sym (sc_pads sc))
+      (let sym (def_sym n (.is_prelude sc))
+        (let k (pad_of sym (.pads sc))
           (let st1 (emit_line
                      (append "define internal fastcc i64 @"
                        (append sym
@@ -1907,12 +1880,12 @@
                      (emit_entry n ps k sc st))
             (let st2 (emit_line "  call void @l0_stack_check()"
                        (emit_line "entry:" st1))
-              (let env (Ev (param_binds ps (read_only_of sym (sc_pads sc)) 0
+              (let env (Ev (param_binds ps (read_only_of sym (.pads sc)) 0
                                         (nil EBind))
-                           (sc_ctx sc) (sc_prelude_names sc) (sc_pads sc))
+                           (.ctx sc) (.prelude_names sc) (.pads sc))
                 (emit_line ""
                   (emit_line "}"
-                    (val_st (emit_expr body env (nil (list int)) true
+                    (.st (emit_expr body env (nil (list int)) true
                               (release_names
                                 (set_minus (param_names ps) (fv body))
                                 env st2)))))))))))))
@@ -1927,7 +1900,7 @@
 ; functions are never the entry point, however they are named. Spec 10.2.
 (def emit_entry ((n (list int)) (ps (list Param)) (k int) (sc Scope)
                  (st Emit)) Emit
-  (if (or (sc_is_prelude sc) (not (eq n "main")))
+  (if (or (.is_prelude sc) (not (eq n "main")))
       st
       (let ops (pad_ops (if (is_empty ps) (nil (list int)) (one_op "%a0")) k)
         (emit_line ""
@@ -2144,6 +2117,6 @@
                       (st Emit)) (list int)
   (let pv (prelude_view (append gs ds) pre)
     (let gv (program_view (append gs ds) pre)
-      (let pads (module_pads ds pre ppre pprog (ctx_builtins pv) (ctx_builtins gv))
+      (let pads (module_pads ds pre ppre pprog (.builtins pv) (.builtins gv))
         (emit_text
           (emit_fns ds (Sc pv ppre true pads) (Sc gv pprog false pads) pre st))))))

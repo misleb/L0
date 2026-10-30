@@ -99,8 +99,21 @@
   (match (map_logged (Space 7 ((MapEmpty int int))) 16 3)
     ((Mapped s line)
       (add (check_str "line" line "mapped in space 7")
-           (match s
-             ((Space id pages) (check_int "frame" (match (map_get pages 16) ((None) -1) ((Some f) f)) 3)))))))
+           (check_int "frame" (match (map_get (.pages s) 16) ((None) -1) ((Some f) f)) 3)))))
+
+; A field read by name, and a value replaced by name: the original is
+; unchanged, as far as anything holding it can tell.
+(def test_stop () int
+  (let p (Proc 3 (array_new 104 0) 5)
+    (let q (stop p)
+      (add (check_int "stopped" (.state q) -1)
+        (add (check_int "space kept" (.space q) 3)
+             (check_int "p unchanged" (.state p) 5))))))
+
+(def test_restart () int
+  (let p (restart (stop (Proc 3 (array_new 104 0) 5)) 4096)
+    (add (check_int "pc" (proc_pc p) 4096)
+         (check_int "runnable" (.state p) 0))))
 
 (def test_by_frequency () int
   (check_true "most frequent first, then by word"

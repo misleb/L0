@@ -95,6 +95,24 @@ echo "link compiler from bootstrap/stage2.ll"
 "$CC" -O2 -flto -Wno-override-module "$ROOT/bootstrap/stage2.ll" \
     "$BUILD/l0rt.o" "$BUILD/l0host.o" -o "$LIBDIR/l0c"
 
+# l0 fmt (roadmap 0133) is an L0 program, tools/fmt.l0 with its main in
+# tools/fmt_main.l0, compiled by the compiler just linked, with the library
+# as its prelude group, as every program is.
+echo "link l0 fmt from tools/fmt.l0"
+. "$ROOT/tools/bundle.sh"
+write_bundle 0 "$ROOT/lib/prelude.l0" "$ROOT/lib/io.l0" "$ROOT/tools/fmt.l0" \
+    "$ROOT/tools/fmt_main.l0" > "$BUILD/fmt.in"
+if "$LIBDIR/l0c" < "$BUILD/fmt.in" > "$BUILD/fmt.out" &&
+    [ "$(head -n 1 "$BUILD/fmt.out")" = O ]; then
+    tail -n +2 "$BUILD/fmt.out" > "$BUILD/fmt.ll"
+    "$CC" -O2 -flto -Wno-override-module "$BUILD/fmt.ll" \
+        "$BUILD/l0rt.o" "$BUILD/l0host.o" -o "$LIBDIR/l0fmt"
+else
+    echo "     l0 fmt not built: the compiler rejected tools/fmt.l0" >&2
+    tail -n +2 "$BUILD/fmt.out" >&2
+    exit 1
+fi
+
 # In --into mode the destination is usually the repository's own lib/, where
 # these files already live; copying them onto themselves would fail.
 if [ "$(cd "$LIBDIR" && pwd)" != "$(cd "$ROOT/lib" && pwd)" ]; then

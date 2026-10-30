@@ -26,7 +26,7 @@
 ; source, so piping a bare file still works and the bootstrap is unaffected.
 
 (data FileEntry
-  (FE int (list int)))                  ; start offset, path
+  (FE (start int) (path (list int))))   ; start offset, path
 
 ; The file table, the source text, whether a main is required, and the byte
 ; offset where the prelude ends. A bundle header line of #nomain relaxes the
@@ -36,8 +36,6 @@
 (data Bundle
   (Bnd (list FileEntry) (list int) bool int))
 
-(def fe_start ((f FileEntry)) int (match f ((FE s p) s)))
-(def fe_path ((f FileEntry)) (list int) (match f ((FE s p) p)))
 
 (def parse_entry ((ln (list int))) FileEntry
   (FE (int_prefix ln 0) (skip_spaces (skip_digits ln))))
@@ -74,7 +72,7 @@
 (def file_at ((entries (list FileEntry)) (o int) (best FileEntry)) FileEntry
   (if (is_empty entries)
       best
-      (if (le (fe_start (head entries)) o)
+      (if (le (.start (head entries)) o)
           (file_at (tail entries) o (head entries))
           best)))
 
@@ -106,11 +104,11 @@
       (if (lt o 0)
           (append "error: " (append m "\n"))
           (let fe (file_at entries o (FE 0 ""))
-            (render_at src (fe_path fe) (fe_start fe) o m))))
+            (render_at src (.path fe) (.start fe) o m))))
     ((DParens o name next deficit)
       (let fe (file_at entries o (FE 0 ""))
-        (render_at src (fe_path fe) (fe_start fe) o
-          (parens_message src (fe_start fe) o name next deficit))))))
+        (render_at src (.path fe) (.start fe) o
+          (parens_message src (.start fe) o name next deficit))))))
 
 ; ------------------------------------------------- miscounted parentheses
 

@@ -60,10 +60,106 @@ set without a function per field.
 arms; replacing several fields in one form, which nests for now.
 
 *Compiled by:* the seed from before this entry cannot compile a field,
-so by the two-step rule the compiler and the prelude use none until the
-seed is refreshed; roadmap 0132's step 2 then names the fields of the
-compiler's eleven record types and the kernel's two, and deletes the
-accessors.
+so by the two-step rule the compiler and the prelude used none until the
+seed was refreshed. Then, in roadmap 0132's step 2, the compiler named the
+fields of its record types, `Ctx`, `CtorInfo`, `DataDef`, `Sig`, `Ctor`,
+`Arm`, `Emit`, `EmitVal`, `Env`, `MatchCx`, `RoCx`, `Scope`, `Pad`,
+`RoFn`, and `FileEntry`, and deleted the accessors, 47 functions; the
+kernel named `Proc`'s and `Kern`'s; and the examples gained `Proc`.
+
+*Found in step 2:* a field that holds an array or a map, updated and put
+back, is still taken apart by a `match`: `(.ctx p (call_result (.ctx p)
+v))` reads the context while `p` holds it too, so `call_result`'s
+`array_set` copies the 104 words, where `(match p ((Proc s c m w st) (Proc
+s (call_result c v) m w -1)))` releases `p` once it has the fields and
+updates in place. Section 6.5's third form takes an element out of an
+array for exactly this, `(array_set g y (f (array_get g y)))`; the field
+analogue, `(.f r (g (.f r)))` with `r` one variable no other argument
+mentions, is the natural next step, and until it exists the kernel's
+`resume`, `kset`, `kresume`, `kmapped`, `run`, and `give` and the
+examples' `space_put` keep their `match`, with a comment saying why.
+
+---
+
+## A let of several bindings, and an if of several tests (roadmap 0134)
+
+**New:** `(let (n1 v1 n2 v2 ...) body)` is exactly `(let n1 v1 (let n2 v2
+(... body)))`, and `(if c1 e1 c2 e2 ... else)`, with an odd number of
+operands, is exactly `(if c1 e1 (if c2 e2 (... else)))` (spec 5.2, 5.3,
+and 8). Both are desugared by the parser into the nested forms, so the
+checker, the emitter, the runtime, and the seed's interface do not change,
+every rule stated of `let` and `if` follows from the nesting, and the
+one-name `let` and the three-operand `if` stay as they were. A list of
+bindings with no pairs or an odd count, and an `if` with an even number of
+operands, are compile errors.
+
+*Why:* nesting is what makes closers hard to count. A chain of six `let`s
+closes with seven parens; runs of 9 to 19 end about 50 lines of the
+compiler and the kernel, whose nesting reaches 15 to 19; and the review
+that opened 0132 found miscounted closers "the cause of every parse error
+hit while writing the compiler" (the l0-code skill). `l0 fmt` (0133)
+counts the run at the end; this shortens it. The `if` chain is already
+L0's idiom for a chain of tests, written flat with every `(if` at one
+indentation (`dispatch_form`, `escape_byte`); the form says what the
+layout meant.
+
+*Decided:* sugar in the parser, not new forms in the checker, so that
+nothing about types, tail position, or reference counting is said twice;
+the nested forms carry the `(`'s offset, so a diagnostic in a chain names
+the chain. Not a `cond` with a keyword, which would reserve a word
+(section 7's reason), nor bindings in pairs of parens, `(let ((a 1) (b
+2)) ...)`, which gives back as many parens as it saves.
+
+*Compiled by:* the seed from before this entry cannot compile either form,
+so by the two-step rule the compiler and the prelude use neither until the
+seed is refreshed.
+
+---
+
+## l0 fmt adds the closing parens the indentation shows missing, and no language change for it (roadmap 0133)
+
+**New:** `l0 fmt FILE...` rewrites each file with the closers its
+indentation shows missing added at the ends of its lines of code, and
+closers with nothing to close dropped, and nothing else changed; `l0 fmt
+--check` only reports. The program is `tools/fmt.l0`, with its `main` in
+`tools/fmt_main.l0`, built by `tools/install.sh` beside the compiler as
+`l0fmt`. `tests/unit/fmt_test` covers the rule and `tests/io/fmt` runs it
+over every `.l0` under `compiler/`, `lib/`, and `tests/virt/user/`, which
+come back byte-identical; so do all 241 L0 files in the repository.
+
+*Why:* miscounted closers are the most common way an agent wastes time in
+L0, and counting a run of identical tokens against context lines away is
+what a model does worst, where judging that one line is indented under its
+parent is what it does well.
+
+*Decided: the rule is weaker than Parinfer's.* Parinfer's indent mode drops
+every trailing closer and infers them all from the next line's
+indentation. Tried first, it changed 57 of 163 files, because L0 is
+written in shapes it cannot tell from a missing closer: a chain of `(if
+...)` or `(yn ...)` lines at one indentation, each the last operand of the
+one before (`dispatch_form`, the `tests/lang` suites); a match arm's
+`((Ctor fields) body)` with the body indented past the arm's `(`; a form
+late on a line continued on the next, indented past the line but not as
+far as the form, as the compiler's `append` chains are; and an operand
+aligned under the `(` of the form it continues (`check_errors.l0`'s
+nested `push`es). So every written closer is kept, and a form is closed
+only where the next line of code dedents below the line the form began on,
+or begins a declaration at column 0. That fixes the run at the end of a
+`def`, which is where the count goes wrong, and leaves a closer missing
+inside a form whose next line is as deep or deeper to the checker, which
+now reports it with a count. Two files changed to be consistent with
+their own indentation: `lib/test.l0` gained its final newline, and
+`check_errors.l0`'s final `(rev da)` moved under the `push`es it closes.
+
+*Made possible by 0132:* the formatter's state is a six-field record read
+and replaced by name; it is the first program written with fields.
+
+*Also fixed, found by it:* in a checkout, every `l0` command rebuilds
+`lib/l0c` when the seed is newer, and the test suite's parallel jobs all
+found it so at once after a seed refresh, each running the installer over
+the others' half-written files; four board tests failed that way once the
+installer also built `l0fmt`. `tools/l0` now takes a lock, a directory
+`lib/.building`, so one command rebuilds and the rest wait.
 
 ---
 

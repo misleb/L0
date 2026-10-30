@@ -1,0 +1,204 @@
+; fmt.l0 -- l0 fmt: closing parens supplied from the indentation.
+;
+; Reads a source file on standard input and writes it back with the closers
+; its indentation says are missing added, and closers with nothing to close
+; dropped; nothing else changes. Every closer written is kept where it is,
+; so a file whose closers match its indentation comes back byte-identical,
+; and one whose count is short, which is what an agent writing L0 gets
+; wrong most often (the l0-code skill, "Keep nesting shallow"), comes back
+; fixed. An indentation that is itself wrong gives a wrong tree, which l0
+; check then reports where it really is.
+;
+; The rule, applied where each line of code begins, to the forms still open
+; from the lines before: a form is closed, at the end of the last line of
+; code, when the new line is indented less than the line the form began on,
+; and when the new line begins at column 0, where only a declaration
+; begins, every form is closed. Nothing else closes a form, because L0 is
+; written in shapes that indentation alone cannot tell from a missing
+; closer: a chain of (if ...) or (yn ...) lines at one indentation, each
+; the last operand of the one before; a match arm's ((Ctor fields) body)
+; whose body is indented past the arm's (; a form late on a line continued
+; on the next, indented past the line but not as far as the form, as a
+; long append chain is; and an operand aligned under the ( of the form it
+; continues. Parinfer's indent mode, which infers every trailing closer,
+; keeps none of them, which is why written closers are kept here and only
+; missing ones are added. What the rule cannot fix, a closer missing inside
+; a form whose next line is indented as deep or deeper, l0 check reports
+; where it is, and with the count.
+;
+; Lines that are blank or hold only a comment judge nothing and pass
+; through; the closers of the code line before them go at its end, before
+; them. A comment after code on the same line stays after the closers.
+
+; A form still open: the column of its (, and the indentation of the line
+; it began on, which is what decides when a dedent closes it.
+(data Open
+  (Open (col int) (line int)))
+
+; The state between lines: the forms still open, innermost first; the last
+; line of code, as kept, and its tail, the blanks and comment after its
+; code; whether there is such a line; the blank and comment lines since it,
+; reversed; and the output lines, reversed.
+(data Fmt
+  (Fmt (opens (list Open)) (pending (list int)) (pending_tail (list int))
+       (has_pending bool) (buffered (list (list int))) (out (list (list int)))))
+
+; A line scanned: its code with any unmatched closer dropped, and the forms
+; open after it.
+(data Scanned
+  (Scanned (code (list int)) (opens (list Open))))
+
+; The source split at newlines, each line without its newline.
+(def split_lines ((s (list int)) (line (list int)) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty s)
+      (rev (cons (rev line) acc))
+      (if (eq (head s) 10)
+          (split_lines (tail s) (nil int) (cons (rev line) acc))
+          (split_lines (tail s) (cons (head s) line) acc))))
+
+; How many blanks begin a line, each a column.
+(def indent_of ((l (list int)) (n int)) int
+  (if (is_empty l)
+      n
+      (if (or (eq (head l) 32) (eq (head l) 9))
+          (indent_of (tail l) (add n 1))
+          n)))
+
+; Whether a line is blank or a comment alone.
+(def is_quiet ((l (list int))) bool
+  (let rest (drop_n l (indent_of l 0))
+    (if (is_empty rest) true (eq (head rest) 59))))
+
+; Where a line's comment begins, counting from 0, or its length if it has
+; none: the first ; outside a string.
+(def comment_at ((l (list int)) (i int) (in_str bool)) int
+  (if (is_empty l)
+      i
+      (let c (head l)
+        (if in_str
+            (if (eq c 92)
+                (if (is_empty (tail l))
+                    (add i 1)
+                    (comment_at (tail (tail l)) (add i 2) true))
+                (comment_at (tail l) (add i 1) (not (eq c 34))))
+            (if (eq c 59)
+                i
+                (comment_at (tail l) (add i 1) (eq c 34)))))))
+
+; The first n of l.
+(def take_n ((l (list int)) (n int) (acc (list int))) (list int)
+  (if (if (le n 0) true (is_empty l))
+      (rev acc)
+      (take_n (tail l) (sub n 1) (cons (head l) acc))))
+
+; l, reversed, without its trailing blanks.
+(def strip_blanks ((rl (list int))) (list int)
+  (if (is_empty rl)
+      rl
+      (if (or (eq (head rl) 32) (eq (head rl) 9))
+          (strip_blanks (tail rl))
+          rl)))
+
+; A line of code scanned, outside strings: each ( at column col opens a
+; form on the line indented ind, each ) closes the innermost, and a ) with
+; nothing to close is dropped from the code. acc is the code kept,
+; reversed.
+(def scan ((l (list int)) (col int) (ind int) (in_str bool) (opens (list Open))
+           (acc (list int))) Scanned
+  (if (is_empty l)
+      (Scanned (rev acc) opens)
+      (let c (head l)
+        (if in_str
+            (if (if (eq c 92) (not (is_empty (tail l))) false)
+                (scan (tail (tail l)) (add col 2) ind true opens
+                      (cons (head (tail l)) (cons c acc)))
+                (scan (tail l) (add col 1) ind (not (eq c 34)) opens (cons c acc)))
+            (if (eq c 40)
+                (scan (tail l) (add col 1) ind false
+                      (cons (Open col ind) opens) (cons c acc))
+                (if (eq c 41)
+                    (if (is_empty opens)
+                        (scan (tail l) (add col 1) ind false opens acc)
+                        (scan (tail l) (add col 1) ind false (tail opens) (cons c acc)))
+                    (scan (tail l) (add col 1) ind (eq c 34) opens (cons c acc))))))))
+
+; n closers.
+(def closers ((n int) (acc (list int))) (list int)
+  (if (le n 0) acc (closers (sub n 1) (cons 41 acc))))
+
+; Whether a form still open is closed by a line of code beginning at
+; column ind: the rule in the header.
+(def closes ((o Open) (ind int)) bool
+  (if (eq ind 0) true (lt ind (.line o))))
+
+; opens with every form the new line closes popped, and how many that was.
+(data Closed
+  (Closed (opens (list Open)) (count int)))
+
+(def close_to ((opens (list Open)) (ind int) (n int)) Closed
+  (if (is_empty opens)
+      (Closed opens n)
+      (if (closes (head opens) ind)
+          (close_to (tail opens) ind (add n 1))
+          (Closed opens n))))
+
+; The pending line of code finished with n closers, then the quiet lines
+; after it, all onto out.
+(def flush ((st Fmt) (n int)) Fmt
+  (if (not (.has_pending st))
+      st
+      (let line (append (.pending st) (append (closers n (nil int)) (.pending_tail st)))
+        (let out1 (cons line (.out st))
+          (.has_pending (.buffered (.out st (append (.buffered st) out1)) (nil (list int)))
+                        false)))))
+
+; One line of the source.
+(def fmt_line ((st Fmt) (l (list int))) Fmt
+  (if (is_quiet l)
+      (if (.has_pending st)
+          (.buffered st (cons l (.buffered st)))
+          (.out st (cons l (.out st))))
+      (let ind (indent_of l 0)
+        (match (close_to (.opens st) ind 0)
+          ((Closed opens1 n)
+            (let st1 (flush (.opens st opens1) n)
+              (let ci (comment_at l 0 false)
+                (let code (rev (strip_blanks (rev (take_n l ci (nil int)))))
+                  (let tail_part (drop_n l (length code))
+                    (match (scan code 0 ind false (.opens st1) (nil int))
+                      ((Scanned kept opens2)
+                        (.has_pending
+                          (.pending_tail (.pending (.opens st1 opens2) kept) tail_part)
+                          true))))))))))))
+
+(def fmt_lines ((st Fmt) (ls (list (list int)))) Fmt
+  (if (is_empty ls)
+      st
+      (fmt_lines (fmt_line st (head ls)) (tail ls))))
+
+; The output lines, joined, each ending in a newline.
+(def join_lines ((ls (list (list int))) (acc (list int))) (list int)
+  (if (is_empty ls)
+      acc
+      (join_lines (tail ls) (push "\n" (push (head ls) acc)))))
+
+;; The source s with the closers its indentation says are missing added at
+;; the ends of its lines of code, and closers with nothing to close dropped.
+(def fmt_source ((s (list int))) (list int)
+  (let ls (split_lines s (nil int) (nil (list int)))
+    (let st (fmt_lines (Fmt (nil Open) (nil int) (nil int) false
+                            (nil (list int)) (nil (list int)))
+                       (drop_last_empty ls))
+      (let st1 (flush st (length (.opens st)))
+        (rev (join_lines (rev (.out st1)) (nil int)))))))
+
+; split_lines gives an empty last line for a source ending in a newline,
+; and join_lines ends every line with one, so that line is dropped; a
+; source with no final newline gains one.
+(def drop_last_empty ((ls (list (list int)))) (list (list int))
+  (if (is_empty ls)
+      ls
+      (if (is_empty (tail ls))
+          (if (is_empty (head ls)) (nil (list int)) ls)
+          (cons (head ls) (drop_last_empty (tail ls))))))

@@ -18,30 +18,29 @@
   (B (list int) Ty))                    ; name, type
 
 (data Sig
-  (S (list int) (list (list int)) (list Ty) Ty))   ; name, type parameters,
-                                                  ; parameter types, return type
+  (S (name (list int)) (tparams (list (list int))) (params (list Ty)) (ret Ty)))
 
 ; A declared data type, with the width of its widest constructor. Blocks are
 ; sized to that width, per spec section 10.1.
 (data DataDef
-  (DD (list int) (list (list int)) (list Ctor) int))   ; name, parameters,
-                                                       ; constructors, max fields
+  (DD (name (list int)) (params (list (list int))) (ctors (list Ctor))
+      (width int)))                     ; width: the widest constructor's fields
 
 ; A constructor carries its type's parameters, so that its fields' types can
 ; be found for a value of that type from the value's type alone, and its
 ; field names, empty when the fields are not named (spec 4).
 (data CtorInfo
-  (CI (list int) (list int) int (list (list int)) (list (list int)) (list Ty)))
-                                        ; name, type name, tag, parameters,
-                                        ; field names, fields
+  (CI (name (list int)) (type_name (list int)) (tag int)
+      (params (list (list int))) (field_names (list (list int)))
+      (fields (list Ty))))
 
 ; Everything global that checking an expression needs, and the type
 ; parameters of the function being checked, which are types in its body.
 ; The fourth field is every builtin's name, split once when the context is
 ; built, since a call to any function has to be told apart from a builtin.
 (data Ctx
-  (Cx (list Sig) (list CtorInfo) (list DataDef) (list (list int))
-      (list (list int))))
+  (Cx (sigs (list Sig)) (ctors (list CtorInfo)) (datas (list DataDef))
+      (builtins (list (list int))) (tparams (list (list int)))))
 
 ; What checking found, or the first error in it, as an offset and a message:
 ; the type of an expression, the types of a list of them, or what a data
@@ -52,18 +51,11 @@
   (COk T)
   (CErr int (list int)))
 
-(def ctx_sigs ((c Ctx)) (list Sig) (match c ((Cx s ci dd bn tp) s)))
-(def ctx_ctors ((c Ctx)) (list CtorInfo) (match c ((Cx s ci dd bn tp) ci)))
-(def ctx_datas ((c Ctx)) (list DataDef) (match c ((Cx s ci dd bn tp) dd)))
-(def ctx_builtins ((c Ctx)) (list (list int)) (match c ((Cx s ci dd bn tp) bn)))
-(def ctx_tparams ((c Ctx)) (list (list int)) (match c ((Cx s ci dd bn tp) tp)))
-
-; The same context, inside a function with type parameters fps.
-(def ctx_in_fn ((c Ctx) (fps (list (list int)))) Ctx
-  (match c ((Cx s ci dd bn tp) (Cx s ci dd bn fps))))
+; A context's parts are read by name, (.sigs c) and the rest, and the
+; context inside a function with type parameters fps is (.tparams c fps).
 
 (def is_builtin_in ((n (list int)) (c Ctx)) bool
-  (any_eq n (ctx_builtins c)))
+  (any_eq n (.builtins c)))
 
 ; ---------------------------------------------------------------- lookups
 
@@ -101,14 +93,6 @@
               (Some (head ds))
               (find_data n (tail ds)))))))
 
-(def ctor_tag ((c CtorInfo)) int (match c ((CI cn tn tag ps ns fts) tag)))
-(def ctor_fields ((c CtorInfo)) (list Ty) (match c ((CI cn tn tag ps ns fts) fts)))
-(def ctor_type_name ((c CtorInfo)) (list int) (match c ((CI cn tn tag ps ns fts) tn)))
-(def ctor_params ((c CtorInfo)) (list (list int)) (match c ((CI cn tn tag ps ns fts) ps)))
-(def ctor_field_names ((c CtorInfo)) (list (list int)) (match c ((CI cn tn tag ps ns fts) ns)))
-(def data_ctors ((d DataDef)) (list Ctor) (match d ((DD n ps cs mf) cs)))
-(def data_params ((d DataDef)) (list (list int)) (match d ((DD n ps cs mf) ps)))
-(def data_max_fields ((d DataDef)) int (match d ((DD n ps cs mf) mf)))
 
 ; ------------------------------------------------------- type parameters
 ;
@@ -191,13 +175,13 @@
 (def ctor_type_args ((ci CtorInfo) (tys (list Ty)) (ats (list Ty))) (list Ty)
   (if (not (is_empty tys))
       tys
-      (match (match_tys (ctor_fields ci) ats (ctor_params ci) (nil Bind))
-        ((COk bs) (args_of (ctor_params ci) bs))
+      (match (match_tys (.fields ci) ats (.params ci) (nil Bind))
+        ((COk bs) (args_of (.params ci) bs))
         ((CErr o m) (nil Ty)))))
 
 ; A constructor's field types for a value of type t.
 (def ctor_fields_at ((ci CtorInfo) (t Ty)) (list Ty)
-  (tys_subst (ctor_fields ci) (zip_binds (ctor_params ci) (ty_args t))))
+  (tys_subst (.fields ci) (zip_binds (.params ci) (ty_args t))))
 
 (def ty_mentions ((n (list int)) (t Ty)) bool
   (if (or (ty_is_list t) (ty_is_array t))
@@ -243,7 +227,7 @@
               (match (find_data (ty_name t) ds)
                 ((None) (append "unknown type " (ty_name t)))
                 ((Some d)
-                  (let want (length (data_params d))
+                  (let want (length (.params d))
                     (let got (length (ty_args t))
                       (if (eq want got)
                           (tys_problem (ty_args t) ds ps)
@@ -582,17 +566,17 @@
 (def field_type ((o int) (f (list int)) (et Ty) (ctx Ctx)) (Checked Ty)
   (if (not (ty_is_data et))
       ((CErr Ty) o (append "fields belong to data types, but this is " (ty_str et)))
-      (if (is_param et (ctx_tparams ctx))
+      (if (is_param et (.tparams ctx))
           ((CErr Ty) o (append (as_written (ty_name et))
             " is a type parameter, so its fields are not known"))
-          (match (find_data (ty_name et) (ctx_datas ctx))
+          (match (find_data (ty_name et) (.datas ctx))
             ((None) ((CErr Ty) o (append "unknown type " (ty_name et))))
             ((Some dd)
-              (if (not (eq (length (data_ctors dd)) 1))
-                  ((CErr Ty) o (append (as_written (data_name dd)) (append " has "
-                    (append (digits (length (data_ctors dd)))
+              (if (not (eq (length (.ctors dd)) 1))
+                  ((CErr Ty) o (append (as_written (.name dd)) (append " has "
+                    (append (digits (length (.ctors dd)))
                       " constructors, so its fields are not read by name; match on it"))))
-                  (field_of_ctor o f et (head (data_ctors dd)) dd)))))))
+                  (field_of_ctor o f et (head (.ctors dd)) dd)))))))
 
 (def field_of_ctor ((o int) (f (list int)) (et Ty) (c Ctor) (dd DataDef))
     (Checked Ty)
@@ -601,9 +585,9 @@
       (let i (index_of f ns)
         (if (lt i 0)
             ((CErr Ty) o (append "unknown field " (append f (append " of "
-              (as_written (data_name dd))))))
+              (as_written (.name dd))))))
             (COk (ty_subst (nth_ty fts i)
-                           (zip_binds (data_params dd) (ty_args et)))))))))
+                           (zip_binds (.params dd) (ty_args et)))))))))
 
 (def nth_ty ((ts (list Ty)) (i int)) Ty
   (if (is_empty ts)
@@ -611,7 +595,7 @@
       (if (eq i 0) (head ts) (nth_ty (tail ts) (sub i 1)))))
 
 (def check_nil ((o int) (elem Ty) (ctx Ctx)) (Checked Ty)
-  (let bad (ty_problem elem (ctx_datas ctx) (ctx_tparams ctx))
+  (let bad (ty_problem elem (.datas ctx) (.tparams ctx))
     (if (is_empty bad)
         (COk (TyList elem))
         ((CErr Ty) o bad))))
@@ -620,7 +604,7 @@
   (match (find_bind n env)
     ((Some t) (COk t))
     ((None)
-      (if (or (is_builtin_in n ctx) (sig_exists n (ctx_sigs ctx)))
+      (if (or (is_builtin_in n ctx) (sig_exists n (.sigs ctx)))
           ((CErr Ty) o (append n " is a function, and L0 has no function values"))
           ((CErr Ty) o (append "unknown variable " n))))))
 
@@ -675,7 +659,7 @@
     ((COk ats)
       (if (is_builtin_in n ctx)
           (check_builtin n ats o)
-          (match (find_sig n (ctx_sigs ctx))
+          (match (find_sig n (.sigs ctx))
             ((None) (check_call_missing o n env))
             ((Some s) (check_user_call o n ats s)))))))
 
@@ -714,7 +698,7 @@
 ; tys are the type arguments, if the construction wrote them. Spec 5.6.
 (def check_ctor_expr ((o int) (n (list int)) (tys (list Ty)) (args (list Expr))
                       (env (list Bind)) (ctx Ctx)) (Checked Ty)
-  (match (find_ctor n (ctx_ctors ctx))
+  (match (find_ctor n (.ctors ctx))
     ((None) ((CErr Ty) o (append "unknown constructor " n)))
     ((Some ci)
       (match (check_args args env ctx (nil Ty))
@@ -723,47 +707,47 @@
 
 (def check_ctor_fields ((o int) (n (list int)) (tys (list Ty)) (ats (list Ty))
                         (ci CtorInfo) (ctx Ctx)) (Checked Ty)
-  (let fts (ctor_fields ci)
+  (let fts (.fields ci)
     (if (not (eq (length ats) (length fts)))
         ((CErr Ty) o (append n (append " takes " (append (digits (length fts))
           (append " " (append (plural (length fts) "field")
             (append ", but got " (digits (length ats)))))))))
         (if (not (is_empty tys))
             (check_ctor_written o n tys ats ci ctx)
-            (if (is_empty (ctor_params ci))
+            (if (is_empty (.params ci))
                 (match (match_params n ats fts o 1)
                   ((CErr eo m) ((CErr Ty) eo m))
                   ((COk ignored)
-                    (COk (TyData (ctor_type_name ci) (nil Ty)))))
+                    (COk (TyData (.type_name ci) (nil Ty)))))
                 (check_ctor_inferred o n ats ci))))))
 
 ; ((C type...) arg...): the types are the data type's arguments.
 (def check_ctor_written ((o int) (n (list int)) (tys (list Ty)) (ats (list Ty))
                          (ci CtorInfo) (ctx Ctx)) (Checked Ty)
-  (let ps (ctor_params ci)
+  (let ps (.params ci)
     (if (not (eq (length tys) (length ps)))
-        ((CErr Ty) o (ty_arity_msg (ctor_type_name ci) (length ps)
+        ((CErr Ty) o (ty_arity_msg (.type_name ci) (length ps)
                                 (length tys)))
-        (let bad (tys_problem tys (ctx_datas ctx) (ctx_tparams ctx))
+        (let bad (tys_problem tys (.datas ctx) (.tparams ctx))
           (if (not (is_empty bad))
               ((CErr Ty) o bad)
-              (match (match_params n ats (tys_subst (ctor_fields ci) (zip_binds ps tys))
+              (match (match_params n ats (tys_subst (.fields ci) (zip_binds ps tys))
                                    o 1)
                 ((CErr eo m) ((CErr Ty) eo m))
-                ((COk ignored) (COk (TyData (ctor_type_name ci) tys)))))))))
+                ((COk ignored) (COk (TyData (.type_name ci) tys)))))))))
 
 ; (C arg...) of a type with parameters: the arguments' types say what the
 ; parameters stand for, so the constructor must mention every one.
 (def check_ctor_inferred ((o int) (n (list int)) (ats (list Ty)) (ci CtorInfo))
     (Checked Ty)
-  (let ps (ctor_params ci)
-    (let missing (undetermined ps (ctor_fields ci))
+  (let ps (.params ci)
+    (let missing (undetermined ps (.fields ci))
       (if (not (is_empty missing))
-          ((CErr Ty) o (undetermined_msg n missing (ctor_type_name ci) ps))
-          (match (infer_fields n ats (ctor_fields ci) ps (nil Bind) o 1)
+          ((CErr Ty) o (undetermined_msg n missing (.type_name ci) ps))
+          (match (infer_fields n ats (.fields ci) ps (nil Bind) o 1)
             ((CErr eo m) ((CErr Ty) eo m))
             ((COk bs)
-              (COk (TyData (ctor_type_name ci) (args_of ps bs)))))))))
+              (COk (TyData (.type_name ci) (args_of ps bs)))))))))
 
 (def undetermined_msg ((n (list int)) (p (list int)) (tn (list int))
                        (ps (list (list int)))) (list int)
@@ -799,12 +783,12 @@
   (match (check_expr subject env ctx)
     ((CErr eo m) ((CErr Ty) eo m))
     ((COk st)
-      (if (not (if (ty_is_data st) (not (is_param st (ctx_tparams ctx))) false))
+      (if (not (if (ty_is_data st) (not (is_param st (.tparams ctx))) false))
           ((CErr Ty) o (type_msg "the subject of a match" "a data type" st))
-          (match (find_data (ty_name st) (ctx_datas ctx))
+          (match (find_data (ty_name st) (.datas ctx))
             ((None) ((CErr Ty) o (append "unknown type " (ty_name st))))
             ((Some dd)
-              (check_arms o arms dd (zip_binds (data_params dd) (ty_args st))
+              (check_arms o arms dd (zip_binds (.params dd) (ty_args st))
                           env ctx)))))))
 
 ; bs binds the data type's parameters to the subject type's arguments.
@@ -813,28 +797,25 @@
   (match (check_each_arm arms dd bs env ctx (nil (list int)))
     ((CErr eo m) ((CErr Ty) eo m))
     ((COk armty)
-      (let missing (missing_ctor (data_ctors dd) (seen_ctors arms))
+      (let missing (missing_ctor (.ctors dd) (seen_ctors arms))
         (if (is_empty missing)
             (COk armty)
-            ((CErr Ty) o (append "match on " (append (data_name dd)
+            ((CErr Ty) o (append "match on " (append (.name dd)
               (append " is missing an arm for " missing)))))))))
 
-(def data_name ((d DataDef)) (list int) (match d ((DD n ps cs mf) n)))
-(def ctor_decl_name ((c Ctor)) (list int) (match c ((C o n ns fts) n)))
-(def arm_ctor_name ((a Arm)) (list int) (match a ((A o cn ns b) cn)))
 
 (def seen_ctors ((arms (list Arm))) (list (list int))
   (if (is_empty arms)
       (nil (list int))
-      (cons (arm_ctor_name (head arms)) (seen_ctors (tail arms)))))
+      (cons (.ctor (head arms)) (seen_ctors (tail arms)))))
 
 ; The first constructor of the type with no arm, or an empty name.
 (def missing_ctor ((cs (list Ctor)) (seen (list (list int)))) (list int)
   (if (is_empty cs)
       ""
-      (if (any_eq (ctor_decl_name (head cs)) seen)
+      (if (any_eq (.name (head cs)) seen)
           (missing_ctor (tail cs) seen)
-          (ctor_decl_name (head cs)))))
+          (.name (head cs)))))
 
 ; Checks every arm, requiring they all have the same type. dups carries the
 ; constructors already seen, which is what makes a repeated arm an error.
@@ -853,17 +834,15 @@
   (if (is_empty (tail arms))
       (COk t)
       (match (check_each_arm (tail arms) dd bs env ctx
-               (cons (arm_ctor_name (head arms)) dups))
+               (cons (.ctor (head arms)) dups))
         ((CErr eo m) ((CErr Ty) eo m))
         ((COk rest)
           (if (eq t rest)
               (COk t)
-              ((CErr Ty) (arm_offset (head (tail arms)))
+              ((CErr Ty) (.offset (head (tail arms)))
                 (append "all match arms must have the same type, but one is "
                   (append (ty_str t) (append " and another is "
                     (ty_str rest))))))))))
-
-(def arm_offset ((a Arm)) int (match a ((A o cn ns b) o)))
 
 (def check_one_arm ((a Arm) (dd DataDef) (bs (list Bind)) (env (list Bind))
                     (ctx Ctx) (dups (list (list int)))) (Checked Ty)
@@ -871,7 +850,7 @@
     ((A o cn names body)
       (if (any_eq cn dups)
           ((CErr Ty) o (append cn " already has an arm in this match"))
-          (match (find_ctor cn (ctx_ctors ctx))
+          (match (find_ctor cn (.ctors ctx))
             ((None) ((CErr Ty) o (append "unknown constructor " cn)))
             ((Some ci)
               (check_arm_binds o cn names body ci dd bs env ctx)))))))
@@ -879,20 +858,20 @@
 (def check_arm_binds ((o int) (cn (list int)) (names (list (list int)))
                       (body Expr) (ci CtorInfo) (dd DataDef) (bs (list Bind))
                       (env (list Bind)) (ctx Ctx)) (Checked Ty)
-  (if (not (eq (ctor_type_name ci) (data_name dd)))
+  (if (not (eq (.type_name ci) (.name dd)))
       ((CErr Ty) o (append cn (append " is a constructor of "
-        (append (ctor_type_name ci) (append ", not " (data_name dd))))))
-      (if (not (eq (length names) (length (ctor_fields ci))))
+        (append (.type_name ci) (append ", not " (.name dd))))))
+      (if (not (eq (length names) (length (.fields ci))))
           ((CErr Ty) o (append cn (append " has "
-            (append (digits (length (ctor_fields ci)))
-              (append " " (append (plural (length (ctor_fields ci)) "field")
+            (append (digits (length (.fields ci)))
+              (append " " (append (plural (length (.fields ci)) "field")
                 (append ", but this pattern binds "
                   (digits (length names)))))))))
           (let dup (dup_name names (nil (list int)))
             (if (not (is_empty dup))
                 ((CErr Ty) o (append dup " is bound twice in the same pattern"))
                 (check_expr body
-                  (bind_fields names (tys_subst (ctor_fields ci) bs) env)
+                  (bind_fields names (tys_subst (.fields ci) bs) env)
                   ctx))))))
 
 (def bind_fields ((names (list (list int))) (fts (list Ty)) (env (list Bind)))
@@ -996,7 +975,7 @@
   (match d
     ((DData o n tps cs) (check_data_decl o n tps cs ctx))
     ((DDef o n fps ps ret body)
-      (check_def_decl o n fps ps ret body (ctx_in_fn ctx fps)))))
+      (check_def_decl o n fps ps ret body (.tparams ctx fps)))))
 
 (def check_def_decl ((o int) (n (list int)) (fps (list (list int)))
                      (ps (list Param)) (ret Ty) (body Expr) (ctx Ctx)) (list Diag)
@@ -1007,7 +986,7 @@
           (if (not (is_empty dup2))
               (one_diag o (append "type parameter "
                             (append (as_written dup2) " is declared twice")))
-              (let bad (bad_sig_ty ps ret (ctx_datas ctx) fps)
+              (let bad (bad_sig_ty ps ret (.datas ctx) fps)
                 (if (not (is_empty bad))
                     (one_diag o bad)
                     (let missing (undetermined fps (param_tys ps))
@@ -1046,7 +1025,7 @@
   (let dup (dup_name tps (nil (list int)))
     (if (not (is_empty dup))
         (one_diag o (append "type parameter " (append dup " is declared twice")))
-        (let bad (bad_field_ty cs (ctx_datas ctx) tps)
+        (let bad (bad_field_ty cs (.datas ctx) tps)
           (if (is_empty bad)
               (let dupf (dup_field cs)
                 (if (is_empty dupf) (nil Diag) (one_diag o dupf)))
@@ -1152,15 +1131,15 @@
 (def dup_ctor_name ((cs (list Ctor)) (seen (list (list int)))) (list int)
   (if (is_empty cs)
       ""
-      (if (any_eq (ctor_decl_name (head cs)) seen)
-          (ctor_decl_name (head cs))
-          (dup_ctor_name (tail cs) (cons (ctor_decl_name (head cs)) seen)))))
+      (if (any_eq (.name (head cs)) seen)
+          (.name (head cs))
+          (dup_ctor_name (tail cs) (cons (.name (head cs)) seen)))))
 
 (def add_ctor_names ((cs (list Ctor)) (seen (list (list int))))
     (list (list int))
   (if (is_empty cs)
       seen
-      (add_ctor_names (tail cs) (cons (ctor_decl_name (head cs)) seen))))
+      (add_ctor_names (tail cs) (cons (.name (head cs)) seen))))
 
 ; Each declaration is checked against the view its own group has, so which
 ; names a call can see depends on which side of the prelude boundary the
@@ -1706,8 +1685,8 @@
   (match (mono_args args env ctx)
     ((Mos args2 ats)
       (Mo (ECtor o n tys args2)
-          (match (find_ctor n (ctx_ctors ctx))
-            ((Some ci) (TyData (ctor_type_name ci) (ctor_type_args ci tys ats)))
+          (match (find_ctor n (.ctors ctx))
+            ((Some ci) (TyData (.type_name ci) (ctor_type_args ci tys ats)))
             ((None) (TyInt)))))))
 
 (def mono_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
@@ -1717,7 +1696,7 @@
       (if (is_builtin_in n ctx)
           (Mo (ECall o n args2)
               (match (check_builtin n ats o) ((COk t) t) ((CErr eo m) (TyInt))))
-          (match (find_sig n (ctx_sigs ctx))
+          (match (find_sig n (.sigs ctx))
             ((None) (Mo (ECall o n args2) (TyInt)))
             ((Some s)
               (match s
@@ -1737,10 +1716,10 @@
     Mono
   (match (mono_expr s env ctx)
     ((Mo s2 st)
-      (match (find_data (ty_name st) (ctx_datas ctx))
+      (match (find_data (ty_name st) (.datas ctx))
         ((None) (Mo (EMatch o s2 arms) (TyInt)))
         ((Some dd)
-          (match (mono_arms arms (zip_binds (data_params dd) (ty_args st)) env ctx
+          (match (mono_arms arms (zip_binds (.params dd) (ty_args st)) env ctx
                             (nil Arm) (TyInt))
             ((MoA as2 t) (Mo (EMatch o s2 as2) t))))))))
 
@@ -1757,6 +1736,6 @@
               (mono_arms (tail arms) bs env ctx (cons (A ao cn names b2) acc) bt)))))))
 
 (def arm_fields_at ((cn (list int)) (bs (list Bind)) (ctx Ctx)) (list Ty)
-  (match (find_ctor cn (ctx_ctors ctx))
-    ((Some ci) (tys_subst (ctor_fields ci) bs))
+  (match (find_ctor cn (.ctors ctx))
+    ((Some ci) (tys_subst (.fields ci) bs))
     ((None) (nil Ty))))

@@ -106,6 +106,32 @@
 (def two_shapes ((ignored int)) (list Shape)
   (cons (Circle 2) (cons (Rect 3 4) (nil Shape))))
 
+; ------------------------------------------------------------------ records
+
+; A constructor may name its fields (spec 4). A field is then read by name,
+; (.state p), and replaced by name, (.state p -1), which is p with that
+; field changed (spec 5.8); construction and match stay positional, and only
+; a type with one constructor has fields read this way, since Shape above is
+; what match is for. A field name is a token of its own, so .state never
+; collides with a function or binding named state.
+(data Proc
+  (Proc (space int) (ctx (array int)) (state int)))
+
+; p stopped: its state -1, the rest as it was. The replacement stores in
+; place when nothing else holds p, and copies p's three words when
+; something does; either way the original is unchanged to its holders.
+(def stop ((p Proc)) Proc
+  (.state p -1))
+
+; p's program counter, word 32 of its context.
+(def proc_pc ((p Proc)) int
+  (array_get (.ctx p) 32))
+
+; Several fields: nest the replacements. After the first, the value is
+; held by nothing else, so the rest store in place (spec 6.5).
+(def restart ((p Proc) (pc int)) Proc
+  (.state (.ctx p (array_set (array_new 104 0) 32 pc)) 0))
+
 ; ------------------------------------------- returning more than one value
 
 ; L0 has no tuples. A small data type does the same job, and is how any
@@ -293,11 +319,12 @@
       (new_keys (tail ks) (see_key s (head ks)))))
 
 (data Space
-  (Space int (Map int int)))                ; its number, its pages' frames
+  (Space (number int) (pages (Map int int))))   ; its number, its pages' frames
 
-(def space_number ((s Space)) int
-  (match s ((Space id pages) id)))
-
+; The map inside is updated and put back, so it is taken out by a match,
+; which releases s once it has the fields: written (.pages s (map_put
+; (.pages s) page frame)), the read would hold the map while s does too,
+; and map_put would copy it.
 (def space_put ((s Space) (page int) (frame int)) Space
   (match s ((Space id pages) (Space id (map_put pages page frame)))))
 
@@ -305,7 +332,7 @@
   (Mapped Space (list int)))                ; the space, a line saying which
 
 (def map_logged ((s Space) (page int) (frame int)) Mapped
-  (let id (space_number s)
+  (let id (.number s)
     (Mapped (space_put s page frame) (append "mapped in space " (digits id)))))
 
 ; ---------------------------------------------------------------- ordering

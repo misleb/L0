@@ -1,4 +1,4 @@
-parse error at offset 28: if takes exactly 3 parts: (if condition then else)
+parse error at offset 21: if takes a condition, a value, and an else, or pairs of them before the else: (if c1 e1 c2 e2 else)
 parse error at offset 20: unexpected ) where an expression was expected
 parse error at offset 8: each parameter is (name type)
 parse error at offset 5: a function name must be lowercase and not reserved

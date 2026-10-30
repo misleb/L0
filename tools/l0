@@ -16,6 +16,9 @@
 #   l0 link  IR -o OUT                        link IR the compiler wrote, as
 #                                             l0 build does, for any target
 #   l0 test  FILE.l0 [MORE.l0 ...]            run every (def test_NAME () int ...)
+#   l0 fmt   [--check] FILE.l0 ...            supply each line's closing parens
+#                                             from its indentation, in place;
+#                                             --check only shows what would change
 #   l0 doc   [FILE | NAME | TEXT]             the standard library: an index, one
 #                                             file (prelude, io, test) in full,
 #                                             one definition, or a search
@@ -152,7 +155,51 @@ ensure_toolchain() {
         exit 2
     fi
     echo "l0: building the toolchain from bootstrap/stage2.ll" >&2
-    "$root/tools/install.sh" --into "$LIB" > /dev/null
+    rebuild_lib
+}
+
+# Several l0 commands may find the toolchain stale at once, as the test
+# suite's parallel jobs do after a seed refresh, and two installs writing
+# lib/l0c together leave a compiler neither wrote. One rebuilds while the
+# others wait for it, by a directory as the lock, which every host has;
+# a lock left by a build that died is taken over after five minutes.
+rebuild_lib() {
+    root=$(cd "$LIB/.." && pwd)
+    lock="$LIB/.building"
+    if mkdir "$lock" 2> /dev/null; then
+        if ! "$root/tools/install.sh" --into "$LIB" > /dev/null; then
+            rmdir "$lock" 2> /dev/null
+            exit 2
+        fi
+        rmdir "$lock" 2> /dev/null
+    else
+        waited=0
+        while [ -d "$lock" ] && [ "$waited" -lt 3000 ]; do
+            sleep 0.1
+            waited=$((waited + 1))
+        done
+        if [ -d "$lock" ]; then
+            rmdir "$lock" 2> /dev/null
+            rebuild_lib
+        fi
+    fi
+}
+
+# l0 fmt is an L0 program of its own, built by tools/install.sh beside the
+# compiler. In a checkout it is rebuilt when its source is newer.
+ensure_fmt() {
+    root=$(cd "$LIB/.." && pwd)
+    if [ -f "$root/tools/fmt.l0" ]; then
+        if [ ! -x "$LIB/l0fmt" ] || [ "$root/tools/fmt.l0" -nt "$LIB/l0fmt" ] ||
+            [ "$root/tools/fmt_main.l0" -nt "$LIB/l0fmt" ] ||
+            [ "$LIB/l0c" -nt "$LIB/l0fmt" ]; then
+            echo "l0: building l0 fmt from tools/fmt.l0" >&2
+            rebuild_lib
+        fi
+    elif [ ! -x "$LIB/l0fmt" ]; then
+        echo "l0: installation is incomplete (no formatter at $LIB/l0fmt)" >&2
+        exit 2
+    fi
 }
 
 usage() {
@@ -1273,6 +1320,39 @@ case "$cmd" in
         done
         echo "# $((k - failed)) passed, $failed failed"
         [ "$failed" = 0 ]
+        ;;
+
+    fmt)
+        check=0
+        if [ "${1:-}" = --check ]; then
+            check=1
+            shift
+        fi
+        [ $# -ge 1 ] || usage
+        ensure_toolchain
+        ensure_fmt
+        TMP=$(mktemp -d "$(scratch_base)/l0.XXXXXX")
+        trap 'rm -rf "$TMP"' EXIT
+        changed=0
+        for f in "$@"; do
+            if [ ! -f "$f" ]; then
+                echo "l0 fmt: no such file: $f" >&2
+                exit 2
+            fi
+            "$LIB/l0fmt" < "$f" > "$TMP/fmt"
+            if ! cmp -s "$f" "$TMP/fmt"; then
+                changed=1
+                if [ "$check" = 1 ]; then
+                    echo "l0 fmt: $f would change:"
+                    diff -u "$f" "$TMP/fmt" | tail -n +3 || true
+                else
+                    cp "$TMP/fmt" "$f"
+                    echo "l0 fmt: $f"
+                fi
+            fi
+        done
+        # --check exits 1 when a file would change, so a script can refuse.
+        [ "$check" = 0 ] || [ "$changed" = 0 ]
         ;;
 
     doc)

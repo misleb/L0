@@ -1,0 +1,79 @@
+; Unit tests of tools/fmt.l0, l0 fmt: trailing closers supplied from the
+; indentation, and nothing else changed.
+
+(def test_balanced_unchanged () int
+  (let s "(def f ((x int)) int\n  (if (lt x 0)\n      (neg x)\n      x))\n"
+    (check_str "as it was" (fmt_source s) s)))
+
+(def test_missing_closer () int
+  (check_str "one supplied at the end"
+    (fmt_source "(def f ((x int)) int\n  (add x 1)\n\n(def g () int 2)\n")
+    "(def f ((x int)) int\n  (add x 1))\n\n(def g () int 2)\n"))
+
+; A closer missing inside a form whose next line is indented deeper cannot
+; be told from a form continued on that line, so it is left as written and
+; the declaration's own closer is supplied; l0 check then reports the let.
+(def test_missing_mid_left () int
+  (check_str "left for the checker"
+    (fmt_source "(def f ((xs (list int))) int\n  (let h (head xs\n    (add h 1)))\n")
+    "(def f ((xs (list int))) int\n  (let h (head xs\n    (add h 1))))\n"))
+
+; A dedent below the line a form began on closes it.
+(def test_dedent_closes () int
+  (check_str "closed at the dedent"
+    (fmt_source "(def f ((xs (list int))) int\n  (if (is_empty xs)\n      (foo (bar 1\n    2))\n")
+    "(def f ((xs (list int))) int\n  (if (is_empty xs)\n      (foo (bar 1))\n    2))\n"))
+
+; A form late on a line, continued on a line indented past the line but
+; not as far as the form, stays open.
+(def test_hanging_continuation () int
+  (let s "(def f () (list int)\n  (append \"a\" (append \"b\" (append \"c\"\n    \"d\"))))\n"
+    (check_str "kept" (fmt_source s) s)))
+
+(def test_extra_closer () int
+  (check_str "one too many dropped"
+    (fmt_source "(def f ((x int)) int\n  (let y 1\n    (add x y))))\n")
+    "(def f ((x int)) int\n  (let y 1\n    (add x y)))\n"))
+
+(def test_comment_after_code () int
+  (let s "(def f () int\n  (add 1 2))  ; three\n"
+    (add (check_str "kept, after the closers" (fmt_source s) s)
+         (check_str "closers go before it"
+           (fmt_source "(def f () int\n  (add 1 2)  ; three\n")
+           s))))
+
+(def test_quiet_lines () int
+  (let s "(def f () int\n  ; a comment\n\n  (add 1 2))\n\n; between\n\n(def g () int 1)\n"
+    (check_str "blank and comment lines pass through" (fmt_source s) s)))
+
+(def test_strings_and_parens () int
+  (let s "(def f () (list int)\n  (append \"a)\" \"(b\\\"\"))\n"
+    (check_str "parens in strings do not count" (fmt_source s) s)))
+
+(def test_no_final_newline () int
+  (check_str "gains one" (fmt_source "(def f () int 1") "(def f () int 1)\n"))
+
+; A chain of (yn ...) lines at one indentation, each the last operand of
+; the one before: the form that begins a line is continued by the next line
+; at the same indentation, not closed.
+(def test_flat_chain () int
+  (let s "(def main ((input (list int))) (list int)\n  (yn (eq 1 1)\n  (yn (eq 2 2)\n  \"\\n\")))\n"
+    (check_str "kept" (fmt_source s) s)))
+
+; A match arm's pattern closed on its line, with the body indented past
+; the arm's (, which stays open under it.
+(def test_match_arm () int
+  (let s "(def f ((o (Option int))) int\n  (match o\n    ((None)\n      0)\n    ((Some n)\n      n)))\n"
+    (check_str "kept" (fmt_source s) s)))
+
+; An operand aligned under the ( of the form it continues is a continuation,
+; so the (push B is push A's operand here and nothing closes early.
+(def test_aligned_under_form () int
+  (let s "(def f () (list int)\n  (push \"a\"\n  (push \"b\"\n        (nil int))))\n"
+    (check_str "kept" (fmt_source s) s)))
+
+(def test_multiline_params () int
+  (let s (append "(def parse ((n (list int)) (ts (list int)) (names (list (list int)))\n"
+           (append "            (acc (list int)) (open int)) int\n"
+                   "  (if (is_empty ts) open 0))\n"))
+    (check_str "a parameter list over two lines" (fmt_source s) s)))

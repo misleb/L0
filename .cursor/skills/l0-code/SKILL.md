@@ -73,13 +73,20 @@ knowing them saves a round trip.
 with `_`. Types and constructors start uppercase. This is how the reader tells
 a constructor from a variable, so it is not a style preference.
 
-**`let` binds exactly one name and has a body.** It is not `let*`, and there is
-no binding list. Sequential bindings are nested lets.
+**`let` binds one name, or several in pairs, and has a body.** Sequential
+bindings are nested lets, which `(let (a 1 b (add a 1)) body)` writes in one
+form (spec 5.3), each value seeing the names before it; and `(if c1 e1 c2
+e2 else)` is the nested `if` chain (spec 5.2). Both are desugared by the
+parser, so stage 0 cannot run them: tests of them are `tests/unit/sugar_test`
+and `tests/compiler/check_sugar`.
 
 ```
 (let a 1
   (let b (add a 1)
     (add a b)))
+
+(let (a 1 b (add a 1))
+  (add a b))
 ```
 
 **Every `match` arm is `((Ctor names...) result)`,** with one name per field,
@@ -238,10 +245,23 @@ arrays. `lib/examples.l0`'s `see_key` and `map_logged` are the fixes, and
 
 This is the most common way to waste time writing L0, and it was the cause of
 every parse error hit while writing the compiler. A chain of six `if`s or ten
-`or`s ends in a run of a dozen `)`, and getting that run wrong is easy and the
-resulting error points at the start of the form rather than the mistake.
+`or`s ends in a run of a dozen `)`, and getting that run wrong is easy.
 
-Three fixes, in order of preference:
+**Let `tools/l0 fmt` count the ones at the end.** Indent each line under
+its parent form and run `tools/l0 fmt FILE.l0` before `tools/l0check`:
+where a line dedents below the line a form began on, and at the next
+declaration at column 0, it adds the closers still missing at the end of
+the line before, drops closers with nothing to close, and changes nothing
+else, so a file that is already right comes back byte-identical
+(`tests/io/fmt` holds the compiler, the library, and the kernel to that).
+It keeps every closer written, since L0's flat `if` chains, match arms,
+hanging `append` chains, and operands aligned under a form's `(` all look
+like a missing closer to a stricter rule (`tools/fmt.l0`'s header lists
+them). `tools/l0 fmt --check` only reports. When a count is still off, the
+checker says by how many and at which line it probably went wrong
+(`tests/check/parens_*`).
+
+Three more fixes, in order of preference:
 
 **Test membership with a word table instead of an `or` chain.** `split_spaces`
 in [lib/prelude.l0](../../../lib/prelude.l0) and `any_eq` turn a ten-deep nest

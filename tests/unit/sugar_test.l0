@@ -1,0 +1,43 @@
+; Unit tests of the let of several bindings and the if of several tests,
+; spec 5.2 and 5.3: what each means is its nesting.
+
+(def chain ((x int)) int
+  (let (a (add x 1) b (mul a 2) c (sub b 3))
+    (add a (add b c))))
+
+(def test_let_bindings () int
+  (add (check_int "each sees the names before it" (chain 1) 7)
+       (check_int "one pair" (let (a 5) (mul a a)) 25)))
+
+(def test_let_shadows () int
+  (let x 1
+    (check_int "a later binding shadows an earlier one"
+      (let (x 2 x (add x 10)) x) 12)))
+
+(def grade ((n int)) (list int)
+  (if (ge n 90) "a"
+      (ge n 80) "b"
+      (ge n 70) "c"
+      "f"))
+
+(def test_if_chain () int
+  (add (check_str "first test holds" (grade 95) "a")
+    (add (check_str "a middle test" (grade 75) "c")
+      (add (check_str "none holds" (grade 10) "f")
+           (check_int "three operands as before" (if true 1 2) 1)))))
+
+; Only the branch taken is evaluated, as the nesting says: head of the
+; empty list would be a runtime error.
+(def test_if_chain_lazy () int
+  (check_int "later branches untouched"
+    (if true 1 (is_empty (nil int)) (head (nil int)) 3) 1))
+
+; A chain in tail position is a tail call in each value, so a loop written
+; as one runs without growing the stack.
+(def count_down ((n int) (acc int)) int
+  (if (eq n 0) acc
+      (eq (mod n 2) 0) (count_down (sub n 1) (add acc 2))
+      (count_down (sub n 1) (add acc 1))))
+
+(def test_if_chain_tail () int
+  (check_int "a million steps" (count_down 1000000 0) 1500000))

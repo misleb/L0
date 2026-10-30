@@ -52,6 +52,7 @@ copied here.
 ## Commands
 
 ```bash
+l0 fmt   hello.l0                 add the closing parens the indentation shows missing
 l0 check hello.l0 main.l0         type check
 l0 test  hello.l0 hello_test.l0   run every (def test_NAME () int ...), as TAP
 l0 run   hello.l0 main.l0         build and run, reading stdin; -- ARGS after
@@ -262,9 +263,13 @@ Read first, with `let`, and update last; `L0_ARRAY_STATS=1` on a run counts
 the copies.
 
 **Deep nesting and parentheses.** Long `if` and `or` chains end in a dozen
-closing parens and are the most common source of parse errors. Use
-`split_spaces` with `any_eq` for membership tests, and split any function
-nesting more than about four levels deep.
+closing parens and are the most common source of parse errors. Indent each
+line under its form and run `l0 fmt` before `l0 check`, which adds the
+closers a dedent or the next declaration shows missing and drops those with
+nothing to close; write several bindings as one `let`, `(let (a 1 b 2)
+body)`, and a run of tests as one `if`, `(if c1 e1 c2 e2 else)`; use `split_spaces` with `any_eq` for
+membership tests, and split any function nesting more than about four
+levels deep.
 
 The `l0-code` skill covers all three in detail, along with the syntax that
 differs from what other languages would lead you to expect.

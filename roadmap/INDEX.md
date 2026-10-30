@@ -150,10 +150,7 @@ reaches (0116): a driver there need not poll.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0132](0132-named-fields.md) named fields: a constructor names its
-   fields, and `(.f e)` reads one and `(.f e v)` replaces it, in place by
-   6.5's rule — active
-2. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
+1. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
    it grows — queued, left for now: hysteresis breaks spec 6.9's promise
    that a map's table depends only on its entries, and a trie that keeps
    it is the way if taken up
@@ -163,6 +160,24 @@ Changes to the language, strictly in order. At most one is active.
 None.
 
 ## Done and dropped
+
+- [0134](0134-let-if-sugar.md) a `let` of several bindings and an `if` of
+  several tests, desugared in the parser — done, changelog "A let of
+  several bindings, and an if of several tests"; the compiler does not use
+  them yet
+
+- [0133](0133-fmt.md) tooling: `l0 fmt`, the closing parens a dedent or
+  the next declaration shows missing — done, changelog "l0 fmt adds the
+  closing parens the indentation shows missing, and no language change
+  for it"; all 241 L0 files in the repository come back byte-identical
+
+- [0132](0132-named-fields.md) named fields: a constructor names its
+  fields, `(.f e)` reads one and `(.f e v)` replaces it, in place by 6.5's
+  rule — done, changelog "Named fields: a value's field read and replaced
+  by name"; the compiler, the kernel, and the examples use them; both
+  suites, the fixpoint, and `--virt` on both boards green; not run on a
+  Pi 5. Left open there: the take-out form for a field holding an array or
+  map, after 0134
 
 - [0129](0129-fast-frame-zero.md) a frame zeroed a cache block at a time,
   by `dc zva` on aarch64 — done, changelog "A frame is zeroed a cache

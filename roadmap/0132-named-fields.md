@@ -1,7 +1,7 @@
 # 0132: named fields, read and replaced by name
 
 Kind: language
-Status: active
+Status: done
 Needs: nothing
 
 ## Why
@@ -64,3 +64,19 @@ The checker, before this item: `tests/check/parens_stray.l0`-style
   407 passed on both boards, fixpoint held, seed refreshed. Nothing uses a
   field yet. Next: step 2, the compiler, the kernel, the library, and the
   examples written with them.
+- 2026-10-30: step 2 done, committed as the second commit of the item. The
+  compiler's fifteen record types name their fields and the 47 accessors
+  are gone; the kernel's `Proc` and `Kern` name theirs, and its reads and
+  its word and list replacements go by name. Left as `match`, by design:
+  a field holding an array or map that is updated and put back (`resume`,
+  `kset`, `kresume`, `kmapped`, `run`, `give`, and the examples'
+  `space_put`), since a field read holds the array while the record does
+  and the update would copy; the field analogue of 6.5's take-out form
+  would free them, and is the candidate next language item after 0134.
+  The examples have `Proc`, `stop`, `proc_pc`, and `restart`, with tests;
+  the skills, `lib/AGENTS.md`, and the l0-code skill here say how fields
+  are written and that the hidden whole copy applies to them. One tooling
+  note for the record: the agent's edit tool trims a trailing space from a
+  replacement, so `(ctx_sigs c)` became `(.sigsc)` at about 150 sites and
+  was repaired with a regex pass in the shell, which the new paren and
+  field diagnostics then checked.

@@ -1,0 +1,10 @@
+; fmt_main.l0 -- the entry point of l0 fmt: standard input, a source file,
+; to standard output with its closers supplied from its indentation
+; (fmt.l0). Apart, so that tests/unit/fmt_test.l0 can link fmt.l0 with a
+; main of l0 test's own.
+
+(def main () int
+  (let b (read_bytes 0)
+    (let outb (bytes_from_list (fmt_source (bytes_to_list b)))
+      (let w (write_bytes 1 outb 0 (bytes_len outb))
+        0))))

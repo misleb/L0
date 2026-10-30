@@ -1,0 +1,31 @@
+; The let of several bindings and the if of several tests, spec 5.2 and
+; 5.3: what parses and checks, and what is rejected. One line per snippet,
+; "ok" for one that checks.
+
+(def m ((body (list int))) (list int)
+  (append "(def main ((input (list int))) int " (append body ")")))
+
+(def cases_ok ((i int)) (list (list int))
+  (cons (m "(let (a 1 b (add a 1) c (mul b 2)) (add a (add b c)))")
+  (cons (m "(let (a 1) a)")
+  (cons (m "(if true 1 false 2 3)")
+  (cons (m "(if (lt 1 2) 1 (lt 2 3) 2 (lt 3 4) 3 4)")
+  (cons (m "(let (a true b 2) (if a b false 3 4))")
+        (nil (list int))))))))
+
+(def cases_bad ((i int)) (list (list int))
+  (cons (m "(let () 1)")
+  (cons (m "(let (a 1 b) 2)")
+  (cons (m "(let (a) 2)")
+  (cons (m "(let (A 1) 2)")
+  (cons (m "(let (def 1) 2)")
+  (cons (m "(let (a 1 b 2))")
+  (cons (m "(if true 1 false 2)")
+  (cons (m "(if true 1)")
+  (cons (m "(if true 1 2 3 4)")
+  (cons (m "(if 1 2 true 3 4)")
+  (cons (m "(if true 1 false \"s\" 3)")
+        (nil (list int))))))))))))))
+
+(def main ((input (list int))) (list int)
+  (check_lines (append (cases_ok 0) (cases_bad 0)) (nil int)))

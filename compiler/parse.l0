@@ -37,15 +37,15 @@
 ; the expression to evaluate. Patterns are one level deep, so a binding is
 ; always a plain name.
 (data Arm
-  (A int (list int) (list (list int)) Expr))
+  (A (offset int) (ctor (list int)) (names (list (list int))) (body Expr)))
 
 (data Param
   (P (list int) Ty))                    ; name, type
 
 (data Ctor
-  (C int (list int) (list (list int)) (list Ty)))   ; offset, name, field names,
-                                        ; empty when the fields are not named
-                                        ; (spec 4), field types
+  (C (offset int) (name (list int)) (field_names (list (list int)))
+     (fields (list Ty))))               ; field_names is empty when the fields
+                                        ; are not named (spec 4)
 
 (data Decl
   (DDef int (list int) (list (list int)) (list Param) Ty Expr)  ; offset, name,
@@ -449,34 +449,79 @@
           (parse_expr ts))))
 
 (def if_arity ((ignored int)) (list int)
-  "if takes exactly 3 parts: (if condition then else)")
+  "if takes a condition, a value, and an else, or pairs of them before the else: (if c1 e1 c2 e2 else)")
 
 (def let_arity ((ignored int)) (list int)
   "let takes exactly 3 parts: (let name value body)")
 
+; (if c1 e1 c2 e2 ... else): an odd number of operands, at least three,
+; nested as spec 5.2 says, every nested if carrying the chain's offset.
 (def parse_if ((ts (list Token)) (open int)) (Parsed Expr)
-  (match (need_expr ts open (if_arity 0))
+  (match (parse_operands ts (nil Expr) open "unclosed ( in an if")
     ((PErr o m) ((PErr Expr) o m))
-    ((POk c rest1)
-      (match (need_expr rest1 open (if_arity 0))
-        ((PErr o m) ((PErr Expr) o m))
-        ((POk a rest2)
-          (match (need_expr rest2 open (if_arity 0))
-            ((PErr o m) ((PErr Expr) o m))
-            ((POk b rest3)
-              (close_form (EIf open c a b) rest3 open (if_arity 0)))))))))
+    ((POk ops rest)
+      (if (if (lt (length ops) 3) true (eq (mod (length ops) 2) 0))
+          ((PErr Expr) open (if_arity 0))
+          (POk (if_chain open ops) rest)))))
+
+(def if_chain ((open int) (ops (list Expr))) Expr
+  (if (is_empty (tail ops))
+      (head ops)
+      (EIf open (head ops) (head (tail ops)) (if_chain open (tail (tail ops))))))
 
 (def parse_let ((ts (list Token)) (open int)) (Parsed Expr)
   (if (is_empty ts)
       ((PErr Expr) open "let needs a name, a value, and a body")
       (let t (head ts)
-        (if (not (tok_is_name t))
-            ((PErr Expr) (tok_offset t) "expected a name after let")
-            (if (or (is_reserved (tok_bytes t))
-                    (not (name_is_lower (tok_bytes t))))
-                ((PErr Expr) (tok_offset t)
-                  "a let binding name must be lowercase and not reserved")
-                (parse_let_value (tok_bytes t) (tail ts) open))))))
+        (if (tok_is_lparen t)
+            (parse_let_binds (tail ts) open (tok_offset t) (nil (list int)) (nil Expr))
+            (if (not (tok_is_name t))
+                ((PErr Expr) (tok_offset t) "expected a name after let")
+                (if (or (is_reserved (tok_bytes t))
+                        (not (name_is_lower (tok_bytes t))))
+                    ((PErr Expr) (tok_offset t)
+                      "a let binding name must be lowercase and not reserved")
+                    (parse_let_value (tok_bytes t) (tail ts) open)))))))
+
+; (let (n1 v1 n2 v2 ...) body): the names and values, in pairs, up to the )
+; that closes the list, then the body, nested as spec 5.3 says. lopen is the
+; list's (; names and values are reversed.
+(def parse_let_binds ((ts (list Token)) (open int) (lopen int)
+                      (names (list (list int))) (vals (list Expr))) (Parsed Expr)
+  (if (is_empty ts)
+      ((PErr Expr) lopen "unclosed ( in a let's bindings")
+      (let t (head ts)
+        (if (tok_is_rparen t)
+            (if (is_empty names)
+                ((PErr Expr) lopen (let_binds_msg 0))
+                (parse_let_body (tail ts) open (rev names) (rev vals)))
+            (if (not (tok_is_name t))
+                ((PErr Expr) (tok_offset t) (let_binds_msg 0))
+                (if (or (is_reserved (tok_bytes t))
+                        (not (name_is_lower (tok_bytes t))))
+                    ((PErr Expr) (tok_offset t)
+                      "a let binding name must be lowercase and not reserved")
+                    (match (need_expr (tail ts) lopen (let_binds_msg 0))
+                      ((PErr o m) ((PErr Expr) o m))
+                      ((POk v rest)
+                        (parse_let_binds rest open lopen
+                                         (cons (tok_bytes t) names) (cons v vals))))))))))
+
+(def let_binds_msg ((ignored int)) (list int)
+  "a let's bindings are pairs of a name and a value: (let (a 1 b 2) body)")
+
+(def parse_let_body ((ts (list Token)) (open int) (names (list (list int)))
+                     (vals (list Expr))) (Parsed Expr)
+  (match (need_expr ts open (let_arity 0))
+    ((PErr o m) ((PErr Expr) o m))
+    ((POk body rest)
+      (close_form (let_chain open names vals body) rest open (let_arity 0)))))
+
+(def let_chain ((open int) (names (list (list int))) (vals (list Expr)) (body Expr))
+    Expr
+  (if (is_empty names)
+      body
+      (ELet open (head names) (head vals) (let_chain open (tail names) (tail vals) body))))
 
 (def parse_let_value ((n (list int)) (ts (list Token)) (open int)) (Parsed Expr)
   (match (need_expr ts open (let_arity 0))
@@ -504,13 +549,19 @@
 
 (def parse_args ((ts (list Token)) (acc (list Expr)) (open int))
     (Parsed (list Expr))
+  (parse_operands ts acc open "unclosed ( in a call"))
+
+; Expressions up to and including the closing ); unclosed is what to say if
+; the list never ends.
+(def parse_operands ((ts (list Token)) (acc (list Expr)) (open int)
+                     (unclosed (list int))) (Parsed (list Expr))
   (if (is_empty ts)
-      ((PErr (list Expr)) open "unclosed ( in a call")
+      ((PErr (list Expr)) open unclosed)
       (if (tok_is_rparen (head ts))
           (POk (rev_onto acc (nil Expr)) (tail ts))
           (match (parse_expr ts)
             ((PErr o m) ((PErr (list Expr)) o m))
-            ((POk e rest) (parse_args rest (cons e acc) open))))))
+            ((POk e rest) (parse_operands rest (cons e acc) open unclosed))))))
 
 ; Requires the closing ) of a fixed-arity form.
 (def close_form ((e Expr) (ts (list Token)) (open int) (msg (list int)))

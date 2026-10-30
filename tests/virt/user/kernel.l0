@@ -70,19 +70,16 @@
 ; just made a call of the kernel's own, and -6 just interrupted by a
 ; device, for the scheduler to answer; or the status it ended with.
 (data Proc
-  (Proc int (array int) (array int) int int))
+  (Proc (space int) (ctx (array int)) (pages (array int)) (window int)
+        (state int)))
 
-(def proc_state ((p Proc)) int
-  (match p ((Proc s c m w st) st)))
-
+; A field of a process is read by name, (.state p) and the rest, and a
+; field that is a word or a list is replaced by name. A field that is an
+; array updated and put back, the context or the pages, is still taken out
+; by a match, which releases the process so the array updates in place;
+; read through a field it would be held twice and the update would copy.
 (def proc_word ((p Proc) (k int)) int
-  (match p ((Proc s c m w st) (array_get c k))))
-
-(def proc_space ((p Proc)) int
-  (match p ((Proc s c m w st) s)))
-
-(def set_state ((p Proc) (st1 int)) Proc
-  (match p ((Proc s c m w st) (Proc s c m w st1))))
+  (array_get (.ctx p) k))
 
 ; p, runnable, with v as its call's result.
 (def resume ((p Proc) (v int)) Proc
@@ -90,41 +87,42 @@
 
 ; Argument a of the system call p made.
 (def proc_arg ((p Proc) (a int)) int
-  (match p ((Proc s c m w st) (call_arg c a))))
+  (call_arg (.ctx p) a))
 
 ; The kernel: its processes; the bytes sent and not yet all received, and
 ; how many of them have been; the device interrupts taken that no process
 ; was waiting for; those given to a process and not yet ended; and each
 ; process's arguments, from the kernel's own.
 (data Kern
-  (Kern (array Proc) bytes int (list int) (list int) (array (list (list int)))))
+  (Kern (procs (array Proc)) (queue bytes) (taken int) (arrived (list int))
+        (held (list int)) (args (array (list (list int))))))
 
 (def kstate ((k Kern) (i int)) int
-  (match k ((Kern ps q qo arr held pa) (proc_state (array_get ps i)))))
+  (.state (array_get (.procs k) i)))
 
 (def kword ((k Kern) (i int) (n int)) int
-  (match k ((Kern ps q qo arr held pa) (proc_word (array_get ps i) n))))
+  (proc_word (array_get (.procs k) i) n))
 
 ; Argument a of process i's system call, and the call's number.
 (def karg ((k Kern) (i int) (a int)) int
-  (match k ((Kern ps q qo arr held pa) (proc_arg (array_get ps i) a))))
+  (proc_arg (array_get (.procs k) i) a))
 
 (def kcall_number ((k Kern) (i int)) int
-  (match k ((Kern ps q qo arr held pa) (proc_call_number (array_get ps i)))))
-
-(def proc_call_number ((p Proc)) int
-  (match p ((Proc s c m w st) (call_number c))))
+  (call_number (.ctx (array_get (.procs k) i))))
 
 (def kcount ((k Kern)) int
-  (match k ((Kern ps q qo arr held pa) (array_len ps))))
+  (array_len (.procs k)))
 
 (def kunread ((k Kern)) int
-  (match k ((Kern ps q qo arr held pa) (sub (bytes_len q) qo))))
+  (sub (bytes_len (.queue k)) (.taken k)))
 
+; The processes are taken out by a match, as a process's arrays are above,
+; so that the array of them updates in place; the process itself is
+; replaced by name, which copies its six words, as building it did.
 (def kset ((k Kern) (i int) (st int)) Kern
   (match k
     ((Kern ps q qo arr held pa)
-      (Kern (array_set ps i (set_state (array_get ps i) st)) q qo arr held pa))))
+      (Kern (array_set ps i (.state (array_get ps i) st)) q qo arr held pa))))
 
 (def kresume ((k Kern) (i int) (v int)) Kern
   (match k
@@ -504,10 +502,10 @@
           (waiter k n (add i 1)))))
 
 (def karrived ((k Kern) (n int)) Kern
-  (match k ((Kern ps q qo arr held pa) (Kern ps q qo (cons n arr) held pa))))
+  (.arrived k (cons n (.arrived k))))
 
 (def kheld ((k Kern) (n int)) Kern
-  (match k ((Kern ps q qo arr held pa) (Kern ps q qo arr (cons n held) pa))))
+  (.held k (cons n (.held k))))
 
 ; Ends interrupt n, taken while a process ran: the timer's after disarming
 ; it, so it does not come again before the next turn sets a deadline.
@@ -618,10 +616,10 @@
   (if (lt j i) acc (drop_onto q (sub j 1) i (cons (bytes_get q j) acc))))
 
 (def kqueue ((k Kern) (b bytes)) Kern
-  (match k ((Kern ps q qo arr held pa) (Kern ps (join q qo b) 0 arr held pa))))
+  (.taken (.queue k (join (.queue k) (.taken k) b)) 0))
 
 (def kread ((k Kern) (i int) (va int) (n int)) bytes
-  (match k ((Kern ps q qo arr held pa) (space_read (proc_space (array_get ps i)) va n))))
+  (space_read (.space (array_get (.procs k) i)) va n))
 
 ; send(_, bytes)
 (def k_send ((k Kern) (i int)) int
@@ -650,14 +648,12 @@
 
 ; Whether process i may write the n bytes from va, as writable says.
 (def kwritable ((k Kern) (i int) (va int) (n int)) bool
-  (match k
-    ((Kern ps q qo arr held pa)
-      (match (array_get ps i) ((Proc s c m w st) (writable m va n))))))
+  (writable (.pages (array_get (.procs k) i)) va n))
 
 (def give ((k Kern) (r int) (buf int) (n int)) Kern
   (match k
     ((Kern ps q qo arr held pa)
-      (let w (space_write (proc_space (array_get ps r)) buf q qo (add qo n))
+      (let w (space_write (.space (array_get ps r)) buf q qo (add qo n))
         (Kern (array_set ps r (resume (array_get ps r) n)) q (add qo n) arr held pa)))))
 
 ; receive(_, room)
@@ -693,21 +689,18 @@
         (schedule (kresume k i -3) i)
         (if (lt (interrupt_enable n) 0)
             (schedule (kresume k i -3) i)
-            (match k
-              ((Kern ps q qo arr held pa)
-                (if (any_eq n arr)
-                    (schedule (kresume (Kern ps q qo (remove_one n arr) (cons n held) pa) i n) i)
-                    (schedule (kset (Kern ps q qo arr held pa) i -5) i))))))))
+            (if (any_eq n (.arrived k))
+                (let held (cons n (.held k))
+                  (schedule (kresume (.held (.arrived k (remove_one n (.arrived k))) held) i n) i))
+                (schedule (kset k i -5) i))))))
 
 ; end(n)
 (def k_end ((k Kern) (i int)) int
   (let n (karg k i 0)
-    (match k
-      ((Kern ps q qo arr held pa)
-        (if (any_eq n held)
-            (let d (interrupt_done n)
-              (schedule (kresume (Kern ps q qo arr (remove_one n held) pa) i 0) i))
-            (schedule (kresume (Kern ps q qo arr held pa) i -5) i))))))
+    (if (any_eq n (.held k))
+        (let d (interrupt_done n)
+          (schedule (kresume (.held k (remove_one n (.held k))) i 0) i))
+        (schedule (kresume k i -5) i))))
 
 (def remove_one ((n int) (xs (list int))) (list int)
   (if (is_empty xs)
@@ -873,7 +866,7 @@
   (if (eq n 0) (head as) (arg_of (tail as) (sub n 1))))
 
 (def kargs ((k Kern) (i int)) (list (list int))
-  (match k ((Kern ps q qo arr held pa) (array_get pa i))))
+  (array_get (.args k) i))
 
 ; arg_count() and arg(n, buf, room), spec section 10.3's calls 8 and 9,
 ; which the kernel answers here, since the arguments are its.
@@ -901,7 +894,7 @@
         (schedule (kresume k i len) i))))
 
 (def proc_space_of ((k Kern) (i int)) int
-  (match k ((Kern ps q qo arr held pa) (proc_space (array_get ps i)))))
+  (.space (array_get (.procs k) i)))
 
 (def main () int
   (let n (read_number 0)
