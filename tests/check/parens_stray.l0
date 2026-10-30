@@ -1,0 +1,8 @@
+; A def that closes, and then two ) more at the top level. They start no
+; declaration, so they are counted against the declaration before them.
+(def f ((xs (list int))) int
+  (if (is_empty xs)
+      0
+      (add (head xs) (f (tail xs)))))))
+
+(def main ((input (list int))) int (f input))

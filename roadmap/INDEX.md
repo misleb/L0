@@ -150,7 +150,10 @@ reaches (0116): a driver there need not poll.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
+1. [0132](0132-named-fields.md) named fields: a constructor names its
+   fields, and `(.f e)` reads one and `(.f e v)` replaces it, in place by
+   6.5's rule — active
+2. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
    it grows — queued, left for now: hysteresis breaks spec 6.9's promise
    that a map's table depends only on its entries, and a trie that keeps
    it is the way if taken up

@@ -1,0 +1,3 @@
+tests/check/eof_float.l0:5:36: error: unclosed ( in a call
+tests/check/eof_float.l0:5:1: error: main is missing 2 closing parens before the end of the input
+error: this program has no main function

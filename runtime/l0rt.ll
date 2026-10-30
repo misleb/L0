@@ -931,6 +931,80 @@ entry:
   ret i64 %v
 }
 
+; The field replacement of spec 5.8: b with x as field i, which consumes b
+; and x. When nothing else holds b the field is stored in place, releasing
+; the one it replaces if the mask says it is a pointer; otherwise b is
+; copied, header and all, each pointer field it keeps gaining a reference,
+; and b released. Counted with the array updates for L0_ARRAY_STATS.
+define i64 @l0_data_with(i64 %b, i64 %i, i64 %x) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %hp = getelementptr i64, ptr %q, i64 -1
+  %h = load i64, ptr %hp
+  %rc = lshr i64 %h, 40
+  %mask = and i64 %h, 4294967295
+  %sz = lshr i64 %h, 32
+  %words = and i64 %sz, 255
+  %i1 = add i64 %i, 1
+  %bit = shl i64 1, %i1
+  %pbit = and i64 %mask, %bit
+  %isp = icmp ne i64 %pbit, 0
+  %alone = icmp eq i64 %rc, 1
+  br i1 %alone, label %inplace, label %copy
+inplace:
+  %ci = load i64, ptr @arr_inplace
+  %ci1 = add i64 %ci, 1
+  store i64 %ci1, ptr @arr_inplace
+  %fp = getelementptr i64, ptr %q, i64 %i1
+  %old = load i64, ptr %fp
+  store i64 %x, ptr %fp
+  br i1 %isp, label %release, label %same
+release:
+  call void @l0_dec(i64 %old)
+  br label %same
+same:
+  ret i64 %b
+copy:
+  %cc = load i64, ptr @arr_copies
+  %cc1 = add i64 %cc, 1
+  store i64 %cc1, ptr @arr_copies
+  %cw = load i64, ptr @arr_words
+  %cw1 = add i64 %cw, %words
+  store i64 %cw1, ptr @arr_words
+  %n = sub i64 %words, 1
+  %tag = load i64, ptr %q
+  %nb = call i64 @data_with(i64 %tag, i64 %n, i64 %mask, i64 1)
+  %nq = inttoptr i64 %nb to ptr
+  br label %share
+share:
+  %k = phi i64 [ 1, %copy ], [ %k1, %snext ]
+  %end = icmp uge i64 %k, %words
+  br i1 %end, label %store, label %sbody
+sbody:
+  %sp = getelementptr i64, ptr %q, i64 %k
+  %sv = load i64, ptr %sp
+  %dp = getelementptr i64, ptr %nq, i64 %k
+  %skip = icmp eq i64 %k, %i1
+  br i1 %skip, label %snext, label %keep
+keep:
+  store i64 %sv, ptr %dp
+  %kbit = shl i64 1, %k
+  %kp = and i64 %mask, %kbit
+  %kisp = icmp ne i64 %kp, 0
+  br i1 %kisp, label %kinc, label %snext
+kinc:
+  call void @l0_inc(i64 %sv)
+  br label %snext
+snext:
+  %k1 = add i64 %k, 1
+  br label %share
+store:
+  %xp = getelementptr i64, ptr %nq, i64 %i1
+  store i64 %x, ptr %xp
+  call void @l0_dec(i64 %b)
+  ret i64 %nb
+}
+
 ; ------------------------------------------------------------------ arrays
 ;
 ; An array is a block whose header has size 0, which no other block has: a

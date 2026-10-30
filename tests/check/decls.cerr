@@ -3,7 +3,9 @@ tests/check/decls.l0:17:25: error: expected a type: int, bool, float, bytes, (li
 tests/check/decls.l0:18:22: error: each parameter is (name type)
 tests/check/decls.l0:19:33: error: unexpected ) where an expression was expected
 tests/check/decls.l0:20:32: error: this can only appear at the top level
+tests/check/decls.l0:20:1: error: nested_def is missing 1 closing paren before the declaration at line 20
 tests/check/decls.l0:20:58: error: expected a top-level (def ...)
+tests/check/decls.l0:20:31: error: inner has 1 closing paren too many: it closes at line 20
 tests/check/decls.l0:6:1: error: data type Shape is already declared
 tests/check/decls.l0:7:1: error: constructor Circle is already declared
 tests/check/decls.l0:9:1: error: constructor A is already declared

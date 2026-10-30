@@ -1,0 +1,31 @@
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+242: bad declares return type int, but its body is A
+277: Shape has 2 constructors, so its fields are not read by name; match on it
+277: unknown field x of Proc
+277: unknown field space of Plain
+277: fields belong to data types, but this is int
+277: fields belong to data types, but this is (list int)
+265: T is a type parameter, so its fields are not known
+277: field state of Proc must be int, but this is bool
+277: field ctx of Proc must be (array int), but this is int
+parse error at offset 277: a field is read as (.name value) or replaced as (.name value new)
+parse error at offset 277: a field is read as (.name value) or replaced as (.name value new)
+parse error at offset 277: a field is read as (.name value) or replaced as (.name value new)
+parse error at offset 278: unexpected character
+242: field a of constructor Dup is declared twice
+parse error at offset 265: a constructor names all of its fields or none
+parse error at offset 264: a constructor names all of its fields or none
+parse error at offset 257: a field name must not be reserved
+parse error at offset 268: a constructor names all of its fields or none

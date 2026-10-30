@@ -1,0 +1,5 @@
+; A source file whose last byte is the last digit of a float literal, with
+; no newline after it, and the def left unclosed. The lexer once called head
+; on the empty rest of the input here and crashed, instead of reporting the
+; unclosed def. Stage 0 predates floats and rejects it too.
+(def main ((input (list int))) int (float_to_int 1.5

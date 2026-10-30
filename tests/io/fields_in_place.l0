@@ -1,0 +1,47 @@
+; Spec 5.8's replacement of a field in place, by 6.5's rule.
+; fields_in_place.sh runs each mode with L0_ARRAY_STATS and L0_RC_CHECK and
+; checks the result and how many replacements copied. tools/l0 run ... --
+; MODE N:
+;   alone    a record threaded through N steps, each reading its fields
+;            first and then replacing two, with nothing else holding it:
+;            no copy
+;   shared   the same, but another binding holds the record throughout, so
+;            the first step copies and the rest run on the copy: one copy
+;   late     each step reads the record in a later operand of the
+;            expression that replaces it, the hidden whole copy: a copy
+;            per step
+
+(data Rec
+  (Rec (m int) (n int) (tag (list int))))
+
+; Reads first, then replaces: r's last use is the replacement.
+(def step ((r Rec)) Rec
+  (let m (.m r)
+    (let n (.n r)
+      (.n (.m r (add m 1)) (add n 1)))))
+
+; The read of r in a later operand keeps r alive while (.m r ...) replaces,
+; so that replacement copies.
+(def step_late ((r Rec)) Rec
+  (.n (.m r (add (.m r) 1)) (.m r)))
+
+(def run ((r Rec) (k int) (late bool)) Rec
+  (if (eq k 0)
+      r
+      (run (if late (step_late r) (step r)) (sub k 1) late)))
+
+(def total ((r Rec)) int
+  (add (.m r) (.n r)))
+
+(def result ((mode (list int)) (k int)) int
+  (let r (Rec 0 0 "t")
+    (if (eq mode "alone")
+        (total (run r k false))
+        (if (eq mode "late")
+            (total (run r k true))
+            (let keep r
+              (add (total (run r k false)) (sub (total keep) 0)))))))
+
+(def main () int
+  (let w (write_line (digits (result (arg 0) (int_prefix (arg 1) 0))))
+    0))

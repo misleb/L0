@@ -1,0 +1,14 @@
+; One closing paren short: the let on line 7 never closes, and the def runs
+; into the next declaration. The compiler counts what is missing, names the
+; declaration, and guesses the line from the indentation: line 10 is not
+; indented past the (if on line 8, so the closers belong at the end of
+; line 9.
+(def f ((xs (list int))) int
+  (if (is_empty xs)
+      0
+      (let h (head xs)
+        (if (lt h 0)
+            (f (tail xs))
+            (add h (f (tail xs))))))
+
+(def main ((input (list int))) int (f input))

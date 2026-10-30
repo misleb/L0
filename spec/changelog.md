@@ -7,6 +7,94 @@ New entries go at the top.
 
 ---
 
+## Named fields: a value's field read and replaced by name (roadmap 0132)
+
+**New:** a constructor may name its fields, `(data Proc (Proc (space int)
+(ctx (array int)) (state int)))`, all of them or none (spec 4). A field
+name is a token of its own, `.` and a lower name (2.4). `(.state p)` reads
+the field and `(.state p -1)` is `p` with that field replaced (5.8), on a
+data type with one constructor; `e`'s type says which field it is, so no
+inference and no declaration to resolve against. Construction and `match`
+stay positional. A replacement consumes its value, as `array_set` consumes
+its array, and stores in place when nothing else holds it, by 6.5's rule;
+`L0_ARRAY_STATS` counts it with the array updates. One runtime function,
+`l0_data_with` (10.3), append-only; a read is `l0_data_get`. A field read
+of a type that is not counted keeps a parameter read-only, as `head` of
+such elements does.
+
+*Why:* the compiler had 47 one-line functions whose whole body is a
+single-arm `match` returning one field (`ctx_sigs` to `data_max_fields`,
+check.l0; `env_binds` to `val_st`, emit.l0), and the L0 kernel wrote
+`(Kern ps q qo arr held pa)` 22 times to change one field of a six-field
+value (tests/virt/user/kernel.l0). A review of the language found both,
+and that no program had earned function values or records in the
+changelog's terms only because the cost was paid a line at a time. The
+smallest program that could not be written is a process's state read and
+set without a function per field.
+
+*Decided:*
+- *A token, not a reserved word.* `(get p space)` and `(set p space v)`
+  read as English, but `get` and `set` are names programs may already
+  use, and section 7's reason for never taking names from programs holds.
+  `.name` was a lexical error, so no program changes meaning.
+- *Not `(Proc.space p)`.* The constructor is redundant: `p`'s type names
+  it, by the rule every expression already follows (5.4).
+- *One constructor only.* Every accessor in this repository is on a
+  one-constructor type; a type with several keeps `match`, which is what
+  makes a new constructor a compile error at every site. Access across
+  constructors that share a field is left open.
+- *All of a constructor's fields named, or none.* A mix would leave some
+  fields reachable only by position, and the reader counting.
+- *Replace in place by the existing rule*, not a new one: 6.5 already
+  says when an update copies, and the hidden-whole-copy trap applies to
+  records exactly as to arrays and maps. Measured on a scratch program,
+  a loop of 1,000 steps that read the record in a later operand of its
+  replacement made 2,001 copies; written to read first and replace last,
+  none.
+- *Field names are no namespace.* They resolve through the type alone,
+  so a function, binding, type, or constructor of the same name is
+  unrelated, in either prelude group, and the prelude can name fields
+  freely.
+
+*Left open:* access on types with several constructors; named `match`
+arms; replacing several fields in one form, which nests for now.
+
+*Compiled by:* the seed from before this entry cannot compile a field,
+so by the two-step rule the compiler and the prelude use none until the
+seed is refreshed; roadmap 0132's step 2 then names the fields of the
+compiler's eleven record types and the kernel's two, and deletes the
+accessors.
+
+---
+
+## A declaration's miscounted parens are counted, and no language change for it
+
+**New:** when a declaration fails to parse and its tokens, up to where the
+next declaration begins, do not balance, the compiler adds a diagnostic at
+the declaration: `f is missing 2 closing parens before the declaration at
+line 14; probably at the end of line 12`, or `f has 1 closing paren too
+many: it closes at line 11`. The guess for a missing closer is the end of
+the last line before the first line not indented past the innermost form
+still open where it starts, since L0 as written here indents every line
+under its parent; the line a declaration closes early on is exact. Stray
+`)` after a declaration that closed are counted against it. `DParens` in
+parse.l0, rendered in main.l0; `tests/check/parens_*`. The parser's
+"unclosed ( in a call" and "in a parameter list" now report the `(` they
+mean rather than offset 0.
+
+*Why:* miscounted closers were "the cause of every parse error hit while
+writing the compiler" (the l0-code skill), and the error was reported at
+the *next* declaration with no count, so a fix took two rounds. Lines of
+the compiler and kernel end in runs of up to 19 closers.
+
+*Also fixed:* the lexer called `head` on the empty rest of the input when a
+source file's last byte was a digit, through a strict `and` (lex.l0:303 and
+:326), the trap the skills warn of, in the compiler itself; such a file is
+always invalid, since a program ends in `)`, but the compiler crashed
+instead of saying so. `tests/check/eof_digit` and `eof_float`.
+
+---
+
 ## The hidden whole copy, named where an agent will see it (roadmap 0131)
 
 **New:** nothing in the language. Spec 6.5 now names the case of a value

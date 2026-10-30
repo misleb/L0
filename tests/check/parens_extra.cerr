@@ -1,0 +1,2 @@
+tests/check/parens_extra.l0:8:23: error: let takes exactly 3 parts: (let name value body)
+tests/check/parens_extra.l0:5:1: error: f has 1 closing paren too many: it closes at line 11

@@ -14,6 +14,7 @@ parse error at offset 22: expected a function or special form name after (
 parse error at offset 0: expected a top-level (def ...)
 (def f ((x int)) int (Foo))
 parse error at offset 0: unclosed (
+parse error at offset 0: f parens 1 before -1
 parse error at offset 26: a def is (def name (params...) return-type body)
 parse error at offset 9: a parameter name must be lowercase and not reserved
 parse error at offset 0: no declarations found
@@ -31,3 +32,4 @@ parse error at offset 5: (f) needs at least one type parameter; a function witho
 parse error at offset 8: a type parameter is an uppercase name
 parse error at offset 6: a function name must be lowercase and not reserved
 parse error at offset 5: unclosed ( in a def's type parameters
+parse error at offset 0: f parens 2 before -1

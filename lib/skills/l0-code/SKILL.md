@@ -109,6 +109,26 @@ patterns one level deep, every constructor present exactly once, and **no
 wildcard or default arm**. Nullary constructors keep their parentheses, in
 patterns and in expressions: `(Red)`, never `Red`.
 
+**A constructor may name its fields, and a field is then read or replaced
+by name** (spec 4 and 5.8). Declare `(name type)` pairs, all of them or
+none; `(.name value)` reads a field and `(.name value new)` is the value
+with that field replaced. Construction and `match` stay positional, and a
+field name is a token of its own, so it never collides with a function or
+binding of the same name:
+
+```
+(data Proc
+  (Proc (space int) (ctx (array int)) (state int)))
+
+(.state p)                   ; the field
+(.state p -1)                ; p with state -1, in place when nothing else holds p
+(.state (.ctx p c) -1)       ; two fields: nest, the inner result is held by nothing else
+```
+
+Only a type with one constructor has fields read this way; one with several
+is taken apart by `match`. Write a one-constructor type with named fields
+rather than a function per field; see `Proc` in `l0 examples`.
+
 **There are no function values, closures, or higher-order functions.**
 Recursion replaces both loops and iteration combinators.
 
@@ -270,14 +290,15 @@ first chunk deepest, or use a chain of `let`s as above.
 
 ### The hidden whole copy
 
-**Read a map or array before you update it, never after.** `map_put`,
-`map_remove`, and `array_set` change their map or array in place only when
-nothing else still holds it; otherwise they copy it whole first (spec section
-6.5), so that every other holder sees the old one. A loop of such updates is
-then quadratic in the size of the map, with the same results: a program
-mapping 100,000 pages this way did not finish in an hour. Anything used
-after the update holds it, including a use you cannot see as a second name.
-The two shapes that bite:
+**Read a map, array, or record before you update it, never after.**
+`map_put`, `map_remove`, `array_set`, and a field replacement `(.f r v)`
+change their map, array, or record in place only when nothing else still
+holds it; otherwise they copy it whole first (spec section 6.5), so that
+every other holder sees the old one. A loop of such updates is then
+quadratic in the size of the map, with the same results: a program mapping
+100,000 pages this way did not finish in an hour. Anything used after the
+update holds it, including a use you cannot see as a second name. The two
+shapes that bite, shown on a map, and the same for a record:
 
 - **A read of the map in a later operand of the update's own expression.**
   The put runs first and the read still needs the old map, so the put
@@ -304,7 +325,9 @@ The two shapes that bite:
 
 A read inside the update's own call is fine: an operand that is the
 variable itself, as `m` is to `map_put`, is taken after that call's other
-operands, so `(map_put m k (add 1 (map_size m)))` updates in place. So is a
+operands, so `(map_put m k (add 1 (map_size m)))` updates in place, and so
+does `(.n r (add (.n r) 1))`; but `(.n (.m r 1) (.m r))` copies `r`, since
+the outer form reads `r` after the inner replacement. So is a
 read in a `let` value before the update. What copies is a read that comes
 after it: in a later operand of an enclosing call, or in the body after the
 `let` that made the update. `L0_ARRAY_STATS=1` on a
@@ -329,6 +352,10 @@ start of the form rather than at the mistake.
 **Collapse a `match` to a predicate.** Since `match` has no wildcard,
 inspecting a six-constructor type inline costs six lines every time. Write the
 match once as a function returning an int, then build predicates on it.
+
+**Name the fields of a record.** A one-constructor type with named fields
+needs no function per field: `(.state p)` reads and `(.state p st)`
+replaces, with no `match` and no nesting.
 
 **Split the function.** A body nesting more than about four levels should hand
 its tail to a helper.

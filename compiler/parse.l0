@@ -29,7 +29,9 @@
   (ECtor int (list int) (list Ty) (list Expr))  ; offset, constructor, type
                                                 ; arguments if written, arguments
   (EMatch int Expr (list Arm))          ; offset, subject, arms
-  (ECall int (list int) (list Expr)))   ; offset, callee name, arguments
+  (ECall int (list int) (list Expr))    ; offset, callee name, arguments
+  (EField int (list int) Expr)          ; offset, field name, value: a read, 5.8
+  (EWith int (list int) Expr Expr))     ; offset, field name, value, new field
 
 ; One match arm: the constructor it names, one binding name per field, and
 ; the expression to evaluate. Patterns are one level deep, so a binding is
@@ -41,7 +43,9 @@
   (P (list int) Ty))                    ; name, type
 
 (data Ctor
-  (C int (list int) (list Ty)))         ; offset, name, field types
+  (C int (list int) (list (list int)) (list Ty)))   ; offset, name, field names,
+                                        ; empty when the fields are not named
+                                        ; (spec 4), field types
 
 (data Decl
   (DDef int (list int) (list (list int)) (list Param) Ty Expr)  ; offset, name,
@@ -130,7 +134,12 @@
 ; because the parser produces them too. Declaration order across files does
 ; not matter in L0, so either file could hold it.
 (data Diag
-  (D int (list int)))
+  (D int (list int))                    ; offset, message
+  (DParens int (list int) int int))     ; a declaration's offset and name, the
+                                        ; offset of the declaration after it
+                                        ; or -1 at the end of the input, and
+                                        ; how many closing parens it is short
+                                        ; of (positive) or over (negative)
 
 ; The declarations that parsed, the errors found, and the names of the defs
 ; that failed to parse. All at once, so that a file with one bad declaration
@@ -264,8 +273,11 @@
                         (parse_atom_name t (tail ts))
                         (if (tok_is_lparen t)
                             (parse_form (tail ts) (tok_offset t))
-                            ((PErr Expr) (tok_offset t)
-                              "unexpected ) where an expression was expected"))))))))))
+                            (if (tok_is_field t)
+                                ((PErr Expr) (tok_offset t)
+                                  "a field is read as (.name value) or replaced as (.name value new)")
+                                ((PErr Expr) (tok_offset t)
+                                  "unexpected ) where an expression was expected")))))))))))
 
 (def parse_atom_name ((t Token) (rest (list Token))) (Parsed Expr)
   (let n (tok_bytes t)
@@ -289,10 +301,25 @@
             ((PErr Expr) (tok_offset t) (tok_bytes t))
             (if (tok_is_lparen t)
                 (parse_typed_ctor (tail ts) open (tok_offset t))
-                (if (not (tok_is_name t))
-                    ((PErr Expr) (tok_offset t)
-                      "expected a function or special form name after (")
-                    (dispatch_form (tok_bytes t) (tail ts) open (tok_offset t))))))))
+                (if (tok_is_field t)
+                    (parse_field (tok_bytes t) (tail ts) open)
+                    (if (not (tok_is_name t))
+                        ((PErr Expr) (tok_offset t)
+                          "expected a function or special form name after (")
+                        (dispatch_form (tok_bytes t) (tail ts) open (tok_offset t)))))))))
+
+; (.f e) reads field f of e, and (.f e v) is e with v as that field. Spec
+; 5.8. The ( and the field name are consumed.
+(def parse_field ((f (list int)) (ts (list Token)) (open int)) (Parsed Expr)
+  (match (parse_args ts (nil Expr) open)
+    ((PErr o m) ((PErr Expr) o m))
+    ((POk args rest)
+      (if (eq (length args) 1)
+          (POk (EField open f (head args)) rest)
+          (if (eq (length args) 2)
+              (POk (EWith open f (head args) (head (tail args))) rest)
+              ((PErr Expr) open
+                "a field is read as (.name value) or replaced as (.name value new)"))))))
 
 ; ((Ctor type...) arg...) -- the ( of the head is already consumed, and
 ; hopen is its offset. Spec 5.6.
@@ -310,7 +337,7 @@
                     ((PErr Expr) hopen
                       (append "((" (append (tok_bytes t)
                         ") ...) needs at least one type argument")))
-                    (match (parse_args rest (nil Expr))
+                    (match (parse_args rest (nil Expr) open)
                       ((PErr eo m) ((PErr Expr) eo m))
                       ((POk args rest2)
                         (POk (ECtor open (tok_bytes t) tys args) rest2))))))))))
@@ -331,7 +358,7 @@
 
 ; (Ctor arg...) -- arguments are ordinary expressions.
 (def parse_ctor_call ((n (list int)) (ts (list Token)) (open int)) (Parsed Expr)
-  (match (parse_args ts (nil Expr))
+  (match (parse_args ts (nil Expr) open)
     ((PErr eo m) ((PErr Expr) eo m))
     ((POk args rest) (POk (ECtor open n (nil Ty) args) rest))))
 
@@ -471,18 +498,19 @@
     (Parsed Expr)
   (if (not (name_is_lower n))
       ((PErr Expr) o "a function name must be lowercase")
-      (match (parse_args ts (nil Expr))
+      (match (parse_args ts (nil Expr) open)
         ((PErr eo m) ((PErr Expr) eo m))
         ((POk args rest) (POk (ECall open n args) rest)))))
 
-(def parse_args ((ts (list Token)) (acc (list Expr))) (Parsed (list Expr))
+(def parse_args ((ts (list Token)) (acc (list Expr)) (open int))
+    (Parsed (list Expr))
   (if (is_empty ts)
-      ((PErr (list Expr)) 0 "unclosed ( in a call")
+      ((PErr (list Expr)) open "unclosed ( in a call")
       (if (tok_is_rparen (head ts))
           (POk (rev_onto acc (nil Expr)) (tail ts))
           (match (parse_expr ts)
             ((PErr o m) ((PErr (list Expr)) o m))
-            ((POk e rest) (parse_args rest (cons e acc)))))))
+            ((POk e rest) (parse_args rest (cons e acc) open))))))
 
 ; Requires the closing ) of a fixed-arity form.
 (def close_form ((e Expr) (ts (list Token)) (open int) (msg (list int)))
@@ -495,16 +523,18 @@
 
 ; ------------------------------------------------------------ declarations
 
-(def parse_params ((ts (list Token)) (acc (list Param))) (Parsed (list Param))
+(def parse_params ((ts (list Token)) (acc (list Param)) (lopen int))
+    (Parsed (list Param))
   (if (is_empty ts)
-      ((PErr (list Param)) 0 "unclosed ( in a parameter list")
+      ((PErr (list Param)) lopen "unclosed ( in a parameter list")
       (if (tok_is_rparen (head ts))
           (POk (rev_onto acc (nil Param)) (tail ts))
           (if (not (tok_is_lparen (head ts)))
               ((PErr (list Param)) (tok_offset (head ts)) "each parameter is (name type)")
-              (parse_param (tail ts) acc (tok_offset (head ts)))))))
+              (parse_param (tail ts) acc (tok_offset (head ts)) lopen)))))
 
-(def parse_param ((ts (list Token)) (acc (list Param)) (open int))
+; lopen is the offset of the ( that opened the parameter list.
+(def parse_param ((ts (list Token)) (acc (list Param)) (open int) (lopen int))
     (Parsed (list Param))
   (if (is_empty ts)
       ((PErr (list Param)) open "unclosed ( in a parameter")
@@ -515,17 +545,17 @@
                     (not (name_is_lower (tok_bytes t))))
                 ((PErr (list Param)) (tok_offset t)
                   "a parameter name must be lowercase and not reserved")
-                (parse_param_type (tok_bytes t) (tail ts) acc open))))))
+                (parse_param_type (tok_bytes t) (tail ts) acc open lopen))))))
 
 (def parse_param_type ((n (list int)) (ts (list Token)) (acc (list Param))
-                       (open int)) (Parsed (list Param))
+                       (open int) (lopen int)) (Parsed (list Param))
   (match (parse_type ts)
     ((PErr o m) ((PErr (list Param)) o m))
     ((POk ty rest)
       (if (is_empty rest)
           ((PErr (list Param)) open "unclosed ( in a parameter")
           (if (tok_is_rparen (head rest))
-              (parse_params (tail rest) (cons (P n ty) acc))
+              (parse_params (tail rest) (cons (P n ty) acc) lopen)
               ((PErr (list Param)) (tok_offset (head rest)) "each parameter is (name type)"))))))
 
 (def parse_decl ((ts (list Token))) (Parsed Decl)
@@ -624,17 +654,60 @@
       (let t (head ts)
         (if (not (and (tok_is_name t) (name_is_upper (tok_bytes t))))
             ((PErr Ctor) (tok_offset t) "a constructor is (Name field-types...)")
-            (parse_ctor_fields (tok_bytes t) (tail ts) (nil Ty) open)))))
+            (parse_ctor_fields (tok_bytes t) (tail ts) (nil (list int)) (nil Ty)
+                               open)))))
 
-(def parse_ctor_fields ((n (list int)) (ts (list Token)) (acc (list Ty))
-                        (open int)) (Parsed Ctor)
+; A constructor's fields are types, or (name type) pairs, all one or all the
+; other (spec 4). names and acc are reversed; names stays empty for fields
+; by position.
+(def parse_ctor_fields ((n (list int)) (ts (list Token)) (names (list (list int)))
+                        (acc (list Ty)) (open int)) (Parsed Ctor)
   (if (is_empty ts)
       ((PErr Ctor) open "unclosed ( in a constructor")
       (if (tok_is_rparen (head ts))
-          (POk (C open n (rev_onto acc (nil Ty))) (tail ts))
-          (match (parse_type ts)
-            ((PErr o m) ((PErr Ctor) o m))
-            ((POk ty rest) (parse_ctor_fields n rest (cons ty acc) open))))))
+          (POk (C open n (rev_onto names (nil (list int))) (rev_onto acc (nil Ty)))
+               (tail ts))
+          (if (named_field_ahead ts)
+              (if (if (is_empty acc) true (not (is_empty names)))
+                  (parse_named_field n (tail (tail ts)) (tok_bytes (head (tail ts)))
+                                     names acc open (tok_offset (head ts)))
+                  ((PErr Ctor) (tok_offset (head ts))
+                    "a constructor names all of its fields or none"))
+              (if (is_empty names)
+                  (match (parse_type ts)
+                    ((PErr o m) ((PErr Ctor) o m))
+                    ((POk ty rest) (parse_ctor_fields n rest names (cons ty acc) open)))
+                  ((PErr Ctor) (tok_offset (head ts))
+                    "a constructor names all of its fields or none"))))))
+
+; Whether ( and a lower name begin the next field: a named field, since a
+; type in parentheses begins with list or array, which are reserved.
+(def named_field_ahead ((ts (list Token))) bool
+  (if (not (tok_is_lparen (head ts)))
+      false
+      (if (is_empty (tail ts))
+          false
+          (let t (head (tail ts))
+            (if (not (tok_is_name t))
+                false
+                (if (name_is_lower (tok_bytes t))
+                    (not (or (eq (tok_bytes t) "list") (eq (tok_bytes t) "array")))
+                    false))))))
+
+; (name type) -- the ( and the name are consumed, and fopen is the ('s offset.
+(def parse_named_field ((n (list int)) (ts (list Token)) (fname (list int))
+                        (names (list (list int))) (acc (list Ty)) (open int)
+                        (fopen int)) (Parsed Ctor)
+  (if (is_reserved fname)
+      ((PErr Ctor) fopen "a field name must not be reserved")
+      (match (parse_type ts)
+        ((PErr o m) ((PErr Ctor) o m))
+        ((POk ty rest)
+          (if (is_empty rest)
+              ((PErr Ctor) fopen "unclosed ( in a field")
+              (if (tok_is_rparen (head rest))
+                  (parse_ctor_fields n (tail rest) (cons fname names) (cons ty acc) open)
+                  ((PErr Ctor) (tok_offset (head rest)) "a field is (name type)")))))))
 
 (def parse_def_name ((ts (list Token)) (open int)) (Parsed Decl)
   (if (is_empty ts)
@@ -683,7 +756,7 @@
       (if (not (tok_is_lparen (head ts)))
           ((PErr Decl) (tok_offset (head ts))
             "expected a parameter list, as in ((x int) (y bool))")
-          (match (parse_params (tail ts) (nil Param))
+          (match (parse_params (tail ts) (nil Param) (tok_offset (head ts)))
             ((PErr o m) ((PErr Decl) o m))
             ((POk ps rest) (parse_def_ret n fps ps rest open))))))
 
@@ -770,8 +843,49 @@
         ((POk d rest) (parse_decls rest (cons d acc) diags bad))
         ((PErr o m)
           (let n (failed_def_name ts)
-            (parse_decls (resync (tail ts)) acc (cons (D o m) diags)
-              (if (is_empty n) bad (cons n bad))))))))
+            (let rest (resync (tail ts))
+              (parse_decls rest acc
+                (parens_diag ts rest acc (cons (D o m) diags))
+                (if (is_empty n) bad (cons n bad)))))))))
+
+; When the tokens of a declaration that failed to parse, up to rest, where
+; the next one begins, do not balance, a diagnostic of its own says by how
+; many closing parens, since the error that stopped the parse is usually
+; far from the paren that is missing or extra. Tokens that start no
+; declaration, such as stray ) after one that closed early, are counted
+; against the declaration parsed before them.
+(def parens_diag ((ts (list Token)) (rest (list Token)) (acc (list Decl))
+                  (diags (list Diag))) (list Diag)
+  (let deficit (paren_balance ts (sub (length ts) (length rest)) 0)
+    (if (eq deficit 0)
+        diags
+        (let next (if (is_empty rest) -1 (tok_offset (head rest)))
+          (if (starts_decl ts)
+              (cons (DParens (tok_offset (head ts)) (failed_decl_name ts) next deficit)
+                    diags)
+              (if (is_empty acc)
+                  (cons (DParens (tok_offset (head ts)) "" next deficit) diags)
+                  (cons (DParens (decl_offset (head acc)) (decl_name (head acc))
+                                 next deficit)
+                        diags)))))))
+
+; Opening parens less closing ones among the first k tokens.
+(def paren_balance ((ts (list Token)) (k int) (acc int)) int
+  (if (le k 0)
+      acc
+      (paren_balance (tail ts) (sub k 1)
+        (if (tok_is_lparen (head ts))
+            (add acc 1)
+            (if (tok_is_rparen (head ts)) (sub acc 1) acc)))))
+
+; The name a declaration that failed to parse was declaring, a def's or a
+; data type's, if it got that far; "" otherwise. ts starts a declaration.
+(def failed_decl_name ((ts (list Token))) (list int)
+  (let after (tail (tail ts))
+    (let t (if (tok_is_lparen (head after))
+               (if (is_empty (tail after)) (head after) (head (tail after)))
+               (head after))
+      (if (tok_is_name t) (tok_bytes t) ""))))
 
 (def parse_program ((ts (list Token))) PProg
   (if (is_empty ts)

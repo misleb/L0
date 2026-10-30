@@ -1,0 +1,2 @@
+tests/check/parens_missing.l0:14:1: error: a def is (def name (params...) return-type body)
+tests/check/parens_missing.l0:6:1: error: f is missing 1 closing paren before the declaration at line 14; probably at the end of line 12

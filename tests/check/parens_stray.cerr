@@ -1,0 +1,2 @@
+tests/check/parens_stray.l0:6:38: error: expected a top-level (def ...)
+tests/check/parens_stray.l0:3:1: error: f has 2 closing parens too many: it closes at line 6

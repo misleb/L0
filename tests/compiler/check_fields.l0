@@ -1,0 +1,80 @@
+; Named fields, read and replaced by name: spec 4 and 5.8. One line of
+; diagnostics per snippet, "ok" for one that checks. The valid snippets are
+; here too, since what a field's type is at a parametric type is visible
+; only through what the checker accepts.
+
+; Declarations every snippet can use: a record, a parametric one, a type
+; with two constructors, one with fields by position, a field named like
+; another type's, and a function named like a field.
+(def decls ((i int)) (list int)
+  (append "(data Proc (Proc (space int) (ctx (array int)) (state int))) "
+    (append "(data (Pair A B) (Pair (first A) (second B))) "
+      (append "(data Shape (Circle (r int)) (Rect (w int) (h int))) "
+        (append "(data Plain (Plain int int)) "
+          (append "(data Box (Box (ctx int))) "
+            "(def ctx ((n int)) int n) "))))))
+
+; An expression as the body of main, which returns int.
+(def m ((body (list int))) (list int)
+  (append (decls 0)
+    (append "(def main ((input (list int))) int " (append body ")"))))
+
+; Declarations, with a trivial main.
+(def d ((ds (list int))) (list int)
+  (append (decls 0) (append ds " (def main ((input (list int))) int 0)")))
+
+(def a_proc ((i int)) (list int)
+  "(Proc 1 (array_new 1 0) 2)")
+
+; Reads and replacements that check.
+(def cases_ok ((i int)) (list (list int))
+  (cons (m (append "(.space " (append (a_proc 0) ")")))
+  (cons (m (append "(array_get (.ctx " (append (a_proc 0) ") 0)")))
+  (cons (m "(.first (Pair 1 true))")
+  (cons (m "(if (.second (Pair 1 true)) 1 0)")
+  (cons (m (append "(.state (.state " (append (a_proc 0) " 5))")))
+  (cons (m (append "(.space (.ctx (.state " (append (a_proc 0) " 5) (array_new 2 0)))")))
+  (cons (m "(let ctx 3 (add ctx (ctx (.ctx (Box 4)))))")
+  (cons (m (append "(match " (append (a_proc 0) " ((Proc s c st) (add s st)))")))
+  (cons (m "(.first ((Pair int bool) 1 true))")
+        (nil (list int))))))))))))
+
+; Fields through type parameters.
+(def cases_params ((i int)) (list (list int))
+  (cons (d "(def f ((p Proc)) Proc (.state p (add (.state p) 1)))")
+  (cons (d "(def (g A) ((p (Pair A bool))) bool (.second p))")
+  (cons (d "(def (h A) ((p (Pair A bool))) A (.first p))")
+  (cons (d "(def (k A) ((p (Pair A bool)) (x A)) (Pair A bool) (.first p x))")
+  (cons (d "(def (bad A) ((p (Pair A bool))) int (.first p))")
+        (nil (list int))))))))
+
+; What the checker rejects.
+(def cases_bad ((i int)) (list (list int))
+  (cons (m "(.r (Circle 2))")
+  (cons (m (append "(.x " (append (a_proc 0) ")")))
+  (cons (m "(.space (Plain 1 2))")
+  (cons (m "(.space 5)")
+  (cons (m "(.space \"ab\")")
+  (cons (d "(def (k T) ((x T)) int (.space x))")
+  (cons (m (append "(.state " (append (a_proc 0) " true)")))
+  (cons (m (append "(.ctx " (append (a_proc 0) " 3)")))
+        (nil (list int)))))))))))
+
+; What the parser and the lexer reject.
+(def cases_syntax ((i int)) (list (list int))
+  (cons (m "(.space)")
+  (cons (m "(.space 1 2 3)")
+  (cons (m ".space")
+  (cons (m "(. space 1)")
+  (cons (d "(data Dup (Dup (a int) (a int)))")
+  (cons (d "(data Mix (Mix (a int) bool))")
+  (cons (d "(data Mix2 (Mix2 bool (a int)))")
+  (cons (d "(data Res (Res (def int)))")
+  (cons (d "(data Lst (Lst (list int) (a int)))")
+        (nil (list int))))))))))))
+
+(def main ((input (list int))) (list int)
+  (check_lines
+    (append (cases_ok 0)
+      (append (cases_params 0) (append (cases_bad 0) (cases_syntax 0))))
+    (nil int)))

@@ -96,6 +96,16 @@ wildcard or default arm**. Nullary constructors keep their parentheses.
 **Nullary constructors are called with parentheses** in expressions too: `(Red)`,
 not `Red`.
 
+**A constructor may name its fields, and a field is read or replaced by
+name** (spec 4 and 5.8): `(data Proc (Proc (space int) (state int)))`, then
+`(.state p)` and `(.state p -1)`. All of a constructor's fields are named
+or none, only a one-constructor type has fields read this way, and
+construction and `match` stay positional. The compiler's `Ctx`, `Emit`,
+and `Env` are written so; a field name is a token of its own, so `.state`
+cannot collide with a function or binding named `state`. Stage 0 predates
+fields, so tests of them go in `tests/unit/` or `tests/io/`, or in
+`tests/compiler/check_fields` for the checker's verdicts.
+
 **There are no function values.** You cannot pass, return, or bind a function,
 and there are no closures or higher-order functions. Recursion replaces both
 loops and iteration combinators.
@@ -198,11 +208,11 @@ Never call `rev` in a loop or per chunk. Exactly once, at the end.
 
 ## The hidden whole copy
 
-The second way to go quadratic unseen. `map_put`, `map_remove`, and
-`array_set` update in place only when nothing else still holds the map or
-array, and otherwise copy it whole first (spec section 6.5), with the same
-results. Two shapes do it with no second name in sight, and a worker hit
-both in one session:
+The second way to go quadratic unseen. `map_put`, `map_remove`, `array_set`,
+and a field replacement `(.f r v)` update in place only when nothing else
+still holds the map, array, or record, and otherwise copy it whole first
+(spec section 6.5), with the same results. Two shapes do it with no second
+name in sight, and a worker hit both in one session:
 
 ```
 (Seen (map_put m k true) (if (map_has m k) n (add n 1)))   ; copies m: read after the put
@@ -215,8 +225,11 @@ both in one session:
   (Mapped (space_put s page frame) (digits id)))
 ```
 
-A read inside the update's own call, as in `(map_put m k (map_size m))`, is
-fine, since an operand that is the variable itself is taken last (10.3).
+A read inside the update's own call, as in `(map_put m k (map_size m))` or
+`(.n r (add (.n r) 1))`, is fine, since an operand that is the variable
+itself is taken last (10.3); `(.n (.m r 1) (.m r))` copies `r`, since the
+outer form reads it after the inner replacement.
+`tests/io/fields_in_place` measures both shapes.
 `L0_ARRAY_STATS=1` on a run reports how many updates copied; maps count, as
 arrays. `lib/examples.l0`'s `see_key` and `map_logged` are the fixes, and
 `lib/skills/l0-code/SKILL.md` has the trap in full.
@@ -253,6 +266,11 @@ and `tests/unit/map_test.l0` tests it.
 a six-constructor type inline costs six lines every time. Write the match once
 as a `kind` function returning an int, then build predicates on it; see
 `tok_kind` and `tok_is_lparen` in [compiler/lex.l0](../../../compiler/lex.l0).
+
+**Name the fields of a one-constructor type** instead of writing a function
+per field: `(.sigs c)` reads and `(.tparams c fps)` replaces, with no
+`match` and no nesting. `Ctx` in [compiler/check.l0](../../../compiler/check.l0)
+and `Kern` in `tests/virt/user/kernel.l0` are written so.
 
 **Split the function.** A function whose body nests more than about four
 levels should hand the tail off to a helper. `check_if` and `check_if_branches`

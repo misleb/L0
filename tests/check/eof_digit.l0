@@ -1,0 +1,5 @@
+; A source file whose last byte is a digit, with no newline after it, which
+; leaves the def unclosed: a valid program ends in ). The lexer once called
+; head on the empty rest of the input here, through a strict and, and the
+; compiler crashed instead of reporting the unclosed def.
+(def main ((input (list int))) int 12

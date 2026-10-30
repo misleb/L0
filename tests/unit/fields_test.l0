@@ -1,0 +1,71 @@
+; Unit tests for named fields, spec 5.8: reads, a replacement as a value
+; that leaves the original unchanged, nested replacements, eq against a
+; constructed value, fields through type parameters, fields holding lists,
+; match on a named type unchanged, and a loop of replacements.
+
+(data Proc
+  (Proc (space int) (ctx (array int)) (state int)))
+
+(data (Pair A B)
+  (Pair (first A) (second B)))
+
+(data Rec
+  (Rec (name (list int)) (tags (list (list int))) (n int)))
+
+(def test_reads () int
+  (let p (Proc 3 (array_new 2 7) 9)
+    (add (check_int "space" (.space p) 3)
+      (add (check_int "state" (.state p) 9)
+           (check_int "ctx element" (array_get (.ctx p) 1) 7)))))
+
+(def test_replace () int
+  (let p (Proc 3 (array_new 2 7) 9)
+    (let q (.state p -1)
+      (add (check_int "replaced" (.state q) -1)
+        (add (check_int "others kept" (.space q) 3)
+             (check_int "the original is unchanged" (.state p) 9))))))
+
+(def test_nested () int
+  (let p (Proc 3 (array_new 2 7) 9)
+    (let q (.space (.state p 1) 2)
+      (add (check_int "inner" (.state q) 1)
+           (check_int "outer" (.space q) 2)))))
+
+(def test_eq () int
+  (let p (Proc 3 (array_new 2 7) 9)
+    (add (check_true "the same as one constructed"
+           (eq (.state p 1) (Proc 3 (array_new 2 7) 1)))
+         (check_true "differs from the original" (not (eq (.state p 1) p))))))
+
+(def (swap A B) ((p (Pair A B))) (Pair B A)
+  (Pair (.second p) (.first p)))
+
+(def test_params () int
+  (let p (Pair "ab" true)
+    (add (check_str "first" (.first p) "ab")
+      (add (check_bool "second" (.second p) true)
+        (add (check_str "swapped" (.second (swap p)) "ab")
+             (check_bool "replaced second" (.second (.second p false)) false))))))
+
+(def test_counted_fields () int
+  (let r (Rec "x" (cons "a" (cons "b" (nil (list int)))) 0)
+    (let r2 (.tags r (cons "c" (.tags r)))
+      (add (check_strs "tags" (.tags r2)
+             (cons "c" (cons "a" (cons "b" (nil (list int))))))
+        (add (check_str "name kept" (.name r2) "x")
+             (check_int "the original's tags" (length (.tags r)) 2))))))
+
+(def test_match () int
+  (let p (Proc 3 (array_new 2 7) 9)
+    (match p
+      ((Proc s c st) (check_int "a positional match" (add s st) 12)))))
+
+(def step ((p Proc)) Proc
+  (.state p (add (.state p) 1)))
+
+(def run ((p Proc) (n int)) Proc
+  (if (eq n 0) p (run (step p) (sub n 1))))
+
+(def test_loop () int
+  (check_int "a thousand steps"
+    (.state (run (Proc 0 (array_new 1 0) 0) 1000)) 1000))

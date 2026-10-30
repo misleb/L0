@@ -1,2 +1,3 @@
 tests/check/lex_string_unterminated.l0:1:29: error: unterminated string literal
+tests/check/lex_string_unterminated.l0:1:1: error: m is missing 1 closing paren before the end of the input
 error: this program has no main function

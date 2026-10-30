@@ -14,7 +14,8 @@
         (append " " (append (digits p) (if g " neg" "")))))))
     ((TStr o s) (append (digits o) (append ":STR " (fmt_quoted s))))
     ((TName o s) (append (digits o) (append ":NAME " s)))
-    ((TErr o m) (append (digits o) (append ":ERR " m)))))
+    ((TErr o m) (append (digits o) (append ":ERR " m)))
+    ((TField o s) (append (digits o) (append ":FIELD ." s)))))
 
 ; Renders bytes with non-printable characters escaped, so a golden file stays
 ; a single readable line.
@@ -86,7 +87,12 @@
       (append "(match " (append (fmt_expr subject)
         (append (fmt_arms arms) ")"))))
     ((ECall o n args)
-      (append "(" (append n (append (fmt_args args) ")"))))))
+      (append "(" (append n (append (fmt_args args) ")"))))
+    ((EField o f e)
+      (append "(." (append f (append " " (append (fmt_expr e) ")")))))
+    ((EWith o f e v)
+      (append "(." (append f (append " " (append (fmt_expr e)
+        (append " " (append (fmt_expr v) ")")))))))))
 
 (def fmt_arms ((arms (list Arm))) (list int)
   (if (is_empty arms)
@@ -111,9 +117,17 @@
   (if (is_empty cs)
       ""
       (match (head cs)
-        ((C o n fts)
-          (append " (" (append n (append (fmt_field_tys fts)
+        ((C o n ns fts)
+          (append " (" (append n (append (if (is_empty ns)
+                                             (fmt_field_tys fts)
+                                             (fmt_named_fields ns fts))
             (append ")" (fmt_ctors (tail cs))))))))))
+
+(def fmt_named_fields ((ns (list (list int))) (ts (list Ty))) (list int)
+  (if (is_empty ns)
+      ""
+      (append " (" (append (head ns) (append " " (append (fmt_ty (head ts))
+        (append ")" (fmt_named_fields (tail ns) (tail ts)))))))))
 
 (def fmt_args ((args (list Expr))) (list int)
   (if (is_empty args)
@@ -154,7 +168,11 @@
         ((D o m)
           (fmt_parse_errs (tail ds)
             (push "\n" (push (append "parse error at offset "
-              (append (digits o) (append ": " m))) acc)))))))
+              (append (digits o) (append ": " m))) acc))))
+        ((DParens o n next deficit)
+          (fmt_parse_errs (tail ds)
+            (push "\n" (push (append "parse error at offset "
+              (append (digits o) (append ": " (fmt_parens n next deficit)))) acc)))))))
 
 (def fmt_program ((p PProg)) (list int)
   (match p
@@ -167,7 +185,15 @@
 
 (def fmt_diag ((d Diag)) (list int)
   (match d
-    ((D o m) (append (digits o) (append ": " m)))))
+    ((D o m) (append (digits o) (append ": " m)))
+    ((DParens o n next deficit) (append (digits o) (append ": " (fmt_parens n next deficit))))))
+
+; "NAME parens DEFICIT before NEXT": how many closing parens a declaration
+; is short of (positive) or over (negative), and where the next begins.
+(def fmt_parens ((n (list int)) (next int) (deficit int)) (list int)
+  (append (if (is_empty n) "?" n)
+    (append " parens " (append (digits deficit)
+      (append " before " (digits next))))))
 
 (def fmt_diags_onto ((ds (list Diag)) (acc (list int))) (list int)
   (if (is_empty ds)

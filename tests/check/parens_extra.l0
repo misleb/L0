@@ -1,0 +1,13 @@
+; One closing paren too many: the let on line 7 closes after its value, so
+; the (if that follows is a fourth part of it, and the def closes a paren
+; early. The compiler reports the let, counts the extra paren, and says
+; where the def closed.
+(def f ((xs (list int))) int
+  (if (is_empty xs)
+      0
+      (let h (head xs))
+        (if (lt h 0)
+            (f (tail xs))
+            (add h (f (tail xs)))))))
+
+(def main ((input (list int))) int (f input))

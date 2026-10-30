@@ -106,7 +106,151 @@
       (if (lt o 0)
           (append "error: " (append m "\n"))
           (let fe (file_at entries o (FE 0 ""))
-            (render_at src (fe_path fe) (fe_start fe) o m))))))
+            (render_at src (fe_path fe) (fe_start fe) o m))))
+    ((DParens o name next deficit)
+      (let fe (file_at entries o (FE 0 ""))
+        (render_at src (fe_path fe) (fe_start fe) o
+          (parens_message src (fe_start fe) o name next deficit))))))
+
+; ------------------------------------------------- miscounted parentheses
+
+; A declaration short of closing parens, or over, is reported at the
+; declaration with the count, and with a guess at where: for closers
+; missing, the end of the last line indented past the form still open where
+; the next line starts, since a line of L0 is indented past its parent, so
+; the first line that is not marks where the parent should have closed; for
+; closers too many, the line where the declaration closed, which is exact.
+(def parens_message ((src (list int)) (start int) (o int) (name (list int))
+                     (next int) (deficit int)) (list int)
+  (let who (if (is_empty name) "this declaration" name)
+    (if (gt deficit 0)
+        (append who (append " is missing " (append (parens_count deficit)
+          (append (if (lt next 0)
+                      " before the end of the input"
+                      (append " before the declaration at line "
+                        (digits (line_of src start next))))
+            (probable_end src start o next)))))
+        (append who (append " has " (append (parens_count (neg deficit))
+          (append " too many" (closes_at src start o next))))))))
+
+(def parens_count ((n int)) (list int)
+  (append (digits n) (if (eq n 1) " closing paren" " closing parens")))
+
+(def line_of ((src (list int)) (start int) (o int)) int
+  (line_at (drop_n src start) (sub o start) 0 1))
+
+(def probable_end ((src (list int)) (start int) (o int) (next int)) (list int)
+  (let p (ind_scan (drop_n src o) o next
+                   (sub (col_at (drop_n src start) (sub o start) 0 1) 1)
+                   (nil int) false -1)
+    (if (lt p 0)
+        ""
+        (append "; probably at the end of line " (digits (line_of src start p))))))
+
+(def closes_at ((src (list int)) (start int) (o int) (next int)) (list int)
+  (let p (close_scan (drop_n src o) o next 0 false)
+    (if (lt p 0)
+        ""
+        (append ": it closes at line " (digits (line_of src start p))))))
+
+; Whether the scan is past its end: the source, or the byte after the offset
+; stop when it is not negative. The byte at stop, the next declaration's (,
+; is scanned, since its indentation is what judges the line before it.
+(def scan_done ((src (list int)) (i int) (stop int)) bool
+  (if (is_empty src) true (if (lt stop 0) false (gt i stop))))
+
+; The offset of the newline ending the last line with text before the first
+; line whose first byte is not indented past the innermost ( still open, or
+; -1. i is the offset of src's first byte and col its column; opens holds
+; the columns of the open parens, innermost first; fresh says the current
+; line has had only blanks so far; last_end is the newline ending the last
+; line with text, or -1 on the first line, which is never reported, since
+; it is the declaration's own. Comments and strings are skipped, and a
+; comment's indentation is not judged.
+(def ind_scan ((src (list int)) (i int) (stop int) (col int) (opens (list int))
+               (fresh bool) (last_end int)) int
+  (if (scan_done src i stop)
+      -1
+      (let c (head src)
+        (if (eq c 10)
+            (ind_scan (tail src) (add i 1) stop 0 opens true
+                      (if fresh last_end i))
+            (if (if fresh (or (eq c 32) (eq c 9)) false)
+                (ind_scan (tail src) (add i 1) stop (add col 1) opens true last_end)
+                (if (ind_breaks c col opens fresh last_end)
+                    last_end
+                    (ind_step src i stop col opens c last_end)))))))
+
+; Whether the first byte of a line, c at column col, is not indented past
+; the innermost open paren.
+(def ind_breaks ((c int) (col int) (opens (list int)) (fresh bool)
+                 (last_end int)) bool
+  (if (not fresh)
+      false
+      (if (lt last_end 0)
+          false
+          (if (is_empty opens)
+              false
+              (if (eq c 59) false (le col (head opens)))))))
+
+(def ind_step ((src (list int)) (i int) (stop int) (col int) (opens (list int))
+               (c int) (last_end int)) int
+  (if (eq c 59)
+      (match (skip_to_eol (tail src) (add i 1))
+        ((Cur rest j) (ind_scan rest j stop col opens false last_end)))
+      (if (eq c 34)
+          (match (skip_str (tail src) (add i 1))
+            ((Cur rest j)
+              (ind_scan rest j stop (add col (sub j i)) opens false last_end)))
+          (if (eq c 40)
+              (ind_scan (tail src) (add i 1) stop (add col 1) (cons col opens)
+                        false last_end)
+              (if (eq c 41)
+                  (ind_scan (tail src) (add i 1) stop (add col 1)
+                            (if (is_empty opens) opens (tail opens)) false last_end)
+                  (ind_scan (tail src) (add i 1) stop (add col 1) opens false
+                            last_end))))))
+
+; The offset of the ) that brings the declaration back to depth 0, once a (
+; has been seen, or -1.
+(def close_scan ((src (list int)) (i int) (stop int) (depth int) (seen bool)) int
+  (if (scan_done src i stop)
+      -1
+      (let c (head src)
+        (if (eq c 59)
+            (match (skip_to_eol (tail src) (add i 1))
+              ((Cur rest j) (close_scan rest j stop depth seen)))
+            (if (eq c 34)
+                (match (skip_str (tail src) (add i 1))
+                  ((Cur rest j) (close_scan rest j stop depth seen)))
+                (if (eq c 40)
+                    (close_scan (tail src) (add i 1) stop (add depth 1) true)
+                    (if (eq c 41)
+                        (if (if seen (eq depth 1) false)
+                            i
+                            (close_scan (tail src) (add i 1) stop (sub depth 1) seen))
+                        (close_scan (tail src) (add i 1) stop depth seen))))))))
+
+; At the newline that ends a comment, or the end of the input, so that the
+; scans above see the newline; the lexer's skip_comment runs on past it.
+(def skip_to_eol ((src (list int)) (off int)) Cursor
+  (if (is_empty src)
+      (Cur src off)
+      (if (eq (head src) 10)
+          (Cur src off)
+          (skip_to_eol (tail src) (add off 1)))))
+
+; Past the rest of a string literal whose opening " is behind src.
+(def skip_str ((src (list int)) (off int)) Cursor
+  (if (is_empty src)
+      (Cur src off)
+      (if (eq (head src) 34)
+          (Cur (tail src) (add off 1))
+          (if (eq (head src) 92)
+              (if (is_empty (tail src))
+                  (Cur (tail src) (add off 1))
+                  (skip_str (tail (tail src)) (add off 2)))
+              (skip_str (tail src) (add off 1))))))
 
 ; Line and column are measured from the start of the file the offset falls
 ; in, not from the start of the concatenation, which is the whole point of
@@ -173,7 +317,9 @@
       (match (head ds)
         ((D o m)
           (keep_known (tail ds) quiet
-            (if (any_eq m quiet) acc (cons (head ds) acc)))))))
+            (if (any_eq m quiet) acc (cons (head ds) acc))))
+        ((DParens o n next deficit)
+          (keep_known (tail ds) quiet (cons (head ds) acc))))))
 
 (def main ((input (list int))) (list int)
   (compile input))

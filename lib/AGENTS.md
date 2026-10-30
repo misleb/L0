@@ -238,8 +238,9 @@ confirmation, or progress during a run is not one either: write it with a
 `main` that takes no parameters and reads and writes as it goes, as the
 `l0-code` skill shows, and so are files and command-line arguments. Files can
 be renamed, deleted, and read in pieces; failures of each say which they
-were; values of any type can be compared, ordered, hashed, and sorted; and
-`int`s have bitwise operations. Memory is reclaimed automatically, and
+were; values of any type can be compared, ordered, hashed, and sorted; a
+constructor can name its fields, which `(.field value)` reads and `(.field
+value new)` replaces; and `int`s have bitwise operations. Memory is reclaimed automatically, and
 `clock_ns` times part of a program, and `float` does IEEE arithmetic, with
 `float_sin` and `float_cos` in the library. A network, the environment, listing or
 creating directories do not exist yet. Floating point does, as `float`.
@@ -250,10 +251,10 @@ creating directories do not exist yet. Floating point does, as `float`.
 every small test and then appears to hang on real input. Accumulate with
 `push` onto a reversed list and call `rev` exactly once at the end.
 
-**The hidden whole copy.** `map_put`, `map_remove`, and `array_set` update
-in place only when nothing else still holds the map or array, and otherwise
-copy it whole, with the same results, so a loop of them turns quadratic
-unseen. Two shapes do it with no second name in sight: reading the map in a
+**The hidden whole copy.** `map_put`, `map_remove`, `array_set`, and a
+field replacement `(.f r v)` update in place only when nothing else still
+holds the map, array, or record, and otherwise copy it whole, with the same
+results, so a loop of them turns quadratic unseen. Two shapes do it with no second name in sight: reading the map in a
 later operand of the expression that updates it, as in `(Seen (map_put m k
 true) (if (map_has m k) ...))`, and using a value after a call that updates
 a map inside it, as in `(let t (space_put s ...) (... (space_number s)))`.

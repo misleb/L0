@@ -28,10 +28,12 @@
                                                        ; constructors, max fields
 
 ; A constructor carries its type's parameters, so that its fields' types can
-; be found for a value of that type from the value's type alone.
+; be found for a value of that type from the value's type alone, and its
+; field names, empty when the fields are not named (spec 4).
 (data CtorInfo
-  (CI (list int) (list int) int (list (list int)) (list Ty)))
-                                        ; name, type name, tag, parameters, fields
+  (CI (list int) (list int) int (list (list int)) (list (list int)) (list Ty)))
+                                        ; name, type name, tag, parameters,
+                                        ; field names, fields
 
 ; Everything global that checking an expression needs, and the type
 ; parameters of the function being checked, which are types in its body.
@@ -85,7 +87,7 @@
   (if (is_empty cs)
       ((None CtorInfo))
       (match (head cs)
-        ((CI cn tn tag ps fts)
+        ((CI cn tn tag ps ns fts)
           (if (eq n cn)
               (Some (head cs))
               (find_ctor n (tail cs)))))))
@@ -99,10 +101,11 @@
               (Some (head ds))
               (find_data n (tail ds)))))))
 
-(def ctor_tag ((c CtorInfo)) int (match c ((CI cn tn tag ps fts) tag)))
-(def ctor_fields ((c CtorInfo)) (list Ty) (match c ((CI cn tn tag ps fts) fts)))
-(def ctor_type_name ((c CtorInfo)) (list int) (match c ((CI cn tn tag ps fts) tn)))
-(def ctor_params ((c CtorInfo)) (list (list int)) (match c ((CI cn tn tag ps fts) ps)))
+(def ctor_tag ((c CtorInfo)) int (match c ((CI cn tn tag ps ns fts) tag)))
+(def ctor_fields ((c CtorInfo)) (list Ty) (match c ((CI cn tn tag ps ns fts) fts)))
+(def ctor_type_name ((c CtorInfo)) (list int) (match c ((CI cn tn tag ps ns fts) tn)))
+(def ctor_params ((c CtorInfo)) (list (list int)) (match c ((CI cn tn tag ps ns fts) ps)))
+(def ctor_field_names ((c CtorInfo)) (list (list int)) (match c ((CI cn tn tag ps ns fts) ns)))
 (def data_ctors ((d DataDef)) (list Ctor) (match d ((DD n ps cs mf) cs)))
 (def data_params ((d DataDef)) (list (list int)) (match d ((DD n ps cs mf) ps)))
 (def data_max_fields ((d DataDef)) int (match d ((DD n ps cs mf) mf)))
@@ -543,7 +546,69 @@
     ((ELet o n v body) (check_let o n v body env ctx))
     ((ECtor o n tys args) (check_ctor_expr o n tys args env ctx))
     ((EMatch o subject arms) (check_match o subject arms env ctx))
-    ((ECall o n args) (check_call o n args env ctx))))
+    ((ECall o n args) (check_call o n args env ctx))
+    ((EField o f e) (check_field o f e env ctx))
+    ((EWith o f e v) (check_with o f e v env ctx))))
+
+; ---------------------------------------------------------------- fields
+
+; (.f e): e's type says which field f is. Spec 5.8.
+(def check_field ((o int) (f (list int)) (e Expr) (env (list Bind)) (ctx Ctx))
+    (Checked Ty)
+  (match (check_expr e env ctx)
+    ((CErr eo m) ((CErr Ty) eo m))
+    ((COk et) (field_type o f et ctx))))
+
+; (.f e v): v must have the field's type, and the result has e's.
+(def check_with ((o int) (f (list int)) (e Expr) (v Expr) (env (list Bind))
+                 (ctx Ctx)) (Checked Ty)
+  (match (check_expr e env ctx)
+    ((CErr eo m) ((CErr Ty) eo m))
+    ((COk et)
+      (match (field_type o f et ctx)
+        ((CErr eo m) ((CErr Ty) eo m))
+        ((COk ft)
+          (match (check_expr v env ctx)
+            ((CErr eo m) ((CErr Ty) eo m))
+            ((COk vt)
+              (if (eq vt ft)
+                  (COk et)
+                  ((CErr Ty) o (type_msg
+                    (append "field " (append f (append " of " (ty_str et))))
+                    (ty_str ft) vt))))))))))
+
+; The type of field f of a value of type et, or why there is none: et must
+; be a data type, not a type parameter, with one constructor that names f.
+(def field_type ((o int) (f (list int)) (et Ty) (ctx Ctx)) (Checked Ty)
+  (if (not (ty_is_data et))
+      ((CErr Ty) o (append "fields belong to data types, but this is " (ty_str et)))
+      (if (is_param et (ctx_tparams ctx))
+          ((CErr Ty) o (append (as_written (ty_name et))
+            " is a type parameter, so its fields are not known"))
+          (match (find_data (ty_name et) (ctx_datas ctx))
+            ((None) ((CErr Ty) o (append "unknown type " (ty_name et))))
+            ((Some dd)
+              (if (not (eq (length (data_ctors dd)) 1))
+                  ((CErr Ty) o (append (as_written (data_name dd)) (append " has "
+                    (append (digits (length (data_ctors dd)))
+                      " constructors, so its fields are not read by name; match on it"))))
+                  (field_of_ctor o f et (head (data_ctors dd)) dd)))))))
+
+(def field_of_ctor ((o int) (f (list int)) (et Ty) (c Ctor) (dd DataDef))
+    (Checked Ty)
+  (match c
+    ((C co cn ns fts)
+      (let i (index_of f ns)
+        (if (lt i 0)
+            ((CErr Ty) o (append "unknown field " (append f (append " of "
+              (as_written (data_name dd))))))
+            (COk (ty_subst (nth_ty fts i)
+                           (zip_binds (data_params dd) (ty_args et)))))))))
+
+(def nth_ty ((ts (list Ty)) (i int)) Ty
+  (if (is_empty ts)
+      (TyInt)
+      (if (eq i 0) (head ts) (nth_ty (tail ts) (sub i 1)))))
 
 (def check_nil ((o int) (elem Ty) (ctx Ctx)) (Checked Ty)
   (let bad (ty_problem elem (ctx_datas ctx) (ctx_tparams ctx))
@@ -755,7 +820,7 @@
               (append " is missing an arm for " missing)))))))))
 
 (def data_name ((d DataDef)) (list int) (match d ((DD n ps cs mf) n)))
-(def ctor_decl_name ((c Ctor)) (list int) (match c ((C o n fts) n)))
+(def ctor_decl_name ((c Ctor)) (list int) (match c ((C o n ns fts) n)))
 (def arm_ctor_name ((a Arm)) (list int) (match a ((A o cn ns b) cn)))
 
 (def seen_ctors ((arms (list Arm))) (list (list int))
@@ -858,7 +923,7 @@
   (if (is_empty cs)
       best
       (match (head cs)
-        ((C o n fts)
+        ((C o n ns fts)
           (let w (length fts)
             (max_fields (tail cs) (if (gt w best) w best)))))))
 
@@ -886,9 +951,9 @@
   (if (is_empty cs)
       acc
       (match (head cs)
-        ((C o n fts)
+        ((C o n ns fts)
           (ctor_infos_of tn tps (tail cs) (add tag 1)
-            (cons (CI n tn tag tps fts) acc))))))
+            (cons (CI n tn tag tps ns fts) acc))))))
 
 (def param_tys ((ps (list Param))) (list Ty)
   (if (is_empty ps)
@@ -983,7 +1048,8 @@
         (one_diag o (append "type parameter " (append dup " is declared twice")))
         (let bad (bad_field_ty cs (ctx_datas ctx) tps)
           (if (is_empty bad)
-              (nil Diag)
+              (let dupf (dup_field cs)
+                (if (is_empty dupf) (nil Diag) (one_diag o dupf)))
               (one_diag o bad))))))
 
 (def bad_field_ty ((cs (list Ctor)) (ds (list DataDef)) (tps (list (list int))))
@@ -991,9 +1057,21 @@
   (if (is_empty cs)
       ""
       (match (head cs)
-        ((C o n fts)
+        ((C o n ns fts)
           (let bad (tys_problem fts ds tps)
             (if (is_empty bad) (bad_field_ty (tail cs) ds tps) bad))))))
+
+; What is wrong with the first constructor naming a field twice, if any.
+(def dup_field ((cs (list Ctor))) (list int)
+  (if (is_empty cs)
+      ""
+      (match (head cs)
+        ((C o n ns fts)
+          (let dup (dup_name ns (nil (list int)))
+            (if (is_empty dup)
+                (dup_field (tail cs))
+                (append "field " (append dup (append " of constructor "
+                  (append n " is declared twice"))))))))))
 
 (def decl_name ((d Decl)) (list int)
   (match d
@@ -1250,7 +1328,7 @@
   (if (is_empty cs)
       (nil Diag)
       (match (head cs)
-        ((C co cn fts)
+        ((C co cn ns fts)
           (if (gt (length fts) 31)
               (one_diag o (append "constructor " (append cn (append " has "
                 (append (digits (length fts))
@@ -1317,8 +1395,8 @@
   (if (is_empty cs)
       (nil Ctor)
       (match (head cs)
-        ((C o cn fts)
-          (cons (C o (rn_name cn cns) (rn_tys fts tns tps))
+        ((C o cn ns fts)
+          (cons (C o (rn_name cn cns) ns (rn_tys fts tns tps))
                 (rn_ctors (tail cs) tns cns tps))))))
 
 (def rn_params ((ps (list Param)) (tns (list (list int))) (tps (list (list int))))
@@ -1363,7 +1441,9 @@
       (ECtor o (rn_name n cns) (rn_tys tys tns tps) (rn_exprs args tns cns tps)))
     ((EMatch o s arms)
       (EMatch o (rn_expr s tns cns tps) (rn_arms arms tns cns tps)))
-    ((ECall o n args) (ECall o n (rn_exprs args tns cns tps)))))
+    ((ECall o n args) (ECall o n (rn_exprs args tns cns tps)))
+    ((EField o f e) (EField o f (rn_expr e tns cns tps)))
+    ((EWith o f e v) (EWith o f (rn_expr e tns cns tps) (rn_expr v tns cns tps)))))
 
 (def rn_exprs ((es (list Expr)) (tns (list (list int))) (cns (list (list int)))
                (tps (list (list int)))) (list Expr)
@@ -1471,7 +1551,9 @@
     ((ENil o t) (ENil o (ty_inst t bs)))
     ((ECtor o n tys args) (ECtor o n (tys_inst tys bs) (exprs_inst args bs)))
     ((EMatch o s arms) (EMatch o (expr_inst s bs) (arms_inst arms bs)))
-    ((ECall o n args) (ECall o n (exprs_inst args bs)))))
+    ((ECall o n args) (ECall o n (exprs_inst args bs)))
+    ((EField o f e) (EField o f (expr_inst e bs)))
+    ((EWith o f e v) (EWith o f (expr_inst e bs) (expr_inst v bs)))))
 
 (def exprs_inst ((es (list Expr)) (bs (list Bind))) (list Expr)
   (if (is_empty es) es (cons (expr_inst (head es) bs) (exprs_inst (tail es) bs))))
@@ -1598,7 +1680,15 @@
             ((Mo b2 bt) (Mo (ELet o n v2 b2) bt))))))
     ((ECtor o n tys args) (mono_ctor o n tys args env ctx))
     ((EMatch o s arms) (mono_match o s arms env ctx))
-    ((ECall o n args) (mono_call o n args env ctx))))
+    ((ECall o n args) (mono_call o n args env ctx))
+    ((EField o f e)
+      (match (mono_expr e env ctx)
+        ((Mo e2 et)
+          (Mo (EField o f e2)
+              (match (field_type o f et ctx) ((COk t) t) ((CErr eo m) (TyInt)))))))
+    ((EWith o f e v)
+      (match (mono_expr e env ctx)
+        ((Mo e2 et) (Mo (EWith o f e2 (mono_e v env ctx)) et))))))
 
 (def mono_e ((e Expr) (env (list Bind)) (ctx Ctx)) Expr
   (match (mono_expr e env ctx) ((Mo e2 t) e2)))

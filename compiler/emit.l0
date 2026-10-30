@@ -221,7 +221,9 @@
     ((ELet o n v body) (fv_onto v (set_union (set_del n (fv body)) acc)))
     ((ECtor o n tys args) (fv_list args acc))
     ((EMatch o s arms) (fv_onto s (fv_arms arms acc)))
-    ((ECall o n args) (fv_list args acc))))
+    ((ECall o n args) (fv_list args acc))
+    ((EField o f e) (fv_onto e acc))
+    ((EWith o f e v) (fv_onto e (fv_onto v acc)))))
 
 (def fv_list ((es (list Expr)) (acc (list (list int)))) (list (list int))
   (if (is_empty es) acc (fv_list (tail es) (fv_onto (head es) acc))))
@@ -281,7 +283,59 @@
     ((ELet o n v body) (emit_let n v body env live tl st))
     ((ECtor o n tys args) (finish tl (emit_ctor n tys args env live st)))
     ((EMatch o subject arms) (emit_match subject arms env live tl st))
-    ((ECall o n args) (emit_call n args env live tl st))))
+    ((ECall o n args) (emit_call n args env live tl st))
+    ((EField o f e) (finish tl (emit_field f e env live st)))
+    ((EWith o f e v) (finish tl (emit_with f e v env live st)))))
+
+; ------------------------------------------------------------------ fields
+
+; (.f e): l0_data_get of the field's word, e read without consuming it, as
+; head reads its list, and the result given a reference if it is a pointer
+; into e. Spec 5.8 and 10.3.
+(def emit_field ((f (list int)) (e Expr) (env Env) (live (list (list int)))
+                 (st Emit)) EmitVal
+  (match (emit_args (cons e (nil Expr)) env live (cons true (nil bool)) st)
+    ((Ops ops ts ws st1)
+      (let cs (ctx_ctors (env_ctx env))
+        (borrowed ops ts ws
+          (retype (emit_rt_call "l0_data_get"
+                    (two_ops (head ops) (digits (field_index f (head ts) cs))) st1)
+                  (field_ty_of f (head ts) cs))
+          false)))))
+
+; (.f e v): l0_data_with, e and v consumed as array_set's operands are, so
+; the runtime stores in place when nothing else holds e.
+(def emit_with ((f (list int)) (e Expr) (v Expr) (env Env)
+                (live (list (list int))) (st Emit)) EmitVal
+  (match (emit_args (cons e (cons v (nil Expr))) env live (nil bool) st)
+    ((Ops ops ts ws st1)
+      (retype (emit_rt_call "l0_data_with"
+                (cons (head ops)
+                  (two_ops (digits (field_index f (head ts) (ctx_ctors (env_ctx env))))
+                           (head (tail ops))))
+                st1)
+              (head ts)))))
+
+; The one constructor of the data type t, which the checker found to have
+; exactly one.
+(def ctor_of_type ((t Ty) (cs (list CtorInfo))) (Option CtorInfo)
+  (if (is_empty cs)
+      ((None CtorInfo))
+      (if (eq (ctor_type_name (head cs)) (ty_name t))
+          (Some (head cs))
+          (ctor_of_type t (tail cs)))))
+
+(def field_index ((f (list int)) (t Ty) (cs (list CtorInfo))) int
+  (match (ctor_of_type t cs)
+    ((Some ci) (index_of f (ctor_field_names ci)))
+    ((None) 0)))
+
+; The type of field f of a value of type t, with t's arguments in place of
+; the parameters, which is what says whether the field is a pointer.
+(def field_ty_of ((f (list int)) (t Ty) (cs (list CtorInfo))) Ty
+  (match (ctor_of_type t cs)
+    ((Some ci) (nth_ty (ctor_fields_at ci t) (index_of f (ctor_field_names ci))))
+    ((None) (TyInt))))
 
 ; A let binds a name to an operand that already exists, and takes over the
 ; reference the value came with, releasing it at once if the body never uses
@@ -399,7 +453,9 @@
     ((ELet o n v b) "")
     ((ECtor o n ts a) "")
     ((EMatch o s a) "")
-    ((ECall o n a) "")))
+    ((ECall o n a) "")
+    ((EField o f e) "")
+    ((EWith o f e v) "")))
 
 (def var_names ((args (list Expr)) (acc (list (list int)))) (list (list int))
   (if (is_empty args)
@@ -551,7 +607,9 @@
             ((EIf o2 c2 a2 b2) (NotRowUpdate))
             ((ELet o2 n2 v2 b2) (NotRowUpdate))
             ((ECtor o2 n2 t2 a2) (NotRowUpdate))
-            ((EMatch o2 s2 a2) (NotRowUpdate)))
+            ((EMatch o2 s2 a2) (NotRowUpdate))
+            ((EField o2 f2 e2) (NotRowUpdate))
+            ((EWith o2 f2 e2 v2) (NotRowUpdate)))
           (NotRowUpdate)))
     ((EInt o v) (NotRowUpdate))
     ((EFloat o m p g) (NotRowUpdate))
@@ -562,7 +620,9 @@
     ((EIf o c a b) (NotRowUpdate))
     ((ELet o n v b) (NotRowUpdate))
     ((ECtor o n ts a) (NotRowUpdate))
-    ((EMatch o s a) (NotRowUpdate))))
+    ((EMatch o s a) (NotRowUpdate))
+    ((EField o f e) (NotRowUpdate))
+    ((EWith o f e v) (NotRowUpdate))))
 
 (def same_var ((a Expr) (b Expr)) bool
   (if (is_empty (var_name a)) false (eq (var_name a) (var_name b))))
@@ -586,7 +646,9 @@
         ((ELet o2 n2 v3 b3) false)
         ((ECtor o2 n2 t2 a2) false)
         ((EMatch o2 s2 a2) false)
-        ((ECall o2 n2 a2) false)))
+        ((ECall o2 n2 a2) false)
+        ((EField o2 f2 e2) false)
+        ((EWith o2 f2 e2 v3) false)))
     ((EFloat o m p g) false)
     ((EBool o v) false)
     ((EStr o s) false)
@@ -596,7 +658,9 @@
     ((ELet o n v b) false)
     ((ECtor o n ts x) false)
     ((EMatch o s x) false)
-    ((ECall o n x) false)))
+    ((ECall o n x) false)
+    ((EField o f e) false)
+    ((EWith o f e v) false)))
 
 ; The row check first, as (array_get g y) makes it before x and v are
 ; evaluated, then the operands, then one runtime call. g is consumed, as
@@ -629,7 +693,9 @@
         ((ELet o n e b) "0")
         ((ECtor o n ts a) "0")
         ((EMatch o s a) "0")
-        ((ECall o n a) "0"))
+        ((ECall o n a) "0")
+        ((EField o f e) "0")
+        ((EWith o f e v) "0"))
       (lookup_operand (var_name y) (env_binds env))))
 
 ; The form of spec 6.5 that hands an element through a function and back,
@@ -680,7 +746,9 @@
     ((EIf o c a b) inner)
     ((ELet o n v b) inner)
     ((ECtor o n ts a) inner)
-    ((EMatch o s a) inner)))
+    ((EMatch o s a) inner)
+    ((EField o f e) inner)
+    ((EWith o f e v) inner)))
 
 (def count_rows ((g (list int)) (y Expr) (es (list Expr)) (k int)) int
   (if (is_empty es)
@@ -715,7 +783,9 @@
     ((EIf o c a b) false)
     ((ELet o n v b) false)
     ((ECtor o n ts a) false)
-    ((EMatch o s a) false)))
+    ((EMatch o s a) false)
+    ((EField o f e) false)
+    ((EWith o f e v) false)))
 
 ; (array.take g y): l0_array_take, y checked where the argument stands, the
 ; element g's type says, with a reference the caller owns.
@@ -779,12 +849,19 @@
 (def after_borrow ((n (list int)) (ops (list (list int))) (ts (list Ty))
                    (ws (list bool)) (v EmitVal)) EmitVal
   (if (is_borrowing n)
-      (match v
-        ((Val r t st)
-          (Val r t
-            (emit_dec_owned ops ts ws
-              (if (and (ty_is_ptr t) (not (borrows_into_new n))) (emit_inc r st) st)))))
+      (borrowed ops ts ws v (borrows_into_new n))
       v))
+
+; A borrowing operation's result gains a reference if it is a pointer into
+; an operand, not when it is new, and then each operand that came with a
+; reference is released, in order.
+(def borrowed ((ops (list (list int))) (ts (list Ty)) (ws (list bool))
+               (v EmitVal) (new bool)) EmitVal
+  (match v
+    ((Val r t st)
+      (Val r t
+        (emit_dec_owned ops ts ws
+          (if (and (ty_is_ptr t) (not new)) (emit_inc r st) st))))))
 
 (def emit_dec_owned ((ops (list (list int))) (ts (list Ty)) (ws (list bool))
                      (st Emit)) Emit
@@ -1310,7 +1387,9 @@
     ((ECtor o n tys args) acc)
     ((EMatch o s arms) (arm_callees arms pn bs acc))
     ((ECall o n args)
-      (if (any_eq n bs) acc (cons (fn_sym n pn) acc)))))
+      (if (any_eq n bs) acc (cons (fn_sym n pn) acc)))
+    ((EField o f e) acc)
+    ((EWith o f e v) acc)))
 
 (def arm_callees ((arms (list Arm)) (pn (list (list int)))
                   (bs (list (list int))) (acc (list (list int))))
@@ -1569,7 +1648,13 @@
             (if (any_eq n (rx_bs x))
                 (flags_for (reads_no_pointer n t) args)
                 (read_only_of (fn_sym n (rx_pn x)) (rx_pads x)))
-            x)))))
+            x))
+        ((EField o f e)
+          (if (eq (var_name e) p)
+              (not (ty_is_ptr (field_ty_of f t (rx_cs x))))
+              (ro_ok p t e x)))
+        ((EWith o f e v)
+          (if (ro_ok p t e x) (ro_ok p t v x) false)))))
 
 ; Whether the builtin n, given a value of type t, only reads it and yields no
 ; pointer: head and array_get yield an element, and tail a list.
@@ -1683,7 +1768,9 @@
       (if (any_eq n bs)
           acc
           (let g (fn_sym n pn)
-            (ro_args_demote g args (read_only_of g (rx_pads x)) ok 0 acc))))))
+            (ro_args_demote g args (read_only_of g (rx_pads x)) ok 0 acc))))
+    ((EField o f e) acc)
+    ((EWith o f e v) acc)))
 
 ; Whether a match's subject is one of the read-only names, and if so its type.
 (data RoSubject
@@ -1902,7 +1989,7 @@
                 (append "declare i64 @l0_data_new(i64, i64)\n"
                   (append "declare void @l0_data_set(i64, i64, i64)\n"
                     (append "declare i64 @l0_data_tag(i64)\n"
-                      (append "declare i64 @l0_data_get(i64, i64)\n"
+                      (append "declare i64 @l0_data_get(i64, i64)\ndeclare i64 @l0_data_with(i64, i64, i64)\n"
                         (append "declare void @l0_stack_check()\n"
                           (append "declare i64 @l0_read_byte()\n"
                             (append "declare i64 @l0_write_byte(i64)\n"
