@@ -1,7 +1,7 @@
 # 0142: the spec's normative lists as tables
 
 Kind: tooling
-Status: proposed
+Status: done
 Needs: 0141
 
 ## Why
@@ -31,3 +31,12 @@ change that turns out to be a meaning change is a language item of its own.
 ## Log
 
 - 2026-10-30: opened, from the review (its item 2.2); proposed.
+- 2026-10-30: done. The four ordered lists of runtime checks, in 6.12,
+  6.13, 6.15, and 6.18, are tables of order, condition, and error, two
+  rows sharing an order where one builtin or the other checks; 9.2's list
+  of what a host may lack is a table of facility, what it gives, and
+  which hosts lack it. Wording unchanged. Already tables or lists, and
+  left: 6's builtins, 8's errors, the boards' devices and interrupts
+  (0141 moved them to `spec/boards/`), the process's calls, and 10.3's
+  host interface, one item per function. `tests/check`'s `.cerr` files
+  unchanged; both suites green.

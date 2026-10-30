@@ -449,4 +449,6 @@ what:
 script that took its output as one path takes its first line. Section
 numbers are as they were, so "spec 10.3" in L0S's comments still means the
 same text, now in `runtime.md`. Section 6's table is in two, the host
-facilities second.
+facilities second. Since 0142, the order in which a builtin's runtime
+errors are checked (6.12, 6.13, 6.15, 6.18) and what each host lacks (9.2)
+are tables; nothing changed in meaning.

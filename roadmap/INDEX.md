@@ -39,12 +39,13 @@ From the review of 2026-10-30:
 - [0146](0146-runtime-structure.md) tooling: the runtime's structure —
   active: step 3 done (the Pi 5 table's type, and a check that the boards'
   two address lists agree); step 1, the default host stubs, next
-- [0142](0142-spec-tables.md) tooling: the spec's normative lists as
-  tables, after 0141 — proposed
 - [0147](0147-verification.md) tooling: CI on both CPUs, and the suite's
   own loose ends — proposed; left out of this run by the user's choice
 
 ## Done and dropped
+
+- [0142](0142-spec-tables.md) tooling: the spec's ordered checks and 9.2
+  as tables — done; nothing changed in meaning
 
 - [0141](0141-spec-split.md) tooling: the spec split into the language,
   the runtime, and the boards — done, changelog "The specification is
