@@ -36,8 +36,6 @@ The order above is the review's suggestion; the user decides it.
 
 From the review of 2026-10-30, each proposed and not started:
 
-- [0140](0140-string-tables.md) tooling: string literals as byte tables,
-  shrinking the seed
 - [0141](0141-spec-split.md) tooling: the spec split into the language,
   the runtime, and the boards
 - [0142](0142-spec-tables.md) tooling: the spec's normative lists as
@@ -50,6 +48,10 @@ From the review of 2026-10-30, each proposed and not started:
   own loose ends
 
 ## Done and dropped
+
+- [0140](0140-string-tables.md) tooling: string literals as byte tables —
+  done, changelog "A string literal is a table of its bytes"; the seed is
+  40% smaller
 
 - [0139](0139-hidden-copy-warning.md) tooling: the checker warns of an
   update that a later use makes copy — done, changelog "The compiler warns

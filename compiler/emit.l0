@@ -22,9 +22,12 @@
 ; in a block that block dominates. In tail position neither joins: each
 ; branch returns, which is what lets a call there be a musttail call.
 
+; The next name number, the output reversed, the warnings newest first, and
+; the string literals, each once, by the number of its constant, and newest
+; first, for emitting their constants after the functions.
 (data Emit
-  (Em (next int) (out (list int)) (warns (list Diag))))   ; next name number,
-                                        ; reversed output, warnings newest first
+  (Em (next int) (out (list int)) (warns (list Diag))
+      (str_ids (Map (list int) int)) (strs (list (list int)))))
 
 ; An expression's value carries its type, computed bottom-up as the checker
 ; computes it, because allocation has to say which words of a block are
@@ -269,7 +272,7 @@
     ((EFloat o m p g) (finish tl (emit_float_lit m p g st)))
     ((EBool o v) (finish tl (Val (if v "1" "0") (TyBool) st)))
     ((ENil o t) (finish tl (Val "0" (TyList t) st)))
-    ((EStr o s) (finish tl (emit_string (rev s) "0" st)))
+    ((EStr o s) (finish tl (emit_string s st)))
     ((EVar o n) (finish tl (emit_use n env live st)))
     ((EIf o c a b) (emit_if c a b env live tl st))
     ((ELet o n v body) (emit_let n v body env live tl st))
@@ -472,12 +475,46 @@
   (if (ty_is_ptr elem) "3" "2"))
 
 ; Bytes arrive reversed so the chain can be built from the end forwards.
-(def emit_string ((rs (list int)) (acc (list int)) (st Emit)) EmitVal
-  (if (is_empty rs)
-      (Val acc (TyList (TyInt)) st)
-      (match (emit_rt_call "l0_new_cons"
-               (cons (digits (head rs)) (two_ops acc "2")) st)
-        ((Val r t st1) (emit_string (tail rs) r st1)))))
+; A string literal is a call of l0_string on a private constant of its
+; bytes, one per distinct literal in the module, numbered in the order
+; first used, so the output is a function of the input (spec 10.3, 10.4).
+; The empty one is the empty list.
+(def emit_string ((s (list int)) (st Emit)) EmitVal
+  (if (is_empty s)
+      (Val "0" (TyList (TyInt)) st)
+      (match (map_get (.str_ids st) s)
+        ((Some k) (emit_string_call k (length s) st))
+        ((None)
+          (let (k (length (.strs st)) old (.strs st))
+            (emit_string_call k (length s)
+              (.strs (.str_ids st (map_put (.str_ids st) s k)) (cons s old))))))))
+
+(def emit_string_call ((k int) (n int) (st Emit)) EmitVal
+  (.ty (emit_assign (append "call i64 @l0_string(ptr @l0_str." (append (digits k)
+         (append ", i64 " (append (digits n) ")")))) st)
+       (TyList (TyInt))))
+
+; Each literal's constant, oldest first.
+(def emit_strs ((ss (list (list int))) (k int) (st Emit)) Emit
+  (if (is_empty ss)
+      st
+      (emit_strs (tail ss) (add k 1)
+        (emit_line (append "@l0_str." (append (digits k)
+          (append " = private unnamed_addr constant ["
+            (append (digits (length (head ss)))
+              (append " x i8] c\"" (append (ir_bytes (head ss) (nil int)) "\""))))))
+          st))))
+
+; Bytes in an LLVM string constant: printable ones as they are, but " and
+; \, and every other as \ and two hex digits.
+(def ir_bytes ((s (list int)) (acc (list int))) (list int)
+  (if (is_empty s)
+      (rev acc)
+      (ir_bytes (tail s)
+        (let b (head s)
+          (if (if (ge b 32) (if (le b 126) (if (eq b 34) false (not (eq b 92))) false) false)
+              (cons b acc)
+              (push (hex_digits b 2) (cons 92 acc)))))))
 
 (def emit_store ((v (list int)) (slot (list int)) (st Emit)) Emit
   (emit_line (append "  store i64 " (append v (append ", ptr " slot))) st))
@@ -1732,38 +1769,65 @@
       (nil (list bool))
       (cons (upd_params (.params (head fs)) (head fs) t) (upd_pass (tail fs) t))))
 
+; Only a parameter of a counted type can be updated, so a function with
+; none is not walked.
 (def upd_params ((ps (list Param)) (f RoFn) (t (Map (list int) (list bool))))
     (list bool)
+  (if (any_counted ps)
+      (upd_flags ps (upd_vars (.body f) f t (nil (list int))))
+      (no_flags ps)))
+
+(def any_counted ((ps (list Param))) bool
+  (if (is_empty ps)
+      false
+      (match (head ps) ((P n ty) (if (ty_is_ptr ty) true (any_counted (tail ps)))))))
+
+(def upd_flags ((ps (list Param)) (us (list (list int)))) (list bool)
   (if (is_empty ps)
       (nil bool)
-      (cons (match (head ps) ((P n ty) (upd_var n (.body f) f t)))
-            (upd_params (tail ps) f t))))
+      (cons (match (head ps) ((P n ty) (any_eq n us))) (upd_flags (tail ps) us))))
 
-; Whether e updates the variable x, by the rules above. f gives the names
-; e's calls reach.
-(def upd_var ((x (list int)) (e Expr) (f RoFn) (t (Map (list int) (list bool)))) bool
+; The variables e updates, by the rules above, pushed onto acc, in one walk
+; of e. f gives the names e's calls reach.
+(def upd_vars ((e Expr) (f RoFn) (t (Map (list int) (list bool)))
+               (acc (list (list int)))) (list (list int))
   (match e
     ((ECall o n args)
-      (if (if (any_eq n (.bs f)) (eq n "array_set") false)
-          (if (eq (var_name (head args)) x) true (upd_any x args f t))
-          (if (upd_passed x args (callee_updates n f t))
-              true
-              (upd_any x args f t))))
-    ((EWith o h r v) (if (upd_var x r f t) true (upd_var x v f t)))
+      (upd_all args f t
+        (if (if (any_eq n (.bs f)) (eq n "array_set") false)
+            (add_name (var_name (head args)) acc)
+            (if (any_held args)
+                (upd_passed args (callee_updates n f t) acc)
+                acc))))
+    ((EWith o h r v) (upd_vars v f t (upd_vars r f t acc)))
     ((EMatch o s arms)
-      (if (eq (var_name s) x)
-          (if (upd_arm_fields arms f t) true (upd_arms x arms f t))
-          (if (upd_var x s f t) true (upd_arms x arms f t))))
-    ((ELet o n v b) (if (upd_var x v f t) true (if (eq n x) false (upd_var x b f t))))
-    ((EIf o c a b) (if (upd_var x c f t) true (if (upd_var x a f t) true (upd_var x b f t))))
-    ((ECtor o n ts args) (upd_any x args f t))
-    ((EField o h r) (upd_var x r f t))
-    ((EInt o v) false)
-    ((EFloat o m p g) false)
-    ((EBool o v) false)
-    ((EStr o s) false)
-    ((ENil o ty) false)
-    ((EVar o n) false)))
+      (upd_arms (var_name s) arms f t (upd_vars s f t acc)))
+    ((ELet o n v b)
+      (upd_vars v f t (names_but n (upd_vars b f t (nil (list int))) acc)))
+    ((EIf o c a b) (upd_vars b f t (upd_vars a f t (upd_vars c f t acc))))
+    ((ECtor o n ts args) (upd_all args f t acc))
+    ((EField o h r) (upd_vars r f t acc))
+    ((EInt o v) acc)
+    ((EFloat o m p g) acc)
+    ((EBool o v) acc)
+    ((EStr o s) acc)
+    ((ENil o ty) acc)
+    ((EVar o n) acc)))
+
+(def any_held ((args (list Expr))) bool
+  (if (is_empty args)
+      false
+      (if (is_empty (held_var (head args))) (any_held (tail args)) true)))
+
+(def add_name ((n (list int)) (acc (list (list int)))) (list (list int))
+  (if (if (is_empty n) true (any_eq n acc)) acc (cons n acc)))
+
+; Each of ns but x, pushed onto acc: a binding of x hides an outer x.
+(def names_but ((x (list int)) (ns (list (list int))) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty ns)
+      acc
+      (names_but x (tail ns) (if (eq (head ns) x) acc (add_name (head ns) acc)))))
 
 (def callee_updates ((n (list int)) (f RoFn) (t (Map (list int) (list bool)))) (list bool)
   (if (any_eq n (.bs f))
@@ -1772,14 +1836,14 @@
         ((None) (nil bool))
         ((Some us) us))))
 
-; Whether x, or a field of it, (.f x), is passed in a position flags says
-; is updated.
-(def upd_passed ((x (list int)) (args (list Expr)) (flags (list bool))) bool
+; Each variable passed, or whose field (.f x) is passed, in a position flags
+; says is updated, pushed onto acc.
+(def upd_passed ((args (list Expr)) (flags (list bool)) (acc (list (list int))))
+    (list (list int))
   (if (is_empty args)
-      false
-      (if (if (flag_head flags) (eq (held_var (head args)) x) false)
-          true
-          (upd_passed x (tail args) (flag_tail flags)))))
+      acc
+      (upd_passed (tail args) (flag_tail flags)
+        (if (flag_head flags) (add_name (held_var (head args)) acc) acc))))
 
 ; The variable e is, or whose field it reads, or an empty name.
 (def held_var ((e Expr)) (list int)
@@ -1798,27 +1862,30 @@
     ((ECall o n a) "")
     ((EWith o f r v) "")))
 
-(def upd_any ((x (list int)) (es (list Expr)) (f RoFn) (t (Map (list int) (list bool)))) bool
-  (if (is_empty es) false (if (upd_var x (head es) f t) true (upd_any x (tail es) f t))))
+(def upd_all ((es (list Expr)) (f RoFn) (t (Map (list int) (list bool)))
+              (acc (list (list int)))) (list (list int))
+  (if (is_empty es) acc (upd_all (tail es) f t (upd_vars (head es) f t acc))))
 
-; Whether an arm updates one of the fields it binds.
-(def upd_arm_fields ((arms (list Arm)) (f RoFn) (t (Map (list int) (list bool)))) bool
+; What each arm updates, but the names it binds; and the subject s, a
+; variable or an empty name, when an arm updates a field it bound.
+(def upd_arms ((s (list int)) (arms (list Arm)) (f RoFn) (t (Map (list int) (list bool)))
+               (acc (list (list int)))) (list (list int))
   (if (is_empty arms)
-      false
-      (if (upd_names (.names (head arms)) (.body (head arms)) f t)
-          true
-          (upd_arm_fields (tail arms) f t))))
+      acc
+      (let (a (head arms) inner (upd_vars (.body a) f t (nil (list int))))
+        (upd_arms s (tail arms) f t
+          (names_but_all (.names a) inner
+            (if (any_in (.names a) inner) (add_name s acc) acc))))))
 
-(def upd_names ((ns (list (list int))) (b Expr) (f RoFn) (t (Map (list int) (list bool)))) bool
-  (if (is_empty ns) false (if (upd_var (head ns) b f t) true (upd_names (tail ns) b f t))))
+(def any_in ((ns (list (list int))) (us (list (list int)))) bool
+  (if (is_empty ns) false (if (any_eq (head ns) us) true (any_in (tail ns) us))))
 
-; Whether x is updated in an arm that does not bind a name of its own x.
-(def upd_arms ((x (list int)) (arms (list Arm)) (f RoFn) (t (Map (list int) (list bool)))) bool
-  (if (is_empty arms)
-      false
-      (if (if (any_eq x (.names (head arms))) false (upd_var x (.body (head arms)) f t))
-          true
-          (upd_arms x (tail arms) f t))))
+(def names_but_all ((xs (list (list int))) (ns (list (list int))) (acc (list (list int))))
+    (list (list int))
+  (if (is_empty ns)
+      acc
+      (names_but_all xs (tail ns)
+        (if (any_eq (head ns) xs) acc (add_name (head ns) acc)))))
 
 ; The pad table, looked up at every call: each function's symbol to its Pad,
 ; in the prelude's map. A symbol given twice keeps the later Pad.
@@ -2310,7 +2377,7 @@
    (append "declare void @l0_dec(i64)\n" (io_decls_counted 0))))
 
 (def io_decls_counted ((i int)) (list int)
-  (append "declare i64 @l0_new_cons(i64, i64, i64)\n"
+  (append "declare i64 @l0_new_cons(i64, i64, i64)\ndeclare i64 @l0_string(ptr, i64)\n"
     (append "declare i64 @l0_new_data(i64, i64, i64)\n" (io_decls_rest 0))))
 
 (def io_decls_rest ((i int)) (list int)
@@ -2452,7 +2519,8 @@
 
 (def emit_grouped ((ds (list Decl)) (gs (list Decl)) (rs (list Req)) (pre int))
     Emitted
-  (let st0 (Em 0 (push (ir_header 0) (nil int)) (nil Diag))
+  (let st0 (Em 0 (push (ir_header 0) (nil int)) (nil Diag)
+               ((MapEmpty (list int) int)) (nil (list int)))
     (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
                 (append (digits (ret_kind (program_decls ds pre (nil Decl))))
                         "\n")) st0)
@@ -2468,7 +2536,7 @@
         (let fa (FA (.sigs pv) (.sigs gv) (copy_refs rs ((MapEmpty (list int) (list FnRef)))))
           (let done (emit_fns ds (Sc pv ppre true pads fa) (Sc gv pprog false pads fa)
                               pre st)
-            (Emitted (emit_text done)
+            (Emitted (emit_text (emit_strs (rev (.strs done)) 0 done))
                      (program_warns (rev (.warns done)) pre (nil Diag)))))))))
 
 (def program_warns ((ws (list Diag)) (pre int) (acc (list Diag))) (list Diag)

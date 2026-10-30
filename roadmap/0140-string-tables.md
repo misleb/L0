@@ -1,7 +1,7 @@
 # 0140: string literals as byte tables
 
 Kind: tooling
-Status: proposed
+Status: done
 Needs: nothing
 
 ## Why
@@ -34,3 +34,10 @@ and changes no program's meaning. The measure: the seed's size and
 ## Log
 
 - 2026-10-30: opened, from the review (its item 1.6); proposed.
+- 2026-10-30: done. Literals are deduplicated per module, which the item
+  did not ask, since the compiler repeats many. Seed 2,132,675 to
+  1,276,525 bytes, bootstrap 19.7 s to 16.9 s, `--virt` about 245 s to
+  192 s; the three IR goldens gained only the `declare`. Measuring found
+  0139's fixpoint had made self-compile 1.05 s; it is 0.78 s now (the
+  changelog has both). Both suites, the fixpoint, and `--virt` on both
+  boards green; the seed refreshed.

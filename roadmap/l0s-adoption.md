@@ -421,3 +421,12 @@ warning: each is a copy per call, and in a loop the quadratic slowdown
 bound by `let` before the update. Its first run here found one in this
 repository's examples. A field replacement alone is not warned of, since
 it copies only a shared record's few words.
+
+## 12. String literals are tables (roadmap 0140)
+
+Nothing to change in L0S. A string literal now compiles to one constant
+of its bytes per module and a call of the runtime's `l0_string`, where it
+was a call per byte, so programs heavy in literals build smaller and
+faster: this repository's compiler IR shrank 40%, and its suite on the
+boards runs about a fifth faster. Process images built before and after
+mix freely, since nothing crosses a process boundary but words and bytes.

@@ -849,6 +849,28 @@ entry:
   ret i64 %p
 }
 
+; A string literal's list (spec 10.3): the n bytes at s, each an int from 0
+; to 255, in order, built from the last as n calls of l0_new_cons would
+; build it, so its cells are the same.
+define i64 @l0_string(ptr %s, i64 %n) {
+entry:
+  br label %loop
+loop:
+  %i = phi i64 [ %n, %entry ], [ %i1, %body ]
+  %acc = phi i64 [ 0, %entry ], [ %c, %body ]
+  %done = icmp eq i64 %i, 0
+  br i1 %done, label %out, label %body
+body:
+  %i1 = sub i64 %i, 1
+  %bp = getelementptr i8, ptr %s, i64 %i1
+  %b = load i8, ptr %bp
+  %bw = zext i8 %b to i64
+  %c = call i64 @l0_new_cons(i64 %bw, i64 %acc, i64 2)
+  br label %loop
+out:
+  ret i64 %acc
+}
+
 ; A counted data block for n fields, with mask marking its pointer words.
 define i64 @l0_new_data(i64 %tag, i64 %n, i64 %mask) {
 entry:

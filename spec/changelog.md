@@ -15,6 +15,38 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## A string literal is a table of its bytes, and no language change for it (roadmap 0140)
+
+**Changed:** each distinct non-empty string literal of a module is one
+private constant array of its bytes, `@l0_str.K`, numbered in the order
+first emitted, and each use a call of the new runtime function
+`l0_string(s, n)` (spec 10.3, append-only), which conses the list as the
+calls it replaces did. Before, a literal was one `l0_new_cons` call per
+byte, inline.
+
+*Why:* the compiler's own IR held 16,736 `l0_new_cons` calls, most of them
+spelling diagnostic strings one byte at a time, and the seed was 2.1 MB.
+Measured on this host, against the source as it stood after 0139:
+
+| | before | after |
+| --- | --- | --- |
+| `bootstrap/stage2.ll` | 2,132,675 bytes | 1,276,525 bytes |
+| `l0_new_cons` calls in it | 16,736 | 258 |
+| `tools/bootstrap.sh` | 19.7 s | 16.9 s |
+| `tools/test.sh --virt` | about 245 s | 192 s |
+
+Self-compile is unchanged by it; the same work builds the same cells.
+
+*Also:* 0139's updates fixpoint had raised self-compile from 0.71 s to
+1.05 s, walking every function's body once per parameter on every pass.
+It now collects a function's updated variables in one walk, skips a
+function with no counted parameter, and looks a callee up only for a call
+given a variable, and self-compile is 0.78 s, on a source 400 lines
+longer than 0.71 s's. The new warning found its first hidden copy in this
+change's own code, the string table's `map_put` read after.
+
+---
+
 ## The compiler warns of the hidden whole copy, and no language change for it (roadmap 0139)
 
 **New:** L0's first warning. Where `array_set`, or a call of a function
