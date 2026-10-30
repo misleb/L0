@@ -87,25 +87,47 @@ grep -rnE '\(match [a-z]+ \(\(([A-Z][A-Za-z0-9]*) [a-z0-9 ]+\) \(\1 ' --include=
 
 **What not to convert.** A `match` that takes several fields at once, which
 is cheaper than several reads. A type with several constructors, which
-keeps `match`. And, above all, a field that holds an array or a map and is
-updated and put back:
+keeps `match`.
+
+**A field that holds an array or a map, updated and put back**, converts
+too, since roadmap 0136, in exactly this form: the field read is one
+argument of the function whose result replaces it, and nothing else reads
+the record in that call or after it. From `lib/examples.l0`:
 
 ```
-; The map inside is updated and put back, so it is taken out by a match,
-; which releases s once it has the fields: written (.pages s (map_put
-; (.pages s) page frame)), the read would hold the map while s does too,
-; and map_put would copy it.
+; The map inside goes through map_put and back into its field: the field
+; is taken out for map_put and the result put back (spec 6.5), so the map
+; updates in place when nothing else holds s. Bound by a let first, or
+; read by another argument too, the map would be held twice and copied.
 (def space_put ((s Space) (page int) (frame int)) Space
-  (match s ((Space id pages) (Space id (map_put pages page frame)))))
+  (.pages s (map_put (.pages s) page frame)))
 ```
 
-That is the field case of the hidden whole copy: `(.ctx p (call_result
-(.ctx p) v))` copies the 104-word context on every call, where the `match`
-updates it in place. L0's kernel keeps `match` in exactly those functions
-(`resume`, `kset`, `kresume`, `kmapped`, `run`, `give`). A field form that
-takes the array out, as 6.5's row form does for arrays, is the candidate
-next language item; until then, convert reads and the replacement of words
-and lists, and leave arrays and maps inside records to `match`.
+and from L0's kernel, `tests/virt/user/kernel.l0`, whose six functions
+that kept `match` for this (`resume`, `kset`, `kresume`, `kmapped`, `run`,
+`give`) are now written with fields, measured at 0 copies over 10,000
+rounds:
+
+```
+(def resume ((p Proc) (v int)) Proc
+  (.state (.ctx p (call_result (.ctx p) v)) -1))
+
+(def kresume ((k Kern) (i int) (v int)) Kern
+  (.procs k (update_at resume (.procs k) i v)))
+```
+
+The form must be literal: `(let c (.ctx p) (.ctx p (call_result c v)))`
+holds the context twice and copies it, and so does a read of `p` after the
+replacement. An L0S toolchain before 0136 copies these on every call, so
+convert them only on 0136's toolchain or later; `L0_ARRAY_STATS=1` on a
+test run tells which one is installed. 0136 also fixed the array form,
+`(array_set g y (f (array_get g y)))`, which gave `g` an empty element
+afterwards when `g` was used after the `array_set`; grep L0S for the shape
+where `g` is read again:
+
+```bash
+grep -rnE '\(array_set ([a-z_0-9]+) [a-z_0-9]+ \([a-z_0-9]+ .*\(array_get \1 ' --include='*.l0' .
+```
 
 **The hidden whole copy applies to records.** Read first, replace last:
 `(.n r (add (.n r) 1))` is in place, `(.n (.m r 1) (.m r))` copies `r`,
@@ -217,8 +239,8 @@ instead of reporting the unclosed form.
 3. Fields, type by type, starting with the 429 accessor functions: convert a
    type, run its tests, and on the loops that use it compare
    `L0_ARRAY_STATS=1` before and after; a new copy per iteration means a
-   record whose array or map is updated through a field read, which goes
-   back to `match`.
+   record whose array or map is updated through a field read not in the
+   literal form of section 2.
 4. The sugar where the closer runs are longest, as those functions are
    touched.
 5. `L0_RC_CHECK=1` on a test run after each batch: it reports any block

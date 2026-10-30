@@ -353,12 +353,12 @@
 (data Space
   (Space (number int) (pages (Map int int))))   ; its number, its pages' frames
 
-; The map inside is updated and put back, so it is taken out by a match,
-; which releases s once it has the fields: written (.pages s (map_put
-; (.pages s) page frame)), the read would hold the map while s does too,
-; and map_put would copy it.
+; The map inside goes through map_put and back into its field: the field
+; is taken out for map_put and the result put back (spec 6.5), so the map
+; updates in place when nothing else holds s. Bound by a let first, or
+; read by another argument too, the map would be held twice and copied.
 (def space_put ((s Space) (page int) (frame int)) Space
-  (match s ((Space id pages) (Space id (map_put pages page frame)))))
+  (.pages s (map_put (.pages s) page frame)))
 
 (data Mapped
   (Mapped Space (list int)))                ; the space, a line saying which

@@ -73,17 +73,17 @@
   (Proc (space int) (ctx (array int)) (pages (array int)) (window int)
         (state int)))
 
-; A field of a process is read by name, (.state p) and the rest, and a
-; field that is a word or a list is replaced by name. A field that is an
-; array updated and put back, the context or the pages, is still taken out
-; by a match, which releases the process so the array updates in place;
-; read through a field it would be held twice and the update would copy.
+; A field of a process is read by name, (.state p) and the rest, and
+; replaced by name. A field that is an array updated through a function and
+; put back, (.ctx p (call_result (.ctx p) v)), is taken out for the
+; function and updates in place (spec 6.5), as long as nothing reads p
+; again after.
 (def proc_word ((p Proc) (k int)) int
   (array_get (.ctx p) k))
 
 ; p, runnable, with v as its call's result.
 (def resume ((p Proc) (v int)) Proc
-  (match p ((Proc s c m w st) (Proc s (call_result c v) m w -1))))
+  (.state (.ctx p (call_result (.ctx p) v)) -1))
 
 ; Argument a of the system call p made.
 (def proc_arg ((p Proc) (a int)) int
@@ -116,18 +116,21 @@
 (def kunread ((k Kern)) int
   (sub (bytes_len (.queue k)) (.taken k)))
 
-; The processes are taken out by a match, as a process's arrays are above,
-; so that the array of them updates in place; the process itself is
-; replaced by name, which copies its six words, as building it did.
+; Process i given to f with x, and put back. The array of processes goes
+; through update_at and back, and process i through f and back, each in
+; place by spec 6.5's forms, the field one and the element one.
+(def (update_at X) ((f (fn (Proc X) Proc)) (ps (array Proc)) (i int) (x X))
+    (array Proc)
+  (array_set ps i (f (array_get ps i) x)))
+
+(def with_state ((p Proc) (st int)) Proc
+  (.state p st))
+
 (def kset ((k Kern) (i int) (st int)) Kern
-  (match k
-    ((Kern ps q qo arr held pa)
-      (Kern (array_set ps i (.state (array_get ps i) st)) q qo arr held pa))))
+  (.procs k (update_at with_state (.procs k) i st)))
 
 (def kresume ((k Kern) (i int) (v int)) Kern
-  (match k
-    ((Kern ps q qo arr held pa)
-      (Kern (array_set ps i (resume (array_get ps i) v)) q qo arr held pa))))
+  (.procs k (update_at resume (.procs k) i v)))
 
 ; The first process from i in the state st, or -1.
 (def find_state ((k Kern) (st int) (i int)) int
@@ -212,9 +215,10 @@
         ((NoFrames m1) (Proc s c m1 w (out_of_memory i)))))))
 
 (def kmapped ((k Kern) (i int) (va int) (n int)) Kern
-  (match k
-    ((Kern ps q qo arr held pa)
-      (Kern (array_set ps i (map_range i (array_get ps i) va n)) q qo arr held pa))))
+  (.procs k (mapped_at (.procs k) i va n)))
+
+(def mapped_at ((ps (array Proc)) (i int) (va int) (n int)) (array Proc)
+  (array_set ps i (map_range i (array_get ps i) va n)))
 
 ; -------------------------------------------------------------- the images
 
@@ -455,11 +459,9 @@
             (after (run k1 i) i))))))
 
 (def run ((k Kern) (i int)) Kern
-  (match k
-    ((Kern ps q qo arr held pa)
-      (Kern (array_set ps i (run_proc i (array_get ps i))) q qo arr held pa))))
+  (.procs k (update_at run_proc (.procs k) i i)))
 
-(def run_proc ((i int) (p Proc)) Proc
+(def run_proc ((p Proc) (i int)) Proc
   (match p ((Proc s c m w st) (step i s m w c))))
 
 ; What process i's turn ended in, answered.
@@ -650,11 +652,11 @@
 (def kwritable ((k Kern) (i int) (va int) (n int)) bool
   (writable (.pages (array_get (.procs k) i)) va n))
 
+; k is read first, and replaced last, so the replacements store in place.
 (def give ((k Kern) (r int) (buf int) (n int)) Kern
-  (match k
-    ((Kern ps q qo arr held pa)
-      (let w (space_write (.space (array_get ps r)) buf q qo (add qo n))
-        (Kern (array_set ps r (resume (array_get ps r) n)) q (add qo n) arr held pa)))))
+  (let (qo (.taken k)
+        w (space_write (.space (array_get (.procs k) r)) buf (.queue k) qo (add qo n)))
+    (.taken (.procs k (update_at resume (.procs k) r n)) (add qo n))))
 
 ; receive(_, room)
 (def k_receive ((k Kern) (i int)) int

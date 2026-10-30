@@ -662,10 +662,13 @@ fine. What copies, silently, with correct results:
   bytes. A flat `(array int)` indexed by `(add (mul y w) x)` is still the
   fastest grid. `(array_new h (array_new w 0))` makes every row the same
   array, so each copies once, on its first update
-- **not** an array in a data value, if you take the value apart with `match`
-  and don't use it again: then the field is the only holder, and the update
-  is in place. Keeping several arrays together in a data type and rebuilding
-  it each step is fine
+- **not** an array or map in a data value updated through a function and put
+  back in exactly this form: `(.f r (g ... (.f r) ...))`, with `r` a
+  variable that no other argument of `g` mentions and that is not used
+  again; `(.ctx p (call_result (.ctx p) v))` updates the context in place.
+  Binding `(.f r)` with `let` first, or reading `r` after, copies it.
+  Taking the value apart with `match` and rebuilding it, and not using it
+  again, is in place too
 
 To check a loop, run the program with `L0_ARRAY_STATS=1`: it reports on
 standard error how many updates copied.

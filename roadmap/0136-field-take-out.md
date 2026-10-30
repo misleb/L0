@@ -1,7 +1,7 @@
 # 0136: a field taken out, updated, and put back, in place
 
 Kind: language
-Status: active
+Status: done
 Needs: 0132
 
 ## Why
@@ -61,3 +61,12 @@ the emitter's `row_update_of` and `through_args` extended to `EWith`.
   and `array_test` and `fields_test` hold the cases. Both suites, the
   fixpoint, and `--virt` on both boards green; seed refreshed;
   self-compile 0.69 s. Next: step 2, the kernel and `space_put`.
+- 2026-10-30: step 2 done. The kernel's `resume` is the field form, and
+  `kset`, `kresume`, `kmapped`, `run`, and `give` replace `.procs` through
+  `update_at`, which takes the per-process step as a function (0135), or
+  `mapped_at`; the examples' `space_put` is the field form. The board has
+  no environment for `L0_ARRAY_STATS`, so the measure is a host program
+  with the kernel's `Proc`, `Kern`, `update_at`, `kset`, `kresume`, and
+  `give`: 10,000 rounds, 0 copies, 140,004 sets in place, under
+  `L0_RC_CHECK`. Both suites and `--virt` on both boards green; the
+  adoption guide's section 2 shows the form. Done.

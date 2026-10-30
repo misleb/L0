@@ -245,7 +245,11 @@ name in sight, and a worker hit both in one session:
 A read inside the update's own call, as in `(map_put m k (map_size m))` or
 `(.n r (add (.n r) 1))`, is fine, since an operand that is the variable
 itself is taken last (10.3); `(.n (.m r 1) (.m r))` copies `r`, since the
-outer form reads it after the inner replacement.
+outer form reads it after the inner replacement. A field holding an array
+or map, updated through a function and put back as `(.ctx p (call_result
+(.ctx p) v))`, is taken out for the function and updates in place (spec
+6.5's field form, `tests/io/fields_in_place`'s `through` mode), unless `p`
+is used again after.
 `tests/io/fields_in_place` measures both shapes.
 `L0_ARRAY_STATS=1` on a run reports how many updates copied; maps count, as
 arrays. `lib/examples.l0`'s `see_key` and `map_logged` are the fixes, and

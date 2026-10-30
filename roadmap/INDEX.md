@@ -25,15 +25,13 @@ display interrupts beyond those given, and the VisionFive 2 and Pi 4.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0136](0136-field-take-out.md) a field taken out, updated, and put back
-   in place, the field form of 6.5's row form — active
-2. [0137](0137-unboxed-wrappers.md) a one-field wrapper of a word costs
-   nothing, so spaces and frames can be types — proposed; changes such a
+1. [0137](0137-unboxed-wrappers.md) a one-field wrapper of a word costs
+   nothing, so spaces and frames can be types — active; changes such a
    type's hash
-3. [0138](0138-short-circuit.md) `and` and `or` evaluate their second
+2. [0138](0138-short-circuit.md) `and` and `or` evaluate their second
    operand only when it matters — proposed; one test leaves the
    differential suite
-4. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
+3. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
    it grows — queued, left for now: hysteresis breaks spec 6.9's promise
    that a map's table depends only on its entries, and a trie that keeps
    it is the way if taken up
@@ -62,6 +60,12 @@ From the review of 2026-10-30, each proposed and not started:
   own loose ends
 
 ## Done and dropped
+
+- [0136](0136-field-take-out.md) a field taken out for a function and put
+  back in place — done, changelog "A field goes through a function and
+  back in place"; also fixed the array form taking an element `g` still
+  held; the kernel and `space_put` use it; both suites, the fixpoint, and
+  `--virt` on both boards green; not run on macOS or a Pi 5
 
 - [0135](0135-function-arguments.md) functions as arguments, by one copy
   of the callee per `def` passed — done, changelog "Functions as
