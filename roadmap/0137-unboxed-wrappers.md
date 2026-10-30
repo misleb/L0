@@ -1,7 +1,7 @@
 # 0137: a one-field wrapper costs nothing
 
 Kind: language
-Status: proposed
+Status: active
 Needs: nothing
 
 ## Why
@@ -41,3 +41,14 @@ process ABI, which passes words and bytes.
 ## Log
 
 - 2026-10-30: opened, from the review (its item 1.3); proposed.
+- 2026-10-30: active; step 1 done. Spec 10.1 names the word wrapper and
+  6.9 its hash; `unbox_words` (check.l0) renames each one's type to
+  `unboxed T` after checking, `ty_is_counted` and the emitter's
+  `ty_is_ptr` say it is not counted, and the emitter makes construction,
+  a `match` of its one arm, and its fields the identity. A scratch
+  program's `bump` of a `Space` compiles to one `add`.
+  `tests/unit/wrapper_test.l0` covers construction, `match`, fields,
+  `eq`, `compare`, `hash`, a map key, lists, arrays, and a generic call.
+  L0S's five `hash` calls hash records used as cache keys or a sequence
+  number, none pinned in a test. Both suites, the fixpoint, and `--virt`
+  on both boards green; seed refreshed; self-compile 0.69 s.

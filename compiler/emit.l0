@@ -99,7 +99,7 @@
 ; Whether a value of type t is a pointer to a heap block rather than a plain
 ; word. Spec 10.1.
 (def ty_is_ptr ((t Ty)) bool
-  (or (ty_is_list t) (or (ty_is_data t) (or (ty_is_array t) (ty_is_bytes t)))))
+  (ty_is_counted t))
 
 ; "i64 a, i64 b"
 (def fmt_ops ((ops (list (list int)))) (list int)
@@ -273,7 +273,10 @@
     ((EIf o c a b) (emit_if c a b env live tl st))
     ((ELet o n v body) (emit_let n v body env live tl st))
     ((ECtor o n tys args) (finish tl (emit_ctor n tys args env live st)))
-    ((EMatch o subject arms) (emit_match subject arms env live tl st))
+    ((EMatch o subject arms)
+      (if (is_word_arms arms env)
+          (emit_let (head (.names (head arms))) subject (.body (head arms)) env live tl st)
+          (emit_match subject arms env live tl st)))
     ((ECall o n args) (emit_call n args env live tl st))
     ((EField o f e) (finish tl (emit_field f e env live st)))
     ((EWith o f e v) (finish tl (emit_with f e v env live st)))))
@@ -288,11 +291,13 @@
   (match (emit_args (cons e (nil Expr)) env live (cons true (nil bool)) st)
     ((Ops ops ts ws st1)
       (let cs (.ctors (.ctx env))
-        (borrowed ops ts ws
-          (.ty (emit_rt_call "l0_data_get"
-                    (two_ops (head ops) (digits (field_index f (head ts) cs))) st1)
-                  (field_ty_of f (head ts) cs))
-          false)))))
+        (if (is_unboxed_name (ty_name (head ts)))
+            (Val (head ops) (field_ty_of f (head ts) cs) st1)
+            (borrowed ops ts ws
+              (.ty (emit_rt_call "l0_data_get"
+                        (two_ops (head ops) (digits (field_index f (head ts) cs))) st1)
+                      (field_ty_of f (head ts) cs))
+              false))))))
 
 ; (.f e v): l0_data_with, e and v consumed as array_set's operands are, so
 ; the runtime stores in place when nothing else holds e.
@@ -301,12 +306,14 @@
   (match (emit_args (cons e (cons (field_through f e v env live) (nil Expr))) env live
                     (nil bool) st)
     ((Ops ops ts ws st1)
-      (.ty (emit_rt_call "l0_data_with"
-                (cons (head ops)
-                  (two_ops (digits (field_index f (head ts) (.ctors (.ctx env))))
-                           (head (tail ops))))
-                st1)
-              (head ts)))))
+      (if (is_unboxed_name (ty_name (head ts)))
+          (Val (head (tail ops)) (head ts) st1)
+          (.ty (emit_rt_call "l0_data_with"
+                    (cons (head ops)
+                      (two_ops (digits (field_index f (head ts) (.ctors (.ctx env))))
+                               (head (tail ops))))
+                    st1)
+                  (head ts))))))
 
 ; The field form of spec 6.5, (.f r (g ... (.f r) ...)), with r one
 ; variable that no other argument of g mentions and f a field of a counted
@@ -1054,9 +1061,20 @@
     ((Some ci)
       (match (emit_args args env live (nil bool) st)
         ((Ops ops ts ws st1)
-          (emit_ctor_block ci
-            (TyData (.type_name ci) (ctor_type_args ci tys ts))
-            ops (.ctx env) st1))))))
+          (if (is_unboxed_name (.type_name ci))
+              (Val (head ops) (TyData (.type_name ci) (nil Ty)) st1)
+              (emit_ctor_block ci
+                (TyData (.type_name ci) (ctor_type_args ci tys ts))
+                ops (.ctx env) st1)))))))
+
+; Whether a match's one arm names a word wrapper's constructor, so the match
+; is a let of the word (spec 10.1).
+(def is_word_arms ((arms (list Arm)) (env Env)) bool
+  (if (if (is_empty arms) true (not (is_empty (tail arms))))
+      false
+      (match (find_ctor (.ctor (head arms)) (.ctors (.ctx env)))
+        ((Some ci) (is_unboxed_name (.type_name ci)))
+        ((None) false))))
 
 ; A data block's layout mask has bit k set when word k is a pointer. Word 0
 ; is the tag, so field i is word i + 1. A field whose declared type is a
@@ -2215,7 +2233,7 @@
 ; point. Spec section 9.
 ; A function with type parameters is emitted as its copies, spec 10.2.
 (def emit_module ((ds (list Decl)) (pre int)) (list int)
-  (let hs (hide_tparams (group_upper ds pre))
+  (let hs (unbox_words (hide_tparams (group_upper ds pre)))
     (match (mono_program hs pre)
       ((MP ms rs) (emit_grouped ms (copied_defs hs (nil Decl)) rs pre)))))
 

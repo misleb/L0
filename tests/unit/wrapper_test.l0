@@ -1,0 +1,56 @@
+; Unit tests of word wrappers, spec 10.1 and 6.9: a data type of one
+; constructor of one int, bool, or float field is that word. What a program
+; can see of it is what it saw before, but for hash, which is the field's.
+
+(data Space (Space int))
+(data Frame (Frame (number int)))
+(data Flag (Flag bool))
+(data Meters (Meters float))
+(data Mapping (Mapping Space Frame))
+
+(def space_of ((n int)) Space (Space n))
+
+(def test_construct_and_match () int
+  (add (check_int "match" (match (space_of 5) ((Space n) n)) 5)
+    (add (check_bool "bool" (match (Flag true) ((Flag b) b)) true)
+         (check_int "float" (float_to_int (match (Meters 2.5) ((Meters x) x))) 2))))
+
+(def test_fields () int
+  (let f (Frame 3)
+    (add (check_int "read" (.number f) 3)
+      (add (check_int "replaced" (.number (.number f 4)) 4)
+           (check_int "the original" (.number f) 3)))))
+
+(def test_eq_compare () int
+  (add (check_bool "eq" (eq (Space 1) (Space 1)) true)
+    (add (check_bool "not eq" (eq (Space 1) (Space 2)) false)
+      (add (check_int "compare" (compare (Space 1) (Space 2)) -1)
+           (check_int "compare float" (compare (Meters 2.0) (Meters 1.0)) 1)))))
+
+; The hash of a word wrapper is its field's, with no tag.
+(def test_hash () int
+  (add (check_int "int" (hash (Space 42)) (hash 42))
+    (add (check_int "bool" (hash (Flag true)) (hash true))
+         (check_int "float" (hash (Meters 1.5)) (hash 1.5)))))
+
+; Inside a data value a wrapper is a word, and a data value holding two is
+; still compared and hashed by its fields.
+(def test_inside_data () int
+  (let m (Mapping (Space 7) (Frame 9))
+    (add (check_int "fields" (match m ((Mapping s f) (add (match s ((Space n) n)) (.number f)))) 16)
+      (add (check_bool "eq" (eq m (Mapping (Space 7) (Frame 9))) true)
+           (check_int "hash, from the words" (hash m) (hash (Mapping (Space 7) (Frame 9))))))))
+
+; As a map key, and as the elements of a list and an array.
+(def test_containers () int
+  (let m (map_put (map_put ((MapEmpty Space int)) (Space 1) 10) (Space 2) 20)
+    (add (check_int "map" (match (map_get m (Space 2)) ((None) 0) ((Some v) v)) 20)
+      (add (check_int "list" (length (cons (Space 1) (cons (Space 2) (nil Space)))) 2)
+           (check_int "array" (match (array_get (array_new 3 (Space 4)) 2) ((Space n) n)) 4)))))
+
+; A type parameter that stands for a wrapper is of the kind that is not
+; counted, and the copy for it is right.
+(def (twice T) ((x T)) (list T) (cons x (cons x (nil T))))
+
+(def test_generic () int
+  (check_int "two" (length (twice (Space 1))) 2))

@@ -1639,6 +1639,73 @@
           (cons (A o (rn_name cn cns) ns (rn_expr b tns cns tps))
                 (rn_arms (tail as) tns cns tps))))))
 
+; ----------------------------------------------------------- word wrappers
+;
+; A data type without type parameters, of one constructor of one int, bool,
+; or float field, is that word (spec 10.1). After checking, each one's name
+; is made one no source can write, "unboxed Space", throughout, so that
+; whether a type is counted stays a question about the type alone
+; (ty_is_counted, and the emitter's ty_is_ptr), and the emitter makes its
+; construction, match, and fields the identity.
+
+(def unbox_words ((ds (list Decl))) (list Decl)
+  (let bs (word_binds ds (nil Bind))
+    (if (is_empty bs) ds (unbox_decls ds bs (nil Decl)))))
+
+(def is_unboxed_name ((n (list int))) bool
+  (starts_with n "unboxed "))
+
+; Each word wrapper's name, bound to its new one.
+(def word_binds ((ds (list Decl)) (acc (list Bind))) (list Bind)
+  (if (is_empty ds)
+      acc
+      (word_binds (tail ds)
+        (match (head ds)
+          ((DDef o n fps ps ret body) acc)
+          ((DData o n tps cs)
+            (if (if (is_empty tps) (is_word_ctors cs) false)
+                (cons (B n (TyData (append "unboxed " n) (nil Ty))) acc)
+                acc))))))
+
+(def is_word_ctors ((cs (list Ctor))) bool
+  (if (is_empty cs)
+      false
+      (if (not (is_empty (tail cs)))
+          false
+          (let fts (.fields (head cs))
+            (if (if (is_empty fts) true (not (is_empty (tail fts))))
+                false
+                (any_eq (head fts) (cons (TyInt) (cons (TyBool) (cons (TyFloat) (nil Ty))))))))))
+
+(def unbox_decls ((ds (list Decl)) (bs (list Bind)) (acc (list Decl))) (list Decl)
+  (if (is_empty ds)
+      (rev_onto acc (nil Decl))
+      (unbox_decls (tail ds) bs (cons (unbox_decl (head ds) bs) acc))))
+
+; A data declaration's own parameters hide a type of the same name, so they
+; are left alone in its fields (spec 3); a def's were made distinct already.
+(def unbox_decl ((d Decl) (bs (list Bind))) Decl
+  (match d
+    ((DDef o n fps ps ret body)
+      (DDef o n fps (params_inst ps bs) (ty_inst ret bs) (expr_inst body bs)))
+    ((DData o n tps cs)
+      (let dbs (binds_without bs tps)
+        (DData o (match (find_bind n bs) ((Some t) (ty_name t)) ((None) n)) tps
+               (ctors_inst cs dbs))))))
+
+(def binds_without ((bs (list Bind)) (ns (list (list int)))) (list Bind)
+  (if (is_empty bs)
+      bs
+      (if (any_eq (.name (head bs)) ns)
+          (binds_without (tail bs) ns)
+          (cons (head bs) (binds_without (tail bs) ns)))))
+
+(def ctors_inst ((cs (list Ctor)) (bs (list Bind))) (list Ctor)
+  (if (is_empty cs)
+      cs
+      (cons (.fields (head cs) (tys_inst (.fields (head cs)) bs))
+            (ctors_inst (tail cs) bs))))
+
 ; ------------------------------------------- a function's type parameters
 ;
 ; A def's type parameter hides a data type of the same name within the def
@@ -1961,9 +2028,13 @@
 (def kind_digits ((ks (list bool))) (list int)
   (if (is_empty ks) (nil int) (cons (if (head ks) 49 48) (kind_digits (tail ks)))))
 
-; Whether values of type t are counted: spec 10.1 and 10.3.
+; Whether values of type t are counted: spec 10.1 and 10.3. A word
+; wrapper's, after unbox_words, are not.
 (def ty_is_counted ((t Ty)) bool
-  (or (ty_is_list t) (or (ty_is_data t) (or (ty_is_array t) (ty_is_bytes t)))))
+  (or (ty_is_list t) (or (ty_is_boxed t) (or (ty_is_array t) (ty_is_bytes t)))))
+
+(def ty_is_boxed ((t Ty)) bool
+  (if (ty_is_data t) (not (is_unboxed_name (ty_name t))) false))
 
 ; What each type parameter stands for, as kinds, for a call the checker
 ; accepted.

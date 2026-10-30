@@ -15,6 +15,45 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## A one-field wrapper of a word is the word (roadmap 0137)
+
+**New:** a *word wrapper*, a data type declared without type parameters
+with one constructor of one field of type `int`, `bool`, or `float`, such
+as `(data Space (Space int))`, is represented as its field's word (spec
+10.1): constructing one, matching it, and reading or replacing its field
+are the identity, and nothing about it is counted. `eq` and `compare` are
+unchanged, being the field's already; `hash` loses the tag item, so it is
+the field's hash (6.9).
+
+*Why:* spec 6.12 says regions, handles, spaces, frames, CPUs, and
+interrupts are numbered apart and "neither is ever the other", and the
+checker could see none of it, since wrapping an `int` in a data type
+allocated a block with a header and a tag for every value. So the builtins
+took bare ints and a kernel kept them, and passing a frame where a space
+was due was `not a space` at run time rather than a compile error. The
+library wrapped two, `IoFile` and `IoDevice`, and paid for it at every
+call. The smallest program that could not be written without the cost: a
+kernel whose spaces and frames are different types.
+
+*Decided:*
+- *By the declaration, not by a keyword.* Every such type is a wrapper,
+  so `IoFile`, `IoDevice`, and any program's already are, with nothing to
+  write; the only thing a program can observe is `hash`, which changes.
+- *Only `int`, `bool`, and `float` fields, and no type parameters.* A
+  field of a counted type would make the wrapper counted or not by its
+  field, and a type parameter would make it a wrapper at some types only;
+  neither earns its rules yet.
+- *Done after checking*, by giving a wrapper's type a name no source can
+  write, as `group_upper` and `hide_tparams` do, so that whether a type is
+  counted stays a question about the type alone.
+- *`hash` changes.* Keeping the tag item would have meant hashing a word
+  as if it were a block, for no gain. L0S calls `hash` five times, each
+  on a record used as a cache key or a TCP sequence number, and pins none
+  in a test, so a record holding a wrapper hashes differently and nothing
+  depends on which.
+
+---
+
 ## A field goes through a function and back in place (roadmap 0136)
 
 **New:** `(.f r (g a1 ... (.f r) ... an))`, with `r` one variable that no
