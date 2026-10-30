@@ -100,8 +100,10 @@ silent and converts a caught bug into a permanent one.
   to the calls, needs `tools/test.sh --virt`, which runs `tests/virt` again
   as processes, and `tests/virt/proc`, under the kernel hand-written in IR
   in `tests/virt/proc/harness`. That kernel is a test harness, as
-  `tests/backend` is: it answers spec 10.3's calls, and a change to them
-  changes it too. So does `tests/virt/user/kernel.l0`, the kernel in L0
+  `tests/backend` is, and an oracle that is not the code under test: it
+  answers spec 10.3's calls 1 to 11, and a change to them changes it too,
+  but a new call is tested under `kernel.l0` alone, as 12 and 13 are, and
+  the harness does not grow (roadmap 0146). So does `tests/virt/user/kernel.l0`, the kernel in L0
   that runs `tests/virt` again through the user-mode builtins of spec
   6.13, which the board's host gives, and `tests/virt/proc`'s tests with the
   timer's slices of 6.14. It defines calls of its own (6.15), which its

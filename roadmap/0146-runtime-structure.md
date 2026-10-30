@@ -93,3 +93,39 @@ the board, which only the user can do.
   step 4, the board files and `tests/virt/board/*.l0` from one table, or
   step 5, which first needs a list of what the IR harness kernels run
   that `kernel.l0` does not.
+- 2026-10-30: step 5's gap, compared. What each runs under `--virt`:
+  both run every `tests/virt` program as a process, with its arguments,
+  and both run `tests/virt/proc`'s with what their `.with` files name;
+  `tools/bootstrap.sh --virt` runs the compiler's fixpoint as a process
+  under each. `kernel.l0` also runs `tests/virt/user`'s eight `.procs`
+  tests, the harness IR processes (`fault`, `selfwrite`, `bigbss`, a
+  foreign CPU's) among them. It answers more: calls 1 to 13 and its own
+  from 256 (6.15), where the harness answers 1 to 11 and so tests neither
+  `release` (12) nor `unregion` (13); and it takes images of any size
+  from its standard input, where the harness's slots are 4 MB. What the
+  harness has that `kernel.l0` lacks:
+  - *Arguments with a space.* `kernel.l0` takes its processes' arguments
+    from its own boot arguments, which hold no spaces (9.2), so
+    `tests/virt/proc/args`, whose second argument is `second arg`, runs
+    under the harness only. `tools/test.sh` skipped every `.args` test of
+    `tests/virt/proc` under `kernel.l0`; it now skips only one with a
+    space, and runs the rest with their arguments as `0:VALUE`. Closing
+    it means a way to give `kernel.l0` arguments with spaces, such as
+    reading them from its standard input beside the images.
+  - *Independence.* The harness is IR, compiled by nothing under test,
+    running at EL1 or S-mode with its own page tables, ASIDs, and GIC or
+    PLIC driver; `kernel.l0` is compiled by the compiler under test and
+    runs processes through the board host's user-mode builtins
+    (`board.ll`'s spaces, frames, and `user_run`). So a fault in the
+    process host (`proc.ll`) shows under the harness alone, where under
+    `kernel.l0` a fault in the board's user mode or the compiler could
+    mask it or be blamed on it. This is the property stage 0 and
+    `tests/backend` keep for the compiler.
+  Recommendation: keep both harness kernels, as an oracle that is not
+  the code under test, frozen as stage 0 is: no new system call is added
+  to them, and a new one is tested under `kernel.l0`, as 12, 13, and the
+  kernel's own already are. Retiring them would cost the only check of
+  `proc.ll` that does not run through `board.ll` and the compiler. Step 5
+  is therefore recorded as not worth it, for that reason; the space gap
+  stays named above. `--virt` green on both boards after the test.sh
+  change.

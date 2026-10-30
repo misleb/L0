@@ -900,8 +900,9 @@ if [ "$VIRT" = 1 ]; then
     # processes in order, an L0 program by its path or the harness's IR by
     # its name, such as fault, which the kernel must kill, or by
     # foreign:NAME, another CPU's, which it must not start; then
-    # tests/virt/proc's, beside what their .with files name, as under the
-    # harness, but for those given arguments, which this kernel gives none.
+    # tests/virt/proc's, beside what their .with files name, and with their
+    # arguments, as under the harness, but for arguments with a space, which
+    # this kernel cannot be given.
     user=tests/virt/user
     uwork="$TMP/user"
     mkdir -p "$uwork"
@@ -1055,8 +1056,14 @@ if [ "$VIRT" = 1 ]; then
     done
 
     # user_proc NAME STEM runs tests/virt/proc's program, as built above,
-    # under kernel.l0, beside what its .with file names.
+    # under kernel.l0, beside what its .with file names, with its .args as
+    # process 0's, which kernel.l0 takes from its own as "0:VALUE".
     user_proc() {
+        kargs=-
+        if [ -f "$2.args" ]; then
+            sed 's/^/0:/' "$2.args" > "$uwork/$1.kargs"
+            kargs="$uwork/$1.kargs"
+        fi
         beside=""
         if [ -f "$2.with" ]; then
             for w in $(cat "$2.with"); do
@@ -1071,7 +1078,7 @@ if [ "$VIRT" = 1 ]; then
         fi
         # shellcheck disable=SC2086
         run_case user-proc "$1" "$2" "$user/run.sh" \
-            "$uwork/kernel.img" "$uwork" - "$TMP/$1.proc.img" $beside
+            "$uwork/kernel.img" "$uwork" "$kargs" "$TMP/$1.proc.img" $beside
         return 0
     }
     for src in tests/virt/proc/*.l0; do
@@ -1079,7 +1086,9 @@ if [ "$VIRT" = 1 ]; then
         name=$(basename "$src" .l0)
         selected "$name" || continue
         stem="tests/virt/proc/$name"
-        [ -f "$stem.args" ] && continue
+        # kernel.l0's arguments are its boot arguments, which hold no
+        # spaces (spec 9.2), so one with a space runs under the harness only.
+        if [ -f "$stem.args" ] && grep -q ' ' "$stem.args"; then continue; fi
         [ -f "$TMP/$name.proc.img" ] || continue
         spawn user_proc "$name" "$stem"
     done
