@@ -118,11 +118,26 @@
 ;
 ; A file is an IoFile rather than a bare handle, so the checker can tell one
 ; from any other int. Opening returns IoOpened, whose IoFailed case a match
-; has to handle, so a program cannot forget that opening can fail. This
-; library's types and constructors begin with Io, or with the operation or
-; thing they describe, Open, Create, Rename, Remove, Write, Device, or Trap,
-; so a reader can tell them apart; Done and NotDone are the exceptions. A
-; program that declares one of its own shadows it (spec section 7.1).
+; has to handle, so a program cannot forget that opening can fail.
+;
+; The names here follow one rule, so a reader can guess one from another:
+; - a thing the library hands out is Io and its noun, IoFile and IoRegion,
+;   and what reading gives is Io and what it is, IoLine and IoBytes
+; - the result of an operation that can fail is Io and the operation's past
+;   participle, IoOpened, IoRegionOpened, and IoDone, whose success case
+;   has the type's name, or Done, and whose failure case ends in Failed or
+;   Error, or is NotDone, and carries a fault and words
+; - a fault is the operation's noun and Fault, OpenFault to RegionFault,
+;   and its cases begin with that noun, OpenMissing and RegionNoRoom
+; - a function on an open thing is the thing's noun first, file_read_byte
+;   and region_get32; one that takes a path or opens is the verb first,
+;   open_in, rename_file
+; - no library name is a builtin's, since that would take the builtin from
+;   every program (spec section 7): so open_appending, not open_append,
+;   and region_get32, not region_read32
+; Trap and its cases name what the CPU did, not an I/O operation. A
+; program that declares a name of its own shadows the library's (spec
+; section 7.1).
 
 ;; An open file. Get one from open_in, open_out, or open_appending, or from
 ;; open_in_bytes and open_out_buffer for one in memory; use it with the file_
@@ -394,99 +409,157 @@
 ; -------------------------------------------------------------------- devices
 ;
 ; A device's registers, over the region builtins of spec section 6.12. A
-; region is an IoDevice rather than a bare int, as a file is an IoFile, so
-; the checker can tell it from a handle, and the functions take the noun
-; device rather than region, since a function of the library named as a
-; builtin is would take that builtin from every program (spec section 7).
+; region is an IoRegion rather than a bare int, as a file is an IoFile, so
+; the checker can tell it from a handle; it is a word, so this costs
+; nothing (spec 10.1). The builtins have the names region_read32 and the
+; rest, and a library function of a builtin's name would take it from
+; every program (spec section 7), so a region is read with region_get32
+; and written with region_set32, as an array is with array_get and
+; array_set.
 
-;; A range of a device's memory, its registers, opened with open_device.
-;; Read it with device_read8 to device_read64 and write it with
-;; device_write8 to device_write64, at offsets from the range's start, or
-;; copy bytes out and in with device_read_bytes and device_write_bytes.
-(data IoDevice
-  (IoDevice int))
+;; A range of a device's memory, its registers, opened with open_region.
+;; Read it with region_get8 to region_get64 and write it with region_set8 to
+;; region_set64, at offsets from the range's start, or copy bytes out and
+;; in with region_get_bytes and region_set_bytes.
+(data IoRegion
+  (IoRegion (id int)))
 
-;; The result of opening a device: (DeviceOpened d), or (DeviceFailed fault
-;; why), where fault says which failure it was and why says it in words.
-(data DeviceOpened
-  (DeviceOpened IoDevice)
-  (DeviceFailed DeviceFault (list int)))
+;; The result of opening a region: (IoRegionOpened g), or (IoRegionFailed
+;; fault why), where fault says which failure it was and why says it in
+;; words.
+(data IoRegionOpened
+  (IoRegionOpened IoRegion)
+  (IoRegionFailed RegionFault (list int)))
 
-;; Why opening a device failed: the host has no device there, which under an
-;; operating system is every range; or no more can be open (spec section
+;; Why opening a region failed: the host has no device there, which under
+;; an operating system is every range; or no more can be open (spec section
 ;; 6.12's -3 and -5).
-(data DeviceFault
-  (DeviceMissing)
-  (DeviceNoRoom))
+(data RegionFault
+  (RegionMissing)
+  (RegionNoRoom))
 
 ;; Opens the len bytes of device memory at address base, which must lie
 ;; wholly within one of the machine's devices: on QEMU's virt board, those
 ;; spec section 10.3 lists, such as the PL011 serial port's 4096 bytes at
 ;; 0x09000000.
-(def open_device ((base int) (len int)) DeviceOpened
+(def open_region ((base int) (len int)) IoRegionOpened
   (let r (region_open base len)
     (if (ge r 0)
-        (DeviceOpened (IoDevice r))
+        (IoRegionOpened (IoRegion r))
         (if (eq r -3)
-            (DeviceFailed (DeviceMissing) "no device there")
-            (DeviceFailed (DeviceNoRoom) "too many devices open")))))
+            (IoRegionFailed (RegionMissing) "no device there")
+            (IoRegionFailed (RegionNoRoom) "too many regions open")))))
 
-;; Closes d, which open_device gave, once every access to it is complete,
-;; and returns 0: d is then no device, and its number may be given to a
-;; later open_device. Closing it again is a runtime error. At most 64
-;; devices are open at once.
-(def close_device ((d IoDevice)) int
-  (match d ((IoDevice r) (region_close r))))
+;; Closes g, which open_region gave, once every access to it is complete,
+;; and returns 0: g is then no region, and its number may be given to a
+;; later open_region. Closing it again is a runtime error. At most 64
+;; regions are open at once.
+(def close_region ((g IoRegion)) int
+  (region_close (.id g)))
 
-;; The byte at off in d, 0 to 255. Every device_ read and write is one
-;; access of its width, where evaluation order puts it, even when its result
-;; is unused; an off past either end of d, or an address not a multiple of
-;; the width, is a runtime error.
-(def device_read8 ((d IoDevice) (off int)) int
-  (match d ((IoDevice r) (region_read8 r off))))
+;; The byte at off in g, 0 to 255. Every region_get and region_set is one
+;; access of its width, where evaluation order puts it, even when its
+;; result is unused; an off past either end of g, or an address not a
+;; multiple of the width, is a runtime error.
+(def region_get8 ((g IoRegion) (off int)) int
+  (region_read8 (.id g) off))
 
-;; The 2 bytes at off in d, 0 to 65535, the lower address least significant.
-(def device_read16 ((d IoDevice) (off int)) int
-  (match d ((IoDevice r) (region_read16 r off))))
+;; The 2 bytes at off in g, 0 to 65535, the lower address least significant.
+(def region_get16 ((g IoRegion) (off int)) int
+  (region_read16 (.id g) off))
 
-;; The 4 bytes at off in d, never negative, the lower address least
+;; The 4 bytes at off in g, never negative, the lower address least
 ;; significant: a 32-bit register.
-(def device_read32 ((d IoDevice) (off int)) int
-  (match d ((IoDevice r) (region_read32 r off))))
+(def region_get32 ((g IoRegion) (off int)) int
+  (region_read32 (.id g) off))
 
-;; The 8 bytes at off in d as all 64 bits of an int, so negative when the
+;; The 8 bytes at off in g as all 64 bits of an int, so negative when the
 ;; top bit is set.
-(def device_read64 ((d IoDevice) (off int)) int
-  (match d ((IoDevice r) (region_read64 r off))))
+(def region_get64 ((g IoRegion) (off int)) int
+  (region_read64 (.id g) off))
 
-;; Writes the low 8 bits of v at off in d, and returns 0.
-(def device_write8 ((d IoDevice) (off int) (v int)) int
-  (match d ((IoDevice r) (region_write8 r off v))))
+;; Writes the low 8 bits of v at off in g, and returns 0.
+(def region_set8 ((g IoRegion) (off int) (v int)) int
+  (region_write8 (.id g) off v))
 
-;; Writes the low 16 bits of v at off in d, and returns 0.
-(def device_write16 ((d IoDevice) (off int) (v int)) int
-  (match d ((IoDevice r) (region_write16 r off v))))
+;; Writes the low 16 bits of v at off in g, and returns 0.
+(def region_set16 ((g IoRegion) (off int) (v int)) int
+  (region_write16 (.id g) off v))
 
-;; Writes the low 32 bits of v at off in d, and returns 0.
-(def device_write32 ((d IoDevice) (off int) (v int)) int
-  (match d ((IoDevice r) (region_write32 r off v))))
+;; Writes the low 32 bits of v at off in g, and returns 0.
+(def region_set32 ((g IoRegion) (off int) (v int)) int
+  (region_write32 (.id g) off v))
 
-;; Writes all 64 bits of v at off in d, and returns 0.
-(def device_write64 ((d IoDevice) (off int) (v int)) int
-  (match d ((IoDevice r) (region_write64 r off v))))
+;; Writes all 64 bits of v at off in g, and returns 0.
+(def region_set64 ((g IoRegion) (off int) (v int)) int
+  (region_write64 (.id g) off v))
 
-;; A copy of the n bytes at off in d, as bytes: for a range over memory,
+;; A copy of the n bytes at off in g, as bytes: for a range over memory,
 ;; such as pages shared or given a device, not over registers, since each
 ;; byte is read once, lowest first, but at widths the host chooses. A
-;; negative n, or a range past either end of d, is a runtime error.
-(def device_read_bytes ((d IoDevice) (off int) (n int)) bytes
-  (match d ((IoDevice r) (region_read_bytes r off n))))
+;; negative n, or a range past either end of g, is a runtime error.
+(def region_get_bytes ((g IoRegion) (off int) (n int)) bytes
+  (region_read_bytes (.id g) off n))
 
-;; Copies bytes i up to j of b into d from off, as device_read_bytes reads
+;; Copies bytes i up to j of b into g from off, as region_get_bytes reads
 ;; them, and returns 0. A range not within b, as write_bytes takes one, or
-;; past either end of d, is a runtime error.
+;; past either end of g, is a runtime error.
+(def region_set_bytes ((g IoRegion) (off int) (b bytes) (i int) (j int)) int
+  (region_write_bytes (.id g) off b i j))
+
+; The names these had before roadmap 0144, kept so that programs written
+; with them still compile; each is the new one, and costs nothing, since an
+; IoDevice is a word too and each call inlines. They go once L0S has moved.
+
+;; The old name of IoRegion, which open_device gives and the device_
+;; functions take.
+(data IoDevice
+  (IoDevice int))
+
+;; The old name of IoRegionOpened.
+(data DeviceOpened
+  (DeviceOpened IoDevice)
+  (DeviceFailed DeviceFault (list int)))
+
+;; The old name of RegionFault.
+(data DeviceFault
+  (DeviceMissing)
+  (DeviceNoRoom))
+
+;; The old name of open_region.
+(def open_device ((base int) (len int)) DeviceOpened
+  (match (open_region base len)
+    ((IoRegionOpened g) (DeviceOpened (IoDevice (.id g))))
+    ((IoRegionFailed fault why)
+      (DeviceFailed (if (eq fault (RegionMissing)) (DeviceMissing) (DeviceNoRoom)) why))))
+
+(def as_region ((d IoDevice)) IoRegion
+  (match d ((IoDevice r) (IoRegion r))))
+
+;; The old name of close_region.
+(def close_device ((d IoDevice)) int (close_region (as_region d)))
+;; The old name of region_get8.
+(def device_read8 ((d IoDevice) (off int)) int (region_get8 (as_region d) off))
+;; The old name of region_get16.
+(def device_read16 ((d IoDevice) (off int)) int (region_get16 (as_region d) off))
+;; The old name of region_get32.
+(def device_read32 ((d IoDevice) (off int)) int (region_get32 (as_region d) off))
+;; The old name of region_get64.
+(def device_read64 ((d IoDevice) (off int)) int (region_get64 (as_region d) off))
+;; The old name of region_set8.
+(def device_write8 ((d IoDevice) (off int) (v int)) int (region_set8 (as_region d) off v))
+;; The old name of region_set16.
+(def device_write16 ((d IoDevice) (off int) (v int)) int (region_set16 (as_region d) off v))
+;; The old name of region_set32.
+(def device_write32 ((d IoDevice) (off int) (v int)) int (region_set32 (as_region d) off v))
+;; The old name of region_set64.
+(def device_write64 ((d IoDevice) (off int) (v int)) int (region_set64 (as_region d) off v))
+;; The old name of region_get_bytes.
+(def device_read_bytes ((d IoDevice) (off int) (n int)) bytes
+  (region_get_bytes (as_region d) off n))
+;; The old name of region_set_bytes.
 (def device_write_bytes ((d IoDevice) (off int) (b bytes) (i int) (j int)) int
-  (match d ((IoDevice r) (region_write_bytes r off b i j))))
+  (region_set_bytes (as_region d) off b i j))
 
 ; A thread's trap, over the user-mode builtins of spec section 6.13, read
 ; from its context as section 10.3 lays one out for the CPU machine names

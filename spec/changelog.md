@@ -15,6 +15,39 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## The library's regions are called regions, and no language change for it (roadmap 0144)
+
+**Changed:** `lib/io.l0` states one naming rule in its header, and its
+region wrappers follow it: `IoRegion`, `IoRegionOpened` with
+`IoRegionOpened` and `IoRegionFailed`, `RegionFault` with `RegionMissing`
+and `RegionNoRoom`, `open_region`, `close_region`, `region_get8` to
+`region_get64`, `region_set8` to `region_set64`, `region_get_bytes`, and
+`region_set_bytes`. Every old name, `IoDevice`, `DeviceOpened`,
+`open_device`, `device_read32` and the rest, is kept as an alias, a type
+beside the new one and a `def` calling the new function, documented as the
+old name, so nothing that compiled stops compiling.
+
+*Why:* the spec calls them regions and the library called them devices,
+and the constructor pairs, `IoOpened`/`IoFailed` against
+`DeviceOpened`/`DeviceFailed`, differed in shape, while `lib/io.l0`'s own
+header stated a rule its newer types broke. The review found it; L0S uses
+the device names in 41 files, so a rename without aliases would have
+broken all of them.
+
+*Decided:*
+- *`region_get32` and `region_set32`*, since `region_read32` is the
+  builtin's name, and a library function of a builtin's name would take it
+  from every program (spec 7); get and set are what `array_get` and
+  `array_set` say of an indexed thing.
+- *Left as they were:* `open_appending`, since `open_append` is a builtin;
+  `IoLine`'s `IoError`, which the rule allows as an `Error` ending; and
+  `Trap`, which names what the CPU did. Renaming them would have cost a
+  second set of aliases for no rule's sake.
+- *Aliases cost nothing:* `IoDevice` and `IoRegion` are word wrappers
+  (0137), and each alias inlines.
+
+---
+
 ## and and or evaluate their second operand only when it matters (roadmap 0138)
 
 **New:** the builtins `(and a b)` and `(or a b)` evaluate `b` only when `a`

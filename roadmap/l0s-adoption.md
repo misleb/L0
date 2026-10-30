@@ -363,3 +363,41 @@ position, so a loop through `or` is still written with `if`.
 **Where L0S gains.** Guards written as a nested `if` only because `and`
 evaluated both sides, `(if (is_empty xs) false (gt (head xs) 0))`, read as
 the `and` they mean; convert them as the functions are touched.
+
+## 10. The library's regions are called regions (roadmap 0144)
+
+`lib/io.l0`'s header states one naming rule (`l0 doc` shows the library
+under it), and the region wrappers now follow it. Every old name still
+compiles, as an alias of the new; nothing in L0S has to change now.
+
+| Old name | New name |
+| --- | --- |
+| `IoDevice` (type and constructor) | `IoRegion`, its field `(.id g)` |
+| `DeviceOpened`, `DeviceFailed` | `IoRegionOpened`, `IoRegionFailed` |
+| `DeviceFault`, `DeviceMissing`, `DeviceNoRoom` | `RegionFault`, `RegionMissing`, `RegionNoRoom` |
+| `open_device`, `close_device` | `open_region`, `close_region` |
+| `device_read8` to `device_read64` | `region_get8` to `region_get64` |
+| `device_write8` to `device_write64` | `region_set8` to `region_set64` |
+| `device_read_bytes`, `device_write_bytes` | `region_get_bytes`, `region_set_bytes` |
+
+From `lib/examples.l0`:
+
+```
+(def uart_write ((s (list int))) int
+  (match (open_region 150994944 4096)
+    ((IoRegionFailed fault why) (length s))
+    ((IoRegionOpened u) (uart_send u s))))
+```
+
+The old and new types are different types, so a function converted to
+`IoRegion` cannot be handed an `IoDevice`: convert a driver whole, or wrap
+at its edge with `(IoRegion (match d ((IoDevice r) r)))`. Where the old
+names remain, by count on 2026-10-30, 298 `IoDevice`, 200 `device_write32`,
+188 `device_read32`, 55 `DeviceOpened`, 43 `open_device`:
+
+```bash
+grep -rnwE 'IoDevice|DeviceOpened|DeviceFailed|DeviceFault|DeviceMissing|DeviceNoRoom|open_device|close_device|device_(read|write)(8|16|32|64|_bytes)' --include='*.l0' .
+```
+
+The aliases go once that grep finds nothing in L0S, and not before
+2026-12-31; the roadmap item that removes them will say so here first.

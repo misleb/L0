@@ -1,26 +1,38 @@
-; Unit tests for lib/io.l0's devices, over the region builtins of spec
+; Unit tests for lib/io.l0's regions, over the region builtins of spec
 ; section 6.12, on a host with an operating system, which gives none
 ; (section 9.2). tests/virt/device covers a board that has them.
 
-(def fault_of ((r DeviceOpened)) (list int)
+(def fault_of ((r IoRegionOpened)) (list int)
   (match r
-    ((DeviceOpened d) "opened")
-    ((DeviceFailed fault why) why)))
+    ((IoRegionOpened g) "opened")
+    ((IoRegionFailed fault why) why)))
 
-(def test_no_device_under_an_os () int
-  (add (check_str "the board's PL011" (fault_of (open_device 150994944 4096))
+(def test_no_region_under_an_os () int
+  (add (check_str "the board's PL011" (fault_of (open_region 150994944 4096))
          "no device there")
-    (add (check_true "missing" (eq (open_device 150994944 4096)
-                                   (DeviceFailed (DeviceMissing) "no device there")))
-         (check_str "no bytes" (fault_of (open_device 150994944 0))
+    (add (check_true "missing" (eq (open_region 150994944 4096)
+                                   (IoRegionFailed (RegionMissing) "no device there")))
+         (check_str "no bytes" (fault_of (open_region 150994944 0))
            "no device there"))))
+
+; The names before roadmap 0144 are the new ones, kept for programs that
+; use them.
+(def test_old_names () int
+  (check_true "open_device" (eq (open_device 150994944 4096)
+                                (DeviceFailed (DeviceMissing) "no device there"))))
 
 (def test_barrier () int
   (check_int "barrier" (barrier) 0))
 
 ; No region is open, so reading one is a runtime error.
 (def test_not_a_region () int
-  (device_read32 (IoDevice 0) 0))
+  (region_get32 (IoRegion 0) 0))
 
 (def expect_not_a_region () (list int)
+  "not a region")
+
+(def test_not_a_region_by_its_old_name () int
+  (device_read32 (IoDevice 0) 0))
+
+(def expect_not_a_region_by_its_old_name () (list int)
   "not a region")

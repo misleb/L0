@@ -8,12 +8,12 @@
 ; "hi" goes straight to the serial port, while what write_line writes is
 ; held back until the program ends, so it comes after on standard output.
 
-(def put ((u IoDevice) (b int)) int
-  (if (eq (bit_and (device_read8 u 5) 32) 0)        ; transmit holding register full
+(def put ((u IoRegion) (b int)) int
+  (if (eq (bit_and (region_get8 u 5) 32) 0)        ; transmit holding register full
       (put u b)
-      (device_write8 u 0 b)))                       ; the transmit holding register
+      (region_set8 u 0 b)))                       ; the transmit holding register
 
-(def put_all ((u IoDevice) (s (list int))) int
+(def put_all ((u IoRegion) (s (list int))) int
   (if (is_empty s)
       0
       (let w (put u (head s)) (put_all u (tail s)))))
@@ -21,26 +21,26 @@
 (def hex ((v int)) int
   (write_line (hex_digits v 1)))
 
-(def reads ((v IoDevice)) int
-  (let c (hex (device_read32 v 0))                  ; virtio magic, "virt"
-    (let d (hex (device_read16 v 0))
-      (hex (device_read64 v 0)))))                  ; magic, then version 2, modern
+(def reads ((v IoRegion)) int
+  (let c (hex (region_get32 v 0))                  ; virtio magic, "virt"
+    (let d (hex (region_get16 v 0))
+      (hex (region_get64 v 0)))))                  ; magic, then version 2, modern
 
-(def writes ((u IoDevice)) int
-  (let a (device_write8 u 7 161)                    ; the scratch register, 0xa1
-    (let b (hex (device_read8 u 7))
-      (let c (device_write8 u 7 178)                ; 0xb2
+(def writes ((u IoRegion)) int
+  (let a (region_set8 u 7 161)                    ; the scratch register, 0xa1
+    (let b (hex (region_get8 u 7))
+      (let c (region_set8 u 7 178)                ; 0xb2
         (let i (barrier)
-          (hex (device_read8 u 7)))))))
+          (hex (region_get8 u 7)))))))
 
-(def opened ((r DeviceOpened)) IoDevice
+(def opened ((r IoRegionOpened)) IoRegion
   (match r
-    ((DeviceOpened d) d)
-    ((DeviceFailed fault why) (IoDevice -1))))
+    ((IoRegionOpened d) d)
+    ((IoRegionFailed fault why) (IoRegion -1))))
 
 (def main () int
-  (let u (opened (open_device (board_uart) (board_uart_len)))
-    (let v (opened (open_device (board_virtio) 512))
+  (let u (opened (open_region (board_uart) (board_uart_len)))
+    (let v (opened (open_region (board_virtio) 512))
       (let w (put_all u "hi\n")
         (let r (reads v)
           (writes u))))))

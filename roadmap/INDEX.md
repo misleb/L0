@@ -44,8 +44,6 @@ From the review of 2026-10-30, each proposed and not started:
   the runtime, and the boards
 - [0142](0142-spec-tables.md) tooling: the spec's normative lists as
   tables, after 0141
-- [0144](0144-library-naming.md) tooling: the library's names made
-  consistent, with aliases for L0S
 - [0145](0145-compiler-internals.md) tooling: the compiler's own structure,
   after 0135
 - [0146](0146-runtime-structure.md) tooling: the runtime's structure, the
@@ -54,6 +52,10 @@ From the review of 2026-10-30, each proposed and not started:
   own loose ends
 
 ## Done and dropped
+
+- [0144](0144-library-naming.md) tooling: the library's regions are
+  called regions, under one naming rule, the old names kept as aliases —
+  done, changelog "The library's regions are called regions"
 
 - [0138](0138-short-circuit.md) `and` and `or` evaluate their second
   operand only when it matters — done, changelog "and and or evaluate

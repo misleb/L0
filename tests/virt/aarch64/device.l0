@@ -9,12 +9,12 @@
 ; "hi" goes straight to the serial port, while what write_line writes is
 ; held back until the program ends, so it comes after on standard output.
 
-(def put ((u IoDevice) (b int)) int
-  (if (eq (bit_and (device_read32 u 24) 32) 32)    ; transmit FIFO full
+(def put ((u IoRegion) (b int)) int
+  (if (eq (bit_and (region_get32 u 24) 32) 32)    ; transmit FIFO full
       (put u b)
-      (device_write8 u 0 b)))                       ; the data register
+      (region_set8 u 0 b)))                       ; the data register
 
-(def put_all ((u IoDevice) (s (list int))) int
+(def put_all ((u IoRegion) (s (list int))) int
   (if (is_empty s)
       0
       (let w (put u (head s)) (put_all u (tail s)))))
@@ -22,33 +22,33 @@
 (def hex ((v int)) int
   (write_line (hex_digits v 1)))
 
-(def reads ((u IoDevice) (v IoDevice)) int
-  (let a (hex (device_read32 u 4064))               ; PL011 PeriphID0, 0x11
-    (let b (hex (device_read8 u 4092))              ; PrimeCell ID3, 0xb1
-      (let c (hex (device_read32 v 0))              ; virtio magic, "virt"
-        (let d (hex (device_read16 v 0))
-          (hex (device_read64 v 0)))))))            ; magic, then version 2, modern
+(def reads ((u IoRegion) (v IoRegion)) int
+  (let a (hex (region_get32 u 4064))               ; PL011 PeriphID0, 0x11
+    (let b (hex (region_get8 u 4092))              ; PrimeCell ID3, 0xb1
+      (let c (hex (region_get32 v 0))              ; virtio magic, "virt"
+        (let d (hex (region_get16 v 0))
+          (hex (region_get64 v 0)))))))            ; magic, then version 2, modern
 
-(def writes ((g IoDevice)) int
-  (let a (device_write8 g 1024 161)                         ; 0xa1
-    (let b (hex (device_read8 g 1024))
-      (let c (device_write16 g 1024 49330)                  ; 0xc0b2
-        (let d (hex (device_read8 g 1024))
-          (let e (device_write32 g 1024 2153791683)         ; 0x806040c3
-            (let f (hex (device_read8 g 1024))
-              (let h (device_write64 g 1024 -8613303245920329004)  ; 0x88776655443322d4
+(def writes ((g IoRegion)) int
+  (let a (region_set8 g 1024 161)                         ; 0xa1
+    (let b (hex (region_get8 g 1024))
+      (let c (region_set16 g 1024 49330)                  ; 0xc0b2
+        (let d (hex (region_get8 g 1024))
+          (let e (region_set32 g 1024 2153791683)         ; 0x806040c3
+            (let f (hex (region_get8 g 1024))
+              (let h (region_set64 g 1024 -8613303245920329004)  ; 0x88776655443322d4
                 (let i (barrier)
-                  (hex (device_read8 g 1024)))))))))))
+                  (hex (region_get8 g 1024)))))))))))
 
-(def opened ((r DeviceOpened)) IoDevice
+(def opened ((r IoRegionOpened)) IoRegion
   (match r
-    ((DeviceOpened d) d)
-    ((DeviceFailed fault why) (IoDevice -1))))
+    ((IoRegionOpened d) d)
+    ((IoRegionFailed fault why) (IoRegion -1))))
 
 (def main () int
-  (let u (opened (open_device 150994944 4096))      ; the PL011
-    (let v (opened (open_device 167772160 512))     ; virtio-mmio transport 0
-      (let g (opened (open_device 151191552 4096))  ; the PL061
+  (let u (opened (open_region 150994944 4096))      ; the PL011
+    (let v (opened (open_region 167772160 512))     ; virtio-mmio transport 0
+      (let g (opened (open_region 151191552 4096))  ; the PL061
         (let w (put_all u "hi\n")
           (let r (reads u v)
             (writes g)))))))

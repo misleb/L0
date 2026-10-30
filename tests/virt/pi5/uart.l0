@@ -13,12 +13,12 @@
 ; The control register's enable bits are what the firmware leaves: the UART
 ; on, with transmit and receive on, 0x101 of 0x301 here.
 
-(def put ((u IoDevice) (b int)) int
-  (if (eq (bit_and (device_read32 u 24) 32) 32)    ; transmit FIFO full
+(def put ((u IoRegion) (b int)) int
+  (if (eq (bit_and (region_get32 u 24) 32) 32)     ; transmit FIFO full
       (put u b)
-      (device_write8 u 0 b)))                       ; the data register
+      (region_set8 u 0 b)))                         ; the data register
 
-(def put_all ((u IoDevice) (s (list int))) int
+(def put_all ((u IoRegion) (s (list int))) int
   (if (is_empty s)
       0
       (let w (put u (head s)) (put_all u (tail s)))))
@@ -26,14 +26,14 @@
 (def hex ((v int)) int
   (write_line (hex_digits v 1)))
 
-(def opened ((r DeviceOpened)) IoDevice
+(def opened ((r IoRegionOpened)) IoRegion
   (match r
-    ((DeviceOpened d) d)
-    ((DeviceFailed fault why) (IoDevice -1))))
+    ((IoRegionOpened g) g)
+    ((IoRegionFailed fault why) (IoRegion -1))))
 
 (def main () int
-  (let u (opened (open_device 70816632832 4096))    ; 0x107D001000, the PL011
+  (let u (opened (open_region 70816632832 4096))    ; 0x107D001000, the PL011
     (let w (put_all u "hi from the pi\n")
-      (let a (hex (device_read32 u 4064))           ; PeriphID0, 0 on this board
-        (let b (hex (device_read8 u 4092))          ; PrimeCell ID3, 0 on this board
-          (hex (bit_and (device_read32 u 48) 257)))))))   ; CR: UARTEN and TXE, 0x101
+      (let a (hex (region_get32 u 4064))            ; PeriphID0, 0 on this board
+        (let b (hex (region_get8 u 4092))           ; PrimeCell ID3, 0 on this board
+          (hex (bit_and (region_get32 u 48) 257)))))))   ; CR: UARTEN and TXE, 0x101

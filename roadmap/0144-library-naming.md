@@ -1,7 +1,7 @@
 # 0144: the library's names made consistent, with aliases for the old
 
 Kind: tooling
-Status: proposed
+Status: done
 Needs: nothing
 
 ## Why
@@ -43,3 +43,14 @@ L0S uses the device wrappers in 41 files: 298 `IoDevice`, 200
 ## Log
 
 - 2026-10-30: opened, from the review (its item 2.4); proposed.
+- 2026-10-30: done. The rule is in `lib/io.l0`'s header; the region
+  family is renamed, `IoRegion`, `IoRegionOpened`, `RegionFault`,
+  `open_region`, `close_region`, `region_get8` to `region_set_bytes`,
+  with every old name an alias documented as "The old name of ...".
+  Left as they were, and why, in the changelog: `open_appending` (the
+  builtin has `open_append`), `IoLine`'s `IoError`, and `Trap`. The
+  examples, `tests/virt`'s device tests, and `lib/AGENTS.md` use the new
+  names; `tests/unit/device_test` keeps the aliases tested.
+  `tests/io/libdoc/index.txt` regenerated and read. Both suites and
+  `--virt` on both boards green. The adoption guide's section 10 has the
+  table, the grep, and when the aliases go.

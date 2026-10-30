@@ -5,7 +5,7 @@
 ; 0x0008, lowest address first, and its interrupt line, the byte at 0x3C,
 ; is the one byte here every function lets software write, so 42 written
 ; there from the middle of longer bytes is read back, through lib/io.l0's
-; device_write_bytes and device_read_bytes.
+; region_set_bytes and region_get_bytes.
 
 (def show ((b bytes)) int
   (write_line (join_with " " (map_digits (bytes_to_list b)))))
@@ -23,6 +23,6 @@
 (def main () int
   (let e (region_open 275146342400 4096)            ; 0x4010000000, bus 0
     (let a (show (region_read_bytes e 0 4))
-      (let d (IoDevice e)
-        (let w (device_write_bytes d 60 (bytes_from_list (cons 7 (cons 42 (cons 9 (nil int))))) 1 2)
-          (show (device_read_bytes d 60 1)))))))
+      (let d (IoRegion e)
+        (let w (region_set_bytes d 60 (bytes_from_list (cons 7 (cons 42 (cons 9 (nil int))))) 1 2)
+          (show (region_get_bytes d 60 1)))))))

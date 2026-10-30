@@ -161,36 +161,66 @@
       Delivers the bytes written to f so far, leaving it open, or says why some byte written to it could not be written.
   file_close ((f IoFile)) (IoDone WriteFault)
       Closes f, or says why some byte written to it could not be written.
-  (data IoDevice (IoDevice int))
-      A range of a device's memory, its registers, opened with open_device.
-  (data DeviceOpened (DeviceOpened IoDevice) (DeviceFailed DeviceFault (list int)))
-      The result of opening a device: (DeviceOpened d), or (DeviceFailed fault why), where fault says which failure it was and why says it in words.
-  (data DeviceFault (DeviceMissing) (DeviceNoRoom))
-      Why opening a device failed: the host has no device there, which under an operating system is every range; or no more can be open (spec section 6.12's -3 and -5).
-  open_device ((base int) (len int)) DeviceOpened
+  (data IoRegion (IoRegion (id int)))
+      A range of a device's memory, its registers, opened with open_region.
+  (data IoRegionOpened (IoRegionOpened IoRegion) (IoRegionFailed RegionFault (list int)))
+      The result of opening a region: (IoRegionOpened g), or (IoRegionFailed fault why), where fault says which failure it was and why says it in words.
+  (data RegionFault (RegionMissing) (RegionNoRoom))
+      Why opening a region failed: the host has no device there, which under an operating system is every range; or no more can be open (spec section 6.12's -3 and -5).
+  open_region ((base int) (len int)) IoRegionOpened
       Opens the len bytes of device memory at address base, which must lie wholly within one of the machine's devices: on QEMU's virt board, those spec section 10.3 lists, such as the PL011 serial port's 4096 bytes at 0x09000000.
+  close_region ((g IoRegion)) int
+      Closes g, which open_region gave, once every access to it is complete, and returns 0: g is then no region, and its number may be given to a later open_region.
+  region_get8 ((g IoRegion) (off int)) int
+      The byte at off in g, 0 to 255.
+  region_get16 ((g IoRegion) (off int)) int
+      The 2 bytes at off in g, 0 to 65535, the lower address least significant.
+  region_get32 ((g IoRegion) (off int)) int
+      The 4 bytes at off in g, never negative, the lower address least significant: a 32-bit register.
+  region_get64 ((g IoRegion) (off int)) int
+      The 8 bytes at off in g as all 64 bits of an int, so negative when the top bit is set.
+  region_set8 ((g IoRegion) (off int) (v int)) int
+      Writes the low 8 bits of v at off in g, and returns 0.
+  region_set16 ((g IoRegion) (off int) (v int)) int
+      Writes the low 16 bits of v at off in g, and returns 0.
+  region_set32 ((g IoRegion) (off int) (v int)) int
+      Writes the low 32 bits of v at off in g, and returns 0.
+  region_set64 ((g IoRegion) (off int) (v int)) int
+      Writes all 64 bits of v at off in g, and returns 0.
+  region_get_bytes ((g IoRegion) (off int) (n int)) bytes
+      A copy of the n bytes at off in g, as bytes: for a range over memory, such as pages shared or given a device, not over registers, since each byte is read once, lowest first, but at widths the host chooses.
+  region_set_bytes ((g IoRegion) (off int) (b bytes) (i int) (j int)) int
+      Copies bytes i up to j of b into g from off, as region_get_bytes reads them, and returns 0.
+  (data IoDevice (IoDevice int))
+      The old name of IoRegion, which open_device gives and the device_ functions take.
+  (data DeviceOpened (DeviceOpened IoDevice) (DeviceFailed DeviceFault (list int)))
+      The old name of IoRegionOpened.
+  (data DeviceFault (DeviceMissing) (DeviceNoRoom))
+      The old name of RegionFault.
+  open_device ((base int) (len int)) DeviceOpened
+      The old name of open_region.
   close_device ((d IoDevice)) int
-      Closes d, which open_device gave, once every access to it is complete, and returns 0: d is then no device, and its number may be given to a later open_device.
+      The old name of close_region.
   device_read8 ((d IoDevice) (off int)) int
-      The byte at off in d, 0 to 255.
+      The old name of region_get8.
   device_read16 ((d IoDevice) (off int)) int
-      The 2 bytes at off in d, 0 to 65535, the lower address least significant.
+      The old name of region_get16.
   device_read32 ((d IoDevice) (off int)) int
-      The 4 bytes at off in d, never negative, the lower address least significant: a 32-bit register.
+      The old name of region_get32.
   device_read64 ((d IoDevice) (off int)) int
-      The 8 bytes at off in d as all 64 bits of an int, so negative when the top bit is set.
+      The old name of region_get64.
   device_write8 ((d IoDevice) (off int) (v int)) int
-      Writes the low 8 bits of v at off in d, and returns 0.
+      The old name of region_set8.
   device_write16 ((d IoDevice) (off int) (v int)) int
-      Writes the low 16 bits of v at off in d, and returns 0.
+      The old name of region_set16.
   device_write32 ((d IoDevice) (off int) (v int)) int
-      Writes the low 32 bits of v at off in d, and returns 0.
+      The old name of region_set32.
   device_write64 ((d IoDevice) (off int) (v int)) int
-      Writes all 64 bits of v at off in d, and returns 0.
+      The old name of region_set64.
   device_read_bytes ((d IoDevice) (off int) (n int)) bytes
-      A copy of the n bytes at off in d, as bytes: for a range over memory, such as pages shared or given a device, not over registers, since each byte is read once, lowest first, but at widths the host chooses.
+      The old name of region_get_bytes.
   device_write_bytes ((d IoDevice) (off int) (b bytes) (i int) (j int)) int
-      Copies bytes i up to j of b into d from off, as device_read_bytes reads them, and returns 0.
+      The old name of region_set_bytes.
   (data Trap (TrapCall int) (TrapMissing int) (TrapFault int int) (TrapInterrupt int))
       Why a thread came back from user_run: (TrapCall n), a system call with number n, which call_number reads; (TrapMissing va), a fault at the user address va where nothing is mapped, which a kernel answers by mapping a page there or ending the thread; (TrapFault why va), any other fault, with what the CPU said of it, its syndrome or cause, and the address; or (TrapInterrupt n), interrupt n, taken, which interrupt_done ends (spec section 6.14).
   trap_of ((c (array int))) Trap

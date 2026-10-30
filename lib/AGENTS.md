@@ -74,8 +74,8 @@ standard input, output, and error, the clock, and arguments, its boot
 arguments, which hold no spaces, but no files and no environment: the
 spec's section 9.2 says what each builtin gives then. It also has the
 board's devices, which a program drives through their registers with
-`open_device` and `device_read32` and the rest, at most 64 open at once,
-and `close_device` when done with one (`l0 doc IoDevice`); under
+`open_region` and `region_get32` and the rest, at most 64 open at once,
+and `close_region` when done with one (`l0 doc IoRegion`); under
 an operating system there are none, and opening one fails. `l0 test
 --target virt` runs tests on the board, booting the program once a test,
 as many at once as there are CPUs; there are no files there, so a golden
