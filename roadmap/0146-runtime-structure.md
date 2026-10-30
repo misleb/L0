@@ -81,3 +81,15 @@ the board, which only the user can do.
   the boards' own definitions win and a process gets the absent ones; the
   Pi 5 image builds, not run on a board. Next: step 2, one device-tree
   walker in `board.ll` for `boot_args`, `boot_memory`, and `boot_cpus`.
+- 2026-10-30: step 2 done. `dt_walk(dtb, visit, cx)` walks the tree's
+  tokens once and calls a visitor for each node's beginning and end and
+  each property, which may stop it; `boot_args`, `boot_memory`, and
+  `boot_cpus` are each a visitor, `args_visit`, `memory_visit`, and
+  `cpus_visit`, with their state in a few words of `cx`, where each had a
+  walk of its own. `board.ll` is 35 lines shorter. `--virt` green on both
+  boards, its `-smp 4` CPU tests, boot arguments, RAM, and initrd among
+  it; the Pi 5 image builds, not run on a board, whose firmware's tree is
+  the one these read differently (arguments first, an initrd). Next:
+  step 4, the board files and `tests/virt/board/*.l0` from one table, or
+  step 5, which first needs a list of what the IR harness kernels run
+  that `kernel.l0` does not.

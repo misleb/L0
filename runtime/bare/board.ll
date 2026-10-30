@@ -424,20 +424,19 @@ num:
   ret i64 %n
 }
 
-; Finds /chosen's bootargs in the device tree at dtb, if there is one, and
-; takes the arguments from it, and its linux,initrd-start and -end, where
-; the firmware says it loaded an initrd, for standard input.
-define internal void @boot_args(i64 %dtb) {
+; Walks the device tree at dtb, if there is one, calling visit for each
+; event in order: (1, depth, name) as a node begins, its name's address;
+; (2, depth) as one ends; and (3, depth, name, val, len) for a property,
+; its name's address, its value's, and its length. depth is the nesting
+; before the event, 0 for the root's beginning and 1 for its children's.
+; visit returns true to stop the walk. cx is visit's own state. Every
+; reader of the tree, boot_args, boot_memory, and boot_cpus, is a visitor.
+define internal void @dt_walk(i64 %dtb, ptr %visit, ptr %cx) {
 entry:
-  %null = icmp eq i64 %dtb, 0
-  br i1 %null, label %done, label %magic
-magic:
-  %m = call i64 @be32(i64 %dtb)
-  %ok = icmp eq i64 %m, 3490578157                          ; 0xd00dfeed
-  br i1 %ok, label %head, label %done
+  %total = call i64 @dt_size(i64 %dtb)
+  %null = icmp eq i64 %total, 0
+  br i1 %null, label %done, label %head
 head:
-  %ta = add i64 %dtb, 4
-  %total = call i64 @be32(i64 %ta)
   %sa = add i64 %dtb, 8
   %ostruct = call i64 @be32(i64 %sa)
   %na = add i64 %dtb, 12
@@ -447,69 +446,45 @@ head:
   %strings = add i64 %dtb, %ostr
   br label %loop
 loop:
-  %p = phi i64 [ %p0, %head ], [ %bp, %begin ], [ %ep, %leave ], [ %pp, %prop ], [ %np, %nop ]
-  %depth = phi i64 [ 0, %head ], [ %bd, %begin ], [ %ed, %leave ], [ %depth, %prop ], [ %depth, %nop ]
-  %in = phi i1 [ false, %head ], [ %bin, %begin ], [ %in, %leave ], [ %in, %prop ], [ %in, %nop ]
+  %p = phi i64 [ %p0, %head ], [ %bp, %begin ], [ %ep, %endnode ], [ %pp, %prop ], [ %np, %nop ]
+  %depth = phi i64 [ 0, %head ], [ %bd, %begin ], [ %ed, %endnode ], [ %depth, %prop ], [ %depth, %nop ]
   %over = icmp uge i64 %p, %end
   br i1 %over, label %done, label %token
 token:
   %tok = call i64 @be32(i64 %p)
-  switch i64 %tok, label %done [ i64 1, label %begin
-                                 i64 2, label %endnode
-                                 i64 3, label %propchk
+  switch i64 %tok, label %done [ i64 1, label %begin0
+                                 i64 2, label %endnode0
+                                 i64 3, label %prop0
                                  i64 4, label %nop ]
-begin:
+begin0:
   %name = add i64 %p, 4
-  %top = icmp eq i64 %depth, 1
+  %sb = call i1 %visit(i64 1, i64 %depth, i64 %name, i64 0, i64 0, ptr %cx)
+  br i1 %sb, label %done, label %begin
+begin:
   %np8 = inttoptr i64 %name to ptr
   %nlen = call i64 @strlen(ptr %np8)
-  %isch = call i1 @dt_name_is(i64 %name, ptr @s_chosen)
-  %chosen = and i1 %top, %isch
-  %bin = or i1 %in, %chosen
   %nl1 = add i64 %nlen, 1
   %npad = call i64 @pad4(i64 %nl1)
   %bp0 = add i64 %p, 4
   %bp = add i64 %bp0, %npad
   %bd = add i64 %depth, 1
   br label %loop
+endnode0:
+  %se = call i1 %visit(i64 2, i64 %depth, i64 0, i64 0, i64 0, ptr %cx)
+  br i1 %se, label %done, label %endnode
 endnode:
-  %d2 = icmp eq i64 %depth, 2
-  %leaving = and i1 %in, %d2
-  br i1 %leaving, label %done, label %leave
-leave:
   %ep = add i64 %p, 4
   %ed = sub i64 %depth, 1
   br label %loop
-propchk:
+prop0:
   %la = add i64 %p, 4
   %len = call i64 @be32(i64 %la)
   %oa = add i64 %p, 8
   %noff = call i64 @be32(i64 %oa)
   %val = add i64 %p, 12
-  %pd2 = icmp eq i64 %depth, 2
-  %ours = and i1 %in, %pd2
-  br i1 %ours, label %named, label %prop
-named:
   %pname = add i64 %strings, %noff
-  %isargs = call i1 @dt_name_is(i64 %pname, ptr @s_bootargs)
-  br i1 %isargs, label %take, label %nargs
-take:
-  call void @take_args(i64 %val, i64 %len)
-  br label %prop
-nargs:
-  %isrs = call i1 @dt_name_is(i64 %pname, ptr @s_initrd_start)
-  br i1 %isrs, label %takers, label %nstart
-takers:
-  %rs = call i64 @dt_prop_num(i64 %val, i64 %len)
-  store i64 %rs, ptr @initrd_lo
-  br label %prop
-nstart:
-  %isre = call i1 @dt_name_is(i64 %pname, ptr @s_initrd_end)
-  br i1 %isre, label %takere, label %prop
-takere:
-  %re = call i64 @dt_prop_num(i64 %val, i64 %len)
-  store i64 %re, ptr @initrd_hi
-  br label %prop
+  %sp = call i1 %visit(i64 3, i64 %depth, i64 %pname, i64 %val, i64 %len, ptr %cx)
+  br i1 %sp, label %done, label %prop
 prop:
   %lpad = call i64 @pad4(i64 %len)
   %pp0 = add i64 %p, 12
@@ -520,6 +495,63 @@ nop:
   br label %loop
 done:
   ret void
+}
+
+; Finds /chosen's bootargs in the device tree at dtb, if there is one, and
+; takes the arguments from it, and its linux,initrd-start and -end, where
+; the firmware says it loaded an initrd, for standard input. Its state, cx
+; word 0, is whether the walk is in /chosen.
+define internal void @boot_args(i64 %dtb) {
+entry:
+  %cx = alloca i64
+  store i64 0, ptr %cx
+  call void @dt_walk(i64 %dtb, ptr @args_visit, ptr %cx)
+  ret void
+}
+
+define internal i1 @args_visit(i64 %kind, i64 %depth, i64 %name, i64 %val, i64 %len, ptr %cx) {
+entry:
+  %inw = load i64, ptr %cx
+  %in = icmp ne i64 %inw, 0
+  %d2 = icmp eq i64 %depth, 2
+  %ours = and i1 %in, %d2
+  switch i64 %kind, label %go [ i64 1, label %begin
+                                i64 2, label %endnode
+                                i64 3, label %prop ]
+begin:
+  %top = icmp eq i64 %depth, 1
+  %isch = call i1 @dt_name_is(i64 %name, ptr @s_chosen)
+  %chosen = and i1 %top, %isch
+  br i1 %chosen, label %enter, label %go
+enter:
+  store i64 1, ptr %cx
+  br label %go
+endnode:
+  ret i1 %ours                                ; /chosen's end: nothing more
+prop:
+  br i1 %ours, label %named, label %go
+named:
+  %isargs = call i1 @dt_name_is(i64 %name, ptr @s_bootargs)
+  br i1 %isargs, label %take, label %nargs
+take:
+  call void @take_args(i64 %val, i64 %len)
+  br label %go
+nargs:
+  %isrs = call i1 @dt_name_is(i64 %name, ptr @s_initrd_start)
+  br i1 %isrs, label %takers, label %nstart
+takers:
+  %rs = call i64 @dt_prop_num(i64 %val, i64 %len)
+  store i64 %rs, ptr @initrd_lo
+  br label %go
+nstart:
+  %isre = call i1 @dt_name_is(i64 %name, ptr @s_initrd_end)
+  br i1 %isre, label %takere, label %go
+takere:
+  %re = call i64 @dt_prop_num(i64 %val, i64 %len)
+  store i64 %re, ptr @initrd_hi
+  br label %go
+go:
+  ret i1 false
 }
 
 ; Copies the len bytes at val, at most 65,535, into args_buf, and splits
@@ -839,94 +871,71 @@ done:
 
 ; Finds the RAM the device tree at dtb describes: the reg of each node
 ; under the root named memory, its cells as the root's #address-cells and
-; #size-cells say, 2 and 1 if it does not. The tree is read as boot_args
-; reads it.
+; #size-cells say, 2 and 1 if it does not. Its state, cx's three words,
+; is whether the walk is in a memory node, and the two cell counts.
 define internal void @boot_memory(i64 %dtb) {
 entry:
-  %total = call i64 @dt_size(i64 %dtb)
-  %null = icmp eq i64 %total, 0
-  br i1 %null, label %done, label %head
-head:
-  %sa = add i64 %dtb, 8
-  %ostruct = call i64 @be32(i64 %sa)
-  %na = add i64 %dtb, 12
-  %ostr = call i64 @be32(i64 %na)
-  %p0 = add i64 %dtb, %ostruct
-  %end = add i64 %dtb, %total
-  %strings = add i64 %dtb, %ostr
-  br label %loop
-loop:
-  %p = phi i64 [ %p0, %head ], [ %bp, %begin ], [ %ep, %endnode ], [ %pp, %next ], [ %np, %nop ]
-  %depth = phi i64 [ 0, %head ], [ %bd, %begin ], [ %ed, %endnode ], [ %depth, %next ], [ %depth, %nop ]
-  %in = phi i1 [ false, %head ], [ %bin, %begin ], [ %ein, %endnode ], [ %in, %next ], [ %in, %nop ]
-  %ac = phi i64 [ 2, %head ], [ %ac, %begin ], [ %ac, %endnode ], [ %ac2, %next ], [ %ac, %nop ]
-  %sc = phi i64 [ 1, %head ], [ %sc, %begin ], [ %sc, %endnode ], [ %sc2, %next ], [ %sc, %nop ]
-  %over = icmp uge i64 %p, %end
-  br i1 %over, label %done, label %token
-token:
-  %tok = call i64 @be32(i64 %p)
-  switch i64 %tok, label %done [ i64 1, label %begin
-                                 i64 2, label %endnode
-                                 i64 3, label %prop
-                                 i64 4, label %nop ]
+  %cx = alloca [3 x i64]
+  %acp = getelementptr i64, ptr %cx, i64 1
+  %scp = getelementptr i64, ptr %cx, i64 2
+  store i64 0, ptr %cx
+  store i64 2, ptr %acp
+  store i64 1, ptr %scp
+  call void @dt_walk(i64 %dtb, ptr @memory_visit, ptr %cx)
+  ret void
+}
+
+define internal i1 @memory_visit(i64 %kind, i64 %depth, i64 %name, i64 %val, i64 %len, ptr %cx) {
+entry:
+  %acp = getelementptr i64, ptr %cx, i64 1
+  %scp = getelementptr i64, ptr %cx, i64 2
+  switch i64 %kind, label %go [ i64 1, label %begin
+                                i64 2, label %endnode
+                                i64 3, label %prop ]
 begin:
-  %name = add i64 %p, 4
   %top = icmp eq i64 %depth, 1
-  %np8 = inttoptr i64 %name to ptr
-  %nlen = call i64 @strlen(ptr %np8)
   %ismem = call i1 @dt_is_memory(i64 %name)
   %mem = and i1 %top, %ismem
-  %bin = or i1 %in, %mem
-  %nl1 = add i64 %nlen, 1
-  %npad = call i64 @pad4(i64 %nl1)
-  %bp0 = add i64 %p, 4
-  %bp = add i64 %bp0, %npad
-  %bd = add i64 %depth, 1
-  br label %loop
+  br i1 %mem, label %enter, label %go
+enter:
+  store i64 1, ptr %cx
+  br label %go
 endnode:
   %leaving = icmp eq i64 %depth, 2
-  %ein = select i1 %leaving, i1 false, i1 %in
-  %ep = add i64 %p, 4
-  %ed = sub i64 %depth, 1
-  br label %loop
+  br i1 %leaving, label %leave, label %go
+leave:
+  store i64 0, ptr %cx
+  br label %go
 prop:
-  %la = add i64 %p, 4
-  %len = call i64 @be32(i64 %la)
-  %oa = add i64 %p, 8
-  %noff = call i64 @be32(i64 %oa)
-  %val = add i64 %p, 12
-  %pname = add i64 %strings, %noff
   %root = icmp eq i64 %depth, 1
   br i1 %root, label %rootprop, label %notroot
 rootprop:
-  %isac = call i1 @dt_name_is(i64 %pname, ptr @s_acells)
-  %issc = call i1 @dt_name_is(i64 %pname, ptr @s_scells)
+  %isac = call i1 @dt_name_is(i64 %name, ptr @s_acells)
+  %issc = call i1 @dt_name_is(i64 %name, ptr @s_scells)
   %v = call i64 @be32(i64 %val)
+  %ac = load i64, ptr %acp
+  %sc = load i64, ptr %scp
   %ac1 = select i1 %isac, i64 %v, i64 %ac
   %sc1 = select i1 %issc, i64 %v, i64 %sc
-  br label %next
+  store i64 %ac1, ptr %acp
+  store i64 %sc1, ptr %scp
+  br label %go
 notroot:
+  %inw = load i64, ptr %cx
+  %in = icmp ne i64 %inw, 0
   %d2 = icmp eq i64 %depth, 2
   %ours = and i1 %in, %d2
-  br i1 %ours, label %memprop, label %next
+  br i1 %ours, label %memprop, label %go
 memprop:
-  %isreg = call i1 @dt_name_is(i64 %pname, ptr @s_reg)
-  br i1 %isreg, label %takereg, label %next
+  %isreg = call i1 @dt_name_is(i64 %name, ptr @s_reg)
+  br i1 %isreg, label %takereg, label %go
 takereg:
-  call void @take_ram(i64 %val, i64 %len, i64 %ac, i64 %sc)
-  br label %next
-next:
-  %ac2 = phi i64 [ %ac1, %rootprop ], [ %ac, %notroot ], [ %ac, %memprop ], [ %ac, %takereg ]
-  %sc2 = phi i64 [ %sc1, %rootprop ], [ %sc, %notroot ], [ %sc, %memprop ], [ %sc, %takereg ]
-  %lpad = call i64 @pad4(i64 %len)
-  %pp0 = add i64 %p, 12
-  %pp = add i64 %pp0, %lpad
-  br label %loop
-nop:
-  %np = add i64 %p, 4
-  br label %loop
-done:
-  ret void
+  %ac2 = load i64, ptr %acp
+  %sc2 = load i64, ptr %scp
+  call void @take_ram(i64 %val, i64 %len, i64 %ac2, i64 %sc2)
+  br label %go
+go:
+  ret i1 false
 }
 
 ; Adds the pages a to b as a piece, if fewer than 32 are made.
@@ -2227,84 +2236,60 @@ entry:
 
 ; Finds the CPUs under the device tree's /cpus at dtb: each node there whose
 ; device_type is cpu, whose enable-method is psci, and whose reg, its
-; firmware's number for it, is given. The tree is read as boot_memory
-; reads it.
+; firmware's number for it, is given. Its state, cx's four words, is
+; whether the walk is in /cpus, and of the node it is in, whether its
+; device_type is cpu, whether its enable-method is psci, and its reg, or -1.
 define internal void @boot_cpus(i64 %dtb) {
 entry:
-  %pp = alloca i64
-  %dp = alloca i64
-  %inp = alloca i1
-  %cpup = alloca i1
-  %pscip = alloca i1
-  %regp = alloca i64
-  %total = call i64 @dt_size(i64 %dtb)
-  %null = icmp eq i64 %total, 0
-  br i1 %null, label %done, label %head
-head:
-  %sa = add i64 %dtb, 8
-  %ostruct = call i64 @be32(i64 %sa)
-  %na = add i64 %dtb, 12
-  %ostr = call i64 @be32(i64 %na)
-  %p0 = add i64 %dtb, %ostruct
-  %end = add i64 %dtb, %total
-  %strings = add i64 %dtb, %ostr
-  store i64 %p0, ptr %pp
-  store i64 0, ptr %dp
-  store i1 false, ptr %inp
-  store i1 false, ptr %cpup
-  store i1 false, ptr %pscip
+  %cx = alloca [4 x i64]
+  %cpup = getelementptr i64, ptr %cx, i64 1
+  %pscip = getelementptr i64, ptr %cx, i64 2
+  %regp = getelementptr i64, ptr %cx, i64 3
+  store i64 0, ptr %cx
+  store i64 0, ptr %cpup
+  store i64 0, ptr %pscip
   store i64 -1, ptr %regp
-  br label %loop
-loop:
-  %p = load i64, ptr %pp
-  %depth = load i64, ptr %dp
-  %over = icmp uge i64 %p, %end
-  br i1 %over, label %done, label %token
-token:
-  %tok = call i64 @be32(i64 %p)
-  switch i64 %tok, label %done [ i64 1, label %begin
-                                 i64 2, label %endnode
-                                 i64 3, label %prop
-                                 i64 4, label %nop ]
+  call void @dt_walk(i64 %dtb, ptr @cpus_visit, ptr %cx)
+  ret void
+}
+
+define internal i1 @cpus_visit(i64 %kind, i64 %depth, i64 %name, i64 %val, i64 %len, ptr %cx) {
+entry:
+  %cpup = getelementptr i64, ptr %cx, i64 1
+  %pscip = getelementptr i64, ptr %cx, i64 2
+  %regp = getelementptr i64, ptr %cx, i64 3
+  %inw = load i64, ptr %cx
+  %in = icmp ne i64 %inw, 0
+  switch i64 %kind, label %go [ i64 1, label %begin
+                                i64 2, label %endnode
+                                i64 3, label %prop ]
 begin:
-  %name = add i64 %p, 4
-  %np8 = inttoptr i64 %name to ptr
-  %nlen = call i64 @strlen(ptr %np8)
   %top = icmp eq i64 %depth, 1
   %iscpus = call i1 @dt_name_is(i64 %name, ptr @s_cpus)
   %enter = and i1 %top, %iscpus
   br i1 %enter, label %setin, label %node
 setin:
-  store i1 true, ptr %inp
-  br label %advance
+  store i64 1, ptr %cx
+  br label %go
 node:
-  %in = load i1, ptr %inp
   %d2 = icmp eq i64 %depth, 2
   %fresh = and i1 %in, %d2
-  br i1 %fresh, label %reset, label %advance
+  br i1 %fresh, label %reset, label %go
 reset:
-  store i1 false, ptr %cpup
-  store i1 false, ptr %pscip
+  store i64 0, ptr %cpup
+  store i64 0, ptr %pscip
   store i64 -1, ptr %regp
-  br label %advance
-advance:
-  %nl1 = add i64 %nlen, 1
-  %npad = call i64 @pad4(i64 %nl1)
-  %bp0 = add i64 %p, 4
-  %bp = add i64 %bp0, %npad
-  store i64 %bp, ptr %pp
-  %bd = add i64 %depth, 1
-  store i64 %bd, ptr %dp
-  br label %loop
+  br label %go
 endnode:
-  %ein = load i1, ptr %inp
   %d3 = icmp eq i64 %depth, 3
-  %leaving = and i1 %ein, %d3
+  %leaving = and i1 %in, %d3
   br i1 %leaving, label %record, label %close
 record:
-  %c = load i1, ptr %cpup
-  %ps = load i1, ptr %pscip
+  %cw = load i64, ptr %cpup
+  %psw = load i64, ptr %pscip
   %r = load i64, ptr %regp
+  %c = icmp ne i64 %cw, 0
+  %ps = icmp ne i64 %psw, 0
   %hasreg = icmp sge i64 %r, 0
   %ok0 = and i1 %c, %ps
   %ok = and i1 %ok0, %hasreg
@@ -2320,61 +2305,41 @@ put:
   br label %close
 close:
   %out2 = icmp eq i64 %depth, 2
-  %stay = select i1 %out2, i1 false, i1 %ein
-  store i1 %stay, ptr %inp
-  %ep = add i64 %p, 4
-  store i64 %ep, ptr %pp
-  %ed = sub i64 %depth, 1
-  store i64 %ed, ptr %dp
-  br label %loop
+  br i1 %out2, label %leave, label %go
+leave:
+  store i64 0, ptr %cx
+  br label %go
 prop:
-  %la = add i64 %p, 4
-  %len = call i64 @be32(i64 %la)
-  %oa = add i64 %p, 8
-  %noff = call i64 @be32(i64 %oa)
-  %val = add i64 %p, 12
-  %pin = load i1, ptr %inp
   %pd3 = icmp eq i64 %depth, 3
-  %ours = and i1 %pin, %pd3
-  br i1 %ours, label %named, label %skip
+  %ours = and i1 %in, %pd3
+  br i1 %ours, label %named, label %go
 named:
-  %pname = add i64 %strings, %noff
-  %isdt = call i1 @dt_name_is(i64 %pname, ptr @s_device_type)
+  %isdt = call i1 @dt_name_is(i64 %name, ptr @s_device_type)
   br i1 %isdt, label %devtype, label %notdt
 devtype:
   %iscpu = call i1 @dt_name_is(i64 %val, ptr @s_cpu)
-  %wascpu = load i1, ptr %cpup
-  %nowcpu = or i1 %wascpu, %iscpu
-  store i1 %nowcpu, ptr %cpup
-  br label %skip
+  br i1 %iscpu, label %setcpu, label %go
+setcpu:
+  store i64 1, ptr %cpup
+  br label %go
 notdt:
-  %isem = call i1 @dt_name_is(i64 %pname, ptr @s_enable)
+  %isem = call i1 @dt_name_is(i64 %name, ptr @s_enable)
   br i1 %isem, label %method, label %notem
 method:
   %ispsci = call i1 @dt_name_is(i64 %val, ptr @s_psci)
-  %waspsci = load i1, ptr %pscip
-  %nowpsci = or i1 %waspsci, %ispsci
-  store i1 %nowpsci, ptr %pscip
-  br label %skip
+  br i1 %ispsci, label %setpsci, label %go
+setpsci:
+  store i64 1, ptr %pscip
+  br label %go
 notem:
-  %isreg = call i1 @dt_name_is(i64 %pname, ptr @s_reg)
-  br i1 %isreg, label %reg, label %skip
+  %isreg = call i1 @dt_name_is(i64 %name, ptr @s_reg)
+  br i1 %isreg, label %reg, label %go
 reg:
   %rv = call i64 @dt_prop_num(i64 %val, i64 %len)
   store i64 %rv, ptr %regp
-  br label %skip
-skip:
-  %lpad = call i64 @pad4(i64 %len)
-  %pp0 = add i64 %p, 12
-  %pp1 = add i64 %pp0, %lpad
-  store i64 %pp1, ptr %pp
-  br label %loop
-nop:
-  %np = add i64 %p, 4
-  store i64 %np, ptr %pp
-  br label %loop
-done:
-  ret void
+  br label %go
+go:
+  ret i1 false
 }
 
 ; Starts each CPU boot_cpus found but this one, numbering them from 1, and
