@@ -1,0 +1,12 @@
+278: a is used after this array_set, so it copies a; read it first, with let, and update last
+ok
+ok
+ok
+ok
+278: a is used after this call of bump, so it copies a; read it first, with let, and update last
+ok
+331: b is used after this call of g, so it copies b; read it first, with let, and update last
+325: a is used after this call of g, so it copies a; read it first, with let, and update last
+ok
+270: b is used after this call of bump, so it copies b; read it first, with let, and update last
+321: b is used after this call of g, so it copies b; read it first, with let, and update last

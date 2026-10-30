@@ -244,7 +244,11 @@ or map, updated through a function and put back as `(.ctx p (call_result
 (.ctx p) v))`, is taken out for the function and updates in place (spec
 6.5's field form, `tests/io/fields_in_place`'s `through` mode), unless `p`
 is used again after.
-`tests/io/fields_in_place` measures both shapes.
+`tests/io/fields_in_place` measures both shapes. The checker now says so:
+`tools/l0check` prints `FILE:LINE:COL: warning: m is used after this call
+of map_put, so it copies m` after `ok`, for `array_set` and any call that
+updates what it is given or a field of it, never failing the check
+(`tests/compiler/warn_copy` holds the cases).
 `L0_ARRAY_STATS=1` on a run reports how many updates copied; maps count, as
 arrays. `lib/examples.l0`'s `see_key` and `map_logged` are the fixes, and
 `lib/skills/l0-code/SKILL.md` has the trap in full.

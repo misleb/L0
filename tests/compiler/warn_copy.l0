@@ -1,0 +1,58 @@
+; The warning of an update that a later use makes copy: the hidden whole
+; copy of spec 6.5, which the emitter sees because it knows what is live
+; after every update. One line per snippet, each warning as its offset and
+; message, "ok" for none. The snippets that must stay quiet are here too: a
+; read inside the update's own operands is not after it.
+
+(def defs ((i int)) (list int)
+  (append "(data (Option T) (None) (Some T)) (data Rec (Rec (m int) (n int))) "
+    (append "(data Box (Box (cells (array int)) (count int))) "
+      (append "(def bump ((a (array int))) (array int) (array_set a 0 1)) "
+        (append "(def keep ((a (array int))) int (array_len a)) "
+          "(def main () int 0) ")))))
+
+(def emitted ((src (list int))) (list int)
+  (match (parse_program (lex (append (defs 0) src)))
+    ((PP ds errs bad)
+      (match (emit_module ds 0)
+        ((Emitted ir ws) (warn_lines ws))))))
+
+(def cases ((i int)) (list (list int))
+  (cons (emitted "(def f ((a (array int))) int (let b (array_set a 0 1) (array_len a)))")
+  (cons (emitted "(def f ((a (array int))) (array int) (array_set a 0 (array_len a)))")
+  (cons (emitted "(def f ((a (array int))) int (let n (array_len a) (array_len (array_set a 0 n))))")
+  ; a field replacement copies a shared record's few words, never an array
+  ; or map whole, so it is quiet, even read after as here
+  (cons (emitted "(def f ((r Rec)) Rec (.n (.m r 1) (.m r)))")
+  (cons (emitted "(def f ((r Rec)) Rec (.n r (add (.n r) 1)))")
+  ; a def that updates its parameter, given a variable used after the call
+  (cons (emitted "(def f ((a (array int))) int (let b (bump a) (array_len a)))")
+  (cons (emitted "(def f ((a (array int))) int (let b (keep a) (array_len a)))")
+  ; updated through a field taken apart by match, and through another def
+  (cons (emitted "(def g ((b Box)) Box (match b ((Box c n) (Box (bump c) n)))) (def f ((b Box)) int (let x (g b) (.count b)))")
+  (cons (emitted "(def g ((a (array int))) (array int) (bump a)) (def f ((a (array int))) int (let x (g a) (array_len a)))")
+  ; the field form of 6.5, in place and quiet
+  (cons (emitted "(def f ((b Box)) Box (.cells b (bump (.cells b))))")
+  ; a field given to an update while its record is used after, directly
+  ; and through a def that does so, as space_put's map
+  (cons (emitted "(def f ((b Box)) int (let x (bump (.cells b)) (.count b)))")
+  (cons (emitted "(def g ((b Box)) Box (.cells b (bump (.cells b)))) (def f ((b Box)) int (let x (g b) (.count b)))")
+  (nil (list int)))))))))))))))
+
+(def main ((input (list int))) (list int)
+  (concat_lines (cases 0) (nil int)))
+
+(def concat_lines ((ls (list (list int))) (acc (list int))) (list int)
+  (if (is_empty ls) (rev acc) (concat_lines (tail ls) (push (head ls) acc))))
+
+; Each warning as its offset and message on a line of its own, or "ok".
+(def warn_lines ((ws (list Diag))) (list int)
+  (if (is_empty ws) "ok\n" (warn_lines_onto ws (nil int))))
+
+(def warn_lines_onto ((ws (list Diag)) (acc (list int))) (list int)
+  (if (is_empty ws)
+      (rev acc)
+      (warn_lines_onto (tail ws)
+        (match (head ws)
+          ((D o m) (push "\n" (push m (push ": " (push (digits o) acc)))))
+          ((DParens o n next deficit) acc)))))

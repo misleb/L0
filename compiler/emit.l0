@@ -23,7 +23,8 @@
 ; branch returns, which is what lets a call there be a musttail call.
 
 (data Emit
-  (Em (next int) (out (list int))))     ; next name number, reversed output
+  (Em (next int) (out (list int)) (warns (list Diag))))   ; next name number,
+                                        ; reversed output, warnings newest first
 
 ; An expression's value carries its type, computed bottom-up as the checker
 ; computes it, because allocation has to say which words of a block are
@@ -277,9 +278,55 @@
       (if (is_word_arms arms env)
           (emit_let (head (.names (head arms))) subject (.body (head arms)) env live tl st)
           (emit_match subject arms env live tl st)))
-    ((ECall o n args) (emit_call n args env live tl st))
+    ((ECall o n args) (emit_call n args env live tl (warn_call o n args env live st)))
     ((EField o f e) (finish tl (emit_field f e env live st)))
     ((EWith o f e v) (finish tl (emit_with f e v env live st)))))
+
+; ---------------------------------------------------------------- warnings
+;
+; An update given a variable that is still used after it copies what the
+; variable holds, since the variable is another holder (spec 6.5): the
+; builtin array_set, and a call of a function that updates the parameter
+; it is given, the variable or a field of it (module_updates). These are
+; warned of, at the update, and compile as written. A read inside the
+; update's own operands is not after it, since a variable operand is taken
+; last.
+
+(def warn_call ((o int) (n (list int)) (args (list Expr)) (env Env)
+                (live (list (list int))) (st Emit)) Emit
+  (if (is_empty live)
+      st
+      (if (is_builtin_in n (.ctx env))
+          (if (eq n "array_set")
+              (warn_if (var_name (head args)) live o "this array_set" st)
+              st)
+          (warn_passed args (updates_of (call_sym n env) (.pads env)) live o
+                       (append "this call of " (shown_name n)) st))))
+
+(def warn_passed ((args (list Expr)) (flags (list bool)) (live (list (list int)))
+                  (o int) (what (list int)) (st Emit)) Emit
+  (if (is_empty args)
+      st
+      (if (flag_head flags)
+          (let x (held_var (head args))
+            (if (if (is_empty x) false (any_eq x live))
+                (warn_if x live o what st)
+                (warn_passed (tail args) (flag_tail flags) live o what st)))
+          (warn_passed (tail args) (flag_tail flags) live o what st))))
+
+(def warn_if ((x (list int)) (live (list (list int))) (o int) (what (list int))
+              (st Emit)) Emit
+  (if (if (is_empty x) true (not (any_eq x live)))
+      st
+      (.warns st (cons (D o (append x (append " is used after " (append what
+                         (append ", so it copies " (append x
+                           "; read it first, with let, and update last"))))))
+                       (.warns st)))))
+
+; A function's name as written: a copy's without its kinds and the defs it
+; was given, and one called by symbol without the symbol's prefix.
+(def shown_name ((n (list int))) (list int)
+  (if (is_sym_name n) (copy_base (drop_n n 6)) (copy_base n)))
 
 ; ------------------------------------------------------------------ fields
 
@@ -1491,7 +1538,7 @@
 ; ones. Spec 8 and 10.2.
 
 (data Pad
-  (Pd (sym (list int)) (arity int) (read_only (list bool))))
+  (Pd (sym (list int)) (arity int) (read_only (list bool)) (updates (list bool))))
                                         ; symbol, parameters it takes, read-only
 
 ; One function: its symbol, its L0 arity, and the symbols it tail-calls.
@@ -1620,27 +1667,158 @@
           (let m (if (gt a b) a b)
             (set_int (set_int ks i m) j m))))))
 
-; ns and rs are both in declaration order, one per function.
+; ns, rs, and us are all in declaration order, one per function.
 (def pad_table ((ns (list Node)) (ks (list int)) (rs (list RoFn))
-                (acc (list Pad))) (list Pad)
+                (us (list (list bool))) (acc (list Pad))) (list Pad)
   (if (is_empty ns)
       acc
       (match (head ns)
         ((Nd s k cs)
-          (pad_table (tail ns) (tail ks) (tail rs)
-            (cons (Pd s (head ks) (.flags (head rs))) acc))))))
+          (pad_table (tail ns) (tail ks) (tail rs) (tail us)
+            (cons (Pd s (head ks) (.flags (head rs)) (head us)) acc))))))
 
 (def module_pads ((ds (list Decl)) (pre int) (ppre (list (list int)))
                   (pprog (list (list int))) (bpre (list (list int)))
                   (bprog (list (list int)))) (Map (list int) Pad)
   (let ns (graph_nodes ds pre ppre pprog bpre bprog)
-    (pad_map
-      (pad_table ns
-        (spread (graph_edges ns (node_syms ns) 0 (nil Edge)) (node_arities ns))
-        (module_read_only (ro_fns ds pre ppre pprog bpre bprog)
-                          (collect_ctor_infos ds (nil CtorInfo)))
-        (nil Pad))
-      ((MapEmpty (list int) Pad)))))
+    (let fs (ro_fns ds pre ppre pprog bpre bprog)
+      (pad_map
+        (pad_table ns
+          (spread (graph_edges ns (node_syms ns) 0 (nil Edge)) (node_arities ns))
+          (module_read_only fs (collect_ctor_infos ds (nil CtorInfo)))
+          (module_updates fs)
+          (nil Pad))
+        ((MapEmpty (list int) Pad))))))
+
+(def updates_of ((s (list int)) (m (Map (list int) Pad))) (list bool)
+  (match (map_get m s)
+    ((None) (nil bool))
+    ((Some p) (.updates p))))
+
+; ---------------------------------------------------- parameters updated
+;
+; Which parameters a function updates, so that a caller giving it one of
+; its variables still used after the call is told the update copies
+; (warn_call). A parameter is updated when the body gives it to the
+; builtin array_set, takes it apart with match and updates a field so
+; bound, or passes it, or a field of it, where a callee updates; flags
+; start clear and passes repeat until nothing changes. Replacing a field is
+; not an update here: a shared record's copy is its few words, where an
+; array's or a map's is the whole of it, which is what goes quadratic.
+
+(def module_updates ((fs (list RoFn))) (list (list bool))
+  (upd_fix fs (upd_none fs)))
+
+(def upd_none ((fs (list RoFn))) (list (list bool))
+  (if (is_empty fs)
+      (nil (list bool))
+      (cons (no_flags (.params (head fs))) (upd_none (tail fs)))))
+
+(def no_flags ((ps (list Param))) (list bool)
+  (if (is_empty ps) (nil bool) (cons false (no_flags (tail ps)))))
+
+(def upd_fix ((fs (list RoFn)) (cur (list (list bool)))) (list (list bool))
+  (let next (upd_pass fs (upd_table fs cur ((MapEmpty (list int) (list bool)))))
+    (if (eq next cur) cur (upd_fix fs next))))
+
+(def upd_table ((fs (list RoFn)) (us (list (list bool))) (m (Map (list int) (list bool))))
+    (Map (list int) (list bool))
+  (if (is_empty fs)
+      m
+      (upd_table (tail fs) (tail us) (map_put m (.sym (head fs)) (head us)))))
+
+(def upd_pass ((fs (list RoFn)) (t (Map (list int) (list bool)))) (list (list bool))
+  (if (is_empty fs)
+      (nil (list bool))
+      (cons (upd_params (.params (head fs)) (head fs) t) (upd_pass (tail fs) t))))
+
+(def upd_params ((ps (list Param)) (f RoFn) (t (Map (list int) (list bool))))
+    (list bool)
+  (if (is_empty ps)
+      (nil bool)
+      (cons (match (head ps) ((P n ty) (upd_var n (.body f) f t)))
+            (upd_params (tail ps) f t))))
+
+; Whether e updates the variable x, by the rules above. f gives the names
+; e's calls reach.
+(def upd_var ((x (list int)) (e Expr) (f RoFn) (t (Map (list int) (list bool)))) bool
+  (match e
+    ((ECall o n args)
+      (if (if (any_eq n (.bs f)) (eq n "array_set") false)
+          (if (eq (var_name (head args)) x) true (upd_any x args f t))
+          (if (upd_passed x args (callee_updates n f t))
+              true
+              (upd_any x args f t))))
+    ((EWith o h r v) (if (upd_var x r f t) true (upd_var x v f t)))
+    ((EMatch o s arms)
+      (if (eq (var_name s) x)
+          (if (upd_arm_fields arms f t) true (upd_arms x arms f t))
+          (if (upd_var x s f t) true (upd_arms x arms f t))))
+    ((ELet o n v b) (if (upd_var x v f t) true (if (eq n x) false (upd_var x b f t))))
+    ((EIf o c a b) (if (upd_var x c f t) true (if (upd_var x a f t) true (upd_var x b f t))))
+    ((ECtor o n ts args) (upd_any x args f t))
+    ((EField o h r) (upd_var x r f t))
+    ((EInt o v) false)
+    ((EFloat o m p g) false)
+    ((EBool o v) false)
+    ((EStr o s) false)
+    ((ENil o ty) false)
+    ((EVar o n) false)))
+
+(def callee_updates ((n (list int)) (f RoFn) (t (Map (list int) (list bool)))) (list bool)
+  (if (any_eq n (.bs f))
+      (nil bool)
+      (match (map_get t (fn_sym n (.pn f)))
+        ((None) (nil bool))
+        ((Some us) us))))
+
+; Whether x, or a field of it, (.f x), is passed in a position flags says
+; is updated.
+(def upd_passed ((x (list int)) (args (list Expr)) (flags (list bool))) bool
+  (if (is_empty args)
+      false
+      (if (if (flag_head flags) (eq (held_var (head args)) x) false)
+          true
+          (upd_passed x (tail args) (flag_tail flags)))))
+
+; The variable e is, or whose field it reads, or an empty name.
+(def held_var ((e Expr)) (list int)
+  (match e
+    ((EField o f r) (var_name r))
+    ((EVar o n) n)
+    ((EInt o v) "")
+    ((EFloat o m p g) "")
+    ((EBool o v) "")
+    ((EStr o s) "")
+    ((ENil o t) "")
+    ((EIf o c a b) "")
+    ((ELet o n v b) "")
+    ((ECtor o n ts a) "")
+    ((EMatch o s a) "")
+    ((ECall o n a) "")
+    ((EWith o f r v) "")))
+
+(def upd_any ((x (list int)) (es (list Expr)) (f RoFn) (t (Map (list int) (list bool)))) bool
+  (if (is_empty es) false (if (upd_var x (head es) f t) true (upd_any x (tail es) f t))))
+
+; Whether an arm updates one of the fields it binds.
+(def upd_arm_fields ((arms (list Arm)) (f RoFn) (t (Map (list int) (list bool)))) bool
+  (if (is_empty arms)
+      false
+      (if (upd_names (.names (head arms)) (.body (head arms)) f t)
+          true
+          (upd_arm_fields (tail arms) f t))))
+
+(def upd_names ((ns (list (list int))) (b Expr) (f RoFn) (t (Map (list int) (list bool)))) bool
+  (if (is_empty ns) false (if (upd_var (head ns) b f t) true (upd_names (tail ns) b f t))))
+
+; Whether x is updated in an arm that does not bind a name of its own x.
+(def upd_arms ((x (list int)) (arms (list Arm)) (f RoFn) (t (Map (list int) (list bool)))) bool
+  (if (is_empty arms)
+      false
+      (if (if (any_eq x (.names (head arms))) false (upd_var x (.body (head arms)) f t))
+          true
+          (upd_arms x (tail arms) f t))))
 
 ; The pad table, looked up at every call: each function's symbol to its Pad,
 ; in the prelude's map. A symbol given twice keeps the later Pad.
@@ -1649,7 +1827,7 @@
   (if (is_empty ps)
       m
       (match (head ps)
-        ((Pd n k ro) (pad_map (tail ps) (map_put m n (head ps)))))))
+        ((Pd n k ro us) (pad_map (tail ps) (map_put m n (head ps)))))))
 
 (def pad_of ((s (list int)) (m (Map (list int) Pad))) int
   (match (map_get m s)
@@ -1750,7 +1928,7 @@
 (def ro_pads ((fs (list RoFn))) (list Pad)
   (if (is_empty fs)
       (nil Pad)
-      (cons (Pd (.sym (head fs)) 0 (.flags (head fs))) (ro_pads (tail fs)))))
+      (cons (Pd (.sym (head fs)) 0 (.flags (head fs)) (nil bool)) (ro_pads (tail fs)))))
 
 
 (def ro_own_flags ((ps (list Param)) (flags (list bool)) (body Expr) (x RoCx))
@@ -2080,7 +2258,7 @@
 ; The counter restarts per function purely to keep names short. Numbering is
 ; a function of program structure either way, so output stays deterministic.
 (def reset_counter ((st Emit)) Emit
-  (match st ((Em n acc) (Em 0 acc))))
+  (.next st 0))
 
 (def emit_fns ((ds (list Decl)) (scpre Scope) (scprog Scope) (pre int)
                (st Emit)) Emit
@@ -2248,7 +2426,7 @@
 ; the prelude is library code that happens to be called main, not an entry
 ; point. Spec section 9.
 ; A function with type parameters is emitted as its copies, spec 10.2.
-(def emit_module ((ds (list Decl)) (pre int)) (list int)
+(def emit_module ((ds (list Decl)) (pre int)) Emitted
   (let hs (unbox_words (hide_tparams (group_upper ds pre)))
     (match (mono_program hs pre)
       ((MP ms rs) (emit_grouped ms (copied_defs hs (nil Decl)) rs pre)))))
@@ -2267,9 +2445,14 @@
                 acc
                 (cons (head ds) acc)))))))
 
+; The module's text, and the warnings of the program's own declarations,
+; each once, in the order emitted; the prelude's are the library's to fix.
+(data Emitted
+  (Emitted (text (list int)) (warns (list Diag))))
+
 (def emit_grouped ((ds (list Decl)) (gs (list Decl)) (rs (list Req)) (pre int))
-    (list int)
-  (let st0 (Em 0 (push (ir_header 0) (nil int)))
+    Emitted
+  (let st0 (Em 0 (push (ir_header 0) (nil int)) (nil Diag))
     (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
                 (append (digits (ret_kind (program_decls ds pre (nil Decl))))
                         "\n")) st0)
@@ -2278,14 +2461,28 @@
 
 (def emit_module_fns ((ds (list Decl)) (gs (list Decl)) (rs (list Req)) (pre int)
                       (ppre (list (list int))) (pprog (list (list int)))
-                      (st Emit)) (list int)
+                      (st Emit)) Emitted
   (let pv (prelude_view (append gs ds) pre)
     (let gv (program_view (append gs ds) pre)
       (let pads (module_pads ds pre ppre pprog (.builtins pv) (.builtins gv))
         (let fa (FA (.sigs pv) (.sigs gv) (copy_refs rs ((MapEmpty (list int) (list FnRef)))))
-          (emit_text
-            (emit_fns ds (Sc pv ppre true pads fa) (Sc gv pprog false pads fa)
-                      pre st)))))))
+          (let done (emit_fns ds (Sc pv ppre true pads fa) (Sc gv pprog false pads fa)
+                              pre st)
+            (Emitted (emit_text done)
+                     (program_warns (rev (.warns done)) pre (nil Diag)))))))))
+
+(def program_warns ((ws (list Diag)) (pre int) (acc (list Diag))) (list Diag)
+  (if (is_empty ws)
+      (rev acc)
+      (program_warns (tail ws) pre
+        (if (if (lt (diag_offset (head ws)) pre) true (any_eq (head ws) acc))
+            acc
+            (cons (head ws) acc)))))
+
+(def diag_offset ((d Diag)) int
+  (match d
+    ((D o m) o)
+    ((DParens o n next deficit) o)))
 
 (def copy_refs ((rs (list Req)) (m (Map (list int) (list FnRef))))
     (Map (list int) (list FnRef))

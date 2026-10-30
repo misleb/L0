@@ -60,6 +60,8 @@ case "$(head -n 1 "$OUT")" in
         else
             echo "ok: $# files type check together"
         fi
+        # Warnings come first in the IR, as comments; they never fail a check.
+        sed -n '2,$ { /^; [^ ].*: warning: /!q; s/^; //p; }' "$OUT" >&2
         ;;
     E)
         tail -n +2 "$OUT" >&2

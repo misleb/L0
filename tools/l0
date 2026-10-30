@@ -389,7 +389,11 @@ run_compiler() {
         exit 2
     fi
     case "$(head -n 1 "$TMP/out")" in
-        O) tail -n +2 "$TMP/out" > "$irout" ;;
+        O)
+            # Warnings come first in the IR, as comments; shown, never fatal.
+            sed -n '2,$ { /^; [^ ].*: warning: /!q; s/^; //p; }' "$TMP/out" >&2
+            tail -n +2 "$TMP/out" > "$irout"
+            ;;
         E)
             tail -n +2 "$TMP/out" >&2
             exit 1

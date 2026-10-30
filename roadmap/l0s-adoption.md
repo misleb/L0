@@ -401,3 +401,23 @@ grep -rnwE 'IoDevice|DeviceOpened|DeviceFailed|DeviceFault|DeviceMissing|DeviceN
 
 The aliases go once that grep finds nothing in L0S, and not before
 2026-12-31; the roadmap item that removes them will say so here first.
+
+## 11. The checker warns of the hidden whole copy (roadmap 0139)
+
+`l0 check`, and every `l0` command that compiles, prints a warning after
+`ok` where an update is given a variable still used after it, which makes
+the update copy the whole map or array: `array_set`, or a call of any
+function that updates what it is given or a field of it, `map_put` and
+L0S's own alike. A warning never fails a check or a build. From
+`tests/compiler/warn_copy`, as `l0 check` prints it:
+
+```
+prog.l0:8:9: warning: m is used after this call of map_put, so it copies m; read it first, with let, and update last
+```
+
+**Where L0S gains.** Run `l0 check` over each program and read every
+warning: each is a copy per call, and in a loop the quadratic slowdown
+0131 described. The fix is always the one the warning names, the reads
+bound by `let` before the update. Its first run here found one in this
+repository's examples. A field replacement alone is not warned of, since
+it copies only a shared record's few words.

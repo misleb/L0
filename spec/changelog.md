@@ -15,6 +15,45 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## The compiler warns of the hidden whole copy, and no language change for it (roadmap 0139)
+
+**New:** L0's first warning. Where `array_set`, or a call of a function
+that updates the parameter it is given or a field of it, is given a
+variable still used after it, the compiler says so at the update: `m is
+used after this call of map_put, so it copies m; read it first, with let,
+and update last`. A warning never fails a check or changes the IR; it
+comes before the IR as a comment, and `l0 check`, `tools/l0check`, and
+every `l0` command that compiles print it. Spec 9.1 says a compiler may
+warn.
+
+*Why:* the hidden whole copy recurred at least four times, each found
+only as a slowdown on real data (0028, 0056, 0131, and twice in one L0S
+session), and 0131 documented it and left the warning open. The emitter
+already knows what is live after every expression, so the warning is a
+check of whether an update's operand is live after it. Its first run found
+one more: `lib/examples.l0`'s `tally`, in the very section that warns of
+the trap, read its counter after the inner `array_set`, and copied it on
+every call.
+
+*Decided:*
+- *What updates.* A parameter is updated when the body gives it to the
+  builtin `array_set`, takes it apart and updates a field so bound, or
+  passes it, or a field of it, where a callee updates; a fixpoint over
+  every function finds them, as the read-only flags are found. The
+  library's `map_put` and `map_remove` are so found, from their bodies,
+  and so is a program's `space_put`.
+- *A field replacement is not an update here.* It copies a shared
+  record's few words, never an array or map whole; warning of it gave 11
+  warnings on the compiler's own source, every one a record extended on
+  purpose.
+- *Only the program's declarations.* The prelude's are the library's to
+  fix, and each warning is given once, though a generic function's copies
+  are emitted several times.
+- *Before the IR, as a comment,* so every tool that strips the first line
+  and reads the IR keeps working, and the protocol keeps two tags.
+
+---
+
 ## The library's regions are called regions, and no language change for it (roadmap 0144)
 
 **Changed:** `lib/io.l0` states one naming rule in its header, and its

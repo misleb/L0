@@ -255,12 +255,30 @@
 ; carrying a file table.
 (def render_at ((src (list int)) (path (list int)) (start int) (o int)
                 (m (list int))) (list int)
+  (render_kind src path start o "error" m))
+
+(def render_kind ((src (list int)) (path (list int)) (start int) (o int)
+                  (kind (list int)) (m (list int))) (list int)
   (let text (drop_n src start)
     (let rel (sub o start)
       (append (file_prefix path)
         (append (digits (line_at text rel 0 1))
           (append ":" (append (digits (col_at text rel 0 1))
-            (append ": error: " (append m "\n")))))))))
+            (append ": " (append kind (append ": " (append m "\n")))))))))))
+
+; Warnings go before the IR as comments, "; FILE:LINE:COL: warning: ...",
+; so whatever reads the IR reads past them, and the tools show them.
+(def render_warns ((src (list int)) (entries (list FileEntry)) (ws (list Diag))
+                   (acc (list int))) (list int)
+  (if (is_empty ws)
+      (rev acc)
+      (render_warns src entries (tail ws)
+        (push (append "; " (render_warn src entries (head ws))) acc))))
+
+(def render_warn ((src (list int)) (entries (list FileEntry)) (d Diag)) (list int)
+  (let fe (file_at entries (diag_offset d) (FE 0 ""))
+    (render_kind src (.path fe) (.start fe) (diag_offset d) "warning"
+      (match d ((D o m) m) ((DParens o n next deficit) "")))))
 
 (def file_prefix ((path (list int))) (list int)
   (if (is_empty path) "" (append path ":")))
@@ -290,7 +308,9 @@
         ((PP ds perrs bad)
           (let all (append perrs (known_only (check_program ds want_main pre) bad))
             (if (is_empty all)
-                (append "O\n" (emit_module ds pre))
+                (match (emit_module ds pre)
+                  ((Emitted ir ws)
+                    (append "O\n" (append (render_warns src entries ws (nil int)) ir))))
                 (failure src entries all))))))))
 
 ; ds without the reports that one of bad, the defs that failed to parse, is

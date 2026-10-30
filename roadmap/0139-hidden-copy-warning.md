@@ -1,7 +1,7 @@
 # 0139: the checker warns of an update that a later use makes copy
 
 Kind: tooling
-Status: proposed
+Status: done
 Needs: nothing
 
 ## Why
@@ -42,3 +42,17 @@ caught: `(Seen (map_put m k true) (if (map_has m k) n (add n 1)))`.
 ## Log
 
 - 2026-10-30: opened, from the review (its item 1.5) and 0131; proposed.
+- 2026-10-30: done. Decided: a warning is a line `FILE:LINE:COL:
+  warning: ...` after a successful check, never failing it; the compiler
+  writes it before the IR as an LLVM comment, so the protocol keeps two
+  tags, and `tools/l0check` and `tools/l0` print it; spec 9.1 says a
+  compiler may warn. The wording names the variable and the update, not
+  the later use's position, which `live` does not carry. What counts as an
+  update is `array_set` and a call whose parameter, or a field of it, the
+  callee updates (`module_updates`, a fixpoint beside the read-only
+  flags); a field replacement alone is not, since it gave 11 warnings on
+  the compiler, every one a record extended on purpose. In-place reads
+  inside the update's own operands stay quiet. `tests/compiler/warn_copy`
+  holds 12 cases. The compiler's own source has none; `lib/examples.l0`'s
+  `tally` had one, a real copy per call, fixed. Both suites, the
+  fixpoint, and `--virt` on both boards green.

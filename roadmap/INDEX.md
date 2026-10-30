@@ -36,8 +36,6 @@ The order above is the review's suggestion; the user decides it.
 
 From the review of 2026-10-30, each proposed and not started:
 
-- [0139](0139-hidden-copy-warning.md) tooling: the checker warns of an
-  update that a later use makes copy, L0's first warning
 - [0140](0140-string-tables.md) tooling: string literals as byte tables,
   shrinking the seed
 - [0141](0141-spec-split.md) tooling: the spec split into the language,
@@ -52,6 +50,10 @@ From the review of 2026-10-30, each proposed and not started:
   own loose ends
 
 ## Done and dropped
+
+- [0139](0139-hidden-copy-warning.md) tooling: the checker warns of an
+  update that a later use makes copy — done, changelog "The compiler warns
+  of the hidden whole copy"; found one in the examples
 
 - [0144](0144-library-naming.md) tooling: the library's regions are
   called regions, under one naming rule, the old names kept as aliases —

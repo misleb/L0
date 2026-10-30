@@ -325,6 +325,12 @@ first chunk deepest, or use a chain of `let`s as above.
 
 ### The hidden whole copy
 
+`l0 check` warns of it: after `ok`, a line such as `prog.l0:8:9: warning:
+m is used after this call of map_put, so it copies m; read it first, with
+let, and update last`, for `array_set` and for any call that updates what
+it is given or a field of it, `map_put` and your own functions alike. A
+warning never fails the check; fix every one in a loop.
+
 **Read a map, array, or record before you update it, never after.**
 `map_put`, `map_remove`, `array_set`, and a field replacement `(.f r v)`
 change their map, array, or record in place only when nothing else still
