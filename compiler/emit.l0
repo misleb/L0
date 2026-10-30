@@ -39,7 +39,8 @@
 ; A read-only parameter (spec 10.3) holds no reference: it is never handed
 ; over or released, and every use of it that needs one adds one.
 (data EBind
-  (EB (list int) (list int) Ty bool))   ; L0 name, operand text, type, read-only
+  (EB (name (list int)) (op (list int)) (ty Ty) (ro bool)))   ; L0 name, operand
+                                        ; text, type, read-only
 
 ; Local bindings, the global tables, the function names that resolve to the
 ; prelude from here, and how many parameters each function takes. The
@@ -75,26 +76,22 @@
 (def bump ((st Emit)) Emit
   (.next st (add (.next st) 1)))
 
+(def ebind_name ((b EBind)) (list int) (.name b))
+
 (def lookup_operand ((n (list int)) (binds (list EBind))) (list int)
-  (if (is_empty binds)
-      "0"
-      (match (head binds)
-        ((EB bn op t ro)
-          (if (eq n bn) op (lookup_operand n (tail binds)))))))
+  (match (find_by ebind_name n binds)
+    ((Some b) (.op b))
+    ((None) "0")))
 
 (def lookup_type ((n (list int)) (binds (list EBind))) Ty
-  (if (is_empty binds)
-      (TyInt)
-      (match (head binds)
-        ((EB bn op t ro)
-          (if (eq n bn) t (lookup_type n (tail binds)))))))
+  (match (find_by ebind_name n binds)
+    ((Some b) (.ty b))
+    ((None) (TyInt))))
 
 (def lookup_read_only ((n (list int)) (binds (list EBind))) bool
-  (if (is_empty binds)
-      false
-      (match (head binds)
-        ((EB bn op t ro)
-          (if (eq n bn) ro (lookup_read_only n (tail binds)))))))
+  (match (find_by ebind_name n binds)
+    ((Some b) (.ro b))
+    ((None) false)))
 
 (def is_read_only ((n (list int)) (env Env)) bool
   (lookup_read_only n (.binds env)))

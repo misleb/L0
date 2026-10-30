@@ -11,6 +11,8 @@
       Whether x is one of xs, by eq, for a list of any type.
   (index_of T) ((x T) (xs (list T))) int
       The position of the first element of xs that is x, by eq, counting from 0, or -1 if there is none, for a list of any type.
+  (find_by K T) ((key (fn (T) K)) (k K) (xs (list T))) (Option T)
+      The first element of xs whose key is k, by eq, or None, for a list of any type and a key of any type.
   (min T) ((a T) (b T)) T
       The lesser of a and b by compare, for values of any type, and a when they are the same.
   (max T) ((a T) (b T)) T

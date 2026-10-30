@@ -256,6 +256,10 @@ tail call through a parameter uses no stack, and nothing costs more at run
 time than the loop written out twice. The copies cost code size: a function
 given three different `def`s is three functions.
 
+The library gained one function with a function parameter, `find_by`
+(`l0 doc find_by`), a lookup in a list by a key function; the compiler's
+seven lookups are now it, each with a one-line key `def`.
+
 **Where L0S gains.** The shape is two or more functions with the same
 recursion that differ in one call, a lookup by a different key or a walk
 that does a different thing per element. A first list, by name:

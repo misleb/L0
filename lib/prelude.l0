@@ -62,6 +62,15 @@
       -1
       (if (eq x (head xs)) i (index_of_from x (tail xs) (add i 1)))))
 
+;; The first element of xs whose key is k, by eq, or None, for a list of any
+;; type and a key of any type. key is a def that gives an element's key,
+;; such as one reading a field: (find_by name_of "ada" people). For a table
+;; that is looked up often or grows, use a Map.
+(def (find_by K T) ((key (fn (T) K)) (k K) (xs (list T))) (Option T)
+  (if (is_empty xs)
+      ((None T))
+      (if (eq (key (head xs)) k) (Some (head xs)) (find_by key k (tail xs)))))
+
 ;; The lesser of a and b by compare, for values of any type, and a when they
 ;; are the same.
 (def (min T) ((a T) (b T)) T

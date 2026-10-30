@@ -15,7 +15,7 @@
 ; checker's types to choose which copy each call reaches.
 
 (data Bind
-  (B (list int) Ty))                    ; name, type
+  (B (name (list int)) (ty Ty)))
 
 (data Sig
   (S (name (list int)) (tparams (list (list int))) (params (list Ty)) (ret Ty)))
@@ -58,40 +58,27 @@
   (any_eq n (.builtins c)))
 
 ; ---------------------------------------------------------------- lookups
+;
+; Each by its name, with the prelude's find_by and the def that reads it.
+
+(def bind_name ((b Bind)) (list int) (.name b))
+(def sig_name ((s Sig)) (list int) (.name s))
+(def ctor_name ((c CtorInfo)) (list int) (.name c))
+(def data_name ((d DataDef)) (list int) (.name d))
 
 (def find_bind ((n (list int)) (env (list Bind))) (Option Ty)
-  (if (is_empty env)
-      ((None Ty))
-      (match (head env)
-        ((B bn bt)
-          (if (eq n bn) (Some bt) (find_bind n (tail env)))))))
+  (match (find_by bind_name n env)
+    ((Some b) (Some (.ty b)))
+    ((None) ((None Ty)))))
 
 (def find_sig ((n (list int)) (sigs (list Sig))) (Option Sig)
-  (if (is_empty sigs)
-      ((None Sig))
-      (match (head sigs)
-        ((S sn tps sp sr)
-          (if (eq n sn)
-              (Some (head sigs))
-              (find_sig n (tail sigs)))))))
+  (find_by sig_name n sigs))
 
 (def find_ctor ((n (list int)) (cs (list CtorInfo))) (Option CtorInfo)
-  (if (is_empty cs)
-      ((None CtorInfo))
-      (match (head cs)
-        ((CI cn tn tag ps ns fts)
-          (if (eq n cn)
-              (Some (head cs))
-              (find_ctor n (tail cs)))))))
+  (find_by ctor_name n cs))
 
 (def find_data ((n (list int)) (ds (list DataDef))) (Option DataDef)
-  (if (is_empty ds)
-      ((None DataDef))
-      (match (head ds)
-        ((DD dn ps cs mf)
-          (if (eq n dn)
-              (Some (head ds))
-              (find_data n (tail ds)))))))
+  (find_by data_name n ds))
 
 
 ; ------------------------------------------------------- type parameters
@@ -1782,8 +1769,11 @@
 (data FnRef
   (FR (call (list int)) (part (list int))))
 
+; A function parameter, and what it was given.
 (data FnBind
-  (FB (list int) FnRef))                ; a function parameter, what it was given
+  (FB (name (list int)) (ref FnRef)))
+
+(def fn_bind_name ((b FnBind)) (list int) (.name b))
 
 ; A copy some call reached: its name, the def it copies and whether that is
 ; the prelude's, the kinds of its type parameters, and what each of its
@@ -1941,10 +1931,9 @@
               (fn_binds (tail ps) refs))))))
 
 (def find_fn_bind ((n (list int)) (fbs (list FnBind))) FnRef
-  (if (is_empty fbs)
-      (FR n "")
-      (match (head fbs)
-        ((FB bn r) (if (eq bn n) r (find_fn_bind n (tail fbs)))))))
+  (match (find_by fn_bind_name n fbs)
+    ((Some b) (.ref b))
+    ((None) (FR n ""))))
 
 ; Every combination of kinds for the parameters, true for counted, in the
 ; order of their names: 0...0 first.

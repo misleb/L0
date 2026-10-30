@@ -87,6 +87,15 @@ and here they are values only at compile time:
 - *Only copies some call reaches.* A function with function parameters has
   no code of its own, since a parameter of function type has no value.
 
+*Used:* after the seed was refreshed, the prelude gained `find_by`, and
+the compiler's seven lookups became `find_by` with a one-line key function
+each, six copies of it in the compiler's IR. Self-compile went from 0.68 s
+to 0.69 s and the compiler's IR from 2,042,788 to 2,044,056 bytes. Its
+`Expr` walks were not folded: without a wildcard arm each still needs its
+whole `match`, and each carries state of its own, so a fold read worse.
+`l0 test` still generates a `main`: passing a function does not let a
+program list its own functions, which finding its tests needs.
+
 *Left open:* builtins as arguments; a function that takes a function
 parameter itself being passed; closures, which 0028's sort of lines by an
 index into one buffer would want, and which a parameter for the buffer

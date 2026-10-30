@@ -227,6 +227,38 @@
       n
       (count_of x (tail xs) (if (eq x (head xs)) (add n 1) n))))
 
+; ---------------------------------------------------- functions as arguments
+
+; A parameter may have a function type, (fn (T) B), and is called like a
+; function. It is given a def by name, never an expression, and there are no
+; closures: what the function needs, it takes as arguments. So one loop
+; serves every per-element step, and every call in it is still direct,
+; since each def passed makes a copy of the loop.
+(def (map_over A B) ((f (fn (A) B)) (xs (list A))) (list B)
+  (rev (map_onto f xs (nil B))))
+
+(def (map_onto A B) ((f (fn (A) B)) (xs (list A)) (acc (list B))) (list B)
+  (if (is_empty xs) acc (map_onto f (tail xs) (cons (f (head xs)) acc))))
+
+(def square ((n int)) int (mul n n))
+
+; (map_over square xs), and a def with type parameters passed the same way,
+; its types fixed by the list: (map_over length words) is each word's length.
+(def squares ((xs (list int))) (list int)
+  (map_over square xs))
+
+(def lengths ((words (list (list int)))) (list int)
+  (map_over length words))
+
+; The library's find_by takes the key to look up by as a function, here
+; one reading a field of Proc, above: the state of the process in space s.
+(def proc_space ((p Proc)) int (.space p))
+
+(def state_in ((s int) (ps (list Proc))) int
+  (match (find_by proc_space s ps)
+    ((None) -1)
+    ((Some p) (.state p))))
+
 ; -------------------------------------------------------------------- maps
 
 ; A (Map K V) is in the library for every key and value type. The empty map

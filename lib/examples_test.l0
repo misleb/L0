@@ -68,6 +68,15 @@
          (check_int "data" (count_of ((None int)) (cons (Some 1) (cons ((None int))
                              (nil (Option int)))) 0) 1))))
 
+(def test_functions_as_arguments () int
+  (add (check_bool "squares" (eq (squares (cons 2 (cons 3 (nil int))))
+                                 (cons 4 (cons 9 (nil int)))) true)
+    (add (check_bool "lengths" (eq (lengths (split_spaces "a bb ccc"))
+                                   (cons 1 (cons 2 (cons 3 (nil int))))) true)
+      (let ps (cons (Proc 4 (array_new 1 0) 7) (cons (Proc 9 (array_new 1 0) 2) (nil Proc)))
+        (add (check_int "found" (state_in 9 ps) 2)
+             (check_int "missing" (state_in 5 ps) -1))))))
+
 (def test_word_counts () int
   (add (check_int "the" (count_of_word "the cat saw the dog" "the") 2)
     (add (check_int "dog" (count_of_word "the cat saw the dog" "dog") 1)

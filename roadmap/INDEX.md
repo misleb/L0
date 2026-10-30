@@ -25,19 +25,15 @@ display interrupts beyond those given, and the VisionFive 2 and Pi 4.
 
 Changes to the language, strictly in order. At most one is active.
 
-1. [0135](0135-function-arguments.md) functions as arguments, by one
-   callee copy per function passed, with no closures and every call still
-   direct — active: step 1 (the compiler compiles them) done, the seed
-   refreshed; step 2, the compiler's lookups as one, next
-2. [0136](0136-field-take-out.md) a field taken out, updated, and put back
-   in place, the field form of 6.5's row form — proposed
-3. [0137](0137-unboxed-wrappers.md) a one-field wrapper of a word costs
+1. [0136](0136-field-take-out.md) a field taken out, updated, and put back
+   in place, the field form of 6.5's row form — active
+2. [0137](0137-unboxed-wrappers.md) a one-field wrapper of a word costs
    nothing, so spaces and frames can be types — proposed; changes such a
    type's hash
-4. [0138](0138-short-circuit.md) `and` and `or` evaluate their second
+3. [0138](0138-short-circuit.md) `and` and `or` evaluate their second
    operand only when it matters — proposed; one test leaves the
    differential suite
-5. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
+4. [0130](0130-map-shrink-hysteresis.md) a map shrinks well below where
    it grows — queued, left for now: hysteresis breaks spec 6.9's promise
    that a map's table depends only on its entries, and a trie that keeps
    it is the way if taken up
@@ -66,6 +62,12 @@ From the review of 2026-10-30, each proposed and not started:
   own loose ends
 
 ## Done and dropped
+
+- [0135](0135-function-arguments.md) functions as arguments, by one copy
+  of the callee per `def` passed — done, changelog "Functions as
+  arguments, by one copy per function passed"; the compiler's lookups are
+  the prelude's `find_by`; both suites, the fixpoint, and `--virt` on both
+  boards green; not run on macOS or a Pi 5
 
 - [0143](0143-stale-documents.md) tooling: the documents that disagreed
   with the code — done; no language change

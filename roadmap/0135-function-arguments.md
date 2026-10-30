@@ -1,7 +1,7 @@
 # 0135: functions as arguments, by copies
 
 Kind: language
-Status: active
+Status: done
 Needs: 0132
 
 ## Why
@@ -112,3 +112,14 @@ expresses.
   `l0 test`'s generated `main` stays: passing a function does not let a
   program list its own functions, which is what finding tests needs.
   Next: seed refresh, then step 2, the compiler's lookups.
+- 2026-10-30: step 2 done, after the seed refresh (e032925). The prelude
+  has `find_by`, and the compiler's seven lookups, and the `find_fn_bind`
+  step 1 added, are one walk: each is `find_by` with a one-line key
+  function, six copies in the compiler's IR, one per key. Measured on this
+  host, self-compile 0.68 s before and 0.69 s after, stage2.ll 2,042,788
+  bytes before and 2,044,056 after. The seven `Expr` walks were left as
+  they are: with no wildcard arm, a shared fold would still need every
+  walk's thirteen-arm `match`, and each carries different state, which
+  without closures would be one more record per walk, so nothing reads
+  better. `lib/examples.l0` has a section on it, tested by
+  `lib/examples_test.l0`. Done.
