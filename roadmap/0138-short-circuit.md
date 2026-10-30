@@ -1,7 +1,7 @@
 # 0138: and and or evaluate their second operand only when it matters
 
 Kind: language
-Status: proposed
+Status: done
 Needs: nothing
 
 ## Why
@@ -40,3 +40,14 @@ do. Emission is the `if` the writer would have written.
 ## Log
 
 - 2026-10-30: opened, from the review (its item 1.4); proposed.
+- 2026-10-30: done. Spec 6's table, section 8, and 10.3's emission note
+  say the rule; the emitter emits a builtin `and` or `or` as the `if` it
+  means, with the second operand outside tail position, so tail-call
+  components are unchanged. `tests/lang/err_and_strict` is gone from the
+  differential suite, since stage 0 keeps the strict reading;
+  `tests/io/and_or_short` writes a byte in each second operand, and
+  `tests/unit/order_test` now expects the two writes the first operands
+  decide away to be skipped. Both skills say the opposite of what they
+  did. No L0S second operand has an effect, by the guide's grep. Both
+  suites, the fixpoint, and `--virt` on both boards green. No language
+  item remains in the queue but 0130, left by the user's choice.

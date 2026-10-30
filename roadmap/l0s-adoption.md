@@ -249,6 +249,8 @@ instead of reporting the unclosed form.
    differ only in what they do to each element.
 7. Word wrappers (section 8) for the handles a wrong int could be passed
    for, starting with spaces and frames.
+8. Guards written as nested `if` only because `and` was strict (section
+   9), as those functions are touched.
 
 ## 7. Functions as arguments (roadmap 0135)
 
@@ -333,3 +335,31 @@ where a program's own one-line type costs nothing. L0S's existing wrappers:
 ```bash
 grep -rnE '\(data ([A-Z][A-Za-z0-9_]*)[[:space:]]*\(([A-Z][A-Za-z0-9_]*)[[:space:]]+(\([a-z_0-9]+[[:space:]]+)?(int|bool|float)\)?\)\)' --include='*.l0' .
 ```
+
+## 9. `and` and `or` stop at the operand that decides (roadmap 0138)
+
+The builtins `(and a b)` and `(or a b)` evaluate `b` only when `a` does not
+decide: when `a` is `true` for `and`, `false` for `or` (spec 8). A `def`
+named `and` or `or` is unchanged. From `tests/io/and_or_short.l0`:
+
+```
+(def guard ((xs (list int))) bool
+  (and (not (is_empty xs)) (gt (head xs) 0)))     ; never takes head of empty
+```
+
+**What changes.** A second operand with an effect, a write, a read, a
+region or space access, an interrupt, or a kernel call, no longer happens
+when the first decides. None of L0S's does; this finds one, and found none
+on 2026-10-30:
+
+```bash
+grep -rnE '\((and|or) .*\((write_|read_|file_|space_|region_|user_run|supervisor_|frame_|interrupt_|timer_at|cpu_run|clock_ns)' --include='*.l0' .
+```
+
+A runtime error in a second operand that the first decides no longer
+happens either, which is the point. The second operand is still not in tail
+position, so a loop through `or` is still written with `if`.
+
+**Where L0S gains.** Guards written as a nested `if` only because `and`
+evaluated both sides, `(if (is_empty xs) false (gt (head xs) 0))`, read as
+the `and` they mean; convert them as the functions are touched.

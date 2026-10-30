@@ -15,6 +15,33 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## and and or evaluate their second operand only when it matters (roadmap 0138)
+
+**New:** the builtins `(and a b)` and `(or a b)` evaluate `b` only when `a`
+does not decide the result (spec 6, 8); a `def` named `and` or `or` is
+called as before. `b` is still not in tail position.
+
+*Why:* strictness bought nothing a program could want, and cost a trap
+the skills had to warn of: `(and (not (is_empty xs)) (gt (head xs) 0))`
+took the head of the empty list, so the guard had to be a nested `if`.
+The trap caught the compiler itself, whose lexer's `(and (not (is_empty
+rest)) (is_name_rest (head rest)))` crashed on a source file ending in a
+digit (changelog, "A declaration's miscounted parens are counted").
+
+*Decided:*
+- *Only the builtins.* A `def` of the name keeps being a function, both
+  arguments evaluated, so section 7's shadowing means what it did.
+- *`b` not in tail position.* Making it one would let `(or done (loop
+  ...))` be a tail call, which reads well, but would change which
+  functions share a tail-call component (10.2) for every such program; it
+  waits for a program that needs it.
+- *Stage 0 keeps the strict reading.* It is frozen, so
+  `tests/lang/err_and_strict`, which pinned the strict reading, leaves the
+  differential suite: its program now gives `false`, which
+  `tests/io/and_or_short` checks, with an effect in each second operand.
+
+---
+
 ## A one-field wrapper of a word is the word (roadmap 0137)
 
 **New:** a *word wrapper*, a data type declared without type parameters

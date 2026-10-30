@@ -1,0 +1,24 @@
+; The builtins and and or evaluate their second operand only when the first
+; does not decide (spec 8). Each second operand writes a byte, so the
+; output says which were evaluated: a, then c, then e, and the guard that
+; would take the head of the empty list never does. Stage 0 keeps the
+; strict reading, so this is not in tests/lang.
+
+(def says ((b int) (v bool)) bool
+  (let w (write_byte b) v))
+
+(def guard ((xs (list int))) bool
+  (and (not (is_empty xs)) (gt (head xs) 0)))
+
+(def main () int
+  (let (p (and true (says 97 true))      ; a: evaluated
+        q (and false (says 98 true))     ; b: not
+        r (or false (says 99 false))     ; c: evaluated
+        s (or true (says 100 false))     ; d: not
+        t (and (says 101 false) (says 102 true))   ; e, and not f
+        g (guard (nil int)))
+    (let w (write_byte 10)
+      (if (eq (cons p (cons q (cons r (cons s (cons t (cons g (nil bool)))))))
+              (cons true (cons false (cons false (cons true (cons false (cons false (nil bool))))))))
+          0
+          1))))

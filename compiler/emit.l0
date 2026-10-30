@@ -624,9 +624,25 @@
       (emit_take (var_name (head args)) (head (tail args)) env st)
       (if (eq n "data.take")
           (emit_data_take (var_name (head args)) (str_of (head (tail args))) env st)
-          (match (row_update n args (.ctx env))
-            ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
-            ((NotRowUpdate) (emit_call_plain n (through_args n args env live) env live tl st))))))
+          (if (is_short n env)
+              (emit_short n (head args) (head (tail args)) env live tl st)
+              (match (row_update n args (.ctx env))
+                ((RowUpdate g y x v) (emit_row_update g y x v env live tl st))
+                ((NotRowUpdate) (emit_call_plain n (through_args n args env live) env live tl st)))))))
+
+; The builtins and and or, which a def of the name shadows. Spec 7 and 8.
+(def is_short ((n (list int)) (env Env)) bool
+  (if (if (eq n "and") true (eq n "or")) (is_builtin_in n (.ctx env)) false))
+
+; (and a b) as (if a b false), and (or a b) as (if a true b), with b never
+; in tail position, so tail-call components are those section 8 gives.
+(def emit_short ((n (list int)) (a Expr) (b Expr) (env Env)
+                 (live (list (list int))) (tl bool) (st Emit)) EmitVal
+  (finish tl
+    (.ty (if (eq n "and")
+             (emit_if a b (EBool 0 false) env live false st)
+             (emit_if a (EBool 0 true) b env live false st))
+         (TyBool))))
 
 ; A string literal's bytes, or nothing for any other expression.
 (def str_of ((e Expr)) (list int)

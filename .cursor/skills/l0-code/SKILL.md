@@ -125,18 +125,12 @@ predates this, so tests of it go in `tests/unit/fn_args_test.l0`, or in
 `tests/compiler/check_fn_args` for the checker's verdicts and
 `emit_fn_args` for the copies.
 
-**`and` and `or` are strict.** Both arguments are always evaluated, so they do
-not guard against errors. This does not work:
-
-```
-(and (not (is_empty xs)) (gt (head xs) 0))   ; still calls head on empty
-```
-
-Use nested `if` instead:
-
-```
-(if (is_empty xs) false (gt (head xs) 0))
-```
+**`and` and `or` stop at the first operand that decides** (spec 8), so
+`(and (not (is_empty xs)) (gt (head xs) 0))` never takes the head of an
+empty list. Stage 0 predates this and keeps the strict reading, so a test of
+it goes in `tests/io/and_or_short` or `tests/unit`, never `tests/lang`. The
+second operand is not in tail position, so a loop through it is written
+with `if`.
 
 **`eq` compares two values of any one type** (spec 6.8), lists, data, arrays,
 and bytes by what they hold, but stage 0 predates that and accepts only `int`.

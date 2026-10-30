@@ -1,5 +1,0 @@
-; and is strict: both arguments are always evaluated. A short-circuiting and
-; would return false here instead of dying. See spec section 8.
-
-(def main ((input (list int))) bool
-  (and false (eq (div 1 0) 0)))

@@ -1,6 +1,7 @@
 ; Effects happen in evaluation order, spec section 8: arguments left to right,
-; a let value before its body, and every operand of and and or, whether or not
-; the result is used. Each write goes to a file, which is read back.
+; a let value before its body, whether or not the result is used, and the
+; second operand of and and or only when the first does not decide, so g and
+; i are never written. Each write goes to a file, which is read back.
 
 (def two ((a int) (b int)) int 0)
 
@@ -30,4 +31,4 @@
     ((IoOpened f)
       (let w (write_in_order f)
         (let c (file_close f)
-          (check_str "bytes" (read_back "order.txt") "abcdefghi"))))))
+          (check_str "bytes" (read_back "order.txt") "abcdefh"))))))

@@ -208,13 +208,16 @@ with `match`. So a membership test, a lookup, a hash table, a heap, or a
 sorted set is written once, for every element type, and the library already
 has `sort`.
 
-**`and` and `or` are strict.** Both arguments are always evaluated, so they do
-not guard against errors. This still calls `head` on an empty list:
+**`and` and `or` stop at the first operand that decides** (spec 8): the
+second is evaluated only when the first is `true` for `and`, or `false` for
+`or`, so they guard as they read:
 
 ```
-(and (not (is_empty xs)) (gt (head xs) 0))   ; wrong
-(if (is_empty xs) false (gt (head xs) 0))    ; right
+(and (not (is_empty xs)) (gt (head xs) 0))   ; never takes head of empty
 ```
+
+The second operand is not in tail position, so a recursive call there is
+not a tail call; a loop of `(or found (search ...))` is written with `if`.
 
 **`eq` compares two values of any one type by what they hold:** `(eq "ab"
 (cons 97 "b"))` and `(eq (Some "x") (Some "x"))` are true, and so is `eq` on
