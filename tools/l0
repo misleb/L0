@@ -22,7 +22,9 @@
 #   l0 doc   [FILE | NAME | TEXT]             the standard library: an index, one
 #                                             file (prelude, io, test) in full,
 #                                             one definition, or a search
-#   l0 spec  [--path]                         the language specification
+#   l0 spec  [--path | PART]                  the language specification; PART
+#                                             runtime, virt-aarch64, virt-riscv64,
+#                                             pi5, or process; --path every file
 #   l0 examples [test] [--path]               worked examples, or their tests
 #   l0 init  [DIR]                            scaffold a project for an agent
 #   l0 version
@@ -952,12 +954,36 @@ lib_doc() {
     }' "$@"
 }
 
-# The spec this driver was installed with, or in a checkout the one in spec/.
-spec_path() {
+# The directory of the spec this driver was installed with, or in a checkout
+# spec/. It holds L0.md, the language; runtime.md, section 10; and boards/,
+# each host's devices, interrupts, and layout.
+spec_dir() {
     if [ -f "$LIB/../spec/L0.md" ] && [ -d "$LIB/../compiler" ]; then
-        echo "$(cd "$LIB/../spec" && pwd)/L0.md"
+        (cd "$LIB/../spec" && pwd)
     else
-        echo "$LIB/L0.md"
+        echo "$LIB"
+    fi
+}
+
+# Every file of the spec, one a line, the language first.
+spec_path() {
+    d=$(spec_dir)
+    echo "$d/L0.md"
+    echo "$d/runtime.md"
+    for b in "$d"/boards/*.md; do
+        [ -f "$b" ] && echo "$b"
+    done
+    return 0
+}
+
+# One file of the spec by name: runtime, or a board, virt-aarch64,
+# virt-riscv64, pi5, or process.
+spec_file() {
+    d=$(spec_dir)
+    if [ "$1" = runtime ]; then
+        echo "$d/runtime.md"
+    else
+        echo "$d/boards/$1.md"
     fi
 }
 
@@ -1376,8 +1402,15 @@ case "$cmd" in
     spec)
         case "${1:-}" in
             --path) spec_path ;;
-            "") cat "$(spec_path)" ;;
-            *) usage ;;
+            "") cat "$(spec_dir)/L0.md" ;;
+            *)
+                f=$(spec_file "$1")
+                if [ ! -f "$f" ]; then
+                    echo "l0 spec: no part named $1; one of: runtime virt-aarch64 virt-riscv64 pi5 process" >&2
+                    exit 2
+                fi
+                cat "$f"
+                ;;
         esac
         ;;
 
@@ -1408,7 +1441,10 @@ Scaffolded an L0 project in $dir:
 
 The rest comes from the installed toolchain, so it matches the compiler:
 
-  l0 spec [--path]                    the language specification
+  l0 spec [--path | PART]             the language specification, or a part of
+                                      it: runtime (section 10), virt-aarch64,
+                                      virt-riscv64, pi5, or process; --path
+                                      names every file, the language first
   l0 doc [FILE | NAME | TEXT]         the standard library, from its source
   l0 examples [test] [--path]         worked examples, and tests of them
 

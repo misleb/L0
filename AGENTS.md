@@ -22,8 +22,12 @@ substitute for reading the spec and running the checker.
 
 ## Invariants
 
-**[spec/L0.md](spec/L0.md) is the only source of truth about L0.** Not this
-file, not the tests, not `stage0/l0i.c`. If an implementation and the spec
+**The files under `spec/` are the only source of truth about L0**:
+[spec/L0.md](spec/L0.md), the language, sections 1 to 9 and 11;
+[spec/runtime.md](spec/runtime.md), section 10, what a compiler emits and
+the runtime and hosts it links; and [spec/boards/](spec/boards/), each
+host's devices, interrupts, and layout. Not this file, not the tests, not
+`stage0/l0i.c`. If an implementation and the spec
 disagree, the implementation is wrong. If the spec is silent, that silence is
 the bug, and the fix belongs in the spec.
 
@@ -78,7 +82,8 @@ that this file deliberately omits.
 ## Layout
 
 ```
-spec/          L0.md (the language) and changelog.md (why it is that way)
+spec/          L0.md (the language), runtime.md (section 10, the target and
+               runtime), boards/ (each host), and changelog.md (why)
 runtime/       l0rt.ll, the runtime every compiled program links, as LLVM IR,
                and host-libc.ll, its host file, the only one calling libc;
                for a host without an operating system, its parts: bare/

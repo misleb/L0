@@ -50,6 +50,8 @@ lib/l0rt.o
 lib/l0host.o
 lib/libl0rt.a
 lib/L0.md
+lib/runtime.md
+lib/boards/
 lib/virt/
 lib/proc/
 lib/virt-*

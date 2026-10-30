@@ -7,8 +7,13 @@ cannot substitute for reading the specification and running the checker.
 ## Invariants
 
 **The specification is the only source of truth about L0.** Not this file, not
-the examples. If a construct is not in it, it does not exist. `l0 spec --path`
-names the file; read it before writing L0 for the first time in a session.
+the examples. If a construct is not in it, it does not exist. `l0 spec`
+prints the language, sections 1 to 9 and 11, which every program needs:
+read it before writing L0 for the first time in a session. `l0 spec
+runtime` is section 10, the compilation target and runtime, and `l0 spec
+virt-aarch64`, `virt-riscv64`, `pi5`, or `process` a host's devices,
+interrupts, and layout, which a kernel or driver needs. `l0 spec --path`
+names every file.
 
 **Never state that L0 code works without running `l0 check` on it.** Code that
 looks plausible is routinely invalid, because L0 is not any language you have
@@ -58,7 +63,7 @@ l0 test  hello.l0 hello_test.l0   run every (def test_NAME () int ...), as TAP
 l0 run   hello.l0 main.l0         build and run, reading stdin; -- ARGS after
 l0 build hello.l0 main.l0         produce the executable ./hello
 l0 doc   [NAME | TEXT]            the standard library, or one name, or a search
-l0 spec  --path                   where the specification is
+l0 spec  [PART | --path]          the specification, a part of it, or its files
 ```
 
 Several files are compiled together, since L0 has no module system. The

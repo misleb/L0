@@ -38,12 +38,21 @@ fi
 grep -q 'nothing in the standard library' err || fail "no message for a miss"
 
 # The specification and examples are the ones this toolchain has.
-case "$(head -n 1 "$(l0 spec --path)")" in
+# l0 spec --path names every file of it, the language first, and each is
+# there; l0 spec prints the language, and l0 spec runtime section 10.
+spec=$(l0 spec --path | head -n 1)
+case "$(head -n 1 "$spec")" in
     "# The L0 Programming Language"*) ;;
-    *) fail "l0 spec --path does not name the specification" ;;
+    *) fail "l0 spec --path does not name the specification first" ;;
 esac
-[ "$(l0 spec | first)" = "$(head -n 1 "$(l0 spec --path)")" ] ||
+[ "$(l0 spec --path | wc -l)" -ge 6 ] || fail "l0 spec --path does not name every file"
+for f in $(l0 spec --path); do
+    [ -f "$f" ] || fail "l0 spec --path names $f, which is not there"
+done
+[ "$(l0 spec | first)" = "$(head -n 1 "$spec")" ] ||
     fail "l0 spec does not print the specification"
+l0 spec runtime | grep -q '^### 10.3 Runtime interface' ||
+    fail "l0 spec runtime does not print section 10"
 # shellcheck disable=SC2046
 l0 test $(l0 examples --path) > got.tap ||
     { cat got.tap; fail "the examples' tests fail"; }

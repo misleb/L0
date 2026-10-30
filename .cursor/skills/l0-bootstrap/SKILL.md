@@ -55,7 +55,9 @@ silent and converts a caught bug into a permanent one.
 
 ## The pieces
 
-- `spec/L0.md` — the only source of truth
+- `spec/L0.md`, `spec/runtime.md`, and `spec/boards/` — the only source of
+  truth: the language, section 10, and each host's devices, interrupts, and
+  layout
 - `runtime/l0rt.ll` — the runtime every compiled program links: allocation,
   buffered I/O, and stack checks, as LLVM IR the same on every host. It
   reaches the host only through the `l0_host_` functions of spec 10.3, and
@@ -308,10 +310,11 @@ overruled later.
 
 Every builtin added so far touched the same places; missing one shows up late:
 
-- `spec/L0.md`: section 6's table and the builtin's own subsection; 10.3's
-  `declare` list and how it is emitted, for a runtime call; section 8's
-  table for a new runtime error; the borrowing and read-only lists in 10.3
-  if it reads a counted argument without consuming it
+- `spec/L0.md`: section 6's table and the builtin's own subsection;
+  section 8's table for a new runtime error. `spec/runtime.md`: 10.3's
+  `declare` list and how it is emitted, for a runtime call; the borrowing
+  and read-only lists in 10.3 if it reads a counted argument without
+  consuming it. `spec/boards/`: a board's devices or interrupts it adds
 - `compiler/check.l0`: its name in a builtin group, its arity, and its type
 - `compiler/emit.l0`: `io_names` or `rt_names`, `builtin_type` for a result
   that is not `int`, `is_borrowing` if it reads without consuming, and the

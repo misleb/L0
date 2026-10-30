@@ -15,6 +15,37 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## The specification is several files, and no language change for it (roadmap 0141)
+
+**Changed:** `spec/L0.md` holds sections 1 to 9 and 11, the language a
+program is written in, and a short section 10 that points on;
+`spec/runtime.md` is section 10, the compilation target, the runtime and
+host interfaces, and the release rule, keeping its numbers; and
+`spec/boards/` holds each host's devices and interrupts,
+`virt-aarch64.md`, `virt-riscv64.md`, and `pi5.md`, and a process's
+system calls, image, and layout, `process.md`. All of them are normative.
+Section 6's table is in two, every program's builtins and the host
+facilities a kernel or driver uses, and section 1's list of effects names
+6.18, 6.19, and `board_reset`, which it had missed. `l0 spec` prints the
+language, `l0 spec runtime` and `l0 spec pi5` and the like a part, and `l0
+spec --path` names every file, the language first.
+
+*Why:* `spec/L0.md` was 3,900 lines, of which section 10.3 alone was 1,250,
+three boards' device tables and interrupt numbers among it, at three
+rates of change in one document; the skills said "read the spec, it is
+short", and an ordinary program needs about 2,300 of those lines. Section
+1's list had already drifted, which is what one document carrying three
+rates of change does.
+
+*How it was done:* by line ranges, with the cut pieces checked to rejoin
+to the original byte for byte, and then every line of the original
+checked to be in one of the new files but for the six sentences rewritten
+where a cut fell mid-sentence. A process's part ran on into general
+runtime text, which went back into `runtime.md`. Nothing changed in
+meaning.
+
+---
+
 ## The compiler looks a call's function up in a map, and no language change for it (roadmap 0145)
 
 **Changed:** a context's signatures are a `(Map (list int) Sig)`, built

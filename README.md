@@ -105,8 +105,10 @@ when it is both the one using the language and the one changing it.
 fixpoint. With `stage0/` removed entirely, the checked-in seed rebuilds the
 compiler from source and the result works.
 
-- `spec/L0.md` — the language, and the only specification of it; changes are
-  recorded in `spec/changelog.md` rather than as numbered versions
+- `spec/L0.md` — the language, and with `spec/runtime.md` (section 10, the
+  target and runtime) and `spec/boards/` (each host) the only specification
+  of it; changes are recorded in `spec/changelog.md` rather than as
+  numbered versions
 - `runtime/l0rt.ll` — allocation and reference counting, buffered I/O, and
   stack checks, as LLVM IR the same on every host, calling the host only
   through a small interface; `runtime/host-libc.ll` implements that
@@ -530,7 +532,8 @@ not have. `tools/bootstrap.sh --refresh-seed` cuts a new seed, and a plain
 ## Repository layout
 
 ```
-spec/          L0.md (what the language is) and changelog.md (why)
+spec/          L0.md (what the language is), runtime.md (section 10),
+               boards/ (each host), and changelog.md (why)
 runtime/       l0rt.ll, the runtime: allocation, reference counting,
                buffered I/O, stack checks; host-libc.ll, its host file:
                libc, the clock, the entry point; the parts of a host with

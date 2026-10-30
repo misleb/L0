@@ -17,11 +17,13 @@ and they matter more than everything else in this file:
    pattern-match your way to correct L0. The checker is your only reliable
    signal.
 
-Read the specification before writing L0 for the first time in a session;
-`l0 spec --path` says where it is. Sections 1 to 9 and 11 are the language,
-and all of them matter. Section 10 is how the compiler and runtime work, and
-you need only its memory rules, in 10.3, which the section on memory below
-summarises. Then skim the examples,
+Read the specification before writing L0 for the first time in a session:
+`l0 spec` prints sections 1 to 9 and 11, the language, and all of them
+matter. Section 10, `l0 spec runtime`, is how the compiler and runtime
+work, and you need only its memory rules, in 10.3, which the section on
+memory below summarises; a kernel or a driver also reads its board's
+part, `l0 spec virt-aarch64` and the like. `l0 spec --path` names every
+file. Then skim the examples,
 `l0 examples --path`, which are working programs and their tests. All of
 this comes from the installed toolchain, so it describes the compiler you
 are using.

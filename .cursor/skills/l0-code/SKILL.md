@@ -10,8 +10,9 @@ data.** Anything you recall about Lisp, Scheme, Clojure, ML, or Haskell is
 either wrong here or accidentally right. Two rules follow from that, and they
 matter more than everything else in this file:
 
-1. **[spec/L0.md](../../../spec/L0.md) is the only source of truth.** If a
-   construct is not in the spec, it does not exist. Do not infer syntax from
+1. **The spec is the only source of truth:** [spec/L0.md](../../../spec/L0.md)
+   for the language, `spec/runtime.md` for section 10, and `spec/boards/`
+   for each host. If a construct is not in the spec, it does not exist. Do not infer syntax from
    other languages.
 2. **Never claim L0 code works until `tools/l0check` passes on it.** You cannot
    pattern-match your way to correct L0. The checker is your only reliable

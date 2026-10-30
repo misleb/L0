@@ -430,3 +430,23 @@ was a call per byte, so programs heavy in literals build smaller and
 faster: this repository's compiler IR shrank 40%, and its suite on the
 boards runs about a fifth faster. Process images built before and after
 mix freely, since nothing crosses a process boundary but words and bytes.
+
+## 13. The specification is several files (roadmap 0141)
+
+Nothing in it changed meaning; it moved. Which file L0S's agents read for
+what:
+
+| For | Read | Command |
+| --- | --- | --- |
+| writing any L0, sections 1 to 9 and 11 | `L0.md` | `l0 spec` |
+| memory, the runtime, what a compiler emits, section 10 | `runtime.md` | `l0 spec runtime` |
+| a driver on QEMU's aarch64 board: devices, interrupts | `boards/virt-aarch64.md` | `l0 spec virt-aarch64` |
+| the same on the riscv64 board | `boards/virt-riscv64.md` | `l0 spec virt-riscv64` |
+| a driver on the Pi 5, RP1, the HVS, PCIe's MSIs | `boards/pi5.md` | `l0 spec pi5` |
+| the kernel's system calls, a process's image and layout | `boards/process.md` | `l0 spec process` |
+
+`l0 spec --path` now names every file, one a line, the language first; a
+script that took its output as one path takes its first line. Section
+numbers are as they were, so "spec 10.3" in L0S's comments still means the
+same text, now in `runtime.md`. Section 6's table is in two, the host
+facilities second.

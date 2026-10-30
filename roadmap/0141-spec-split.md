@@ -1,7 +1,7 @@
 # 0141: the spec split into the language, the runtime, and the boards
 
 Kind: tooling
-Status: proposed
+Status: done
 Needs: nothing
 
 ## Why
@@ -43,3 +43,12 @@ read for what.
 ## Log
 
 - 2026-10-30: opened, from the review (its item 2.1); proposed.
+- 2026-10-30: done, split with the shell by the user's leave, the pieces
+  checked to rejoin byte for byte and every original line found in the
+  new files but six seam sentences rewritten. `spec/L0.md` 2,450 lines,
+  `runtime.md` 1,120, `boards/` 420. Section 6's table is two, section
+  1's effects list fixed. `tools/l0 spec` takes a part and `--path` names
+  all; `tools/install.sh` copies `runtime.md` and `boards/`; `AGENTS.md`,
+  `lib/AGENTS.md`, both skills, and README point at the right file;
+  `tests/io/libdoc.sh` checks every file is named and there. Every
+  relative link between the spec files resolves.

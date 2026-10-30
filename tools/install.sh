@@ -13,7 +13,8 @@
 #   <prefix>/lib/l0/prelude.l0   the standard library, which l0 doc documents
 #   <prefix>/lib/l0/io.l0        line and string I/O, linked like the prelude
 #   <prefix>/lib/l0/test.l0      assertions, linked by l0 test
-#   <prefix>/lib/l0/L0.md        the specification, shown by l0 spec
+#   <prefix>/lib/l0/L0.md        the specification, shown by l0 spec, with
+#                                runtime.md and boards/ beside it
 #   <prefix>/lib/l0/examples.l0  worked examples, shown by l0 examples, with
 #                                examples_test.l0 beside it
 #   <prefix>/lib/l0/AGENTS.md    project invariants, copied by `l0 init`
@@ -123,6 +124,9 @@ if [ "$(cd "$LIBDIR" && pwd)" != "$(cd "$ROOT/lib" && pwd)" ]; then
     cp "$ROOT/lib/examples.l0" "$LIBDIR/examples.l0"
     cp "$ROOT/lib/examples_test.l0" "$LIBDIR/examples_test.l0"
     cp "$ROOT/spec/L0.md" "$LIBDIR/L0.md"
+    cp "$ROOT/spec/runtime.md" "$LIBDIR/runtime.md"
+    rm -rf "$LIBDIR/boards"
+    cp -R "$ROOT/spec/boards" "$LIBDIR/boards"
     cp "$ROOT/lib/AGENTS.md" "$LIBDIR/AGENTS.md"
     rm -rf "$LIBDIR/skills"
     cp -R "$ROOT/lib/skills" "$LIBDIR/skills"
@@ -134,6 +138,9 @@ else
     # The driver's init command reads L0.md from the library directory, so
     # give it one even when running straight out of the repository.
     cp "$ROOT/spec/L0.md" "$LIBDIR/L0.md"
+    cp "$ROOT/spec/runtime.md" "$LIBDIR/runtime.md"
+    rm -rf "$LIBDIR/boards"
+    cp -R "$ROOT/spec/boards" "$LIBDIR/boards"
 fi
 
 if [ -n "$BINDIR" ]; then
