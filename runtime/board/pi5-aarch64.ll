@@ -294,7 +294,7 @@ entry:
 define i64 @l0_board_device_base(i64 %k) {
 entry:
   %i = mul i64 %k, 2
-  %p = getelementptr [16 x i64], ptr @devices, i64 0, i64 %i
+  %p = getelementptr [30 x i64], ptr @devices, i64 0, i64 %i
   %v = load i64, ptr %p
   ret i64 %v
 }
@@ -303,7 +303,7 @@ define i64 @l0_board_device_len(i64 %k) {
 entry:
   %i0 = mul i64 %k, 2
   %i = add i64 %i0, 1
-  %p = getelementptr [16 x i64], ptr @devices, i64 0, i64 %i
+  %p = getelementptr [30 x i64], ptr @devices, i64 0, i64 %i
   %v = load i64, ptr %p
   ret i64 %v
 }

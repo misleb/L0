@@ -381,8 +381,43 @@ layout_of() {
 # by docker exec, rather than a docker run per image, unless L0_VIRT_LD
 # already names a linker or ld.lld is on PATH.
 
+# board_table_check ARCH: the devices tests/virt/board/virt-ARCH.l0 names,
+# board_uart, board_rtc, board_fw_cfg, and board_virtio, each begin within
+# a device of runtime/board/virt-ARCH.ll's table, and those it says are no
+# device, board_no_device, board_ram, and board_intc, lie in none, so the
+# two copies of the board's addresses cannot drift apart unseen.
+board_table_check() {
+    awk -v arch="$1" '
+        BEGIN { n = 0; bad = 0 }
+        FNR == NR {
+            if ($0 ~ /^@devices = /) { intable = 1; next }
+            if (intable && match($0, /i64 [0-9]+, i64 [0-9]+/)) {
+                split(substr($0, RSTART, RLENGTH), f, /[ ,]+/)
+                base[n] = f[2] + 0; len[n] = f[4] + 0; n++
+            }
+            if (intable && $0 ~ /\]/) intable = 0
+            next
+        }
+        /^\(def board_[a-z_]+ \(\) int [0-9]+\)/ {
+            name = $2; v = $5 + 0
+            inside = 0
+            for (i = 0; i < n; i++) if (v >= base[i] && v < base[i] + len[i]) inside = 1
+            if (name ~ /^board_(uart|rtc|fw_cfg|virtio)$/ && !inside) {
+                print "board " arch ": " name " is in no device of the runtime table"; bad = 1
+            }
+            if (name ~ /^board_(no_device|ram|intc)$/ && inside) {
+                print "board " arch ": " name " is in a device of the runtime table"; bad = 1
+            }
+        }
+        END { exit bad }
+    ' "runtime/board/virt-$1.ll" "tests/virt/board/virt-$1.l0"
+}
+
 if [ "$VIRT" = 1 ]; then
     vstart=$(date +%s)
+    for a in aarch64 riscv64; do
+        board_table_check "$a" || { echo "FAIL board tables: virt-$a"; exit 1; }
+    done
     vcc=$(current_compiler)
     if [ -z "${L0_VIRT_LD:-}" ]; then
         L0_VIRT_LD=$(command -v ld.lld || true)

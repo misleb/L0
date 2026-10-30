@@ -1,7 +1,7 @@
 # 0146: the runtime's structure
 
 Kind: tooling
-Status: proposed
+Status: active
 Needs: nothing
 
 ## Why
@@ -55,3 +55,17 @@ the board, which only the user can do.
 ## Log
 
 - 2026-10-30: opened, from the review (its item 3.2); proposed.
+- 2026-10-30: active; step 3 done. The Pi 5's `@devices` is indexed as
+  the `[30 x i64]` it is, where its GEPs said `[16 x i64]` and read past
+  their type's end for every device from the ninth; `tools/test.sh
+  --virt` first checks that `tests/virt/board/virt-ARCH.l0`'s devices lie
+  within the runtime table's and its non-devices outside it
+  (`board_table_check`), for both boards. `--virt` green; the Pi 5 image
+  builds, not run on a board. Next, step 1: `runtime/bare/absent.ll` with
+  every host function `weak` and reporting its facility absent, linked by
+  every manifest, then each host's stubs deleted one file at a time,
+  `--virt` after each; `host-libc.ll`'s stubs stay, since it must be the
+  same text on macOS and Linux and is linked outside the manifests. Steps
+  2 (one device-tree walker), 4 (board files generated from a table), and
+  5 (the IR harness kernels retired) wait behind it; 5 needs a list of
+  what the harness runs that `kernel.l0` does not.
