@@ -47,8 +47,8 @@ change, and always read the `git diff` afterward. It is refused together with
 remove the only independent check on the compiler.
 
 **Never hand-edit generated files.** Anything under `build/` is reproducible
-from source. `bootstrap/stage2.ll`, once it exists, is compiler output and is
-replaced only by a successful bootstrap.
+from source. `bootstrap/stage2.ll` is compiler output and is replaced only by
+a successful bootstrap.
 
 **Record language decisions in [spec/changelog.md](spec/changelog.md).** The
 spec says what L0 is; the changelog says why. The reasoning is what becomes
@@ -109,11 +109,18 @@ roadmap/       plans and status for work in progress (see l0-roadmap)
 tmp/           scratch space, git-ignored (see .claude/rules/local-tmp.md)
 ```
 
-## Two traps specific to this project
+## Three traps specific to this project
 
 **Quadratic output.** Building output by appending is quadratic; it passes every
 small test and then hangs on real input. Accumulate in reverse and reverse once.
 This is the most likely way to lose a day here.
+
+**The hidden whole copy.** `array_set`, `map_put`, `map_remove`, and a field
+replacement update in place only when nothing else holds the value, and
+otherwise copy it whole; a read of it after the update, even in a later
+operand of the same expression, is something else holding it. Read first,
+with `let`, and update last. `lib/AGENTS.md` and the `l0-code` skill show
+both shapes, and `L0_ARRAY_STATS=1` counts the copies.
 
 **Using a language feature in the compiler too early.** The compiler must be
 able to compile its own source. Shipping support for a feature and the first use

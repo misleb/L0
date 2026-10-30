@@ -1,0 +1,37 @@
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+ok
+305: argument 1 of ap is the builtin add, and a builtin is not passed; pass a def that calls it
+305: argument 1 of ap must name a function: a def, or a parameter of function type
+314: argument 1 of ap must be (fn (int) int), but this is int
+305: argument 1 of ap must be (fn (int) int), but this is (fn (int) bool)
+305: unknown function nope
+305: argument 1 of ap must be (fn (int) int), but this is (fn ((list T)) T)
+327: argument 1 of mk is idt, whose type parameters come from the types it takes, and no argument before it fixes those
+305: argument 1 of ap must be (fn (int) int), but this is (fn ((fn (int) int) int) int)
+303: f takes 1 argument, but got 2
+303: argument 1 of f must be int, but this is bool
+270: c3 declares return type bool, but its body is int
+310: f is a function parameter, which is only called or passed to a parameter of function type
+312: inc is a function, and L0 has no function values; a def is passed only to a parameter of function type
+316: f is a function parameter, which is only called or passed to a parameter of function type
+270: (fn (int) int) is a function type, which is written only as a parameter's type
+270: (fn (int) int) is a function type, which is written only as a parameter's type
+270: (fn (int) int) is a function type, which is written only as a parameter's type
+312: (fn (int) int) is a function type, which is written only as a parameter's type
+parse error at offset 294: expected list, array, fn, or a data type name after ( in a type
+parse error at offset 281: (fn ...) takes its parameter types in parentheses, as in (fn (int) bool)
+parse error at offset 281: (fn (...) ...) takes exactly one result type
+270: unknown type Nope
+ok
+270: main must take one parameter of type (list int), or none
+ok

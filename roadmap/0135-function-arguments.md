@@ -1,7 +1,7 @@
 # 0135: functions as arguments, by copies
 
 Kind: language
-Status: proposed
+Status: active
 Needs: 0132
 
 ## Why
@@ -95,3 +95,20 @@ expresses.
 
 - 2026-10-30: opened, from the review (its item 1.2), after 0132 to 0134
   landed; proposed, not started, at the user's request.
+- 2026-10-30: active; step 1 done. Settled the open questions: the form is
+  `(fn (T...) R)`, at the top of a parameter's type only, `fn` not
+  reserved; a function parameter may be passed on; a generic `def` may be
+  passed, its type parameters taken from the function type after every
+  other argument is matched; builtins are not passed (no one type, no
+  symbol, and shadowing would resolve differently inside a copy), left
+  open. A call resolves to a function parameter first when the innermost
+  local of the name is one. Copies are made on demand, after every
+  declaration, named `g.<kinds>.F<def>` or `.P<def>[.kinds]`, and a call
+  through a parameter in a copy is `@` and the def's symbol, so a prelude
+  copy reaches a program's def of a name the prelude also has
+  (`tests/compiler/emit_fn_args`). The emitter computes a call's exact
+  type from the defs a copy was given (`copy_call_type`), since a type
+  parameter only a function determines may be a data type that is matched.
+  `l0 test`'s generated `main` stays: passing a function does not let a
+  program list its own functions, which is what finding tests needs.
+  Next: seed refresh, then step 2, the compiler's lookups.

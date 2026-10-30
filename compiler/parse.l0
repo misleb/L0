@@ -15,7 +15,8 @@
   (TyData (list int) (list Ty))         ; declared type name, arguments
   (TyArray Ty)
   (TyBytes)
-  (TyFloat))
+  (TyFloat)
+  (TyFn (list Ty) Ty))                  ; parameter types, result: spec 3
 
 (data Expr
   (EInt int int)                        ; offset, value
@@ -54,6 +55,23 @@
   (DData int (list int) (list (list int)) (list Ctor)))   ; offset, type name,
                                                           ; parameters, constructors
 
+; A variable's name, or an empty name for any other expression.
+(def var_name ((e Expr)) (list int)
+  (match e
+    ((EVar o n) n)
+    ((EInt o v) "")
+    ((EFloat o m p g) "")
+    ((EBool o v) "")
+    ((EStr o s) "")
+    ((ENil o t) "")
+    ((EIf o c a b) "")
+    ((ELet o n v b) "")
+    ((ECtor o n ts a) "")
+    ((EMatch o s a) "")
+    ((ECall o n a) "")
+    ((EField o f e) "")
+    ((EWith o f e v) "")))
+
 ; ----------------------------------------------------------------- on types
 
 (def ty_kind ((t Ty)) int
@@ -64,9 +82,11 @@
     ((TyData n as) 3)
     ((TyArray e) 4)
     ((TyBytes) 5)
-    ((TyFloat) 6)))
+    ((TyFloat) 6)
+    ((TyFn ps r) 7)))
 
 (def ty_is_list ((t Ty)) bool (eq (ty_kind t) 2))
+(def ty_is_fn ((t Ty)) bool (eq (ty_kind t) 7))
 (def ty_is_data ((t Ty)) bool (eq (ty_kind t) 3))
 (def ty_is_array ((t Ty)) bool (eq (ty_kind t) 4))
 (def ty_is_bytes ((t Ty)) bool (eq (ty_kind t) 5))
@@ -81,7 +101,8 @@
     ((TyBool) (TyBool))
     ((TyData n as) (TyInt))
     ((TyFloat) (TyInt))
-    ((TyBytes) (TyInt))))
+    ((TyBytes) (TyInt))
+    ((TyFn ps r) (TyInt))))
 
 (def ty_name ((t Ty)) (list int)
   (match t
@@ -91,9 +112,11 @@
     ((TyList e) "")
     ((TyArray e) "")
     ((TyFloat) "")
-    ((TyBytes) "")))
+    ((TyBytes) "")
+    ((TyFn ps r) "")))
 
-; A data type's arguments, and none for any other type.
+; A data type's arguments, a function type's parameter types then its
+; result, and none for any other type.
 (def ty_args ((t Ty)) (list Ty)
   (match t
     ((TyData n as) as)
@@ -102,7 +125,8 @@
     ((TyList e) (nil Ty))
     ((TyArray e) (nil Ty))
     ((TyFloat) (nil Ty))
-    ((TyBytes) (nil Ty))))
+    ((TyBytes) (nil Ty))
+    ((TyFn ps r) (append ps (cons r (nil Ty))))))
 
 ; Renders a type as spec-legal source text, for diagnostics.
 (def ty_str ((t Ty)) (list int)
@@ -114,7 +138,10 @@
     ((TyData n as)
       (if (is_empty as) n (append "(" (append n (append (tys_str as) ")")))))
     ((TyFloat) "float")
-    ((TyBytes) "bytes")))
+    ((TyBytes) "bytes")
+    ((TyFn ps r)
+      (append "(fn (" (append (drop_n (tys_str ps) (if (is_empty ps) 0 1))
+        (append ") " (append (ty_str r) ")")))))))
 
 ; " t1 t2 ...", each type preceded by a space.
 (def tys_str ((ts (list Ty))) (list int)
@@ -208,16 +235,33 @@
       (let t (head ts)
         (if (and (tok_is_name t) (name_is_upper (tok_bytes t)))
             (parse_data_type (tok_bytes t) (tail ts) open)
+            (if (and (tok_is_name t) (eq (tok_bytes t) "fn"))
+                (parse_fn_type (tail ts) open)
             (if (not (and (tok_is_name t)
                           (or (eq (tok_bytes t) "list")
                               (eq (tok_bytes t) "array"))))
                 ((PErr Ty) (tok_offset t)
-                  "expected list, array, or a data type name after ( in a type")
+                  "expected list, array, fn, or a data type name after ( in a type")
                 (match (parse_type (tail ts))
                   ((PErr o m) ((PErr Ty) o m))
                   ((POk elem rest)
                     (close_list_type (eq (tok_bytes t) "array") elem rest
-                                     open))))))))
+                                     open)))))))))
+
+; (fn (type...) type) -- a function type, after the fn. Where one may be
+; written is the checker's business. Spec 3.
+(def parse_fn_type ((ts (list Token)) (open int)) (Parsed Ty)
+  (if (if (is_empty ts) true (not (tok_is_lparen (head ts))))
+      ((PErr Ty) open "(fn ...) takes its parameter types in parentheses, as in (fn (int) bool)")
+      (match (parse_types (tail ts) (nil Ty) (tok_offset (head ts)))
+        ((PErr o m) ((PErr Ty) o m))
+        ((POk ps rest)
+          (match (parse_type rest)
+            ((PErr o m) ((PErr Ty) o m))
+            ((POk r rest2)
+              (if (if (is_empty rest2) false (tok_is_rparen (head rest2)))
+                  (POk (TyFn ps r) (tail rest2))
+                  ((PErr Ty) open "(fn (...) ...) takes exactly one result type"))))))))
 
 ; (Name type...) -- a data type given its arguments. Whether it takes that
 ; many is the checker's business.

@@ -10,6 +10,6 @@ tests/check/names.l0:19:6: error: a function name must be lowercase and not rese
 tests/check/names.l0:6:37: error: unknown variable nope
 tests/check/names.l0:7:37: error: unknown function nope
 tests/check/names.l0:8:33: error: f is a local value, and L0 cannot call a value
-tests/check/names.l0:9:45: error: unknown_variable is a function, and L0 has no function values
-tests/check/names.l0:10:44: error: add is a function, and L0 has no function values
+tests/check/names.l0:9:45: error: unknown_variable is a function, and L0 has no function values; a def is passed only to a parameter of function type
+tests/check/names.l0:10:44: error: add is a function, and L0 has no function values; a def is passed only to a parameter of function type
 error: this program has no main function

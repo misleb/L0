@@ -47,7 +47,10 @@ compiler built that way compiles itself to the same bytes, which
 `tools/test.sh --virt` checks, with the compiled suite's programs run there
 against the expectations they meet here. A third board, the Raspberry Pi 5,
 is built for with `l0 build --target pi5`; no emulator has it, so it is
-written to an SD card by `l0 card`, and has not yet run on one.
+written to an SD card by `l0 card`, or booted over the network by
+`tools/pi5-run`, and has run on a 2 GB board since 2026-10-24: its UART,
+regions, interrupts, user mode, and the L0 kernel with its processes. The
+4, 8, and 16 GB models have not been run.
 
 **A microkernel.** L0 should be able to express an operating system's
 kernel: a microkernel, written in L0, that runs drivers and programs as
@@ -315,15 +318,16 @@ names rather than a module system.
 A program can read and write its standard streams and files, rename and
 delete files, read its command-line arguments, and time itself on a
 monotonic clock, but there is no network, no environment, no wall-clock
-date, and no directories: none can be listed or created. Without an
-operating system it runs on two machines, QEMU's aarch64 and riscv64 `virt` boards,
-where there are no files and no environment, and its arguments are its
-boot arguments. There it drives the board's devices through their
-registers, takes and waits for interrupts, runs code in user mode, and
-gives a device frames to DMA into, but only on QEMU, whose devices see
-memory as its CPU does: real hardware whose devices bypass the caches
-would need frames it can clean, invalidate, or map uncached, which L0
-does not yet give.
+date, and no directories: none can be listed or created. Nor can a program
+start another process or wait for one under an operating system, which is
+why `tools/l0` and `tools/test.sh`, which do both, are shell rather than
+L0. Without an operating system it runs on QEMU's aarch64 and riscv64
+`virt` boards and on the Raspberry Pi 5, where there are no files and no
+environment, and its arguments are its boot arguments. There it drives the
+board's devices through their registers, takes and waits for interrupts,
+runs code in user mode and on the other CPUs, and gives a device frames
+to DMA into, cleaned and invalidated by `frame_sync` where the device
+bypasses the caches, as the Pi 5's do.
 
 Memory is freed by reference counting. A whole-input `main` still receives its
 input as a list built in full before it starts, a cons cell per byte, but a
@@ -340,7 +344,9 @@ and `hash` gives any value a specified integer, so the library's `(Map K
 V)` serves keys and values of every type. `compare` orders any two values
 of one type by a fixed structural order, so the library's `sort`, `min`,
 and `max` serve every type too; an order that is not structural sorts a key
-built for it, since there are no function values to pass a comparison in.
+built for it. A function can be passed to another by name, so a loop is
+written once and given what to do per element, but it cannot be kept,
+returned, or close over anything: there are no closures.
 A `float` is an IEEE binary64 number with arithmetic, comparison, and
 conversions as builtins, and the library has `float_sin` and `float_cos`.
 Nor are there modules or mutable state.
@@ -397,8 +403,10 @@ tools/l0 run hello.l0         # prints: hi
 
 ## What L0 looks like
 
-Five built-in types (`int`, `bool`, `(list T)`, `(array T)`, and `bytes`),
-user-declared tagged unions, no loops, no mutation, and no function values.
+Seven built-in types (`int`, `bool`, `float`, `(list T)`, `(array T)`,
+`bytes`, and functions as parameters, `(fn (T) R)`), user-declared tagged
+unions, no loops, no mutation, and no function values: a function is passed
+by name, never kept.
 Iteration is recursion, and a function's body is a single expression.
 
 ```
@@ -548,7 +556,8 @@ tools/         l0 (the driver), build.sh, test.sh, bootstrap.sh, compiler.sh,
 seeds/         the original seed spec, superseded by spec/
 roadmap/       plans and status for work in progress; never knowledge about L0
 .cursor/skills/  agent instructions for developing L0 itself; .claude/skills
-                 links to it for Claude Code
+                 is a symlink to it for Claude Code, which git records as
+                 the one link file
 ```
 
 The skills under `.cursor/skills/` are for working *on* L0 and refer to the

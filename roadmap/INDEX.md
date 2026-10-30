@@ -1,150 +1,25 @@
 # L0 roadmap
 
-Goals: README.md, "What L0 aims to be". Not restated here.
+## Goals
 
-Current focus: the memory-management and I/O goal is met by the language route
-(changelog "The route to memory management and I/O"): streaming and file I/O,
-arguments, reference counting, and guaranteed tail calls, and the gaps 0014
-found in it are closed by 0018 to 0020. The arrays goal's release rule
-(0023) and arrays (0024) are done, and 0028's programs with arrays chose
-what followed them (0029, 0030, 0025, 0026). 0026 found that holding text
-one byte per byte needs a packed type, and that adding builtins must first
-stop breaking programs; 0031 and 0032 did both, and 0033 put bytes to use in
-the library and the text programs. Type parameters came next (0035): data
-types take them (0036), a program's types shadow the library's (0037), the
-library declares Option and Result (0039), and functions take them (0038),
-so the library's list helpers now take every element type (0040). 0041
-found that a generic function could not compare its elements, and `eq` now
-compares two values of any type (0042), which the library and the suite
-now use (0043). The compiler and the prelude could use neither, since stage
-0 still ran their source; 0044 found that only the tools required it, and
-the tools no longer do (0045). The prelude has taken back the generic
-definitions, which the compiler now calls (0046), and the compiler is
-written with type parameters and `eq` throughout (0047). Left from 0041's
-candidates, `compare` and function values wait for a program that needs
-them. 0049 found that a program can tell I/O failures apart only by their
-words or codes, which the checker cannot see, and opening a file now says
-which failure it was as a case typed per kind of open (0050); renames,
-removals, flushes, and closes now do too (0062), and reads keep codes. 0051
-found that no map can be written once for every key type, since nothing
-can hash a value of a type parameter. `hash` now gives any value a
-specified integer (0052), and the prelude has a `(Map K V)` for every key
-and value type (0053), which the compiler's pad table and the suite's graph
-now use (0054). A persistent map and an ordered one wait for code that
-needs them. Everything through 0054 has passed on Linux, 0056 needed no
-run, and 0057, 0058, 0061, 0062, 0064, and 0066 have passed on arm64. 0055's third
-round of programs found a copying bug in the map (0056) and three places
-the runtime broke section 6.3 (0057), both fixed, and earned bitwise
-operations (0058), which make its hash program 4.2 times faster, a delete
-(0061), and typed failures beyond opening (0062), all done. 0059 found that
-19 of 21 orderings here are structural, directly or by a key, so `compare`
-is in (0064), and the library sorts by it (0065); function values
-wait for an order no key expresses, and would need closures or a context
-argument to serve it. 0060 found the sieve no longer needs bytes that
-update, since 0058's bitset sieve runs to 10^8 in 0.57 s and 14 MB, and that
-reading in blocks is what tee and the unpacker need. With a bounded read
-(0066) and `write_bytes` copying blocks, 0055's tee copies 100 MB to four
-outputs in 0.08 s, faster than the system's; updatable bytes wait. Every
-item 0055 opened is now done. The review after 0066 found that renaming a
-directory onto a file gave -9, against section 6.3, now fixed (0067), and
-the queue is empty. A new goal, running on bare metal (changelog "A new
-goal: running on bare metal"), is what comes next, and 0068 breaks it down.
-Its prototype reached the compiler's fixpoint on QEMU's virt board with the
-runtime and emitted IR unchanged, and that is now real: the spec says what
-a host without an operating system gives (0069), the runtime calls a host
-interface (0070), the board has a runtime and `l0 build --target virt`
-(0071), and `tools/test.sh --virt` checks the fixpoint and runs the
-compiled suite there (0072). An exit the hypervisor handles was dropped,
-since emulation is little of that suite's time (0073). Driving devices from
-L0 code, interrupts, and real hardware are left open by the goal, and wait
-for a program that needs them; the queue is empty, and what comes next
-goes back to the goals. The next goal is a microkernel written in L0
-(changelog "A new goal: a microkernel written in L0"), which is the program
-that earns driving devices, and 0074 broke it down. Its prototype ran the
-compiler to its fixpoint as a process at EL0 under a kernel stub, with no
-language change, and found an L0 kernel's loop copies a thread's context
-on every trap when written plainly. From it, regions are done (0075): a
-program on the board drives a device through its registers, and the PL011
-driver 0074 could not write is a test; and an element of an array updates
-in place through any function (0076), so the kernel's loop written plainly
-no longer copies a context per trap. A program now runs as a process of a
-kernel (0077): `l0 build --target proc` makes the image, the spec fixes the
-system calls any kernel answers, and the compiler reaches its fixpoint as a
-process under a test kernel in IR. User mode came next, ahead of the
-timer and interrupts by the user's choice (0078): a program on the board
-makes spaces and runs threads in them, and a kernel written in L0, in
-`tests/virt/user`, runs the compiler as a process to the same bytes. With
-the timer and interrupts (0079) it runs several processes, preempted, the
-host driving the GIC behind builtins. A process calls its kernel's own
-system calls (0080), and under that kernel a serial driver that is a
-process writes what a client sends it, waiting for its device's
-interrupt. 0074's language items are done; left are the kernel in a
-project of its own and the measure as a test, after the two gaps 0074's
-Log names: `l0 test` on the board, now done (0081), and process images a
-kernel can read (0082), now done too: the toolchain writes a process's
-image raw, as a kernel loads it. Before 0082, the board came to give
-arguments by the arm64 boot protocol (0083), so a kernel is told at boot
-what to do with its images, as the L0 kernel now tells its serial driver
-where its device is. Both gaps are closed; what is left of 0074 is the
-kernel in a project of its own (item 7) and the measure as a test (item 8).
-That project, L0S, asked for a frame's address, so its kernel can give a
-virtio device memory to DMA into, and has it (0084). Freed blocks now go
-back to the host a chunk at a time (0085), so a heap without an operating
-system beneath it can hold one shape of data and then another. L0S then
-asked to give back spaces and frames, and a kernel now can, and unmap a
-page (0086).
+Each goal of README.md's "What L0 aims to be", not restated here, where it
+stands, and the
+items that carried it. The Done list below, and the changelog, have the
+history; this table replaced a narrative of it on 2026-10-30 (0143).
 
-The user then asked for the hosts without an operating system to run on
-QEMU's riscv64 virt board as well as its aarch64 one, organized so that
-later boards, the VisionFive 2 and the Raspberry Pi 4, are less work.
-0087 found what the riscv64 board gives and laid out the route: the host
-in parts (0088), a builtin naming the CPU (0089) and the library over it
-(0090), and the riscv64 board, its process host, and the tests on both
-CPUs (0091), which found LLVM's RISC-V back end passing a tail call's
-stack words wrong, so every L0 function is now `fastcc`. Both boards run
-everything, the compiler's fixpoint and both kernels included. Left for
-the VisionFive 2 and the Pi 4: their RAM in the user range, DMA that is not
-cache-coherent, and the Pi 4's boot at EL2 (changelog, 0091's entry).
-L0S then found that two maps holding the same entries were not `eq`, and
-now they are: the library's map keeps a table its entries alone decide
-(0092). L0S then asked for a process's image as an ELF, so a kernel can
-map its code, rodata, and data each by its own permissions and size the
-image from its headers, rather than a raw image capped at 4 MB and mapped
-writable and executable throughout; this repository's three kernels take
-raw images too and changed with it (0093). Now the toolchain writes the
-ELF, the L0 kernel maps each segment by its flags and kills a process
-that writes its code, and an image's bss may pass 4 MB. L0S's font tool
-turns a circle only by 5 degrees, from a table of sines in fixed point, so
-floating point is in (0094), and so are sin and cos in the library (0095). The queue is
-empty; L0S can drop its table of sines. L0S then found its processes
-confined to the virt boards' fixed 384 MB of frames, and asked for the
-pool to be all the RAM the layout leaves, the input's pages with it once
-read, and a count of what is left, and has them (0097): about 765 MB of
-frames on aarch64 and 1.2 GB on riscv64, from 384 MB. The user then asked
-for a Raspberry Pi 5 target (0098), which has no emulator and so cannot be
-run here: its parts are built and linked, the shared changes it needs (entry
-at EL2, a 39-bit translation, input by the device tree's initrd) run under
-the virt suite, and a first run on a board is left to the user. L0S then
-found its servers holding their peak heap, since nothing told a kernel a
-heap page was free again, and a process's runtime now does, by call 12,
-which a kernel may answer by freeing the page's frame or ignore (0099).
-Its compositor could open only 30 windows over its life, since the
-runtime's 64 regions were never given back, and `region_close` now gives
-one back, telling a process's kernel by call 13 (0100). L0S then asked for
-what a USB stack needs: the aarch64 virt board's PCIe ECAM and MMIO window
-as regions (0101), the Pi 5's RP1 as one (0102), and a builtin that cleans
-and invalidates a frame for the Pi's DMA, which is not coherent (0103), and
-has all three. For its display driver, the Pi 5's HVS and the IOMMU in
-front of it are regions too (0105), and `l0 card` forces HDMI's hotplug.
-Its USB and SD drivers then asked to stop polling, and on the aarch64 virt
-board PCIe's four INTx lines and the GICv2m frame's 64 MSIs are now
-interrupts (0106); the Pi 5's, through bcm2712's MIP, wait for a request
-of their own. Its messages, files, and frames are bytes, which it could
-neither cut nor join without a list, and `bytes_slice` and
-`bytes_concat` now do both (0107). On the Pi 5, PCIe's MSIs are now
-interrupts 160 to 223, the host mapping the doorbell to the MIP, and
-RP1's devices raise them through its MSI-X table, which its region now
-reaches (0116): a driver there need not poll.
+| Goal | State | Items |
+| --- | --- | --- |
+| Compiles itself | met, and kept: the fixpoint is checked on every change, here and on both virt boards | 0003, 0027, 0044 to 0047, 0072 |
+| Compiled, with no C in a program | met: the runtime is LLVM IR, libc only behind the OS host | 0001, 0003, 0004, 0070 |
+| Memory management and I/O | met: streaming and file I/O, arguments, reference counting with release at last use, tail calls, typed failures | 0005, 0008 to 0010, 0015, 0018 to 0020, 0023, 0049, 0050, 0062, 0066 |
+| General purpose: data and types | met so far: arrays, bytes, type parameters, `eq`, `hash`, `compare`, maps, floats, bits, named fields, functions as arguments | 0021, 0024, 0032, 0035 to 0043, 0051 to 0054, 0058, 0064, 0094, 0132, 0135 |
+| On bare metal | met on QEMU's aarch64 and riscv64 virt boards and run on a 2 GB Raspberry Pi 5; the 4 to 16 GB Pi 5s not run | 0068 to 0072, 0087 to 0091, 0098, 0110 |
+| A microkernel in L0 | met in `tests/virt/user/kernel.l0`, on both boards and a Pi 5; L0S is the kernel in a project of its own, and its requests open most items since 0084 | 0074 to 0086, 0093, 0099, 0100, 0115, 0121 |
+| Written for agents | ongoing: the review of 2026-10-30 opened 0135 to 0147 | 0131, 0133, 0139, 0141 to 0144 |
+
+Open within those goals, waiting for code that needs them: closures, a
+persistent or ordered map, bytes that update in place, the Pi 5's PCIe and
+display interrupts beyond those given, and the VisionFive 2 and Pi 4.
 
 ## Language queue
 
@@ -152,7 +27,8 @@ Changes to the language, strictly in order. At most one is active.
 
 1. [0135](0135-function-arguments.md) functions as arguments, by one
    callee copy per function passed, with no closures and every call still
-   direct — proposed, not started
+   direct — active: step 1 (the compiler compiles them) done, the seed
+   refreshed; step 2, the compiler's lookups as one, next
 2. [0136](0136-field-take-out.md) a field taken out, updated, and put back
    in place, the field form of 6.5's row form — proposed
 3. [0137](0137-unboxed-wrappers.md) a one-field wrapper of a word costs
@@ -180,8 +56,6 @@ From the review of 2026-10-30, each proposed and not started:
   the runtime, and the boards
 - [0142](0142-spec-tables.md) tooling: the spec's normative lists as
   tables, after 0141
-- [0143](0143-stale-documents.md) tooling: the documents that disagree
-  with the code
 - [0144](0144-library-naming.md) tooling: the library's names made
   consistent, with aliases for L0S
 - [0145](0145-compiler-internals.md) tooling: the compiler's own structure,
@@ -192,6 +66,9 @@ From the review of 2026-10-30, each proposed and not started:
   own loose ends
 
 ## Done and dropped
+
+- [0143](0143-stale-documents.md) tooling: the documents that disagreed
+  with the code — done; no language change
 
 - [0134](0134-let-if-sugar.md) a `let` of several bindings and an `if` of
   several tests, desugared in the parser — done, changelog "A let of

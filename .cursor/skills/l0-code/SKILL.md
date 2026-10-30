@@ -17,7 +17,10 @@ matter more than everything else in this file:
    pattern-match your way to correct L0. The checker is your only reliable
    signal.
 
-Read the spec before writing L0 for the first time in a session. It is short.
+Read the spec before writing L0 for the first time in a session: sections 1
+to 9 are the language a program is written in, and section 10, the larger
+half, is the compilation target, the runtime, and the boards, which an
+ordinary program does not need.
 
 ## The validation loop
 
@@ -113,9 +116,14 @@ cannot collide with a function or binding named `state`. Stage 0 predates
 fields, so tests of them go in `tests/unit/` or `tests/io/`, or in
 `tests/compiler/check_fields` for the checker's verdicts.
 
-**There are no function values.** You cannot pass, return, or bind a function,
-and there are no closures or higher-order functions. Recursion replaces both
-loops and iteration combinators.
+**A function is passed by name, never kept** (spec 5.7). A parameter of type
+`(fn (T) K)` is given a `def` by name, or a function parameter passed on,
+and is called like a function; it cannot be returned, bound, or stored, a
+builtin cannot be passed, and there are no closures. Each `def` passed makes
+a copy of the callee (spec 10.2), so every call stays direct. Stage 0
+predates this, so tests of it go in `tests/unit/fn_args_test.l0`, or in
+`tests/compiler/check_fn_args` for the checker's verdicts and
+`emit_fn_args` for the copies.
 
 **`and` and `or` are strict.** Both arguments are always evaluated, so they do
 not guard against errors. This does not work:
@@ -143,9 +151,11 @@ compiles it. `lt`, `le`, `gt`, and `ge` take only `int` everywhere. `hash`
 `tests/unit/compare_test.l0`. The seed knows it, and the prelude's `sort`,
 `min`, and `max` use it.
 
-**A name in call position is never a local.** `(f 1)` always means a builtin or
-a `def`, so a parameter named `f` cannot be called and does not shadow a
-function named `f`. See spec section 7.
+**A name in call position is a local only when it is a function parameter.**
+`(f 1)` means a parameter of function type named `f`, when the innermost
+local `f` is one, and otherwise a `def` or a builtin, so a parameter of any
+other type named `f` cannot be called and does not shadow a function named
+`f`. See spec section 7.
 
 **`read_byte` and `write_byte` are effects, sequenced by `let`.** Effects happen
 in evaluation order, and a `let` value is evaluated before its body even when

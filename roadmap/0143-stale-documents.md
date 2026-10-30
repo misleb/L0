@@ -1,7 +1,7 @@
 # 0143: documents that disagree with the code
 
 Kind: tooling
-Status: proposed
+Status: done
 Needs: nothing
 
 ## Why
@@ -43,3 +43,18 @@ Found by the review of 2026-10-30:
 ## Log
 
 - 2026-10-30: opened, from the review (its item 2.3); proposed.
+- 2026-10-30: done, alongside 0135. README: the Pi 5 has run on a 2 GB
+  board; "What L0 cannot do yet" says no process can be started and
+  directories cannot be read, and no longer says DMA without coherence is
+  missing (`frame_sync`, 0103); functions as arguments where it said there
+  are no function values. `.claude/skills` is the symlink to
+  `.cursor/skills`, said so in README and `.gitignore`. Root `AGENTS.md`
+  names the three traps `lib/AGENTS.md` does, and drops "once it exists".
+  The l0-code skill no longer calls the spec short; l0-bootstrap counts
+  three boards and says which host runs which half of the Linux and macOS
+  check. `lib/io.l0`'s naming rule names Device and Trap. The changelog's
+  header gives the commits at which each deleted prototype it cites can be
+  read; `tmp/0110` was never tracked. The roadmap skill keeps an item's
+  evidence as long as its finding, which is why a dozen directories
+  remain. `INDEX.md`'s narrative is a table of goals. `l0s-adoption.md`
+  read through: nothing in sections 1 to 6 is made false by an item since.

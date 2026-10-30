@@ -18,9 +18,9 @@ tmp/*
 # tracked, since they are project governance rather than scratch work.
 .cursor/plans/
 
-# Claude Code's per-user settings. .claude/skills is a symlink into .cursor/,
-# and .claude/rules holds tracked copies of .cursor/rules, kept in step by
-# hand.
+# Claude Code's per-user settings. .claude/skills is a symlink to
+# .cursor/skills, tracked as the link alone, and .claude/rules holds tracked
+# copies of .cursor/rules, kept in step by hand.
 .claude/settings.local.json
 
 # macOS and editor noise.

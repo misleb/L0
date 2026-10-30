@@ -35,10 +35,12 @@ NAME is a substring of a test's file name without its directory or
 extension, matched in every suite: `bundle_prelude`, not
 `compiler/bundle_prelude`, which matches nothing and passes as "0 tests".
 
-Run `tools/linux-test.sh` on any change to the runtime or the emitter, since
-LLVM and libc behave differently between hosts in ways macOS alone won't
-show. It needs Docker, builds its image from `tools/linux/Dockerfile` the
-first time, and tests the working tree as it is, uncommitted changes
+LLVM and libc behave differently between hosts, so a change to the runtime
+or the emitter is tested on both Linux and macOS. On a macOS host, run
+`tools/linux-test.sh` for the Linux half; on a Linux host `tools/test.sh`
+is that half already, and macOS is left to a run there, said so in the
+item's Log. It needs Docker, builds its image from `tools/linux/Dockerfile`
+the first time, and tests the working tree as it is, uncommitted changes
 included.
 
 `LLVM_PREFIX` overrides the LLVM location (default `/opt/homebrew/opt/llvm`).
@@ -71,8 +73,10 @@ silent and converts a caught bug into a permanent one.
   `runtime/bare/semihost.ll`. Each target's manifest,
   `runtime/targets/NAME.target`, lists its parts, and `tools/targets.sh`
   builds them into `build/NAME/`; a new board or CPU is a new manifest and
-  the parts it lacks, and the tools need no change. There are two boards,
-  QEMU's aarch64 and riscv64 virt boards; a test's expectations for one
+  the parts it lacks, and the tools need no change. There are three boards,
+  QEMU's aarch64 and riscv64 virt boards, which `--virt` runs, and the
+  Raspberry Pi 5, which has no emulator and runs only on a board, by
+  `tools/pi5-run`; a test's expectations for one
   CPU, where they differ, are `<stem>.ARCH.out` and the like, and board
   constants for tests are `tests/virt/board/virt-ARCH.l0`. A change to any
   part, to `l0rt.ll`, or to the emitter needs `tools/test.sh --virt`, which
@@ -279,7 +283,10 @@ what:
   `data` type takes its type arguments from its arguments or has them
   written, `((None int))`, and a call of a function with type parameters
   takes them from its arguments, which must mention every one (spec 4.1)
-- there are no function values, so name resolution is purely syntactic
+- there are no function values, so name resolution is purely syntactic: a
+  function is passed only by name to a parameter of function type (spec
+  5.7), and a call resolves to such a parameter only where its declared
+  type says it is one
 
 ### Ambiguities
 

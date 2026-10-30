@@ -1,0 +1,80 @@
+; Unit tests of functions passed as arguments, spec 5.7 and 10.2: a def
+; given to a parameter of function type, called through it, passed on, and
+; given with type parameters that the call fixes.
+
+(data Person (Person (name (list int)) (age int)))
+
+(def people () (list Person)
+  (cons (Person "ada" 36) (cons (Person "bob" 41) (cons (Person "cy" 36) (nil Person)))))
+
+(def name_of ((p Person)) (list int) (.name p))
+(def age_of ((p Person)) int (.age p))
+
+(def (find_by K T) ((key (fn (T) K)) (k K) (xs (list T))) (Option T)
+  (if (is_empty xs)
+      ((None T))
+      (if (eq (key (head xs)) k) (Some (head xs)) (find_by key k (tail xs)))))
+
+(def (name_or T) ((o (Option T)) (f (fn (T) (list int)))) (list int)
+  (match o ((None) "none") ((Some x) (f x))))
+
+(def test_find_by () int
+  (add (check_str "by a list key" (name_or (find_by name_of "bob" (people)) name_of) "bob")
+    (add (check_str "by an int key, the first" (name_or (find_by age_of 36 (people)) name_of) "ada")
+         (check_str "not there" (name_or (find_by age_of 99 (people)) name_of) "none"))))
+
+(def (map_list A B) ((f (fn (A) B)) (xs (list A))) (list B)
+  (rev (map_onto f xs (nil B))))
+
+(def (map_onto A B) ((f (fn (A) B)) (xs (list A)) (acc (list B))) (list B)
+  (if (is_empty xs) acc (map_onto f (tail xs) (cons (f (head xs)) acc))))
+
+(def mk ((n int)) Person (Person (digits n) n))
+
+; B is fixed by the function alone, and is a data type the result is
+; matched on, so the call's type must be exact, not its kind.
+(def test_result_type_from_function () int
+  (match (head (map_list mk (cons 7 (cons 8 (nil int)))))
+    ((Person n a) (add (check_str "name" n "7") (check_int "age" a 7)))))
+
+; length takes a type parameter, which the list it is mapped over fixes.
+(def test_generic_function_passed () int
+  (check_int "lengths" (sum (map_list length (map_list name_of (people)))) 8))
+
+(def sum ((xs (list int))) int
+  (if (is_empty xs) 0 (add (head xs) (sum (tail xs)))))
+
+(def small ((n int)) bool (lt n 2000000))
+
+(def (count_while T) ((p (fn (T) bool)) (n int) (step (fn (T) T)) (x T)) int
+  (if (p x) (count_while p (add n 1) step (step x)) n))
+
+(def next ((x int)) int (add x 1))
+
+; A tail call through and with function parameters runs in constant stack.
+(def test_tail_call_through_parameter () int
+  (check_int "two million steps" (count_while small 0 next 0) 2000000))
+
+(def twice ((g (fn (int) int)) (x int)) int (g (g x)))
+(def via ((h (fn (int) int)) (x int)) int (twice h x))
+(def dbl ((x int)) int (mul x 2))
+
+(def test_passed_on () int
+  (add (check_int "twice" (twice dbl 3) 12) (check_int "via" (via next 3) 5)))
+
+; A parameter named for a def calls what it was given, unless a let hides it.
+(def shadow ((dbl (fn (int) int)) (x int)) int
+  (add (dbl x) (let dbl 0 (dbl x))))
+
+(def test_parameter_shadows_def () int
+  (check_int "parameter, then the def" (shadow next 5) 16))
+
+; Counted values given to and returned through a function parameter are
+; released: L0_RC_CHECK would catch a count gone wrong.
+(def tag ((p Person)) (list int) (append (.name p) "!"))
+
+(def test_counted_values () int
+  (check_str "names" (concat (map_list tag (people))) "ada!bob!cy!"))
+
+(def concat ((xs (list (list int)))) (list int)
+  (if (is_empty xs) "" (append (head xs) (concat (tail xs)))))

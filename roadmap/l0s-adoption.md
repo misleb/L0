@@ -223,3 +223,49 @@ instead of reporting the unclosed form.
    touched.
 5. `L0_RC_CHECK=1` on a test run after each batch: it reports any block
    still live at exit, and any use of a freed one.
+6. Functions as arguments (section 7), loop by loop, where two functions
+   differ only in what they do to each element.
+
+## 7. Functions as arguments (roadmap 0135)
+
+A `def`'s parameter may have a function type, `(fn (T...) R)`, written only
+there, and is given a `def` by name, or a function parameter passed on, and
+called like a function. Spec 3, 5.7, 7, and 10.2. Nothing L0S compiles
+changes meaning: a call resolves to a parameter only when it has a function
+type, which no program had. From `tests/unit/fn_args_test.l0`:
+
+```
+(def (find_by K T) ((key (fn (T) K)) (k K) (xs (list T))) (Option T)
+  (if (is_empty xs)
+      ((None T))
+      (if (eq (key (head xs)) k) (Some (head xs)) (find_by key k (tail xs)))))
+
+(def (map_list A B) ((f (fn (A) B)) (xs (list A))) (list B)
+  (rev (map_onto f xs (nil B))))
+
+(find_by name_of "bob" (people))           ; name_of: Person -> (list int)
+(map_list length (map_list name_of (people)))   ; length takes T; the list fixes it
+```
+
+What cannot be passed: a builtin (write a one-line `def` that calls it), an
+expression, or anything that is not a name; a function cannot be returned,
+kept in a list or a field, or bound with `let`, and there are no closures,
+so a function that needs more than its arguments is passed that alongside.
+Each `def` passed makes one copy of the callee, so every call is direct, a
+tail call through a parameter uses no stack, and nothing costs more at run
+time than the loop written out twice. The copies cost code size: a function
+given three different `def`s is three functions.
+
+**Where L0S gains.** The shape is two or more functions with the same
+recursion that differ in one call, a lookup by a different key or a walk
+that does a different thing per element. A first list, by name:
+
+```bash
+grep -rnE '^\(def (find|lookup|count|any|all|map|filter|sum)_[a-z_]+ ' --include='*.l0' . | sort -t' ' -k2
+```
+
+Collapse a family into one function with a parameter of function type, and
+keep a one-line `def` per old name only where callers are many. What to
+leave alone: a loop whose element work needs the caller's state, which a
+closure would carry; pass that state as an argument instead only where it
+reads naturally.

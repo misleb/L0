@@ -133,8 +133,28 @@ Only a type with one constructor has fields read this way; one with several
 is taken apart by `match`. Write a one-constructor type with named fields
 rather than a function per field; see `Proc` in `l0 examples`.
 
-**There are no function values, closures, or higher-order functions.**
-Recursion replaces both loops and iteration combinators.
+**A function is passed by name, never kept.** A parameter may have a
+function type, `(fn (T) K)`, and is given a `def` by name, and called like
+one (spec 5.7):
+
+```
+(def (find_by K T) ((key (fn (T) K)) (k K) (xs (list T))) (Option T)
+  (if (is_empty xs)
+      ((None T))
+      (if (eq (key (head xs)) k) (Some (head xs)) (find_by key k (tail xs)))))
+
+(find_by name_of "ada" people)      ; name_of is a def taking a Person
+```
+
+Write one loop with a function parameter instead of the same loop twice.
+What can be passed is a `def`, or a function parameter passed on; not a
+builtin (wrap it in a one-line `def`), not an expression, and there are no
+closures: a function sees only its arguments, so anything else it needs is
+passed alongside. A function type is written only as a parameter's type,
+never in a list, a field, or a return type, and a function cannot be
+returned or bound with `let`. Each function passed makes a copy of the
+callee, so the call through it is a direct call, and a tail call through
+one uses no stack.
 
 **There are no tuples.** A function returning two things declares a small
 `data` type; see `Split` in `l0 examples`.
@@ -249,9 +269,10 @@ is every `float_` comparison with a NaN. To ask whether two floats are the
 same number, use `float_le` both ways. There is only one NaN, so a program
 cannot tell where one came from.
 
-**A name in call position is never a local.** `(f 1)` always means a builtin
-or a `def`, so a parameter named `f` cannot be called and does not shadow a
-function named `f`.
+**A name in call position is a local only when it is a function
+parameter.** Otherwise `(f 1)` means a builtin
+or a `def`, so a parameter of any other type named `f` cannot be called and
+does not shadow a function named `f`.
 
 **Your definition wins over the standard library's, and over a builtin.**
 Defining `length` when the prelude already has one, or `flush` when it is a
@@ -400,8 +421,9 @@ never write one of them for your own element type. The
 builtins, such as `head` and `read_byte`, are in the specification, section
 6, not in `l0 doc`.
 
-There is no `map`, `filter`, or `fold`, because L0 has no function values.
-Write the recursion directly.
+A function that takes a function, such as a `map` over your list, you
+write yourself with a parameter of function type (spec 5.7), or the
+recursion directly.
 
 If one of these does not do what you need, define your own with the same name
 rather than inventing `my_length`. Yours shadows the prelude's throughout your

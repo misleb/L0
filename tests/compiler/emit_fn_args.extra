@@ -1,0 +1,6 @@
+lib/prelude.l0
+compiler/lex.l0
+compiler/parse.l0
+compiler/check.l0
+compiler/emit.l0
+compiler/main.l0

@@ -112,7 +112,8 @@
     ((TyInt) t)
     ((TyBool) t)
     ((TyFloat) t)
-    ((TyBytes) t)))
+    ((TyBytes) t)
+    ((TyFn ps r) (TyFn (tys_subst ps bs) (ty_subst r bs)))))
 
 (def tys_subst ((ts (list Ty)) (bs (list Bind))) (list Ty)
   (if (is_empty ts)
@@ -157,7 +158,9 @@
                   (if (eq (ty_name pat) (ty_name at))
                       (match_tys (ty_args pat) (ty_args at) ps bs)
                       ((CErr (list Bind)) 0 ""))
-                  (COk bs))))))
+                  (if (ty_is_fn pat)
+                      (match_tys (ty_args pat) (ty_args at) ps bs)
+                      (COk bs)))))))
 
 (def match_tys ((pats (list Ty)) (ats (list Ty)) (ps (list (list int)))
                 (bs (list Bind))) (Checked (list Bind))
@@ -190,7 +193,13 @@
           (if (is_empty (ty_args t))
               (eq (ty_name t) n)
               (tys_mention n (ty_args t)))
-          false)))
+          (if (ty_is_fn t) (tys_mention n (ty_args t)) false))))
+
+; Whether any of the names ns is mentioned in any of ts.
+(def tys_mention_any ((ns (list (list int))) (ts (list Ty))) bool
+  (if (is_empty ns)
+      false
+      (if (tys_mention (head ns) ts) true (tys_mention_any (tail ns) ts))))
 
 (def tys_mention ((n (list int)) (ts (list Ty))) bool
   (if (is_empty ts)
@@ -217,6 +226,8 @@
 (def ty_problem ((t Ty) (ds (list DataDef)) (ps (list (list int)))) (list int)
   (if (or (ty_is_list t) (ty_is_array t))
       (ty_problem (ty_elem t) ds ps)
+      (if (ty_is_fn t)
+          (append (ty_str t) " is a function type, which is written only as a parameter's type")
       (if (not (ty_is_data t))
           ""
           (if (any_eq (ty_name t) ps)
@@ -231,7 +242,15 @@
                     (let got (length (ty_args t))
                       (if (eq want got)
                           (tys_problem (ty_args t) ds ps)
-                          (ty_arity_msg (ty_name t) want got))))))))))
+                          (ty_arity_msg (ty_name t) want got)))))))))))
+
+; A parameter's type may be a function type at its top, whose parts are
+; types that are not. Spec 3.
+(def param_ty_problem ((t Ty) (ds (list DataDef)) (ps (list (list int))))
+    (list int)
+  (if (ty_is_fn t)
+      (tys_problem (ty_args t) ds ps)
+      (ty_problem t ds ps)))
 
 (def tys_problem ((ts (list Ty)) (ds (list DataDef)) (ps (list (list int))))
     (list int)
@@ -602,10 +621,15 @@
 
 (def check_var ((o int) (n (list int)) (env (list Bind)) (ctx Ctx)) (Checked Ty)
   (match (find_bind n env)
-    ((Some t) (COk t))
+    ((Some t)
+      (if (ty_is_fn t)
+          ((CErr Ty) o (append n (append " is a function parameter, which is only called or "
+                                   "passed to a parameter of function type")))
+          (COk t)))
     ((None)
       (if (or (is_builtin_in n ctx) (sig_exists n (.sigs ctx)))
-          ((CErr Ty) o (append n " is a function, and L0 has no function values"))
+          ((CErr Ty) o (append n (append " is a function, and L0 has no function values; "
+                                   "a def is passed only to a parameter of function type")))
           ((CErr Ty) o (append "unknown variable " n))))))
 
 (def sig_exists ((n (list int)) (sigs (list Sig))) bool
@@ -652,16 +676,197 @@
         ((CErr o m) ((CErr (list Ty)) o m))
         ((COk t) (check_args (tail args) env ctx (cons t acc))))))
 
+; A call resolves to a function parameter when the innermost local of its
+; name is one, and otherwise to a def, then a builtin. Spec 7.
 (def check_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
                  (ctx Ctx)) (Checked Ty)
-  (match (check_args args env ctx (nil Ty))
-    ((CErr eo m) ((CErr Ty) eo m))
-    ((COk ats)
-      (if (is_builtin_in n ctx)
-          (check_builtin n ats o)
-          (match (find_sig n (.sigs ctx))
-            ((None) (check_call_missing o n env))
-            ((Some s) (check_user_call o n ats s)))))))
+  (match (find_bind n env)
+    ((Some t)
+      (if (ty_is_fn t)
+          (check_param_call o n t args env ctx)
+          (check_global_call o n args env ctx)))
+    ((None) (check_global_call o n args env ctx))))
+
+(def check_global_call ((o int) (n (list int)) (args (list Expr))
+                        (env (list Bind)) (ctx Ctx)) (Checked Ty)
+  (if (is_builtin_in n ctx)
+      (match (check_args args env ctx (nil Ty))
+        ((CErr eo m) ((CErr Ty) eo m))
+        ((COk ats) (check_builtin n ats o)))
+      (match (find_sig n (.sigs ctx))
+        ((None)
+          (match (check_args args env ctx (nil Ty))
+            ((CErr eo m) ((CErr Ty) eo m))
+            ((COk ats) (check_call_missing o n env))))
+        ((Some s)
+          (if (tys_have_fn (.params s))
+              (check_fn_args_call o n args s env ctx)
+              (match (check_args args env ctx (nil Ty))
+                ((CErr eo m) ((CErr Ty) eo m))
+                ((COk ats) (check_user_call o n ats s))))))))
+
+; (f a...) through f, a parameter of type (fn (P...) R): each argument must
+; have its P, and the call is an R. Spec 5.7.
+(def check_param_call ((o int) (n (list int)) (t Ty) (args (list Expr))
+                       (env (list Bind)) (ctx Ctx)) (Checked Ty)
+  (match t
+    ((TyFn ps r)
+      (match (check_args args env ctx (nil Ty))
+        ((CErr eo m) ((CErr Ty) eo m))
+        ((COk ats)
+          (if (not (eq (length ats) (length ps)))
+              ((CErr Ty) o (wrong_arity_msg n (length ps) (length ats)))
+              (match (match_params n ats ps o 1)
+                ((CErr eo m) ((CErr Ty) eo m))
+                ((COk ignored) (COk r)))))))
+    ((TyInt) (COk t))
+    ((TyBool) (COk t))
+    ((TyList e) (COk t))
+    ((TyData dn as) (COk t))
+    ((TyArray e) (COk t))
+    ((TyBytes) (COk t))
+    ((TyFloat) (COk t))))
+
+(def tys_have_fn ((ts (list Ty))) bool
+  (if (is_empty ts) false (if (ty_is_fn (head ts)) true (tys_have_fn (tail ts)))))
+
+; ---------------------------------------------------- function arguments
+;
+; Spec 5.7. An argument in a position of function type is a name: a
+; function parameter in scope, passed on, or a def the call can see. It
+; is matched after every other argument, and one with type parameters
+; takes them from the function type it is passed at.
+
+; One argument as matching sees it: a value of a type, a function of a
+; known type, or a def with type parameters, whose type the call decides.
+(data ArgTy
+  (AT Ty)
+  (AFn Ty)
+  (AGen Sig))
+
+(def check_fn_args_call ((o int) (n (list int)) (args (list Expr)) (s Sig)
+                         (env (list Bind)) (ctx Ctx)) (Checked Ty)
+  (if (not (eq (length args) (length (.params s))))
+      ((CErr Ty) o (wrong_arity_msg n (length (.params s)) (length args)))
+      (match (arg_tys n args (.params s) env ctx o 1 (nil ArgTy))
+        ((CErr eo m) ((CErr Ty) eo m))
+        ((COk ats)
+          (match (fn_call_binds n ats s o)
+            ((CErr eo m) ((CErr Ty) eo m))
+            ((COk bs) (COk (ty_subst (.ret s) bs))))))))
+
+; Each argument's ArgTy: a value's type from check_expr, and a function's
+; from what its name resolves to.
+(def arg_tys ((n (list int)) (args (list Expr)) (sps (list Ty)) (env (list Bind))
+              (ctx Ctx) (o int) (i int) (acc (list ArgTy))) (Checked (list ArgTy))
+  (if (is_empty args)
+      (COk (rev_onto acc (nil ArgTy)))
+      (if (ty_is_fn (head sps))
+          (match (fn_arg_ty n (head args) (head sps) env ctx o i)
+            ((CErr eo m) ((CErr (list ArgTy)) eo m))
+            ((COk a) (arg_tys n (tail args) (tail sps) env ctx o (add i 1) (cons a acc))))
+          (match (check_expr (head args) env ctx)
+            ((CErr eo m) ((CErr (list ArgTy)) eo m))
+            ((COk t)
+              (arg_tys n (tail args) (tail sps) env ctx o (add i 1) (cons (AT t) acc)))))))
+
+(def fn_arg_ty ((n (list int)) (a Expr) (want Ty) (env (list Bind)) (ctx Ctx)
+                (o int) (i int)) (Checked ArgTy)
+  (let what (append "argument " (append (digits i) (append " of " n)))
+    (match a
+      ((EVar ao an)
+        (match (find_bind an env)
+          ((Some t)
+            (if (ty_is_fn t)
+                (COk (AFn t))
+                ((CErr ArgTy) o (type_msg what (ty_str want) t))))
+          ((None) (fn_arg_def what an ctx o))))
+      ((EInt ao v) (not_fn_arg what o))
+      ((EFloat ao m p g) (not_fn_arg what o))
+      ((EBool ao v) (not_fn_arg what o))
+      ((EStr ao s) (not_fn_arg what o))
+      ((EIf ao c x y) (not_fn_arg what o))
+      ((ELet ao ln v b) (not_fn_arg what o))
+      ((ENil ao t) (not_fn_arg what o))
+      ((ECtor ao cn ts xs) (not_fn_arg what o))
+      ((EMatch ao sj arms) (not_fn_arg what o))
+      ((ECall ao cn xs) (not_fn_arg what o))
+      ((EField ao f e) (not_fn_arg what o))
+      ((EWith ao f e v) (not_fn_arg what o)))))
+
+(def not_fn_arg ((what (list int)) (o int)) (Checked ArgTy)
+  ((CErr ArgTy) o (append what
+    " must name a function: a def, or a parameter of function type")))
+
+(def fn_arg_def ((what (list int)) (an (list int)) (ctx Ctx) (o int))
+    (Checked ArgTy)
+  (match (find_sig an (.sigs ctx))
+    ((Some s)
+      (if (is_empty (.tparams s))
+          (COk (AFn (TyFn (.params s) (.ret s))))
+          (COk (AGen s))))
+    ((None)
+      (if (is_builtin_in an ctx)
+          ((CErr ArgTy) o (append what (append " is the builtin " (append an
+            ", and a builtin is not passed; pass a def that calls it"))))
+          ((CErr ArgTy) o (append "unknown function " an))))))
+
+; What the callee's type parameters stand for: the arguments that are not
+; functions matched first, left to right, then the functions. For a callee
+; without type parameters, matching is equality. Spec 5.7.
+(def fn_call_binds ((n (list int)) (ats (list ArgTy)) (s Sig) (o int))
+    (Checked (list Bind))
+  (match (match_args n ats (.params s) (.tparams s) (nil Bind) o 1 false)
+    ((CErr eo m) ((CErr (list Bind)) eo m))
+    ((COk bs) (match_args n ats (.params s) (.tparams s) bs o 1 true))))
+
+; One pass over the arguments: the functions when fns, the rest otherwise.
+(def match_args ((n (list int)) (ats (list ArgTy)) (sps (list Ty))
+                 (tps (list (list int))) (bs (list Bind)) (o int) (i int) (fns bool))
+    (Checked (list Bind))
+  (if (is_empty ats)
+      (COk bs)
+      (match (match_arg n (head ats) (head sps) tps bs o i fns)
+        ((CErr eo m) ((CErr (list Bind)) eo m))
+        ((COk bs2) (match_args n (tail ats) (tail sps) tps bs2 o (add i 1) fns)))))
+
+(def match_arg ((n (list int)) (a ArgTy) (p Ty) (tps (list (list int)))
+                (bs (list Bind)) (o int) (i int) (fns bool)) (Checked (list Bind))
+  (let what (append "argument " (append (digits i) (append " of " n)))
+    (match a
+      ((AT t) (if fns (COk bs) (match_one what p t tps bs o)))
+      ((AFn t) (if fns (match_one what p t tps bs o) (COk bs)))
+      ((AGen h) (if fns (match_gen what p h tps bs o) (COk bs))))))
+
+(def match_one ((what (list int)) (p Ty) (t Ty) (tps (list (list int)))
+                (bs (list Bind)) (o int)) (Checked (list Bind))
+  (match (match_ty p t tps bs)
+    ((COk bs2) (COk bs2))
+    ((CErr eo m) ((CErr (list Bind)) o (type_msg what (ty_str (ty_subst p bs)) t)))))
+
+; A def with type parameters h, passed at the function type p: the types it
+; takes must be known by now, they find h's own type parameters, and its
+; result with those in place is matched against p's.
+(def match_gen ((what (list int)) (p Ty) (h Sig) (tps (list (list int)))
+                (bs (list Bind)) (o int)) (Checked (list Bind))
+  (match (ty_subst p bs)
+    ((TyFn eps er)
+      (if (tys_mention_any tps eps)
+          ((CErr (list Bind)) o (append what (append " is " (append (.name h)
+            (append ", whose type parameters come from the types it takes, "
+              "and no argument before it fixes those")))))
+          (match (match_tys (.params h) eps (.tparams h) (nil Bind))
+            ((CErr eo m)
+              ((CErr (list Bind)) o (type_msg what (ty_str (TyFn eps er))
+                                      (TyFn (.params h) (.ret h)))))
+            ((COk hbs) (match_one what p (TyFn eps (ty_subst (.ret h) hbs)) tps bs o)))))
+    ((TyInt) (COk bs))
+    ((TyBool) (COk bs))
+    ((TyList e) (COk bs))
+    ((TyData dn as) (COk bs))
+    ((TyArray e) (COk bs))
+    ((TyBytes) (COk bs))
+    ((TyFloat) (COk bs))))
 
 (def check_call_missing ((o int) (n (list int)) (env (list Bind))) (Checked Ty)
   (match (find_bind n env)
@@ -968,7 +1173,7 @@
       (ty_problem ret ds fps)
       (match (head ps)
         ((P n t)
-          (let bad (ty_problem t ds fps)
+          (let bad (param_ty_problem t ds fps)
             (if (is_empty bad) (bad_sig_ty (tail ps) ret ds fps) bad))))))
 
 (def check_decl ((d Decl) (ctx Ctx)) (list Diag)
@@ -1066,6 +1271,13 @@
   (match d
     ((DDef o n fps ps ret body) true)
     ((DData o n tps cs) false)))
+
+; Function names declared by one group.
+(def fn_names ((ds (list Decl)) (acc (list (list int)))) (list (list int))
+  (if (is_empty ds)
+      acc
+      (fn_names (tail ds)
+        (if (is_def (head ds)) (cons (decl_name (head ds)) acc) acc))))
 
 ; Duplicate function names, duplicate type names, and duplicate constructor
 ; names, in one pass so that diagnostics come out in source order.
@@ -1395,7 +1607,8 @@
       (TyData (if (any_eq n tps) n (rn_name n tns)) (rn_tys as tns tps)))
     ((TyArray e) (TyArray (rn_ty e tns tps)))
     ((TyFloat) (TyFloat))
-    ((TyBytes) (TyBytes))))
+    ((TyBytes) (TyBytes))
+    ((TyFn ps r) (TyFn (rn_tys ps tns tps) (rn_ty r tns tps)))))
 
 (def rn_tys ((ts (list Ty)) (tns (list (list int))) (tps (list (list int))))
     (list Ty)
@@ -1506,7 +1719,8 @@
     ((TyInt) t)
     ((TyBool) t)
     ((TyFloat) t)
-    ((TyBytes) t)))
+    ((TyBytes) t)
+    ((TyFn ps r) (TyFn (tys_inst ps bs) (ty_inst r bs)))))
 
 (def tys_inst ((ts (list Ty)) (bs (list Bind))) (list Ty)
   (if (is_empty ts) ts (cons (ty_inst (head ts) bs) (tys_inst (tail ts) bs))))
@@ -1553,45 +1767,184 @@
 ; arguments' types choose. The emitter then sees only functions without type
 ; parameters, and decides everything a copy's types decide as for any other
 ; function. A copy's name has a dot, which no source name has.
+;
+; A function with function parameters is compiled once per combination of
+; those kinds and the defs its function parameters are given, and only for
+; the combinations some call reaches (spec 10.2): a call to one is renamed
+; to its copy, without its function arguments, and asks for the copy, and
+; the copies asked for are made after every declaration, each of which may
+; ask for more. Within a copy, a call through a function parameter is a
+; call of the def it was given, named by its symbol after an @, which no
+; source name has, so it reaches that def from either group.
+
+; A def given to a function parameter: call is the name a call of it in a
+; copy has, @ and its symbol, and part the copy name's part for it.
+(data FnRef
+  (FR (call (list int)) (part (list int))))
+
+(data FnBind
+  (FB (list int) FnRef))                ; a function parameter, what it was given
+
+; A copy some call reached: its name, the def it copies and whether that is
+; the prelude's, the kinds of its type parameters, and what each of its
+; function parameters was given.
+(data Req
+  (Rq (name (list int)) (base (list int)) (pre bool) (kinds (list bool))
+      (refs (list FnRef))))
+
+; What renaming needs besides the expression: the view of the declaration
+; being renamed, whether it is the prelude's, the program's function names,
+; and what each function parameter in scope was given.
+(data MonoCx
+  (MC (ctx Ctx) (pre bool) (unames (list (list int))) (fbs (list FnBind))))
 
 (data Mono
-  (Mo Expr Ty))
+  (Mo Expr Ty (list Req)))
 
 (data Monos
-  (Mos (list Expr) (list Ty)))
+  (Mos (list Expr) (list Ty) (list Req)))
 
-(def mono_program ((ds (list Decl)) (pre int)) (list Decl)
-  (if (no_generic ds)
-      ds
-      (mono_decls ds pre (prelude_view ds pre) (program_view ds pre) (nil Decl))))
+; The program with its copies in place of the functions they copy, and the
+; copies its calls asked for, in the order they were asked for.
+(data Monoed
+  (MP (decls (list Decl)) (reqs (list Req))))
 
-(def mono_decls ((ds (list Decl)) (pre int) (pv Ctx) (gv Ctx) (acc (list Decl)))
-    (list Decl)
+(def mono_program ((ds (list Decl)) (pre int)) Monoed
+  (if (no_copies ds)
+      (MP ds (nil Req))
+      (let pv (prelude_view ds pre)
+        (let gv (program_view ds pre)
+          (let un (fn_names (program_decls ds pre (nil Decl)) (nil (list int)))
+            (match (mono_decls ds pre pv gv un (nil Decl) (nil Req))
+              ((MP acc rs)
+                (mono_reqs ds pre pv gv un (rev rs) (nil (list int)) acc
+                           (nil Req)))))))))
+
+; Whether no def takes type or function parameters, so nothing is copied.
+(def no_copies ((ds (list Decl))) bool
   (if (is_empty ds)
-      (rev_onto acc (nil Decl))
-      (mono_decls (tail ds) pre pv gv
-        (mono_decl (head ds) (if (in_prelude (head ds) pre) pv gv) acc))))
+      true
+      (match (head ds)
+        ((DData o n tps cs) (no_copies (tail ds)))
+        ((DDef o n fps ps ret body)
+          (if (if (is_empty fps) (not (tys_have_fn (param_tys ps))) false)
+              (no_copies (tail ds))
+              false)))))
 
-; d, or its copies, pushed onto acc.
-(def mono_decl ((d Decl) (ctx Ctx) (acc (list Decl))) (list Decl)
+; Every declaration renamed, or replaced by its copies, pushed onto acc,
+; and the copies their calls asked for, newest first.
+(def mono_decls ((ds (list Decl)) (pre int) (pv Ctx) (gv Ctx) (un (list (list int)))
+                 (acc (list Decl)) (rs (list Req))) Monoed
+  (if (is_empty ds)
+      (MP acc rs)
+      (let inpre (in_prelude (head ds) pre)
+        (match (mono_decl (head ds) (MC (if inpre pv gv) inpre un (nil FnBind)) acc rs)
+          ((MP acc2 rs2) (mono_decls (tail ds) pre pv gv un acc2 rs2))))))
+
+; d, or its copies, pushed onto acc. A function with function parameters
+; is left to the copies its calls ask for.
+(def mono_decl ((d Decl) (mc MonoCx) (acc (list Decl)) (rs (list Req))) Monoed
   (match d
-    ((DData o n tps cs) (cons d acc))
+    ((DData o n tps cs) (MP (cons d acc) rs))
     ((DDef o n fps ps ret body)
-      (if (is_empty fps)
-          (cons (DDef o n fps ps ret (mono_body body ps ctx)) acc)
-          (mono_copies o n fps ps ret body ctx (copy_kinds fps) acc)))))
+      (if (tys_have_fn (param_tys ps))
+          (MP acc rs)
+          (if (is_empty fps)
+              (match (mono_body body ps mc rs)
+                ((Mo e t rs2) (MP (cons (DDef o n fps ps ret e) acc) rs2)))
+              (mono_copies o n fps ps ret body mc (copy_kinds fps) acc rs))))))
 
 (def mono_copies ((o int) (n (list int)) (fps (list (list int))) (ps (list Param))
-                  (ret Ty) (body Expr) (ctx Ctx) (kss (list (list bool)))
-                  (acc (list Decl))) (list Decl)
+                  (ret Ty) (body Expr) (mc MonoCx) (kss (list (list bool)))
+                  (acc (list Decl)) (rs (list Req))) Monoed
   (if (is_empty kss)
-      acc
+      (MP acc rs)
       (let bs (kind_binds fps (head kss))
         (let cps (params_inst ps bs)
-          (mono_copies o n fps ps ret body ctx (tail kss)
-            (cons (DDef o (copy_name n (head kss)) (nil (list int)) cps
-                        (ty_inst ret bs) (mono_body (expr_inst body bs) cps ctx))
-                  acc))))))
+          (match (mono_body (expr_inst body bs) cps mc rs)
+            ((Mo e t rs2)
+              (mono_copies o n fps ps ret body mc (tail kss)
+                (cons (DDef o (copy_name n (head kss)) (nil (list int)) cps
+                            (ty_inst ret bs) e)
+                      acc)
+                rs2)))))))
+
+; The copies asked for, oldest first, each made once: a copy's body may ask
+; for more, which join the end of the queue. done holds the names made, and
+; made the requests that made them, newest first.
+(def mono_reqs ((ds (list Decl)) (pre int) (pv Ctx) (gv Ctx) (un (list (list int)))
+                (q (list Req)) (done (list (list int))) (acc (list Decl))
+                (made (list Req))) Monoed
+  (if (is_empty q)
+      (MP (rev_onto acc (nil Decl)) (rev made))
+      (let r (head q)
+        (if (any_eq (.name r) done)
+            (mono_reqs ds pre pv gv un (tail q) done acc made)
+            (match (req_copy r (req_decl r ds pre)
+                             (MC (if (.pre r) pv gv) (.pre r) un (nil FnBind)))
+              ((Mo e t rs)
+                (mono_reqs ds pre pv gv un (append (tail q) (rev rs))
+                  (cons (.name r) done)
+                  (cons (req_def r (req_decl r ds pre) e) acc)
+                  (cons r made))))))))
+
+; The def a request copies, from its group.
+(def req_decl ((r Req) (ds (list Decl)) (pre int)) Decl
+  (if (is_empty ds)
+      (DData 0 "" (nil (list int)) (nil Ctor))
+      (if (if (is_def (head ds))
+              (if (eq (decl_name (head ds)) (.base r))
+                  (eq (in_prelude (head ds) pre) (.pre r))
+                  false)
+              false)
+          (head ds)
+          (req_decl r (tail ds) pre))))
+
+; The copy's body renamed, with what its function parameters were given in
+; scope, and the copies it asks for.
+(def req_copy ((r Req) (d Decl) (mc MonoCx)) Mono
+  (match d
+    ((DData o n tps cs) (Mo (EInt o 0) (TyInt) (nil Req)))
+    ((DDef o n fps ps ret body)
+      (let bs (kind_binds fps (.kinds r))
+        (let ips (params_inst ps bs)
+          (mono_expr (expr_inst body bs) (params_to_env ips (nil Bind))
+                     (.fbs mc (fn_binds ips (.refs r))) (nil Req)))))))
+
+; The copy itself: the def's parameters that are not functions, its types
+; with the kinds in place, and the body renamed.
+(def req_def ((r Req) (d Decl) (e Expr)) Decl
+  (match d
+    ((DData o n tps cs) d)
+    ((DDef o n fps ps ret body)
+      (let bs (kind_binds fps (.kinds r))
+        (DDef o (.name r) (nil (list int)) (value_params (params_inst ps bs))
+              (ty_inst ret bs) e)))))
+
+(def value_params ((ps (list Param))) (list Param)
+  (if (is_empty ps)
+      ps
+      (match (head ps)
+        ((P n t)
+          (if (ty_is_fn t)
+              (value_params (tail ps))
+              (cons (head ps) (value_params (tail ps))))))))
+
+; Each function parameter, in order, bound to the def it was given.
+(def fn_binds ((ps (list Param)) (refs (list FnRef))) (list FnBind)
+  (if (is_empty ps)
+      (nil FnBind)
+      (match (head ps)
+        ((P n t)
+          (if (ty_is_fn t)
+              (cons (FB n (head refs)) (fn_binds (tail ps) (tail refs)))
+              (fn_binds (tail ps) refs))))))
+
+(def find_fn_bind ((n (list int)) (fbs (list FnBind))) FnRef
+  (if (is_empty fbs)
+      (FR n "")
+      (match (head fbs)
+        ((FB bn r) (if (eq bn n) r (find_fn_bind n (tail fbs)))))))
 
 ; Every combination of kinds for the parameters, true for counted, in the
 ; order of their names: 0...0 first.
@@ -1633,107 +1986,233 @@
               ((None) false))
             (kinds_of (tail tps) bs))))
 
-(def mono_body ((body Expr) (ps (list Param)) (ctx Ctx)) Expr
-  (match (mono_expr body (params_to_env ps (nil Bind)) ctx)
-    ((Mo e t) e)))
+(def mono_body ((body Expr) (ps (list Param)) (mc MonoCx) (rs (list Req))) Mono
+  (mono_expr body (params_to_env ps (nil Bind)) mc rs))
 
-; e with every call to a function with type parameters renamed to its copy,
-; and e's type, which the renaming needs: computed as the checker computes
-; it, for an expression the checker accepted.
-(def mono_expr ((e Expr) (env (list Bind)) (ctx Ctx)) Mono
+; e with every call to a function with type parameters or function
+; parameters renamed to its copy, e's type, which the renaming needs,
+; computed as the checker computes it for an expression the checker
+; accepted, and the copies asked for pushed onto rs.
+(def mono_expr ((e Expr) (env (list Bind)) (mc MonoCx) (rs (list Req))) Mono
   (match e
-    ((EInt o v) (Mo e (TyInt)))
-    ((EFloat o m p g) (Mo e (TyFloat)))
-    ((EBool o v) (Mo e (TyBool)))
-    ((EStr o s) (Mo e (TyList (TyInt))))
-    ((ENil o t) (Mo e (TyList t)))
-    ((EVar o n) (Mo e (match (find_bind n env) ((Some t) t) ((None) (TyInt)))))
+    ((EInt o v) (Mo e (TyInt) rs))
+    ((EFloat o m p g) (Mo e (TyFloat) rs))
+    ((EBool o v) (Mo e (TyBool) rs))
+    ((EStr o s) (Mo e (TyList (TyInt)) rs))
+    ((ENil o t) (Mo e (TyList t) rs))
+    ((EVar o n) (Mo e (match (find_bind n env) ((Some t) t) ((None) (TyInt))) rs))
     ((EIf o c a b)
-      (match (mono_expr a env ctx)
-        ((Mo a2 at)
-          (Mo (EIf o (mono_e c env ctx) a2 (mono_e b env ctx)) at))))
+      (match (mono_expr c env mc rs)
+        ((Mo c2 ct rs2)
+          (match (mono_expr a env mc rs2)
+            ((Mo a2 at rs3)
+              (match (mono_expr b env mc rs3)
+                ((Mo b2 bt rs4) (Mo (EIf o c2 a2 b2) at rs4))))))))
     ((ELet o n v b)
-      (match (mono_expr v env ctx)
-        ((Mo v2 vt)
-          (match (mono_expr b (cons (B n vt) env) ctx)
-            ((Mo b2 bt) (Mo (ELet o n v2 b2) bt))))))
-    ((ECtor o n tys args) (mono_ctor o n tys args env ctx))
-    ((EMatch o s arms) (mono_match o s arms env ctx))
-    ((ECall o n args) (mono_call o n args env ctx))
+      (match (mono_expr v env mc rs)
+        ((Mo v2 vt rs2)
+          (match (mono_expr b (cons (B n vt) env) mc rs2)
+            ((Mo b2 bt rs3) (Mo (ELet o n v2 b2) bt rs3))))))
+    ((ECtor o n tys args) (mono_ctor o n tys args env mc rs))
+    ((EMatch o s arms) (mono_match o s arms env mc rs))
+    ((ECall o n args) (mono_call o n args env mc rs))
     ((EField o f e)
-      (match (mono_expr e env ctx)
-        ((Mo e2 et)
+      (match (mono_expr e env mc rs)
+        ((Mo e2 et rs2)
           (Mo (EField o f e2)
-              (match (field_type o f et ctx) ((COk t) t) ((CErr eo m) (TyInt)))))))
+              (match (field_type o f et (.ctx mc)) ((COk t) t) ((CErr eo m) (TyInt)))
+              rs2))))
     ((EWith o f e v)
-      (match (mono_expr e env ctx)
-        ((Mo e2 et) (Mo (EWith o f e2 (mono_e v env ctx)) et))))))
+      (match (mono_expr e env mc rs)
+        ((Mo e2 et rs2)
+          (match (mono_expr v env mc rs2)
+            ((Mo v2 vt rs3) (Mo (EWith o f e2 v2) et rs3))))))))
 
-(def mono_e ((e Expr) (env (list Bind)) (ctx Ctx)) Expr
-  (match (mono_expr e env ctx) ((Mo e2 t) e2)))
-
-(def mono_args ((es (list Expr)) (env (list Bind)) (ctx Ctx)) Monos
+(def mono_args ((es (list Expr)) (env (list Bind)) (mc MonoCx) (rs (list Req))) Monos
   (if (is_empty es)
-      (Mos es (nil Ty))
-      (match (mono_expr (head es) env ctx)
-        ((Mo e t)
-          (match (mono_args (tail es) env ctx)
-            ((Mos rest ts) (Mos (cons e rest) (cons t ts))))))))
+      (Mos es (nil Ty) rs)
+      (match (mono_expr (head es) env mc rs)
+        ((Mo e t rs2)
+          (match (mono_args (tail es) env mc rs2)
+            ((Mos rest ts rs3) (Mos (cons e rest) (cons t ts) rs3)))))))
 
 (def mono_ctor ((o int) (n (list int)) (tys (list Ty)) (args (list Expr))
-                (env (list Bind)) (ctx Ctx)) Mono
-  (match (mono_args args env ctx)
-    ((Mos args2 ats)
+                (env (list Bind)) (mc MonoCx) (rs (list Req))) Mono
+  (match (mono_args args env mc rs)
+    ((Mos args2 ats rs2)
       (Mo (ECtor o n tys args2)
-          (match (find_ctor n (.ctors ctx))
+          (match (find_ctor n (.ctors (.ctx mc)))
             ((Some ci) (TyData (.type_name ci) (ctor_type_args ci tys ats)))
-            ((None) (TyInt)))))))
+            ((None) (TyInt)))
+          rs2))))
 
+; A call resolves as check_call resolves it.
 (def mono_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
-                (ctx Ctx)) Mono
-  (match (mono_args args env ctx)
-    ((Mos args2 ats)
-      (if (is_builtin_in n ctx)
-          (Mo (ECall o n args2)
-              (match (check_builtin n ats o) ((COk t) t) ((CErr eo m) (TyInt))))
-          (match (find_sig n (.sigs ctx))
-            ((None) (Mo (ECall o n args2) (TyInt)))
-            ((Some s)
-              (match s
-                ((S sn tps sps sr)
-                  (if (is_empty tps)
-                      (Mo (ECall o n args2) sr)
-                      (match (match_tys sps ats tps (nil Bind))
-                        ((COk bs)
-                          (Mo (ECall o (copy_name n (kinds_of tps bs)) args2)
-                              (ty_subst sr bs)))
-                        ((CErr eo m) (Mo (ECall o n args2) sr))))))))))))
+                (mc MonoCx) (rs (list Req))) Mono
+  (match (find_bind n env)
+    ((Some t)
+      (if (ty_is_fn t)
+          (mono_param_call o n t args env mc rs)
+          (mono_global_call o n args env mc rs)))
+    ((None) (mono_global_call o n args env mc rs))))
+
+; A call through a function parameter calls the def it was given.
+(def mono_param_call ((o int) (n (list int)) (t Ty) (args (list Expr))
+                      (env (list Bind)) (mc MonoCx) (rs (list Req))) Mono
+  (match (mono_args args env mc rs)
+    ((Mos args2 ats rs2)
+      (Mo (ECall o (.call (find_fn_bind n (.fbs mc))) args2)
+          (match t
+            ((TyFn ps r) r)
+            ((TyInt) t)
+            ((TyBool) t)
+            ((TyList e) t)
+            ((TyData dn as) t)
+            ((TyArray e) t)
+            ((TyBytes) t)
+            ((TyFloat) t))
+          rs2))))
+
+(def mono_global_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
+                       (mc MonoCx) (rs (list Req))) Mono
+  (match (find_sig n (.sigs (.ctx mc)))
+    ((Some s)
+      (if (if (is_builtin_in n (.ctx mc)) false (tys_have_fn (.params s)))
+          (mono_fn_call o n args s env mc rs)
+          (mono_plain_call o n args env mc rs)))
+    ((None) (mono_plain_call o n args env mc rs))))
+
+(def mono_plain_call ((o int) (n (list int)) (args (list Expr)) (env (list Bind))
+                      (mc MonoCx) (rs (list Req))) Mono
+  (let ctx (.ctx mc)
+    (match (mono_args args env mc rs)
+      ((Mos args2 ats rs2)
+        (if (is_builtin_in n ctx)
+            (Mo (ECall o n args2)
+                (match (check_builtin n ats o) ((COk t) t) ((CErr eo m) (TyInt)))
+                rs2)
+            (match (find_sig n (.sigs ctx))
+              ((None) (Mo (ECall o n args2) (TyInt) rs2))
+              ((Some s)
+                (match s
+                  ((S sn tps sps sr)
+                    (if (is_empty tps)
+                        (Mo (ECall o n args2) sr rs2)
+                        (match (match_tys sps ats tps (nil Bind))
+                          ((COk bs)
+                            (Mo (ECall o (copy_name n (kinds_of tps bs)) args2)
+                                (ty_subst sr bs) rs2))
+                          ((CErr eo m) (Mo (ECall o n args2) sr rs2)))))))))))))
+
+; A call to a function with function parameters: the arguments that are not
+; functions renamed, the functions resolved, and the call renamed to the
+; copy for both, which it asks for.
+(def mono_fn_call ((o int) (n (list int)) (args (list Expr)) (s Sig)
+                   (env (list Bind)) (mc MonoCx) (rs (list Req))) Mono
+  (match (mono_args (value_args args (.params s)) env mc rs)
+    ((Mos vargs vts rs2)
+      (let ats (mono_arg_tys args (.params s) vts env mc)
+        (match (fn_call_binds n ats s o)
+          ((CErr eo m) (Mo (ECall o n vargs) (.ret s) rs2))
+          ((COk bs)
+            (let refs (fn_refs args (.params s) ats bs env mc)
+              (let gpre (if (.pre mc) true (not (any_eq n (.unames mc))))
+                (let ks (kinds_of (.tparams s) bs)
+                  (let cn (append (if (is_empty (.tparams s)) n (copy_name n ks))
+                                  (ref_parts refs))
+                    (Mo (ECall o cn vargs) (ty_subst (.ret s) bs)
+                        (cons (Rq cn n gpre ks refs) rs2))))))))))))
+
+; The arguments in positions that are not of function type.
+(def value_args ((args (list Expr)) (sps (list Ty))) (list Expr)
+  (if (is_empty args)
+      args
+      (if (ty_is_fn (head sps))
+          (value_args (tail args) (tail sps))
+          (cons (head args) (value_args (tail args) (tail sps))))))
+
+; Every argument's ArgTy, as arg_tys finds it, the values' types given.
+(def mono_arg_tys ((args (list Expr)) (sps (list Ty)) (vts (list Ty))
+                   (env (list Bind)) (mc MonoCx)) (list ArgTy)
+  (if (is_empty args)
+      (nil ArgTy)
+      (if (ty_is_fn (head sps))
+          (cons (match (fn_arg_ty "" (head args) (head sps) env (.ctx mc) 0 0)
+                  ((COk a) a)
+                  ((CErr eo m) (AT (TyInt))))
+                (mono_arg_tys (tail args) (tail sps) vts env mc))
+          (cons (AT (head vts)) (mono_arg_tys (tail args) (tail sps) (tail vts) env mc)))))
+
+; What each function argument resolves to, in order: a function parameter
+; in scope, what it was given; a def, that def, at the kinds its type
+; parameters stand for where it is passed.
+(def fn_refs ((args (list Expr)) (sps (list Ty)) (ats (list ArgTy)) (bs (list Bind))
+              (env (list Bind)) (mc MonoCx)) (list FnRef)
+  (if (is_empty args)
+      (nil FnRef)
+      (if (ty_is_fn (head sps))
+          (cons (fn_ref (var_name (head args)) (head sps) (head ats) bs env mc)
+                (fn_refs (tail args) (tail sps) (tail ats) bs env mc))
+          (fn_refs (tail args) (tail sps) (tail ats) bs env mc))))
+
+(def fn_ref ((an (list int)) (p Ty) (a ArgTy) (bs (list Bind)) (env (list Bind))
+             (mc MonoCx)) FnRef
+  (match (find_bind an env)
+    ((Some t) (find_fn_bind an (.fbs mc)))
+    ((None)
+      (let hpre (if (.pre mc) true (not (any_eq an (.unames mc))))
+        (let hn (match a
+                  ((AGen h) (copy_name an (gen_kinds p h bs)))
+                  ((AFn t) an)
+                  ((AT t) an))
+          (FR (cons 64 (if hpre
+                           (append "l0_p_" hn)
+                           (if (eq hn "main") "l0_f_main.body" (append "l0_f_" hn))))
+              (cons 46 (cons (if hpre 80 70) hn))))))))
+
+; The kinds a def with type parameters h is given where it is passed at p.
+(def gen_kinds ((p Ty) (h Sig) (bs (list Bind))) (list bool)
+  (match (ty_subst p bs)
+    ((TyFn eps er)
+      (match (match_tys (.params h) eps (.tparams h) (nil Bind))
+        ((COk hbs) (kinds_of (.tparams h) hbs))
+        ((CErr eo m) (kinds_of (.tparams h) (nil Bind)))))
+    ((TyInt) (nil bool))
+    ((TyBool) (nil bool))
+    ((TyList e) (nil bool))
+    ((TyData dn as) (nil bool))
+    ((TyArray e) (nil bool))
+    ((TyBytes) (nil bool))
+    ((TyFloat) (nil bool))))
+
+(def ref_parts ((refs (list FnRef))) (list int)
+  (if (is_empty refs) "" (append (.part (head refs)) (ref_parts (tail refs)))))
 
 (data MonoArms
-  (MoA (list Arm) Ty))
+  (MoA (list Arm) Ty (list Req)))
 
-(def mono_match ((o int) (s Expr) (arms (list Arm)) (env (list Bind)) (ctx Ctx))
-    Mono
-  (match (mono_expr s env ctx)
-    ((Mo s2 st)
-      (match (find_data (ty_name st) (.datas ctx))
-        ((None) (Mo (EMatch o s2 arms) (TyInt)))
+(def mono_match ((o int) (s Expr) (arms (list Arm)) (env (list Bind)) (mc MonoCx)
+                 (rs (list Req))) Mono
+  (match (mono_expr s env mc rs)
+    ((Mo s2 st rs2)
+      (match (find_data (ty_name st) (.datas (.ctx mc)))
+        ((None) (Mo (EMatch o s2 arms) (TyInt) rs2))
         ((Some dd)
-          (match (mono_arms arms (zip_binds (.params dd) (ty_args st)) env ctx
-                            (nil Arm) (TyInt))
-            ((MoA as2 t) (Mo (EMatch o s2 as2) t))))))))
+          (match (mono_arms arms (zip_binds (.params dd) (ty_args st)) env mc
+                            (nil Arm) (TyInt) rs2)
+            ((MoA as2 t rs3) (Mo (EMatch o s2 as2) t rs3))))))))
 
 ; bs binds the data type's parameters to the subject type's arguments.
-(def mono_arms ((arms (list Arm)) (bs (list Bind)) (env (list Bind)) (ctx Ctx)
-                (acc (list Arm)) (t Ty)) MonoArms
+(def mono_arms ((arms (list Arm)) (bs (list Bind)) (env (list Bind)) (mc MonoCx)
+                (acc (list Arm)) (t Ty) (rs (list Req))) MonoArms
   (if (is_empty arms)
-      (MoA (rev_onto acc (nil Arm)) t)
+      (MoA (rev_onto acc (nil Arm)) t rs)
       (match (head arms)
         ((A ao cn names body)
-          (match (mono_expr body (bind_fields names (arm_fields_at cn bs ctx) env)
-                            ctx)
-            ((Mo b2 bt)
-              (mono_arms (tail arms) bs env ctx (cons (A ao cn names b2) acc) bt)))))))
+          (match (mono_expr body (bind_fields names (arm_fields_at cn bs (.ctx mc)) env)
+                            mc rs)
+            ((Mo b2 bt rs2)
+              (mono_arms (tail arms) bs env mc (cons (A ao cn names b2) acc) bt rs2)))))))
 
 (def arm_fields_at ((cn (list int)) (bs (list Bind)) (ctx Ctx)) (list Ty)
   (match (find_ctor cn (.ctors ctx))

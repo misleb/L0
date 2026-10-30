@@ -5,7 +5,92 @@ spec itself ([L0.md](L0.md)) says only what L0 *is*; this file says why.
 
 New entries go at the top.
 
+An entry may cite a prototype under `roadmap/NNNN/`, which is deleted when
+the item that uses it lands, or a scratch file under `tmp/`, which was never
+tracked. Those cited and since deleted can be read at the commit before
+their deletion: `roadmap/0026/bench/` at 66a8dd4, `roadmap/0068/metal.ll`
+at b87e7c2, `roadmap/0074/progs/` at dfdd1fe, and `roadmap/0094/why.l0` at
+0f98c2e (`git show 0f98c2e:roadmap/0094/why.l0`). The `tmp/0110/` programs
+of the Pi 5's first runs were not kept; their entries quote what they read.
+
 ---
+
+## Functions as arguments, by one copy per function passed (roadmap 0135)
+
+**New:** a `def`'s parameter may have a function type, `(fn (P1 ... Pn)
+R)` (spec 3), written only there. It is given a `def` by name, or a
+function parameter of the caller passed on, and called like a function,
+`(key x)` (5.7); a call resolves to a function parameter first, when the
+innermost local of its name is one (7). Each function with function
+parameters compiles to one copy per combination of kinds and of `def`s
+passed, only those some call reaches, and a call through a function
+parameter in a copy is a direct call of that `def`, `fastcc` and
+`musttail` as any other (10.2).
+
+*Why:* a function could not be passed to another, so every loop that
+differs only in what it does to each element was written out again. The
+compiler had seven copies of one lookup (`find_bind`, `find_sig`,
+`find_ctor`, `find_data` in check.l0; `lookup_operand`, `lookup_type`,
+`lookup_read_only` in emit.l0); `l0 test` found a program's tests with
+`sed` and generated a `main` that dispatched on their names; and sorting by
+a key meant declaring a key type. The smallest program that could not be
+written was a lookup by a key function, once:
+
+```
+(def (find_by K T) ((key (fn (T) K)) (k K) (xs (list T))) (Option T)
+  ...)
+```
+
+which the checker rejected with `expected list, array, or a data type name
+after ( in a type`.
+
+*The four rejections, answered.* The changelog turned function values down
+four times, for `compare` (0059, 0064), for handles (0020), and for type
+parameters. Each objection follows from functions being values at run time,
+and here they are values only at compile time:
+- *Indirect calls, and an exception to section 8's tail calls.* There are
+  none: within a copy every call through a parameter names its `def`, so a
+  tail call there is a `musttail` call between two functions of one
+  padded component, as any other.
+- *A wrapper per function used as a value, with owned arguments.* There is
+  no wrapper: the `def` itself is called, with its own read-only
+  parameters and the release rule unchanged.
+- *Name resolution stops being syntactic.* It is still syntactic: a call
+  resolves to a function parameter only when the innermost local of its
+  name is one, which the declaration's parameter types say, and a program
+  with no function type resolves as it did.
+- *A generic function passed as a value has no argument to take its types
+  from.* It takes them from the function type it is passed at: the call's
+  other arguments are matched first, and by then the type the passed
+  function takes is fixed, or the call is an error.
+
+*Decided:*
+- *The form `(fn (T...) R)`*, a type in parentheses like `list` and
+  `array`, with `fn` not reserved, as `bytes` and `float` are not, since
+  programs use `fn` as a name (`emit_rt_call`'s parameter, for one).
+- *Only at the top of a parameter's type.* A function type in a field, a
+  list, or a return type would make a function a value that outlives the
+  call, which is a closure without its environment, or an indirect call.
+- *A `def` or a passed-on parameter, not a builtin.* A builtin has no one
+  type (`eq` and `cons` take any) and no symbol to call, and one that a
+  `def` of the callee's group shadows would resolve differently inside the
+  copy than where it was named. A one-line `def` passes one; it inlines.
+- *Function arguments matched last.* That is the whole of what passing a
+  generic function needs, and it keeps checking a left-to-right match with
+  no unification: the passed function's parameter types must be complete
+  when it is reached.
+- *Copies per `def` passed, named for it with its group,* `.F` or `.P`,
+  so a prelude function given a program's `def` calls that one even where
+  the prelude has a function of the same name, and the names cannot
+  collide: kind digits come first, and every part for a function starts
+  with an uppercase letter.
+- *Only copies some call reaches.* A function with function parameters has
+  no code of its own, since a parameter of function type has no value.
+
+*Left open:* builtins as arguments; a function that takes a function
+parameter itself being passed; closures, which 0028's sort of lines by an
+index into one buffer would want, and which a parameter for the buffer
+expresses meanwhile.
 
 ## Named fields: a value's field read and replaced by name (roadmap 0132)
 

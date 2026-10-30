@@ -1,0 +1,13 @@
+; The whole compiler, end to end, on a bundle whose golden output pins down
+; how functions passed as arguments are compiled, spec sections 5.7 and
+; 10.2.
+;
+; Like bundle_prelude this supplies no main of its own and takes the
+; compiler's. In the input, the prelude and the program each define key,
+; and the program passes its own to the prelude's apply_twice, directly and
+; through via, which passes its parameter on. So the copies are named
+; .Fkey, a call through f in a prelude copy is a direct call of the
+; program's @l0_f_key and never the prelude's, the tail call through f is
+; musttail, and via's tail call of its copy of apply_twice is too. pick is
+; given a def with a type parameter, idt, at int, which its copy names
+; .Pidt.0. A function with function parameters has no code of its own.

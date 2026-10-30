@@ -1,0 +1,74 @@
+; Functions as arguments: spec 3, 5.7, and 7. One line of diagnostics per
+; snippet, "ok" for one that checks. The valid snippets are here too, since
+; what a function argument resolves to, and the types a call takes from
+; it, are only visible through what the checker accepts and rejects.
+
+; Declarations every snippet can use.
+(def decls ((i int)) (list int)
+  (append "(data (Option T) (None) (Some T)) "
+    (append "(def inc ((x int)) int (add x 1)) "
+      (append "(def is_pos ((x int)) bool (gt x 0)) "
+        (append "(def (first T) ((xs (list T))) T (head xs)) "
+          (append "(def (idt T) ((x T)) T x) "
+            (append "(def ap ((f (fn (int) int)) (x int)) int (f x)) "
+              "(def (apg A B) ((f (fn (A) B)) (x A)) B (f x)) ")))))))
+
+; An expression as the body of main, which returns int.
+(def m ((body (list int))) (list int)
+  (append (decls 0)
+    (append "(def main ((input (list int))) int " (append body ")"))))
+
+; Declarations, with a trivial main.
+(def d ((ds (list int))) (list int)
+  (append (decls 0) (append ds " (def main ((input (list int))) int 0)")))
+
+(def cases ((i int)) (list (list int))
+  (cons (m "(ap inc 1)")
+  (cons (m "(apg inc 1)")
+  (cons (m "(if (apg is_pos 1) 1 0)")
+  ; a def with type parameters takes them from where it is passed
+  (cons (m "(apg first (cons 1 (nil int)))")
+  (cons (m "(apg idt 5)")
+  (cons (m "(head (apg idt (cons 1 (nil int))))")
+  ; passed on, and called, inside a def
+  (cons (d "(def twice ((g (fn (int) int)) (x int)) int (ap g (ap g x)))")
+  (cons (d "(def (each T) ((g (fn (T) T)) (xs (list T))) (list T) (if (is_empty xs) xs (cons (g (head xs)) (each g (tail xs)))))")
+  ; a function parameter shadows a def of its name, and a let hides it again
+  (cons (d "(def sh ((inc (fn (int) int)) (x int)) int (inc x))")
+  (cons (d "(def sh ((inc (fn (int) bool)) (x int)) bool (inc x))")
+  (cons (d "(def sh ((inc (fn (int) bool)) (x int)) int (let inc 3 (inc x)))")
+  (cons (d "(def fz ((g (fn () int))) int (g)) (def three () int 3) (def h ((i int)) int (fz three))")
+  ; wrong arguments
+  (cons (m "(ap add 1)")
+  (cons (m "(ap (inc 1) 1)")
+  (cons (m "(let g 3 (ap g 1))")
+  (cons (m "(ap is_pos 1)")
+  (cons (m "(ap nope 1)")
+  (cons (m "(ap first 1)")
+  (cons (d "(def (mk B) ((f (fn (B) B))) int 0) (def h ((i int)) int (mk idt))")
+  (cons (m "(ap ap 1)")
+  ; calls through a parameter
+  (cons (d "(def c1 ((f (fn (int) int))) int (f 1 2))")
+  (cons (d "(def c2 ((f (fn (int) int))) int (f true))")
+  (cons (d "(def c3 ((f (fn (int) int))) bool (f 1))")
+  ; a function is no value
+  (cons (d "(def c4 ((f (fn (int) int))) int (let g f 0))")
+  (cons (m "(let g inc 0)")
+  (cons (d "(def c5 ((f (fn (int) int))) (list int) (cons f (nil int)))")
+  ; where a function type may be written
+  (cons (d "(def r ((f (fn (int) int))) (fn (int) int) f)")
+  (cons (d "(def n ((f (fn ((fn (int) int)) int))) int 0)")
+  (cons (d "(def n ((xs (list (fn (int) int)))) int 0)")
+  (cons (m "(let n (nil (fn (int) int)) 0)")
+  (cons (d "(data Holds (Holds (fn (int) int)))")
+  (cons (d "(def n ((f (fn int int))) int 0)")
+  (cons (d "(def n ((f (fn (int) int bool))) int 0)")
+  (cons (d "(def n ((f (fn (Nope) int))) int 0)")
+  (cons (d "(def (n T) ((f (fn (T) int))) int 0)")
+  (cons (append (decls 0) "(def main ((f (fn (int) int))) int 0)")
+  ; fn is not reserved
+  (cons (d "(def fn ((fn int)) int fn) (def h ((i int)) int (fn 1))")
+  (nil (list int))))))))))))))))))))))))))))))))))))))))
+
+(def main ((input (list int))) (list int)
+  (check_lines (cases 0) (nil int)))

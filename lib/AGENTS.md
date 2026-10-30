@@ -241,7 +241,9 @@ confirmation, or progress during a run is not one either: write it with a
 be renamed, deleted, and read in pieces; failures of each say which they
 were; values of any type can be compared, ordered, hashed, and sorted; a
 constructor can name its fields, which `(.field value)` reads and `(.field
-value new)` replaces; and `int`s have bitwise operations. Memory is reclaimed automatically, and
+value new)` replaces; a function can be passed by name to a parameter of
+function type, `(fn (T) K)`, so a loop is written once; and `int`s have
+bitwise operations. Memory is reclaimed automatically, and
 `clock_ns` times part of a program, and `float` does IEEE arithmetic, with
 `float_sin` and `float_cos` in the library. A network, the environment, listing or
 creating directories do not exist yet. Floating point does, as `float`.

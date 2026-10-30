@@ -1,0 +1,13 @@
+#l0bundle
+#prelude 230
+0 prelude.l0
+230 program.l0
+#source
+(def key ((x int)) int (mul x 100))
+(def (idt T) ((x T)) T x)
+(def apply_twice ((f (fn (int) int)) (x int)) int (f (f x)))
+(def via ((g (fn (int) int)) (x int)) int (apply_twice g x))
+(def (pick T) ((f (fn (T) T)) (x T)) T (f x))
+(def key ((x int)) int (add x 1))
+(def main ((input (list int))) int
+  (add (via key 5) (add (apply_twice key 0) (pick idt 3))))

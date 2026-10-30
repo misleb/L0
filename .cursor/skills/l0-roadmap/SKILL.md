@@ -33,8 +33,11 @@ roadmap/
 ```
 
 An item's directory holds evidence that must outlive `build/`, such as a
-prototype a later item starts from. It is deleted when the item that uses it
-lands, since by then the real thing exists.
+prototype a later item starts from, or the programs and measurements a
+research or program item's finding rests on. A prototype is deleted when the
+item that uses it lands, since by then the real thing exists, and the
+changelog's header names the commit it can be read at if an entry cites it;
+evidence for a finding stays as long as the finding does.
 
 Create it from the templates below the first time it is needed. Numbers are
 never reused. A dropped item stays, with the reason, for the same reason the

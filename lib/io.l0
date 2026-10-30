@@ -119,10 +119,10 @@
 ; A file is an IoFile rather than a bare handle, so the checker can tell one
 ; from any other int. Opening returns IoOpened, whose IoFailed case a match
 ; has to handle, so a program cannot forget that opening can fail. This
-; library's types and constructors begin with Io, or with the operation they
-; describe, Open, Create, Rename, Remove, or Write, so a reader can tell them
-; apart; Done and NotDone are the exceptions. A program that declares one of
-; its own shadows it (spec section 7.1).
+; library's types and constructors begin with Io, or with the operation or
+; thing they describe, Open, Create, Rename, Remove, Write, Device, or Trap,
+; so a reader can tell them apart; Done and NotDone are the exceptions. A
+; program that declares one of its own shadows it (spec section 7.1).
 
 ;; An open file. Get one from open_in, open_out, or open_appending, or from
 ;; open_in_bytes and open_out_buffer for one in memory; use it with the file_

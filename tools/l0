@@ -1146,8 +1146,8 @@ case "$cmd" in
             exit 2
         fi
 
-        # L0 has no function values, so a program cannot list its own
-        # functions; the tests are found here instead. A test is
+        # A program cannot list its own functions, even now that one can
+        # be passed by name; the tests are found here instead. A test is
         # (def test_NAME () int ...), and expect_NAME, if defined, is the
         # runtime error test_NAME must die with. Each starts a line with its
         # name and empty parameter list.

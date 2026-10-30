@@ -47,7 +47,13 @@
 ; still needs nothing the checker produced.
 (data Env
   (Ev (binds (list EBind)) (ctx Ctx) (prelude (list (list int)))
-      (pads (Map (list int) Pad))))
+      (pads (Map (list int) Pad)) (fa FnArgs)))
+
+; What the type of a call that functions were passed to needs: both groups'
+; signatures, since a def passed may be of either, and what each copy's
+; function parameters were given, by the copy's name. Spec 10.2.
+(data FnArgs
+  (FA (psigs (list Sig)) (gsigs (list Sig)) (copies (Map (list int) (list FnRef)))))
 
 (data EnvEmit
   (EnvSt Env Emit))
@@ -429,22 +435,6 @@
   (EAS EArg Emit))
 
 ; The name of a variable, or "" for any other expression.
-(def var_name ((e Expr)) (list int)
-  (match e
-    ((EVar o n) n)
-    ((EInt o v) "")
-    ((EFloat o m p g) "")
-    ((EBool o v) "")
-    ((EStr o s) "")
-    ((ENil o t) "")
-    ((EIf o c a b) "")
-    ((ELet o n v b) "")
-    ((ECtor o n ts a) "")
-    ((EMatch o s a) "")
-    ((ECall o n a) "")
-    ((EField o f e) "")
-    ((EWith o f e v) "")))
-
 (def var_names ((args (list Expr)) (acc (list (list int)))) (list (list int))
   (if (is_empty args)
       acc
@@ -715,7 +705,8 @@
     ((TyList e) false)
     ((TyData n ts) false)
     ((TyFloat) false)
-    ((TyBytes) false)))
+    ((TyBytes) false)
+    ((TyFn ps r) false)))
 
 ; inner with its one argument (array_get g y) made (array.take g y), when it
 ; is a call that has exactly one such argument and no other mentioning g.
@@ -788,7 +779,8 @@
     ((TyList t) (emit_rt_call "l0_array_take" (nil (list int)) st))
     ((TyData n ts) (emit_rt_call "l0_array_take" (nil (list int)) st))
     ((TyFloat) (emit_rt_call "l0_array_take" (nil (list int)) st))
-    ((TyBytes) (emit_rt_call "l0_array_take" (nil (list int)) st))))
+    ((TyBytes) (emit_rt_call "l0_array_take" (nil (list int)) st))
+    ((TyFn ps r) (emit_rt_call "l0_array_take" (nil (list int)) st))))
 
 (def emit_call_plain ((n (list int)) (args (list Expr)) (env Env)
                       (live (list (list int))) (tl bool) (st Emit)) EmitVal
@@ -885,25 +877,68 @@
                   (if (any_eq n (split_spaces "user_run cpu_trapped")) (TyArray (TyInt)) (TyInt))))))))
 
 ; The type a function returns, from its signature.
-(def fn_type ((n (list int)) (env Env)) Ty
-  (match (find_sig n (.sigs (.ctx env)))
+(def fn_type ((n (list int)) (sigs (list Sig))) Ty
+  (match (find_sig n sigs)
     ((Some s) (.ret s))
     ((None) (TyInt))))
 
 ; The type of a call's result. A copy's return type is written in kinds, so
 ; a call to one has the type its function's signature gives it for the
 ; arguments' types, which keeps what lies inside a counted type parameter.
+; A call through a function parameter, by symbol, is typed by its def's
+; signature, in that def's group.
 (def call_type ((n (list int)) (ts (list Ty)) (env Env)) Ty
-  (match (find_sig (copy_base n) (.sigs (.ctx env)))
+  (if (is_sym_name n)
+      (if (starts_with n "@l0_p_")
+          (call_type_in (drop_n n 6) ts (.psigs (.fa env)) env)
+          (call_type_in (if (eq n "@l0_f_main.body") "main" (drop_n n 6))
+                        ts (.gsigs (.fa env)) env))
+      (call_type_in n ts (.sigs (.ctx env)) env)))
+
+(def call_type_in ((n (list int)) (ts (list Ty)) (sigs (list Sig)) (env Env)) Ty
+  (match (find_sig (copy_base n) sigs)
     ((Some s)
       (match s
         ((S sn tps sps sr)
-          (if (is_empty tps)
-              (fn_type n env)
-              (match (match_tys sps ts tps (nil Bind))
-                ((COk bs) (ty_subst sr bs))
-                ((CErr o m) (fn_type n env)))))))
-    ((None) (fn_type n env))))
+          (if (tys_have_fn sps)
+              (copy_call_type n ts s env)
+              (if (is_empty tps)
+                  (fn_type n sigs)
+                  (match (match_tys sps ts tps (nil Bind))
+                    ((COk bs) (ty_subst sr bs))
+                    ((CErr o m) (fn_type n sigs))))))))
+    ((None) (fn_type n sigs))))
+
+; A call to a copy for functions passed, given only the arguments that are
+; not functions: the functions it was given complete them, as the checker
+; matched them. Spec 5.7.
+(def copy_call_type ((n (list int)) (ts (list Ty)) (s Sig) (env Env)) Ty
+  (match (map_get (.copies (.fa env)) n)
+    ((None) (.ret s))
+    ((Some refs)
+      (match (fn_call_binds n (copy_arg_tys (.params s) ts refs env) s 0)
+        ((COk bs) (ty_subst (.ret s) bs))
+        ((CErr o m) (.ret s))))))
+
+(def copy_arg_tys ((sps (list Ty)) (ts (list Ty)) (refs (list FnRef)) (env Env))
+    (list ArgTy)
+  (if (is_empty sps)
+      (nil ArgTy)
+      (if (ty_is_fn (head sps))
+          (cons (ref_arg_ty (.call (head refs)) env)
+                (copy_arg_tys (tail sps) ts (tail refs) env))
+          (cons (AT (head ts)) (copy_arg_tys (tail sps) (tail ts) refs env)))))
+
+; A def passed, by its @ name, as the argument it was.
+(def ref_arg_ty ((call (list int)) (env Env)) ArgTy
+  (let sigs (if (starts_with call "@l0_p_") (.psigs (.fa env)) (.gsigs (.fa env)))
+    (match (find_sig (copy_base (if (eq call "@l0_f_main.body") "main" (drop_n call 6)))
+                     sigs)
+      ((Some h)
+        (if (is_empty (.tparams h))
+            (AFn (TyFn (.params h) (.ret h)))
+            (AGen h)))
+      ((None) (AT (TyInt))))))
 
 ; A copy's name without its kinds, and any other name as it is.
 (def copy_base ((n (list int))) (list int)
@@ -1346,10 +1381,17 @@
 ; reaches there, and to the program's otherwise. The two carry different
 ; symbols, which is what lets both exist at once, and the program's main has
 ; a body apart from the entry point the runtime calls. Spec 7.1 and 10.2.
+; A name that starts with @ is a symbol already: a call through a function
+; parameter in a copy, which mono_program resolved to its def (check.l0).
 (def fn_sym ((n (list int)) (pnames (list (list int)))) (list int)
-  (if (any_eq n pnames)
-      (append "l0_p_" n)
-      (if (eq n "main") "l0_f_main.body" (append "l0_f_" n))))
+  (if (is_sym_name n)
+      (tail n)
+      (if (any_eq n pnames)
+          (append "l0_p_" n)
+          (if (eq n "main") "l0_f_main.body" (append "l0_f_" n)))))
+
+(def is_sym_name ((n (list int))) bool
+  (if (is_empty n) false (eq (head n) 64)))
 
 (def def_sym ((n (list int)) (inpre bool)) (list int)
   (if inpre (append "l0_p_" n) (fn_sym n (nil (list int)))))
@@ -1859,7 +1901,7 @@
 ; and how many parameters every function takes.
 (data Scope
   (Sc (ctx Ctx) (prelude_names (list (list int))) (is_prelude bool)
-      (pads (Map (list int) Pad))))
+      (pads (Map (list int) Pad)) (fa FnArgs)))
 
 ; A program is a closed module, and the runtime reaches into it by name for
 ; exactly one function, so everything else gets internal linkage and LLVM can
@@ -1882,7 +1924,7 @@
                        (emit_line "entry:" st1))
               (let env (Ev (param_binds ps (read_only_of sym (.pads sc)) 0
                                         (nil EBind))
-                           (.ctx sc) (.prelude_names sc) (.pads sc))
+                           (.ctx sc) (.prelude_names sc) (.pads sc) (.fa sc))
                 (emit_line ""
                   (emit_line "}"
                     (.st (emit_expr body env (nil (list int)) true
@@ -1924,13 +1966,6 @@
         (emit_fn (head ds)
                  (if (in_prelude (head ds) pre) scpre scprog)
                  (reset_counter st)))))
-
-; Function names declared by one group.
-(def fn_names ((ds (list Decl)) (acc (list (list int)))) (list (list int))
-  (if (is_empty ds)
-      acc
-      (fn_names (tail ds)
-        (if (is_def (head ds)) (cons (decl_name (head ds)) acc) acc))))
 
 ; The prelude names a program declaration still reaches: the ones the program
 ; did not define itself, since its own definition shadows the prelude's.
@@ -2091,32 +2126,45 @@
 ; A function with type parameters is emitted as its copies, spec 10.2.
 (def emit_module ((ds (list Decl)) (pre int)) (list int)
   (let hs (hide_tparams (group_upper ds pre))
-    (emit_grouped (mono_program hs pre) (generic_defs hs (nil Decl)) pre)))
+    (match (mono_program hs pre)
+      ((MP ms rs) (emit_grouped ms (copied_defs hs (nil Decl)) rs pre)))))
 
-; The functions with type parameters, which copies replace in what is emitted
-; but whose signatures a call's type is computed from, spec 10.2.
-(def generic_defs ((ds (list Decl)) (acc (list Decl))) (list Decl)
+; The functions with type or function parameters, which copies replace in
+; what is emitted but whose signatures a call's type is computed from, spec
+; 10.2.
+(def copied_defs ((ds (list Decl)) (acc (list Decl))) (list Decl)
   (if (is_empty ds)
       (rev_onto acc (nil Decl))
-      (generic_defs (tail ds)
+      (copied_defs (tail ds)
         (match (head ds)
           ((DData o n tps cs) acc)
           ((DDef o n fps ps ret body)
-            (if (is_empty fps) acc (cons (head ds) acc)))))))
+            (if (if (is_empty fps) (not (tys_have_fn (param_tys ps))) false)
+                acc
+                (cons (head ds) acc)))))))
 
-(def emit_grouped ((ds (list Decl)) (gs (list Decl)) (pre int)) (list int)
+(def emit_grouped ((ds (list Decl)) (gs (list Decl)) (rs (list Req)) (pre int))
+    (list int)
   (let st0 (Em 0 (push (ir_header 0) (nil int)))
     (let st1 (emit_line (append "@l0_main_ret_kind = global i64 "
                 (append (digits (ret_kind (program_decls ds pre (nil Decl))))
                         "\n")) st0)
-      (emit_module_fns ds gs pre (prelude_names ds pre)
+      (emit_module_fns ds gs rs pre (prelude_names ds pre)
         (program_prelude_names ds pre) st1))))
 
-(def emit_module_fns ((ds (list Decl)) (gs (list Decl)) (pre int)
+(def emit_module_fns ((ds (list Decl)) (gs (list Decl)) (rs (list Req)) (pre int)
                       (ppre (list (list int))) (pprog (list (list int)))
                       (st Emit)) (list int)
   (let pv (prelude_view (append gs ds) pre)
     (let gv (program_view (append gs ds) pre)
       (let pads (module_pads ds pre ppre pprog (.builtins pv) (.builtins gv))
-        (emit_text
-          (emit_fns ds (Sc pv ppre true pads) (Sc gv pprog false pads) pre st))))))
+        (let fa (FA (.sigs pv) (.sigs gv) (copy_refs rs ((MapEmpty (list int) (list FnRef)))))
+          (emit_text
+            (emit_fns ds (Sc pv ppre true pads fa) (Sc gv pprog false pads fa)
+                      pre st)))))))
+
+(def copy_refs ((rs (list Req)) (m (Map (list int) (list FnRef))))
+    (Map (list int) (list FnRef))
+  (if (is_empty rs)
+      m
+      (copy_refs (tail rs) (map_put m (.name (head rs)) (.refs (head rs))))))
