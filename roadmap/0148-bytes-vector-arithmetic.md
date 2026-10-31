@@ -115,5 +115,6 @@ program links.
 - 2026-10-31: done. `tools/test.sh` 74, `--compiled` 178, the fixpoint
   holds, `--virt` 427 passed on both boards; the seed refreshed. The
   `l0-code` skill, `lib/examples.l0`, and `roadmap/l0s-adoption.md` §14
-  say what is new. Not run on macOS or a Pi 5. Not committed; L0S not yet
-  told. 0149 started on it at once.
+  say what is new. Not run on macOS or a Pi 5. 0149 started on it at
+  once; committed with it as 6fecb07, and L0S told by the Status line of
+  its request. 0150 then set the A76 floor that makes the loop `sdot`.

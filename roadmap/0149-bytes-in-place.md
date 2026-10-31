@@ -93,4 +93,5 @@ roadmap/0149/why.l0:11:3: error: unknown function bytes_set_f32
   holds, `--virt` 427 passed on both boards; the seed refreshed, once
   after 0148 and again here, so one seed carries both. The `l0-code`
   skill, `lib/examples.l0`, and `roadmap/l0s-adoption.md` §15 say what is
-  new. Not run on macOS or a Pi 5. Not committed; L0S not yet told.
+  new. Not run on macOS or a Pi 5. Committed with 0148 as 6fecb07, and
+  L0S told by the Status line of its request.
