@@ -452,3 +452,83 @@ same text, now in `runtime.md`. Section 6's table is in two, the host
 facilities second. Since 0142, the order in which a builtin's runtime
 errors are checked (6.12, 6.13, 6.15, 6.18) and what each host lacks (9.2)
 are tables; nothing changed in meaning.
+
+## 14. Dot products over bytes, and narrow floats read from them (roadmap 0148)
+
+For 0060, Whistle: the four of `probes/vector/REQUEST-vector-arithmetic.md`'s
+six builtins that only read. A toolchain from a commit at or after 0148,
+installed as section 1 says; `l0 check` on a file that calls
+`bytes_dot_i8` tells the old one from the new.
+
+- `(bytes_dot_i8 a i b j n)`: the sum over k below n of the signed bytes
+  `a[i+k]` times `b[j+k]`, exact, as an `int`.
+- `(bytes_dot_f32 a i b j n)`: the dot product of the n binary32s of `a`
+  from byte `i` and of `b` from byte `j`, computed in binary32, in the
+  order spec 6.6 fixes (four sums, element k in sum k mod 4, then (0 + 1)
+  + (2 + 3), nothing fused), so the same on the host, on QEMU, and on the
+  Pi 5, as a `float`.
+- `(bytes_get_f32 b i)` and `(bytes_get_f16 b i)`: the binary32 or
+  binary16 at byte `i`, least significant byte first, as a `float`,
+  exactly; a NaN is the one NaN.
+
+Each checks its ranges once, before anything, and a range out of its
+bytes is `byte index out of range`, as `bytes_slice`'s is. All four read
+their bytes without consuming them, so a parameter only they read stays
+read-only (10.3). From `lib/examples.l0`:
+
+```
+(def weights_row_dot ((w bytes) (x bytes) (r int) (n int)) int
+  (bytes_dot_i8 w (mul r n) x 0 n))
+
+(def gain_at ((g bytes) (i int)) float
+  (bytes_get_f16 g (mul i 2)))
+```
+
+**Where L0S gains.** The probe's `row_dot` in `probes/vector/dot.l0`
+becomes the one call above a row. On the x86_64 host that measured the
+request, the probe as it is runs at 1898 ps per multiply-add and with
+`bytes_dot_i8` at 140, the same checksum, 13.5 times faster; scalar C was
+274 and C the compiler vectorised 35. The runtime's loop is portable
+vector IR, sixteen bytes a step, which LLVM lowers to NEON's `smull` and
+`saddw`; it does not reach the A76's `sdot`, which would need either the
+CPU named to LLVM for the Pi 5 target or LLVM's partial-reduction
+intrinsic, neither taken until a run on the board says what it is worth.
+Every loop that sums products of `bytes_get` reads is a candidate:
+
+```bash
+grep -rn "(mul (bytes_get\|(mul (s8 \|bytes_get .*(mul" --include='*.l0' .
+```
+
+**The two that write** are section 15, roadmap 0149, which landed with
+this.
+
+## 15. Bytes updated in place: a binary32 stored, and y made y + a·x (roadmap 0149)
+
+The other two of the request's six. `(bytes_set_f32 b i x)` is `b` with
+`x` stored as a binary32 at byte `i`, rounded to nearest, a NaN as
+0x7FC00000; `(bytes_axpy_f32 y i a x j n)` is `y` with its `n` binary32s
+from byte `i` each made `y_k + a·x_k`, `x`'s from byte `j`, in binary32,
+not fused, every `x_k` read as it was before the call even when `x` is
+`y`. Both follow `array_set` (spec 6.5): in place when nothing else holds
+the bytes, otherwise after copying them whole, and both consume what they
+are given, `bytes_axpy_f32` its `x` too. The checker's hidden-copy
+warning (section 11) names them. From `lib/examples.l0`:
+
+```
+(def scaled_step ((y bytes) (x bytes) (a float) (n int)) bytes
+  (let y0 (bytes_get_f32 y 0)
+    (bytes_set_f32 (bytes_axpy_f32 y 0 a x 0 n) 0 y0)))
+```
+
+**Where L0S gains.** Whistle's activations stay in `bytes` end to end:
+a norm or an attention row is an `axpy` per weight row into the same
+vector, in place while the vector is threaded through the loop as the
+example threads `y`. `tests/io/bytes_in_place` measures it: 100,000 steps
+over a threaded vector copy nothing, and the same with a binding holding
+the vector copy once a step. Keep the same shape L0S already uses for
+arrays and maps: read first, with `let`, and update last, and run `l0
+check` for the warning.
+
+**What changed in the spec.** 6.6 no longer says that no builtin changes
+a byte; it names these two and says no other does. Nothing L0S compiles
+changes meaning: a bytes value nothing passes to these is as it was.

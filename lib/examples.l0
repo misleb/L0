@@ -634,6 +634,28 @@
 (def framed ((tag (list int)) (body bytes)) bytes
   (bytes_concat (cons (bytes_from_list tag) (cons body (nil bytes)))))
 
+; A range of bytes read as numbers in one call, for the inner loop of a
+; model: bytes_dot_i8 is the exact sum of the products of n signed bytes
+; of each, bytes_dot_f32 the dot product of n binary32s in binary32, in
+; an order the spec fixes so it is the same on every machine, and
+; bytes_get_f32 and bytes_get_f16 a binary32 or binary16 at a byte index
+; as a float (spec 6.6). Row r of the weights w, n wide, times x.
+(def weights_row_dot ((w bytes) (x bytes) (r int) (n int)) int
+  (bytes_dot_i8 w (mul r n) x 0 n))
+
+; Gain i of g, a binary16 every 2 bytes.
+(def gain_at ((g bytes) (i int)) float
+  (bytes_get_f16 g (mul i 2)))
+
+; A vector of n binary32s in bytes, updated in place as array_set updates
+; an array (spec 6.6): bytes_axpy_f32 makes y's from byte 0 y + a*x, and
+; bytes_set_f32 stores one. Threading y through and reading it first keeps
+; the update in place; a binding that still holds y makes it copy, as the
+; checker warns.
+(def scaled_step ((y bytes) (x bytes) (a float) (n int)) bytes
+  (let y0 (bytes_get_f32 y 0)
+    (bytes_set_f32 (bytes_axpy_f32 y 0 a x 0 n) 0 y0)))
+
 ; --------------------------------------------------------------------- bits
 
 ; bit_and, bit_or, bit_xor, bit_shl, bit_shr, and bit_count work on the 64

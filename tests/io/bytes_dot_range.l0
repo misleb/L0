@@ -1,0 +1,9 @@
+; A dot product's range is checked once, before anything: a range past the
+; end of either bytes value is a runtime error, as a slice's is, and what
+; was written before it is delivered. "abcd" times "efgh" is 40390.
+
+(def main () int
+  (let (a (bytes_from_list "abcd")
+        b (bytes_from_list "efgh")
+        w (write_byte (if (eq (bytes_dot_i8 a 0 b 0 4) 40390) 65 66)))
+    (bytes_dot_i8 a 1 b 0 4)))

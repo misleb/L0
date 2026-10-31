@@ -397,6 +397,12 @@ declare i64 @l0_frame_free_count()
 declare i64 @l0_frame_sync(i64, i64)
 declare i64 @l0_bytes_slice(i64, i64, i64)
 declare i64 @l0_bytes_concat(i64)
+declare i64 @l0_bytes_dot_i8(i64, i64, i64, i64, i64)
+declare i64 @l0_bytes_dot_f32(i64, i64, i64, i64, i64)
+declare i64 @l0_bytes_get_f32(i64, i64)
+declare i64 @l0_bytes_get_f16(i64, i64)
+declare i64 @l0_bytes_set_f32(i64, i64, i64)
+declare i64 @l0_bytes_axpy_f32(i64, i64, i64, i64, i64, i64)
 declare i64 @l0_board_reset()
 declare i64 @l0_cpu_count()
 declare i64 @l0_cpu_run(i64, i64, i64, i64, i64)
@@ -802,8 +808,9 @@ list it is, and `@l0_arg`, `@l0_buffer_bytes`, and `@l0_bytes_to_list` return
 a list they build. `@l0_region_read_bytes`, `@l0_space_read`, `@l0_supervisor_receive`, `@l0_bytes_slice`,
 and `@l0_bytes_concat` return bytes they build, and
 `@l0_user_run` the context it was given if nothing else held it, and
-otherwise a copy, as `@l0_array_set` returns its array; `@l0_cpu_trapped`
-returns an array it builds.
+otherwise a copy, as `@l0_array_set` returns its array and
+`@l0_bytes_set_f32` and `@l0_bytes_axpy_f32` return their bytes;
+`@l0_cpu_trapped` returns an array it builds.
 `@l0_open_bytes` takes a reference of its own to the list it is given, and
 releases it when the handle is closed or the program ends. The runtime buffers every handle,
 and flushes standard output and standard error whenever it is about to wait
@@ -841,7 +848,7 @@ words, rather than build one that is wrong. aarch64 passes 8 in registers
 under either convention, and gets the stack's words right.
 
 The builtins that can fail at runtime — `head`, `tail`, `div`, `mod`, the
-array builtins, `bytes_get`, `write_bytes`, `bytes_slice`, `read_some`, the region reads,
+array builtins, `bytes_get`, `write_bytes`, `bytes_slice`, the dot products and narrow reads of 6.6, `read_some`, the region reads,
 writes, and close, the user-mode, interrupt, and kernel-call builtins, `bit_shl`, and `bit_shr` — are runtime calls, so generated code contains no error checking
 at all; so are `is_empty`, as `@l0_is_empty`, `bit_count`, as
 `@l0_bit_count`, and `cons`, as `@l0_new_cons`. The shifts are calls for a
@@ -940,7 +947,8 @@ counting:
   last use of `xs` is `f`'s
 - `head`, `tail`, `is_empty`, `eq`, `hash`, `compare`, `array_len`, `array_get`,
   `open_bytes`, `bytes_len`, `bytes_get`, `write_bytes`, `bytes_slice`,
-  `bytes_concat`, `region_write_bytes`, `space_write`,
+  `bytes_concat`, `bytes_dot_i8`, `bytes_dot_f32`, `bytes_get_f32`,
+  `bytes_get_f16`, `region_write_bytes`, `space_write`,
   `supervisor_send`, `cpu_run`, and the builtins taking paths read their arguments
   without consuming them, and a field read `(.f e)` (5.8) reads `e` so. A variable still used later
   is read without a reference at all; any other argument is released after
@@ -949,7 +957,8 @@ counting:
   except what `bytes_slice` and `bytes_concat` return, which is new bytes
   with a reference of its own.
   `array_set` consumes its array and its element, as any function consumes
-  its arguments, `user_run` its context, a field replacement `(.f e v)`
+  its arguments, `bytes_set_f32` its bytes, `bytes_axpy_f32` both of its,
+  `user_run` its context, a field replacement `(.f e v)`
   (5.8) its `e` and `v`, and `bytes_from_list` and
   `bytes_to_list` consume theirs,
   since what they return is a new block rather than a part of it. A
@@ -964,6 +973,7 @@ counting:
   parameter is one of these: an argument of a builtin above that reads
   without consuming and yields no list, data, array, or bytes (`is_empty`,
   `eq`, `hash`, `compare`, `array_len`, the path builtins, `open_bytes`, `bytes_len`, `bytes_get`,
+  `bytes_dot_i8`, `bytes_dot_f32`, `bytes_get_f32`, `bytes_get_f16`,
   `write_bytes`, `cpu_run`, and `head` or `array_get` of elements of int or bool
   type), a field read `(.f e)` whose type is not a list, data, array, or
   bytes type, or an argument of `bytes_slice` or `bytes_concat`, whose bytes

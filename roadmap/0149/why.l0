@@ -1,0 +1,14 @@
+; why.l0 -- a float32 vector held in bytes, updated in place: y made
+; y + a*x, and one float32 written. Spec 6.6 says no builtin changes a
+; byte, so neither can be written today; see 0149.
+
+; y's float32s from 0 made y + a*x, x's from 0, n of them.
+(def axpy ((y bytes) (a float) (x bytes) (n int)) bytes
+  (bytes_axpy_f32 y 0 a x 0 n))
+
+; Float32 i of b set to v.
+(def put ((b bytes) (i int) (v float)) bytes
+  (bytes_set_f32 b (mul i 4) v))
+
+(def main () int
+  (bytes_len (put (axpy (bytes_from_list "abcdefgh") 2.0 (bytes_from_list "ijklmnop") 2) 0 1.5)))

@@ -1,0 +1,16 @@
+; why.l0 -- the inner loop of a quantised model, cut down from L0S's
+; probes/vector/dot.l0: a row of int8 weights times a vector of int8
+; activations, summed exactly, and a norm's gain stored as float16, read
+; in place. Neither can be written today; see 0148.
+
+; Row r of w, n wide, times x.
+(def row ((w bytes) (x bytes) (r int) (n int)) int
+  (bytes_dot_i8 w (mul r n) x 0 n))
+
+; Gain i of g, a float16 every 2 bytes.
+(def gain ((g bytes) (i int)) float
+  (bytes_get_f16 g (mul i 2)))
+
+(def main () int
+  (add (row (bytes_from_list "abcd") (bytes_from_list "efgh") 0 4)
+       (float_to_int (gain (bytes_from_list "ab") 0))))

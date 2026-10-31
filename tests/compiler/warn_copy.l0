@@ -37,7 +37,11 @@
   ; and through a def that does so, as space_put's map
   (cons (emitted "(def f ((b Box)) int (let x (bump (.cells b)) (.count b)))")
   (cons (emitted "(def g ((b Box)) Box (.cells b (bump (.cells b)))) (def f ((b Box)) int (let x (g b) (.count b)))")
-  (nil (list int)))))))))))))))
+  ; the bytes updates of 6.6, held to the same rule: a read inside the
+  ; update's own operands is quiet
+  (cons (emitted "(def f ((b bytes)) int (let c (bytes_set_f32 b 0 1.0) (bytes_len b)))")
+  (cons (emitted "(def f ((b bytes)) bytes (bytes_axpy_f32 b 0 (bytes_get_f32 b 0) b 0 1))")
+  (nil (list int)))))))))))))))))
 
 (def main ((input (list int))) (list int)
   (concat_lines (cases 0) (nil int)))

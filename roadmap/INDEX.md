@@ -18,8 +18,10 @@ history; this table replaced a narrative of it on 2026-10-30 (0143).
 | Written for agents | ongoing: the review of 2026-10-30 opened 0135 to 0147 | 0131, 0133, 0139, 0141 to 0144 |
 
 Open within those goals, waiting for code that needs them: closures, a
-persistent or ordered map, bytes that update in place, the Pi 5's PCIe and
+persistent or ordered map, the Pi 5's PCIe and
 display interrupts beyond those given, and the VisionFive 2 and Pi 4.
+Bytes that update in place were waiting here until L0S's Whistle needed
+them (0149).
 
 ## Language queue
 
@@ -40,6 +42,18 @@ From the review of 2026-10-30:
   own loose ends — proposed; left out of this run by the user's choice
 
 ## Done and dropped
+
+- [0149](0149-bytes-in-place.md) bytes updated in place: a float32
+  written, and y made y + a·x — done, changelog "Bytes are updated in
+  place: a binary32 stored, and y made y + a·x"; 6.6's "no builtin
+  changes a byte" given up for these two; both suites, the fixpoint, and
+  `--virt` on both boards green; not run on macOS or a Pi 5
+
+- [0148](0148-bytes-vector-arithmetic.md) dot products over bytes, and
+  narrow floats read from them — done, changelog "Dot products over
+  bytes, and narrow floats read from them"; L0S's probe 13.5 times faster
+  on the host; both suites, the fixpoint, and `--virt` on both boards
+  green; not run on macOS or a Pi 5
 
 - [0146](0146-runtime-structure.md) tooling: the runtime's structure —
   done: `bare/absent.ll`, one device-tree walker, the Pi 5 table's type,

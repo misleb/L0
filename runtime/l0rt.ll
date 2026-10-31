@@ -57,6 +57,7 @@ declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
 declare i64 @llvm.ctpop.i64(i64)
+declare i32 @llvm.vector.reduce.add.v16i32(<16 x i32>)
 declare i32 @memcmp(ptr, ptr, i64)
 
 ; Defined by the generated IR. Spec section 10.2.
@@ -2279,6 +2280,419 @@ fstep:
   br label %fill
 done:
   ret i64 %r
+}
+
+; ------------------------------------------------- numbers in bytes (6.6)
+;
+; Four reads of a range of bytes as numbers in one call, each a function
+; of its bytes alone, each the same on every host. They are written with
+; LLVM's vector types, which LLVM lowers to the target's vector unit where
+; it has one and to scalar code where it has none, and carry no fast-math
+; flags, so nothing is fused or reordered: the order the spec fixes for
+; the float sum is the order that runs.
+
+; A float's key (spec 10.1): its bits with bits 0 to 62 flipped when the
+; sign bit is set.
+define internal i64 @f_key(i64 %bits) {
+entry:
+  %s = ashr i64 %bits, 63
+  %m = lshr i64 %s, 1
+  %k = xor i64 %bits, %m
+  ret i64 %k
+}
+
+; The key of d, or the one NaN's if d is a NaN. Spec 6.17.
+define internal i64 @f_key_canon(double %d) {
+entry:
+  %bits = bitcast double %d to i64
+  %u = fcmp uno double %d, %d
+  %c = select i1 %u, i64 9221120237041090560, i64 %bits
+  %k = call i64 @f_key(i64 %c)
+  ret i64 %k
+}
+
+; Whether n elements of w bytes each lie within a from byte i and within b
+; from byte j. n is checked against a's length first, so n times w cannot
+; wrap: a bytes value is at most 2^40 long.
+define internal i1 @dot_range(ptr %aq, i64 %i, ptr %bq, i64 %j, i64 %n, i64 %w) {
+entry:
+  %an = load i64, ptr %aq
+  %bn = load i64, ptr %bq
+  %n_a = icmp ule i64 %n, %an
+  %n_b = icmp ule i64 %n, %bn
+  %i_a = icmp ule i64 %i, %an
+  %j_b = icmp ule i64 %j, %bn
+  %c1 = and i1 %n_a, %n_b
+  %c2 = and i1 %i_a, %j_b
+  %c3 = and i1 %c1, %c2
+  br i1 %c3, label %span, label %no
+span:
+  %s = mul i64 %n, %w
+  %ra = sub i64 %an, %i
+  %rb = sub i64 %bn, %j
+  %s_a = icmp ule i64 %s, %ra
+  %s_b = icmp ule i64 %s, %rb
+  %ok = and i1 %s_a, %s_b
+  ret i1 %ok
+no:
+  ret i1 false
+}
+
+; The sum over k below n of the signed bytes a[i+k] times b[j+k], exact.
+; Sixteen at a time: the products fit i16, and sixteen i32 lanes hold them
+; for a chunk of 2^20 elements, 2^16 blocks of at most 2^14 each, before
+; the lanes are reduced into the i64 sum; then one at a time for the rest.
+; Borrows a and b.
+define i64 @l0_bytes_dot_i8(i64 %a, i64 %i, i64 %b, i64 %j, i64 %n) {
+entry:
+  %aq = inttoptr i64 %a to ptr
+  %bq = inttoptr i64 %b to ptr
+  %ok = call i1 @dot_range(ptr %aq, i64 %i, ptr %bq, i64 %j, i64 %n, i64 1)
+  br i1 %ok, label %go, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+go:
+  %ao = add i64 %i, 8
+  %ap = getelementptr i8, ptr %aq, i64 %ao
+  %bo = add i64 %j, 8
+  %bp = getelementptr i8, ptr %bq, i64 %bo
+  %nb = and i64 %n, -16
+  br label %outer
+outer:
+  %c = phi i64 [ 0, %go ], [ %cend, %oend ]
+  %acc = phi i64 [ 0, %go ], [ %acc1, %oend ]
+  %odone = icmp uge i64 %c, %nb
+  br i1 %odone, label %sloop, label %obody
+obody:
+  %rem = sub i64 %nb, %c
+  %big = icmp ugt i64 %rem, 1048576
+  %lim = select i1 %big, i64 1048576, i64 %rem
+  %cend = add i64 %c, %lim
+  br label %inner
+inner:
+  %k = phi i64 [ %c, %obody ], [ %k1, %ibody ]
+  %vacc = phi <16 x i32> [ zeroinitializer, %obody ], [ %vacc1, %ibody ]
+  %idone = icmp uge i64 %k, %cend
+  br i1 %idone, label %oend, label %ibody
+ibody:
+  %avp = getelementptr i8, ptr %ap, i64 %k
+  %bvp = getelementptr i8, ptr %bp, i64 %k
+  %av = load <16 x i8>, ptr %avp, align 1
+  %bv = load <16 x i8>, ptr %bvp, align 1
+  %aw = sext <16 x i8> %av to <16 x i16>
+  %bw = sext <16 x i8> %bv to <16 x i16>
+  %pw = mul <16 x i16> %aw, %bw
+  %pl = sext <16 x i16> %pw to <16 x i32>
+  %vacc1 = add <16 x i32> %vacc, %pl
+  %k1 = add i64 %k, 16
+  br label %inner
+oend:
+  %s = call i32 @llvm.vector.reduce.add.v16i32(<16 x i32> %vacc)
+  %sw = sext i32 %s to i64
+  %acc1 = add i64 %acc, %sw
+  br label %outer
+sloop:
+  %sk = phi i64 [ %nb, %outer ], [ %sk1, %sbody ]
+  %sacc = phi i64 [ %acc, %outer ], [ %sacc1, %sbody ]
+  %sdone = icmp uge i64 %sk, %n
+  br i1 %sdone, label %done, label %sbody
+sbody:
+  %asp = getelementptr i8, ptr %ap, i64 %sk
+  %bsp = getelementptr i8, ptr %bp, i64 %sk
+  %ac = load i8, ptr %asp
+  %bc = load i8, ptr %bsp
+  %aw1 = sext i8 %ac to i64
+  %bw1 = sext i8 %bc to i64
+  %p1 = mul i64 %aw1, %bw1
+  %sacc1 = add i64 %sacc, %p1
+  %sk1 = add i64 %sk, 1
+  br label %sloop
+done:
+  ret i64 %sacc
+}
+
+; The dot product of the n binary32s of a from byte i and of b from byte
+; j, in binary32, in the spec's order: four sums, element k in sum k mod
+; 4, then (0 + 1) + (2 + 3). Four at a time while four remain, then the
+; rest one at a time into lanes 0 on, which is the same order. Returns
+; the key of the sum as a double, the one NaN if it is a NaN. Borrows a
+; and b.
+define i64 @l0_bytes_dot_f32(i64 %a, i64 %i, i64 %b, i64 %j, i64 %n) {
+entry:
+  %aq = inttoptr i64 %a to ptr
+  %bq = inttoptr i64 %b to ptr
+  %ok = call i1 @dot_range(ptr %aq, i64 %i, ptr %bq, i64 %j, i64 %n, i64 4)
+  br i1 %ok, label %go, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+go:
+  %ao = add i64 %i, 8
+  %ap = getelementptr i8, ptr %aq, i64 %ao
+  %bo = add i64 %j, 8
+  %bp = getelementptr i8, ptr %bq, i64 %bo
+  %nb = and i64 %n, -4
+  br label %vloop
+vloop:
+  %k = phi i64 [ 0, %go ], [ %k1, %vbody ]
+  %acc = phi <4 x float> [ zeroinitializer, %go ], [ %acc1, %vbody ]
+  %vdone = icmp uge i64 %k, %nb
+  br i1 %vdone, label %tloop, label %vbody
+vbody:
+  %ko = shl i64 %k, 2
+  %avp = getelementptr i8, ptr %ap, i64 %ko
+  %bvp = getelementptr i8, ptr %bp, i64 %ko
+  %av = load <4 x float>, ptr %avp, align 1
+  %bv = load <4 x float>, ptr %bvp, align 1
+  %pv = fmul <4 x float> %av, %bv
+  %acc1 = fadd <4 x float> %acc, %pv
+  %k1 = add i64 %k, 4
+  br label %vloop
+tloop:
+  %l = phi i64 [ 0, %vloop ], [ %l1, %tbody ]
+  %tacc = phi <4 x float> [ %acc, %vloop ], [ %tacc1, %tbody ]
+  %e = add i64 %nb, %l
+  %tdone = icmp uge i64 %e, %n
+  br i1 %tdone, label %fin, label %tbody
+tbody:
+  %eo = shl i64 %e, 2
+  %aep = getelementptr i8, ptr %ap, i64 %eo
+  %bep = getelementptr i8, ptr %bp, i64 %eo
+  %ae = load float, ptr %aep, align 1
+  %be = load float, ptr %bep, align 1
+  %pe = fmul float %ae, %be
+  %cur = extractelement <4 x float> %tacc, i64 %l
+  %ne = fadd float %cur, %pe
+  %tacc1 = insertelement <4 x float> %tacc, float %ne, i64 %l
+  %l1 = add i64 %l, 1
+  br label %tloop
+fin:
+  %s0 = extractelement <4 x float> %tacc, i64 0
+  %s1 = extractelement <4 x float> %tacc, i64 1
+  %s2 = extractelement <4 x float> %tacc, i64 2
+  %s3 = extractelement <4 x float> %tacc, i64 3
+  %s01 = fadd float %s0, %s1
+  %s23 = fadd float %s2, %s3
+  %sum = fadd float %s01, %s23
+  %d = fpext float %sum to double
+  %key = call i64 @f_key_canon(double %d)
+  ret i64 %key
+}
+
+; Whether w bytes from byte i lie within b.
+define internal i1 @get_range(ptr %q, i64 %i, i64 %w) {
+entry:
+  %n = load i64, ptr %q
+  %i_n = icmp ule i64 %i, %n
+  %r = sub i64 %n, %i
+  %w_r = icmp ule i64 %w, %r
+  %ok = and i1 %i_n, %w_r
+  ret i1 %ok
+}
+
+; The binary32 at bytes i to i+3 of b, as the key of a double: exact, the
+; one NaN for a NaN. Borrows b.
+define i64 @l0_bytes_get_f32(i64 %b, i64 %i) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %ok = call i1 @get_range(ptr %q, i64 %i, i64 4)
+  br i1 %ok, label %go, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+go:
+  %o = add i64 %i, 8
+  %p = getelementptr i8, ptr %q, i64 %o
+  %v = load float, ptr %p, align 1
+  %d = fpext float %v to double
+  %key = call i64 @f_key_canon(double %d)
+  ret i64 %key
+}
+
+; The binary16 at bytes i and i+1 of b, as the key of a double, by
+; integer arithmetic: a finite value is its significand, the hidden bit
+; put back for a normal one, times a power of two, both exact in a
+; double, and an exponent of 31 is an infinity or a NaN. Not fpext from
+; half, which on x86_64 and every freestanding target is a call into
+; compiler-rt, which no L0 program links. Borrows b.
+define i64 @l0_bytes_get_f16(i64 %b, i64 %i) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %ok = call i1 @get_range(ptr %q, i64 %i, i64 2)
+  br i1 %ok, label %go, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+go:
+  %o = add i64 %i, 8
+  %p = getelementptr i8, ptr %q, i64 %o
+  %h16 = load i16, ptr %p, align 1
+  %h = zext i16 %h16 to i64
+  %sign = lshr i64 %h, 15
+  %sbit = shl i64 %sign, 63
+  %e0 = lshr i64 %h, 10
+  %exp = and i64 %e0, 31
+  %man = and i64 %h, 1023
+  %top = icmp eq i64 %exp, 31
+  br i1 %top, label %special, label %finite
+special:
+  %isnan = icmp ne i64 %man, 0
+  %infbits = or i64 %sbit, 9218868437227405312
+  %sbits = select i1 %isnan, i64 9221120237041090560, i64 %infbits
+  br label %key
+finite:
+  %sub = icmp eq i64 %exp, 0
+  %e1 = select i1 %sub, i64 1, i64 %exp
+  %hid = select i1 %sub, i64 0, i64 1024
+  %m = or i64 %man, %hid
+  %md = uitofp i64 %m to double
+  %se = add i64 %e1, 998
+  %sebits = shl i64 %se, 52
+  %scale = bitcast i64 %sebits to double
+  %v = fmul double %md, %scale
+  %vbits = bitcast double %v to i64
+  %fbits = or i64 %vbits, %sbit
+  br label %key
+key:
+  %bits = phi i64 [ %sbits, %special ], [ %fbits, %finite ]
+  %k = call i64 @f_key(i64 %bits)
+  ret i64 %k
+}
+
+; ---- the two that update bytes, as array_set updates an array (6.5)
+
+; b itself if nothing else holds it, and otherwise a copy of it, with b
+; released. Counted with the array updates for L0_ARRAY_STATS, the words
+; as the length in words rounded up.
+define internal i64 @bytes_own(i64 %b) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %hp = getelementptr i64, ptr %q, i64 -1
+  %h = load i64, ptr %hp
+  %rc = lshr i64 %h, 40
+  %alone = icmp eq i64 %rc, 1
+  br i1 %alone, label %mine, label %copy
+mine:
+  %ci = load i64, ptr @arr_inplace
+  %ci1 = add i64 %ci, 1
+  store i64 %ci1, ptr @arr_inplace
+  ret i64 %b
+copy:
+  %n = load i64, ptr %q
+  %cc = load i64, ptr @arr_copies
+  %cc1 = add i64 %cc, 1
+  store i64 %cc1, ptr @arr_copies
+  %n7 = add i64 %n, 7
+  %w = lshr i64 %n7, 3
+  %cw = load i64, ptr @arr_words
+  %cw1 = add i64 %cw, %w
+  store i64 %cw1, ptr @arr_words
+  %r = call i64 @bytes_alloc(i64 %n)
+  %rq = inttoptr i64 %r to ptr
+  %src = getelementptr i8, ptr %q, i64 8
+  %dst = getelementptr i8, ptr %rq, i64 8
+  call void @llvm.memcpy.p0.p0.i64(ptr %dst, ptr %src, i64 %n, i1 false)
+  call void @l0_dec(i64 %b)
+  ret i64 %r
+}
+
+; The float of key k as a binary32: rounded to nearest, ties to even, so
+; past binary32's range an infinity, and a NaN as 0x7FC00000.
+define internal float @f32_of_key(i64 %k) {
+entry:
+  %bits = call i64 @f_key(i64 %k)
+  %d = bitcast i64 %bits to double
+  %f = fptrunc double %d to float
+  %u = fcmp uno float %f, %f
+  %r = select i1 %u, float bitcast (i32 2143289344 to float), float %f
+  ret float %r
+}
+
+; b with bytes i to i+3 holding the float of key x as a binary32: b itself
+; if nothing else holds it, otherwise a copy. Consumes b.
+define i64 @l0_bytes_set_f32(i64 %b, i64 %i, i64 %x) {
+entry:
+  %q = inttoptr i64 %b to ptr
+  %ok = call i1 @get_range(ptr %q, i64 %i, i64 4)
+  br i1 %ok, label %go, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+go:
+  %f = call float @f32_of_key(i64 %x)
+  %o = call i64 @bytes_own(i64 %b)
+  %oq = inttoptr i64 %o to ptr
+  %off = add i64 %i, 8
+  %p = getelementptr i8, ptr %oq, i64 %off
+  store float %f, ptr %p, align 1
+  ret i64 %o
+}
+
+; y with each of its n binary32s from byte i made y_k + a*x_k, x's from
+; byte j, a rounded to binary32 first, the product and the sum in
+; binary32 and not fused, a NaN stored as 0x7FC00000. Four at a time,
+; then one at a time. Consumes y and x: so when they are one block it is
+; held twice, bytes_own copies y, and x is read from the original, which
+; is how every x_k is read as it was before the call whatever the ranges.
+define i64 @l0_bytes_axpy_f32(i64 %y, i64 %i, i64 %a, i64 %x, i64 %j, i64 %n) {
+entry:
+  %yq = inttoptr i64 %y to ptr
+  %xq = inttoptr i64 %x to ptr
+  %ok = call i1 @dot_range(ptr %yq, i64 %i, ptr %xq, i64 %j, i64 %n, i64 4)
+  br i1 %ok, label %go, label %err
+err:
+  call void @rt_error(ptr @m_brange, i64 23)
+  unreachable
+go:
+  %af = call float @f32_of_key(i64 %a)
+  %o = call i64 @bytes_own(i64 %y)
+  %oq = inttoptr i64 %o to ptr
+  %yo = add i64 %i, 8
+  %yp = getelementptr i8, ptr %oq, i64 %yo
+  %xo = add i64 %j, 8
+  %xp = getelementptr i8, ptr %xq, i64 %xo
+  %a1 = insertelement <4 x float> poison, float %af, i64 0
+  %av = shufflevector <4 x float> %a1, <4 x float> poison, <4 x i32> zeroinitializer
+  %nb = and i64 %n, -4
+  br label %vloop
+vloop:
+  %k = phi i64 [ 0, %go ], [ %k1, %vbody ]
+  %vdone = icmp uge i64 %k, %nb
+  br i1 %vdone, label %sloop, label %vbody
+vbody:
+  %ko = shl i64 %k, 2
+  %xvp = getelementptr i8, ptr %xp, i64 %ko
+  %yvp = getelementptr i8, ptr %yp, i64 %ko
+  %xv = load <4 x float>, ptr %xvp, align 1
+  %yv = load <4 x float>, ptr %yvp, align 1
+  %pv = fmul <4 x float> %av, %xv
+  %rv = fadd <4 x float> %yv, %pv
+  %uv = fcmp uno <4 x float> %rv, %rv
+  %cv = select <4 x i1> %uv, <4 x float> <float bitcast (i32 2143289344 to float), float bitcast (i32 2143289344 to float), float bitcast (i32 2143289344 to float), float bitcast (i32 2143289344 to float)>, <4 x float> %rv
+  store <4 x float> %cv, ptr %yvp, align 1
+  %k1 = add i64 %k, 4
+  br label %vloop
+sloop:
+  %sk = phi i64 [ %nb, %vloop ], [ %sk1, %sbody ]
+  %sdone = icmp uge i64 %sk, %n
+  br i1 %sdone, label %done, label %sbody
+sbody:
+  %sko = shl i64 %sk, 2
+  %xsp = getelementptr i8, ptr %xp, i64 %sko
+  %ysp = getelementptr i8, ptr %yp, i64 %sko
+  %xs = load float, ptr %xsp, align 1
+  %ys = load float, ptr %ysp, align 1
+  %ps = fmul float %af, %xs
+  %rs = fadd float %ys, %ps
+  %us = fcmp uno float %rs, %rs
+  %cs = select i1 %us, float bitcast (i32 2143289344 to float), float %rs
+  store float %cs, ptr %ysp, align 1
+  %sk1 = add i64 %sk, 1
+  br label %sloop
+done:
+  call void @l0_dec(i64 %x)
+  ret i64 %o
 }
 
 ; Writes bytes i up to j of b to h, as write_to would one by one: 0, or -2

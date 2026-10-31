@@ -1,0 +1,48 @@
+; Spec 6.6's updates of bytes in place, by 6.5's rule. bytes_in_place.sh
+; runs each mode with L0_ARRAY_STATS and L0_RC_CHECK and checks the result
+; and how many updates copied. tools/l0 run ... -- MODE N:
+;   alone    a vector of four binary32s threaded through N axpy steps,
+;            with nothing else holding it: no copy
+;   shared   each step updates the same vector, which a binding holds
+;            throughout, so every step copies: a copy per step
+;   set      a binary32 stored N times into a vector threaded through:
+;            no copy
+
+; y + 1.0 * x, n steps, y threaded.
+(def alone ((y bytes) (x bytes) (n int)) bytes
+  (if (le n 0) y (alone (bytes_axpy_f32 y 0 1.0 x 0 4) x (sub n 1))))
+
+; The first element of y + x, summed over n steps, y kept throughout.
+(def shared ((y bytes) (x bytes) (n int) (acc float)) float
+  (if (le n 0)
+      acc
+      (let s (bytes_get_f32 (bytes_axpy_f32 y 0 1.0 x 0 4) 0)
+        (shared y x (sub n 1) (float_add acc s)))))
+
+; Element 2 set to the step count, n steps, b threaded.
+(def set_steps ((b bytes) (n int)) bytes
+  (if (le n 0) b (set_steps (bytes_set_f32 b 8 (float_from_int n)) (sub n 1))))
+
+; Four binary32 zeros, or four 2.0s.
+(def zeros ((i int)) bytes
+  (bytes_from_list (zero_bytes 16 (nil int))))
+
+(def twos ((i int)) bytes
+  (bytes_from_list (repeat_four (cons 0 (cons 0 (cons 0 (cons 64 (nil int))))) 4 (nil int))))
+
+(def zero_bytes ((n int) (acc (list int))) (list int)
+  (if (le n 0) acc (zero_bytes (sub n 1) (cons 0 acc))))
+
+(def repeat_four ((w (list int)) (n int) (acc (list int))) (list int)
+  (if (le n 0) acc (repeat_four w (sub n 1) (append w acc))))
+
+(def result ((mode (list int)) (n int)) int
+  (if (eq mode "alone")
+      (float_to_int (bytes_get_f32 (alone (zeros 0) (twos 0) n) 0))
+      (if (eq mode "shared")
+          (float_to_int (shared (zeros 0) (twos 0) n 0.0))
+          (float_to_int (bytes_get_f32 (set_steps (zeros 0) n) 8)))))
+
+(def main () int
+  (let w (write_line (digits (result (arg 0) (int_prefix (arg 1) 0))))
+    0))

@@ -108,6 +108,127 @@
 (def repeat_byte ((v int) (n int) (acc (list int))) (list int)
   (if (le n 0) acc (repeat_byte v (sub n 1) (cons v acc))))
 
+; ---- numbers in bytes (spec 6.6): the dot products and the narrow reads
+
+; The low 32 bits of each word of ws as bytes, least significant first.
+(def le32_bytes ((ws (list int)) (acc (list int))) (list int)
+  (if (is_empty ws)
+      (rev acc)
+      (let w (head ws)
+        (le32_bytes (tail ws)
+          (cons (bit_and (bit_shr w 24) 255)
+            (cons (bit_and (bit_shr w 16) 255)
+              (cons (bit_and (bit_shr w 8) 255)
+                (cons (bit_and w 255) acc))))))))
+
+; The low 16 bits of each word of hs as bytes, least significant first.
+(def le16_bytes ((hs (list int)) (acc (list int))) (list int)
+  (if (is_empty hs)
+      (rev acc)
+      (let h (head hs)
+        (le16_bytes (tail hs)
+          (cons (bit_and (bit_shr h 8) 255) (cons (bit_and h 255) acc))))))
+
+(def f32s ((ws (list int))) bytes (bytes_from_list (le32_bytes ws (nil int))))
+(def f16s ((hs (list int))) bytes (bytes_from_list (le16_bytes hs (nil int))))
+
+; Signed bytes, an offset that is not a multiple of sixteen, and ranges
+; that take both the sixteen-at-a-time loop and the tail.
+(def test_dot_i8 () int
+  (let (a (bytes_from_list (cons 2 (cons 255 (cons 127 (cons 128 (nil int))))))
+        b (bytes_from_list (cons 3 (cons 3 (cons 1 (cons 1 (nil int))))))
+        m (bytes_from_list (repeat_byte 200 40 (nil int)))
+        o (bytes_from_list (repeat_byte 255 37 (nil int))))
+    (add (check_int "signed" (bytes_dot_i8 a 0 b 0 4) 2)
+      (add (check_int "offset" (bytes_dot_i8 a 1 b 0 3) 250)
+        (add (check_int "none" (bytes_dot_i8 a 4 b 4 0) 0)
+          (add (check_int "blocks and a tail" (bytes_dot_i8 m 0 m 0 40) 125440)
+            (add (check_int "all minus one" (bytes_dot_i8 o 0 o 0 37) 37)
+                 (check_int "offsets into both" (bytes_dot_i8 m 3 o 1 36) 2016))))))))
+
+; The binary32 words 1.0, 2.0, 3.0, 4.0, 5.0, 1e8, and -1e8, and the sum's
+; order: 1e8 + 1 - 1e8 + 1 is 0.0 in four lanes, where left to right in
+; binary32 would give 1.0 and the exact sum is 2.0.
+(def test_dot_f32 () int
+  (let (one 1065353216
+        a (f32s (cons 1065353216 (cons 1073741824 (cons 1077936128 (nil int)))))
+        b (f32s (cons 1077936128 (cons 1073741824 (cons 1065353216 (nil int)))))
+        big (f32s (cons 1287568416 (cons one (cons 3435052064 (cons one (nil int))))))
+        ones (f32s (cons one (cons one (cons one (cons one (cons one (nil int)))))))
+        five (f32s (cons one (cons 1073741824 (cons 1077936128 (cons 1082130432 (cons 1084227584 (nil int)))))))
+        nan (f32s (cons 2139095040 (cons 0 (nil int)))))
+    (add (check_true "three" (eq (bytes_dot_f32 a 0 b 0 3) 10.0))
+      (add (check_true "in lanes, not left to right" (eq (bytes_dot_f32 big 0 ones 0 4) 0.0))
+        (add (check_true "four and a tail" (eq (bytes_dot_f32 five 0 ones 0 5) 15.0))
+          (add (check_true "none" (eq (bytes_dot_f32 a 12 b 0 0) 0.0))
+            (add (check_true "offsets" (eq (bytes_dot_f32 a 4 b 4 2) 7.0))
+                 (check_true "a NaN is the one NaN" (eq (bytes_dot_f32 nan 0 nan 4 1) (float_div 0.0 0.0))))))))))
+
+; The binary32 words 1.0, -0.0, a NaN with a payload, infinity, and the
+; smallest subnormal, 2^-149.
+(def test_get_f32 () int
+  (let b (f32s (cons 1065353216 (cons 2147483648 (cons 2143289345 (cons 2139095040 (cons 1 (nil int)))))))
+    (add (check_true "one" (eq (bytes_get_f32 b 0) 1.0))
+      (add (check_true "negative zero" (eq (bytes_get_f32 b 4) -0.0))
+        (add (check_true "not positive zero" (not (eq (bytes_get_f32 b 4) 0.0)))
+          (add (check_true "a NaN is the one NaN" (eq (bytes_get_f32 b 8) (float_div 0.0 0.0)))
+            (add (check_true "infinity" (eq (bytes_get_f32 b 12) (float_div 1.0 0.0)))
+              (add (check_true "subnormal" (eq (bytes_get_f32 b 16) (float_from_bits 3936146074321813504)))
+                   (check_true "unaligned" (eq (bytes_get_f32 (bytes_concat (cons (bytes_from_list "z") (cons b (nil bytes)))) 1) 1.0))))))))))
+
+; The binary16 words 1.0, -2.0, the smallest subnormal 2^-24, the largest
+; 65504, both infinities, a NaN, -0.0, and 0x3555, 1365/4096.
+(def test_get_f16 () int
+  (let b (f16s (cons 15360 (cons 49152 (cons 1 (cons 31743 (cons 31744 (cons 64512 (cons 32256 (cons 32768 (cons 13653 (nil int)))))))))))
+    (add (check_true "one" (eq (bytes_get_f16 b 0) 1.0))
+      (add (check_true "minus two" (eq (bytes_get_f16 b 2) -2.0))
+        (add (check_true "smallest subnormal" (eq (bytes_get_f16 b 4) (float_from_bits 4499096027743125504)))
+          (add (check_true "largest" (eq (bytes_get_f16 b 6) 65504.0))
+            (add (check_true "infinity" (eq (bytes_get_f16 b 8) (float_div 1.0 0.0)))
+              (add (check_true "negative infinity" (eq (bytes_get_f16 b 10) (float_div -1.0 0.0)))
+                (add (check_true "a NaN is the one NaN" (eq (bytes_get_f16 b 12) (float_div 0.0 0.0)))
+                  (add (check_true "negative zero" (eq (bytes_get_f16 b 14) -0.0))
+                       (check_true "a third, nearly" (eq (bytes_get_f16 b 16) (float_from_bits 4599674953405562880)))))))))))))
+
+; A binary32 stored: in place when nothing else holds the bytes, after a
+; copy when a binding still does; rounded to binary32, so 0.1 reads back
+; as the nearest binary32, 2^128 as infinity, and a NaN as 0x7FC00000.
+(def test_set_f32 () int
+  (let (b (f32s (cons 0 (cons 0 (cons 0 (nil int)))))
+        kept (bytes_set_f32 b 4 1.5)
+        again (bytes_set_f32 (bytes_set_f32 kept 0 (float_div 0.0 0.0)) 8 (float_from_bits 5183643171103440896)))
+    (add (check_true "stored" (eq (bytes_get_f32 kept 4) 1.5))
+      (add (check_int "b, still held, unchanged" (bytes_get b 4) 0)
+        (add (check_int "a NaN's top byte" (bytes_get again 3) 127)
+          (add (check_int "a NaN's next byte" (bytes_get again 2) 192)
+            (add (check_true "past the range, infinity" (eq (bytes_get_f32 again 8) (float_div 1.0 0.0)))
+              (add (check_true "rounded to binary32" (eq (bytes_get_f32 (bytes_set_f32 again 4 0.1) 4) (float_from_bits 4591870180174331904)))
+                   (check_true "negative zero" (eq (bytes_get_f32 (bytes_set_f32 again 4 -0.0) 4) -0.0))))))))))
+
+; y made y + a*x: four lanes and a tail, offsets into both, y as its own
+; x, overlapping ranges of one value read as they were, and a NaN
+; stored as 0x7FC00000, not the CPU's.
+(def test_axpy_f32 () int
+  (let (one 1065353216
+        two 1073741824
+        y (f32s (cons one (cons two (cons one (cons two (cons one (nil int)))))))
+        x (f32s (cons two (cons two (cons two (cons two (cons two (nil int)))))))
+        r (bytes_axpy_f32 y 0 0.5 x 0 5)
+        v (f32s (cons one (cons two (cons 1077936128 (cons 1082130432 (nil int))))))
+        w (bytes_axpy_f32 v 4 1.0 v 0 3)
+        inf (f32s (cons 2139095040 (nil int)))
+        nan (bytes_axpy_f32 (f32s (cons one (nil int))) 0 0.0 inf 0 1))
+    (add (check_true "first lane" (eq (bytes_get_f32 r 0) 2.0))
+      (add (check_true "second lane" (eq (bytes_get_f32 r 4) 3.0))
+        (add (check_true "the tail" (eq (bytes_get_f32 r 16) 2.0))
+          (add (check_true "offsets into both" (eq (bytes_get_f32 (bytes_axpy_f32 r 4 -1.0 x 8 2) 4) 1.0))
+            (add (check_true "y as its own x" (eq (bytes_get_f32 (bytes_axpy_f32 r 0 1.0 r 0 5) 4) 6.0))
+              (add (check_true "overlap, read as it was" (eq (bytes_get_f32 w 12) 7.0))
+                (add (check_true "overlap, the middle" (eq (bytes_get_f32 w 8) 5.0))
+                  (add (check_true "none" (eq (bytes_get_f32 (bytes_axpy_f32 r 0 9.0 x 0 0) 0) 2.0))
+                    (add (check_int "a NaN's top byte" (bytes_get nan 3) 127)
+                         (check_int "a NaN's next byte" (bytes_get nan 2) 192))))))))))))
+
 ; bytes is a type only where a type is expected.
 (def count_of ((bytes (list int))) int
   (if (is_empty bytes) 0 (add 1 (count_of (tail bytes)))))

@@ -49,6 +49,12 @@ declare i64 @l0_hash(i64, i64)
 declare i64 @l0_bit_shl(i64, i64)
 declare i64 @l0_bit_shr(i64, i64)
 declare i64 @l0_bit_count(i64)
+declare i64 @l0_bytes_dot_i8(i64, i64, i64, i64, i64)
+declare i64 @l0_bytes_dot_f32(i64, i64, i64, i64, i64)
+declare i64 @l0_bytes_get_f32(i64, i64)
+declare i64 @l0_bytes_get_f16(i64, i64)
+declare i64 @l0_bytes_set_f32(i64, i64, i64)
+declare i64 @l0_bytes_axpy_f32(i64, i64, i64, i64, i64, i64)
 declare i64 @llvm.fptosi.sat.i64.f64(double)
 declare double @llvm.sqrt.f64(double)
 declare i64 @l0_remove(i64)
@@ -7238,7 +7244,7 @@ entry:
 define internal fastcc i64 @l0_f_bi_bytes(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.22, i64 107)
+  %t0 = call i64 @l0_string(ptr @l0_str.22, i64 191)
   %t1 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -7369,7 +7375,7 @@ Lt5:
   call void @l0_dec(i64 %a0)
   ret i64 1
 Le5:
-  %t11 = call i64 @l0_string(ptr @l0_str.30, i64 128)
+  %t11 = call i64 @l0_string(ptr @l0_str.30, i64 142)
   %t12 = call fastcc i64 @l0_f_split_spaces(i64 %t11, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t13 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t12)
@@ -7396,14 +7402,25 @@ Lt0:
   call void @l0_dec(i64 %a0)
   ret i64 4
 Le0:
-  %t6 = call i64 @l0_string(ptr @l0_str.32, i64 54)
+  %t6 = call i64 @l0_string(ptr @l0_str.32, i64 81)
   %t7 = call fastcc i64 @l0_f_split_spaces(i64 %t6, i64 0, i64 0, i64 0, i64 0)
+  call void @l0_inc(i64 %a0)
   %t8 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t7)
   %t9 = icmp ne i64 %t8, 0
   br i1 %t9, label %Lt5, label %Le5
 Lt5:
+  call void @l0_dec(i64 %a0)
   ret i64 5
 Le5:
+  %t11 = call i64 @l0_string(ptr @l0_str.33, i64 14)
+  %t12 = call i64 @l0_equal(i64 %a0, i64 %t11)
+  call void @l0_dec(i64 %a0)
+  call void @l0_dec(i64 %t11)
+  %t13 = icmp ne i64 %t12, 0
+  br i1 %t13, label %Lt10, label %Le10
+Lt10:
+  ret i64 6
+Le10:
   ret i64 2
 }
 
@@ -7417,7 +7434,7 @@ entry:
 Lt0:
   ret i64 %a1
 Le0:
-  %t4 = call i64 @l0_string(ptr @l0_str.33, i64 1)
+  %t4 = call i64 @l0_string(ptr @l0_str.34, i64 1)
   %t5 = musttail call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t5
 }
@@ -7428,7 +7445,7 @@ entry:
   %t0 = call i64 @l0_string(ptr @l0_str.2, i64 7)
   %t1 = call fastcc i64 @l0_f_digits(i64 %a1, i64 0)
   %t2 = call i64 @l0_string(ptr @l0_str.3, i64 1)
-  %t3 = call i64 @l0_string(ptr @l0_str.34, i64 8)
+  %t3 = call i64 @l0_string(ptr @l0_str.35, i64 8)
   %t4 = call fastcc i64 @l0_f_plural(i64 %a1, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call i64 @l0_string(ptr @l0_str.5, i64 10)
   %t6 = call fastcc i64 @l0_f_digits(i64 %a2, i64 0)
@@ -7444,8 +7461,8 @@ entry:
 define internal fastcc i64 @l0_f_type_msg(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.35, i64 9)
-  %t1 = call i64 @l0_string(ptr @l0_str.36, i64 14)
+  %t0 = call i64 @l0_string(ptr @l0_str.36, i64 9)
+  %t1 = call i64 @l0_string(ptr @l0_str.37, i64 14)
   %t2 = call fastcc i64 @l0_f_ty_str(i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t3, i64 0, i64 0, i64 0, i64 0)
@@ -7511,7 +7528,7 @@ Lt25:
 Le25:
   %r33 = alloca i64
   %r34 = alloca i64
-  %t35 = call i64 @l0_string(ptr @l0_str.37, i64 3)
+  %t35 = call i64 @l0_string(ptr @l0_str.38, i64 3)
   %t36 = call i64 @l0_equal(i64 %a0, i64 %t35)
   call void @l0_dec(i64 %t35)
   %t37 = icmp ne i64 %t36, 0
@@ -7520,7 +7537,7 @@ Lt34:
   store i64 1, ptr %r34
   br label %Lx34
 Le34:
-  %t38 = call i64 @l0_string(ptr @l0_str.38, i64 9)
+  %t38 = call i64 @l0_string(ptr @l0_str.39, i64 9)
   %t39 = call i64 @l0_equal(i64 %a0, i64 %t38)
   call void @l0_dec(i64 %t38)
   store i64 %t39, ptr %r34
@@ -7548,7 +7565,7 @@ Lt32:
   %t48 = musttail call fastcc i64 @l0_f_need_all(i64 %a0, i64 %a1, i64 %a2, i64 %t46, i64 %t47, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t48
 Le32:
-  %t50 = call i64 @l0_string(ptr @l0_str.39, i64 3)
+  %t50 = call i64 @l0_string(ptr @l0_str.40, i64 3)
   %t51 = call i64 @l0_equal(i64 %a0, i64 %t50)
   call void @l0_dec(i64 %t50)
   %t52 = icmp ne i64 %t51, 0
@@ -7566,7 +7583,7 @@ Le49:
 define internal fastcc i64 @l0_f_check_other_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.40, i64 2)
+  %t1 = call i64 @l0_string(ptr @l0_str.41, i64 2)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -7576,7 +7593,7 @@ Lt0:
   %t4 = musttail call fastcc i64 @l0_f_check_eq(i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t4
 Le0:
-  %t6 = call i64 @l0_string(ptr @l0_str.41, i64 4)
+  %t6 = call i64 @l0_string(ptr @l0_str.42, i64 4)
   %t7 = call i64 @l0_equal(i64 %a0, i64 %t6)
   call void @l0_dec(i64 %t6)
   %t8 = icmp ne i64 %t7, 0
@@ -7589,7 +7606,7 @@ Lt5:
   call void @l0_data_set(i64 %t10, i64 0, i64 %t9)
   ret i64 %t10
 Le5:
-  %t12 = call i64 @l0_string(ptr @l0_str.42, i64 7)
+  %t12 = call i64 @l0_string(ptr @l0_str.43, i64 7)
   %t13 = call i64 @l0_equal(i64 %a0, i64 %t12)
   call void @l0_dec(i64 %t12)
   %t14 = icmp ne i64 %t13, 0
@@ -7682,7 +7699,7 @@ Le5:
 define internal fastcc i64 @l0_f_check_user_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.43, i64 47)
+  %t1 = call i64 @l0_string(ptr @l0_str.44, i64 47)
   %t2 = call fastcc i64 @l0_f_split_spaces(i64 %t1, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t3 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t2)
@@ -7699,7 +7716,7 @@ Lt0:
   %t12 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t10, i64 %t11, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t12
 Le0:
-  %t14 = call i64 @l0_string(ptr @l0_str.44, i64 46)
+  %t14 = call i64 @l0_string(ptr @l0_str.45, i64 46)
   %t15 = call fastcc i64 @l0_f_split_spaces(i64 %t14, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t16 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t15)
@@ -7727,7 +7744,7 @@ Le13:
 define internal fastcc i64 @l0_f_check_cpu_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.45, i64 7)
+  %t1 = call i64 @l0_string(ptr @l0_str.46, i64 7)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -7749,7 +7766,7 @@ Lt0:
   %t16 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t14, i64 %t15, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t16
 Le0:
-  %t18 = call i64 @l0_string(ptr @l0_str.46, i64 11)
+  %t18 = call i64 @l0_string(ptr @l0_str.47, i64 11)
   %t19 = call i64 @l0_equal(i64 %a0, i64 %t18)
   call void @l0_dec(i64 %t18)
   %t20 = icmp ne i64 %t19, 0
@@ -7796,7 +7813,7 @@ Lt0:
   call void @l0_data_set(i64 %t7, i64 0, i64 %t6)
   ret i64 %t7
 Le0:
-  %t8 = call i64 @l0_string(ptr @l0_str.47, i64 25)
+  %t8 = call i64 @l0_string(ptr @l0_str.48, i64 25)
   %t9 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t9)
   %t10 = call fastcc i64 @l0_f_ty_str(i64 %t9, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -7835,7 +7852,7 @@ Lt0:
   call void @l0_data_set(i64 %t7, i64 0, i64 %t6)
   ret i64 %t7
 Le0:
-  %t8 = call i64 @l0_string(ptr @l0_str.48, i64 30)
+  %t8 = call i64 @l0_string(ptr @l0_str.49, i64 30)
   %t9 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t9)
   %t10 = call fastcc i64 @l0_f_ty_str(i64 %t9, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -7855,7 +7872,7 @@ Le0:
 define internal fastcc i64 @l0_f_check_bytes_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.49, i64 10)
+  %t1 = call i64 @l0_string(ptr @l0_str.50, i64 10)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -7867,7 +7884,7 @@ Lt0:
   %t7 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t5, i64 %t6, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t7
 Le0:
-  %t9 = call i64 @l0_string(ptr @l0_str.50, i64 9)
+  %t9 = call i64 @l0_string(ptr @l0_str.51, i64 9)
   %t10 = call i64 @l0_equal(i64 %a0, i64 %t9)
   call void @l0_dec(i64 %t9)
   %t11 = icmp ne i64 %t10, 0
@@ -7888,7 +7905,7 @@ Le8:
 define internal fastcc i64 @l0_f_check_bytes_rest(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.51, i64 9)
+  %t1 = call i64 @l0_string(ptr @l0_str.52, i64 9)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -7900,7 +7917,7 @@ Lt0:
   %t7 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t5, i64 %t6, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t7
 Le0:
-  %t9 = call i64 @l0_string(ptr @l0_str.52, i64 9)
+  %t9 = call i64 @l0_string(ptr @l0_str.53, i64 9)
   %t10 = call i64 @l0_equal(i64 %a0, i64 %t9)
   call void @l0_dec(i64 %t9)
   %t11 = icmp ne i64 %t10, 0
@@ -7914,7 +7931,7 @@ Lt8:
   %t17 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t15, i64 %t16, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t17
 Le8:
-  %t19 = call i64 @l0_string(ptr @l0_str.53, i64 15)
+  %t19 = call i64 @l0_string(ptr @l0_str.54, i64 15)
   %t20 = call i64 @l0_equal(i64 %a0, i64 %t19)
   call void @l0_dec(i64 %t19)
   %t21 = icmp ne i64 %t20, 0
@@ -7928,7 +7945,7 @@ Lt18:
   %t26 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t24, i64 %t25, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t26
 Le18:
-  %t28 = call i64 @l0_string(ptr @l0_str.54, i64 13)
+  %t28 = call i64 @l0_string(ptr @l0_str.55, i64 13)
   %t29 = call i64 @l0_equal(i64 %a0, i64 %t28)
   call void @l0_dec(i64 %t28)
   %t30 = icmp ne i64 %t29, 0
@@ -7949,7 +7966,7 @@ Le27:
 define internal fastcc i64 @l0_f_check_bytes_new(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.55, i64 11)
+  %t1 = call i64 @l0_string(ptr @l0_str.56, i64 11)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -7965,7 +7982,7 @@ Lt0:
   %t11 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t9, i64 %t10, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t11
 Le0:
-  %t13 = call i64 @l0_string(ptr @l0_str.56, i64 12)
+  %t13 = call i64 @l0_string(ptr @l0_str.57, i64 12)
   %t14 = call i64 @l0_equal(i64 %a0, i64 %t13)
   call void @l0_dec(i64 %t13)
   %t15 = icmp ne i64 %t14, 0
@@ -7979,17 +7996,112 @@ Lt12:
   %t20 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t18, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t20
 Le12:
-  %t21 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t22 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
-  %t23 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t24 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t25 = call i64 @l0_new_cons(i64 %t24, i64 0, i64 3)
-  %t26 = call i64 @l0_new_cons(i64 %t23, i64 %t25, i64 3)
-  %t27 = call i64 @l0_new_cons(i64 %t22, i64 %t26, i64 3)
-  %t28 = call i64 @l0_new_cons(i64 %t21, i64 %t27, i64 3)
-  %t29 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t30 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t28, i64 %t29, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t30
+  %t22 = call i64 @l0_string(ptr @l0_str.58, i64 11)
+  %t23 = call i64 @l0_equal(i64 %a0, i64 %t22)
+  call void @l0_dec(i64 %t22)
+  %t24 = icmp ne i64 %t23, 0
+  br i1 %t24, label %Lt21, label %Le21
+Lt21:
+  %t25 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t26 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t27 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t28 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t29 = call i64 @l0_new_cons(i64 %t28, i64 0, i64 3)
+  %t30 = call i64 @l0_new_cons(i64 %t27, i64 %t29, i64 3)
+  %t31 = call i64 @l0_new_cons(i64 %t26, i64 %t30, i64 3)
+  %t32 = call i64 @l0_new_cons(i64 %t25, i64 %t31, i64 3)
+  %t33 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t34 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t32, i64 %t33, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t34
+Le21:
+  %t35 = musttail call fastcc i64 @l0_f_check_bytes_numbers(i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t35
+}
+
+define internal fastcc i64 @l0_f_check_bytes_numbers(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
+entry:
+  call void @l0_stack_check()
+  %t1 = call i64 @l0_string(ptr @l0_str.59, i64 26)
+  %t2 = call fastcc i64 @l0_f_split_spaces(i64 %t1, i64 0, i64 0, i64 0, i64 0)
+  call void @l0_inc(i64 %a0)
+  %t3 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t2)
+  %t4 = icmp ne i64 %t3, 0
+  br i1 %t4, label %Lt0, label %Le0
+Lt0:
+  %t5 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t6 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t7 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t8 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t9 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t10 = call i64 @l0_new_cons(i64 %t9, i64 0, i64 3)
+  %t11 = call i64 @l0_new_cons(i64 %t8, i64 %t10, i64 3)
+  %t12 = call i64 @l0_new_cons(i64 %t7, i64 %t11, i64 3)
+  %t13 = call i64 @l0_new_cons(i64 %t6, i64 %t12, i64 3)
+  %t14 = call i64 @l0_new_cons(i64 %t5, i64 %t13, i64 3)
+  %r15 = alloca i64
+  %t16 = call i64 @l0_string(ptr @l0_str.60, i64 12)
+  %t17 = call i64 @l0_equal(i64 %a0, i64 %t16)
+  call void @l0_dec(i64 %t16)
+  %t18 = icmp ne i64 %t17, 0
+  br i1 %t18, label %Lt15, label %Le15
+Lt15:
+  %t19 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  store i64 %t19, ptr %r15
+  br label %Lx15
+Le15:
+  %t20 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  store i64 %t20, ptr %r15
+  br label %Lx15
+Lx15:
+  %t21 = load i64, ptr %r15
+  %t22 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t14, i64 %t21, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t22
+Le0:
+  %t24 = call i64 @l0_string(ptr @l0_str.61, i64 13)
+  %t25 = call i64 @l0_equal(i64 %a0, i64 %t24)
+  call void @l0_dec(i64 %t24)
+  %t26 = icmp ne i64 %t25, 0
+  br i1 %t26, label %Lt23, label %Le23
+Lt23:
+  %t27 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t28 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t29 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  %t30 = call i64 @l0_new_cons(i64 %t29, i64 0, i64 3)
+  %t31 = call i64 @l0_new_cons(i64 %t28, i64 %t30, i64 3)
+  %t32 = call i64 @l0_new_cons(i64 %t27, i64 %t31, i64 3)
+  %t33 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t34 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t32, i64 %t33, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t34
+Le23:
+  %t36 = call i64 @l0_string(ptr @l0_str.33, i64 14)
+  %t37 = call i64 @l0_equal(i64 %a0, i64 %t36)
+  call void @l0_dec(i64 %t36)
+  %t38 = icmp ne i64 %t37, 0
+  br i1 %t38, label %Lt35, label %Le35
+Lt35:
+  %t39 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t40 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t41 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  %t42 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t43 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t44 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t45 = call i64 @l0_new_cons(i64 %t44, i64 0, i64 3)
+  %t46 = call i64 @l0_new_cons(i64 %t43, i64 %t45, i64 3)
+  %t47 = call i64 @l0_new_cons(i64 %t42, i64 %t46, i64 3)
+  %t48 = call i64 @l0_new_cons(i64 %t41, i64 %t47, i64 3)
+  %t49 = call i64 @l0_new_cons(i64 %t40, i64 %t48, i64 3)
+  %t50 = call i64 @l0_new_cons(i64 %t39, i64 %t49, i64 3)
+  %t51 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t52 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t50, i64 %t51, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t52
+Le35:
+  %t53 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
+  %t54 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
+  %t55 = call i64 @l0_new_cons(i64 %t54, i64 0, i64 3)
+  %t56 = call i64 @l0_new_cons(i64 %t53, i64 %t55, i64 3)
+  %t57 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
+  %t58 = musttail call fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %t56, i64 %t57, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t58
 }
 
 define internal fastcc i64 @l0_f_need_each(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
@@ -8026,7 +8138,7 @@ Lt4:
   ret i64 %t11
 Le4:
   call void @l0_dec(i64 %a4)
-  %t12 = call i64 @l0_string(ptr @l0_str.57, i64 15)
+  %t12 = call i64 @l0_string(ptr @l0_str.62, i64 15)
   %t13 = call fastcc i64 @l0_f_append.0(i64 %t12, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   %t14 = call i64 @l0_head(i64 %a3)
   call void @l0_inc(i64 %t14)
@@ -8045,7 +8157,7 @@ Le4:
 define internal fastcc i64 @l0_f_check_array_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.58, i64 9)
+  %t1 = call i64 @l0_string(ptr @l0_str.63, i64 9)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -8073,8 +8185,8 @@ Lt4:
   call void @l0_data_set(i64 %t12, i64 0, i64 %t11)
   ret i64 %t12
 Le4:
-  %t13 = call i64 @l0_string(ptr @l0_str.59, i64 29)
-  %t14 = call i64 @l0_string(ptr @l0_str.60, i64 3)
+  %t13 = call i64 @l0_string(ptr @l0_str.64, i64 29)
+  %t14 = call i64 @l0_string(ptr @l0_str.65, i64 3)
   %t15 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t15)
   call void @l0_dec(i64 %a1)
@@ -8092,16 +8204,16 @@ Le0:
   br i1 %t22, label %Lt19, label %Le19
 Lt19:
   call void @l0_dec(i64 %a1)
-  %t23 = call i64 @l0_string(ptr @l0_str.61, i64 22)
+  %t23 = call i64 @l0_string(ptr @l0_str.66, i64 22)
   %t24 = call fastcc i64 @l0_f_append.0(i64 %t23, i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t25 = call i64 @l0_string(ptr @l0_str.62, i64 8)
+  %t25 = call i64 @l0_string(ptr @l0_str.67, i64 8)
   %t26 = call fastcc i64 @l0_f_type_msg(i64 %t24, i64 %t25, i64 %t18, i64 0, i64 0, i64 0)
   %t27 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t27, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t27, i64 1, i64 %t26)
   ret i64 %t27
 Le19:
-  %t29 = call i64 @l0_string(ptr @l0_str.63, i64 9)
+  %t29 = call i64 @l0_string(ptr @l0_str.68, i64 9)
   %t30 = call i64 @l0_equal(i64 %a0, i64 %t29)
   call void @l0_dec(i64 %t29)
   %t31 = icmp ne i64 %t30, 0
@@ -8129,9 +8241,9 @@ Le28:
   br i1 %t40, label %Lt34, label %Le34
 Lt34:
   call void @l0_dec(i64 %t18)
-  %t41 = call i64 @l0_string(ptr @l0_str.64, i64 19)
+  %t41 = call i64 @l0_string(ptr @l0_str.69, i64 19)
   %t42 = call fastcc i64 @l0_f_append.0(i64 %t41, i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t43 = call i64 @l0_string(ptr @l0_str.60, i64 3)
+  %t43 = call i64 @l0_string(ptr @l0_str.65, i64 3)
   %t44 = call i64 @l0_tail(i64 %a1)
   call void @l0_inc(i64 %t44)
   call void @l0_dec(i64 %a1)
@@ -8144,7 +8256,7 @@ Lt34:
   call void @l0_data_set(i64 %t47, i64 1, i64 %t46)
   ret i64 %t47
 Le34:
-  %t49 = call i64 @l0_string(ptr @l0_str.65, i64 9)
+  %t49 = call i64 @l0_string(ptr @l0_str.70, i64 9)
   %t50 = call i64 @l0_equal(i64 %a0, i64 %t49)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %t49)
@@ -8185,7 +8297,7 @@ Lt0:
   call void @l0_data_set(i64 %t4, i64 0, i64 %a0)
   ret i64 %t4
 Le0:
-  %t5 = call i64 @l0_string(ptr @l0_str.66, i64 30)
+  %t5 = call i64 @l0_string(ptr @l0_str.71, i64 30)
   %t6 = call fastcc i64 @l0_f_ty_elem(i64 %a0, i64 0)
   %t7 = call fastcc i64 @l0_f_ty_str(i64 %t6, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t8 = call fastcc i64 @l0_f_type_msg(i64 %t5, i64 %t7, i64 %a1, i64 0, i64 0, i64 0)
@@ -8223,7 +8335,7 @@ Lt4:
   ret i64 %t9
 Le4:
   call void @l0_dec(i64 %a4)
-  %t10 = call i64 @l0_string(ptr @l0_str.57, i64 15)
+  %t10 = call i64 @l0_string(ptr @l0_str.62, i64 15)
   %t11 = call fastcc i64 @l0_f_append.0(i64 %t10, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   %t12 = call fastcc i64 @l0_f_ty_str(i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t13 = call i64 @l0_head(i64 %a1)
@@ -8239,7 +8351,7 @@ Le4:
 define internal fastcc i64 @l0_f_check_list_builtin(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.67, i64 4)
+  %t1 = call i64 @l0_string(ptr @l0_str.72, i64 4)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -8257,14 +8369,14 @@ Le0:
   %t9 = icmp ne i64 %t8, 0
   br i1 %t9, label %Lt6, label %Le6
 Lt6:
-  %t10 = call i64 @l0_string(ptr @l0_str.68, i64 6)
+  %t10 = call i64 @l0_string(ptr @l0_str.73, i64 6)
   %t11 = call fastcc i64 @l0_f_type_msg(i64 %a0, i64 %t10, i64 %t5, i64 0, i64 0, i64 0)
   %t12 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t12, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t12, i64 1, i64 %t11)
   ret i64 %t12
 Le6:
-  %t14 = call i64 @l0_string(ptr @l0_str.69, i64 4)
+  %t14 = call i64 @l0_string(ptr @l0_str.74, i64 4)
   %t15 = call i64 @l0_equal(i64 %a0, i64 %t14)
   call void @l0_dec(i64 %t14)
   %t16 = icmp ne i64 %t15, 0
@@ -8276,7 +8388,7 @@ Lt13:
   call void @l0_data_set(i64 %t18, i64 0, i64 %t17)
   ret i64 %t18
 Le13:
-  %t20 = call i64 @l0_string(ptr @l0_str.70, i64 4)
+  %t20 = call i64 @l0_string(ptr @l0_str.75, i64 4)
   %t21 = call i64 @l0_equal(i64 %a0, i64 %t20)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %t20)
@@ -8311,8 +8423,8 @@ entry:
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
   call void @l0_dec(i64 %t0)
-  %t7 = call i64 @l0_string(ptr @l0_str.71, i64 27)
-  %t8 = call i64 @l0_string(ptr @l0_str.68, i64 6)
+  %t7 = call i64 @l0_string(ptr @l0_str.76, i64 27)
+  %t8 = call i64 @l0_string(ptr @l0_str.73, i64 6)
   %t9 = call fastcc i64 @l0_f_type_msg(i64 %t7, i64 %t8, i64 %t2, i64 0, i64 0, i64 0)
   %t10 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t10, i64 0, i64 %a1)
@@ -8331,7 +8443,7 @@ Lt11:
   call void @l0_data_set(i64 %t15, i64 0, i64 %t2)
   ret i64 %t15
 Le11:
-  %t16 = call i64 @l0_string(ptr @l0_str.72, i64 30)
+  %t16 = call i64 @l0_string(ptr @l0_str.77, i64 30)
   %t17 = call fastcc i64 @l0_f_ty_elem(i64 %t2, i64 0)
   %t18 = call fastcc i64 @l0_f_ty_str(i64 %t17, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t19 = call fastcc i64 @l0_f_type_msg(i64 %t16, i64 %t18, i64 %t0, i64 0, i64 0, i64 0)
@@ -8587,8 +8699,8 @@ Lt21:
   call void @l0_data_set(i64 %t24, i64 0, i64 %t6)
   ret i64 %t24
 Le21:
-  %t25 = call i64 @l0_string(ptr @l0_str.73, i64 6)
-  %t26 = call i64 @l0_string(ptr @l0_str.74, i64 4)
+  %t25 = call i64 @l0_string(ptr @l0_str.78, i64 6)
+  %t26 = call i64 @l0_string(ptr @l0_str.79, i64 4)
   %t27 = call fastcc i64 @l0_f_ty_str(i64 %t6, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t28 = call fastcc i64 @l0_f_append.0(i64 %t26, i64 %t27, i64 0, i64 0, i64 0, i64 0)
   %t29 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t28, i64 0, i64 0, i64 0, i64 0)
@@ -8617,7 +8729,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a1)
-  %t4 = call i64 @l0_string(ptr @l0_str.75, i64 41)
+  %t4 = call i64 @l0_string(ptr @l0_str.80, i64 41)
   %t5 = call fastcc i64 @l0_f_ty_str(i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %t4, i64 %t5, i64 0, i64 0, i64 0, i64 0)
   %t7 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
@@ -8636,7 +8748,7 @@ Lt8:
   call void @l0_dec(i64 %a1)
   %t12 = call fastcc i64 @l0_f_ty_name(i64 %a2)
   %t13 = call fastcc i64 @l0_f_as_written(i64 %t12, i64 0)
-  %t14 = call i64 @l0_string(ptr @l0_str.76, i64 49)
+  %t14 = call i64 @l0_string(ptr @l0_str.81, i64 49)
   %t15 = call fastcc i64 @l0_f_append.0(i64 %t13, i64 %t14, i64 0, i64 0, i64 0, i64 0)
   %t16 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t16, i64 0, i64 %a0)
@@ -8680,13 +8792,13 @@ Lt27:
   %t34 = call i64 @l0_data_get(i64 %t26, i64 0)
   call void @l0_inc(i64 %t34)
   %t35 = call fastcc i64 @l0_f_as_written(i64 %t34, i64 0)
-  %t36 = call i64 @l0_string(ptr @l0_str.77, i64 5)
+  %t36 = call i64 @l0_string(ptr @l0_str.82, i64 5)
   %t37 = call i64 @l0_data_get(i64 %t26, i64 2)
   call void @l0_inc(i64 %t37)
   call void @l0_dec(i64 %t26)
   %t38 = call fastcc i64 @l0_f_length.1(i64 %t37, i64 0)
   %t39 = call fastcc i64 @l0_f_digits(i64 %t38, i64 0)
-  %t40 = call i64 @l0_string(ptr @l0_str.78, i64 62)
+  %t40 = call i64 @l0_string(ptr @l0_str.83, i64 62)
   %t41 = call fastcc i64 @l0_f_append.0(i64 %t39, i64 %t40, i64 0, i64 0, i64 0, i64 0)
   %t42 = call fastcc i64 @l0_f_append.0(i64 %t36, i64 %t41, i64 0, i64 0, i64 0, i64 0)
   %t43 = call fastcc i64 @l0_f_append.0(i64 %t35, i64 %t42, i64 0, i64 0, i64 0, i64 0)
@@ -8727,8 +8839,8 @@ A0_0:
 Lt7:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %t5)
-  %t11 = call i64 @l0_string(ptr @l0_str.79, i64 14)
-  %t12 = call i64 @l0_string(ptr @l0_str.74, i64 4)
+  %t11 = call i64 @l0_string(ptr @l0_str.84, i64 14)
+  %t12 = call i64 @l0_string(ptr @l0_str.79, i64 4)
   %t13 = call i64 @l0_data_get(i64 %a4, i64 0)
   call void @l0_inc(i64 %t13)
   call void @l0_dec(i64 %a4)
@@ -8829,8 +8941,8 @@ A0_0:
   br i1 %t6, label %Lt4, label %Le4
 Lt4:
   call void @l0_dec(i64 %t3)
-  %t7 = call i64 @l0_string(ptr @l0_str.80, i64 50)
-  %t8 = call i64 @l0_string(ptr @l0_str.81, i64 38)
+  %t7 = call i64 @l0_string(ptr @l0_str.85, i64 50)
+  %t8 = call i64 @l0_string(ptr @l0_str.86, i64 38)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t9, i64 0, i64 0, i64 0, i64 0)
   %t11 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
@@ -8866,8 +8978,8 @@ Lx14:
   %t20 = icmp ne i64 %t19, 0
   br i1 %t20, label %Lt13, label %Le13
 Lt13:
-  %t21 = call i64 @l0_string(ptr @l0_str.82, i64 47)
-  %t22 = call i64 @l0_string(ptr @l0_str.83, i64 52)
+  %t21 = call i64 @l0_string(ptr @l0_str.87, i64 47)
+  %t22 = call i64 @l0_string(ptr @l0_str.88, i64 52)
   %t23 = call fastcc i64 @l0_f_append.0(i64 %t21, i64 %t22, i64 0, i64 0, i64 0, i64 0)
   %t24 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t23, i64 0, i64 0, i64 0, i64 0)
   %t25 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
@@ -8887,7 +8999,7 @@ Ln0:
 define internal fastcc i64 @l0_f_unknown_fn_msg(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.84, i64 17)
+  %t0 = call i64 @l0_string(ptr @l0_str.89, i64 17)
   %t1 = musttail call fastcc i64 @l0_f_append.0(i64 %t0, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -8895,7 +9007,7 @@ entry:
 define internal fastcc i64 @l0_f_unknown_var_msg(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.85, i64 17)
+  %t0 = call i64 @l0_string(ptr @l0_str.90, i64 17)
   %t1 = musttail call fastcc i64 @l0_f_append.0(i64 %t0, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -8903,9 +9015,9 @@ entry:
 define internal fastcc i64 @l0_f_if_branch_msg(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.86, i64 59)
+  %t0 = call i64 @l0_string(ptr @l0_str.91, i64 59)
   %t1 = call fastcc i64 @l0_f_ty_str(i64 %a0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t2 = call i64 @l0_string(ptr @l0_str.87, i64 13)
+  %t2 = call i64 @l0_string(ptr @l0_str.92, i64 13)
   %t3 = call fastcc i64 @l0_f_ty_str(i64 %a1, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t4, i64 0, i64 0, i64 0, i64 0)
@@ -8949,8 +9061,8 @@ Lt7:
   call void @l0_dec(i64 %a4)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a2)
-  %t12 = call i64 @l0_string(ptr @l0_str.88, i64 22)
-  %t13 = call i64 @l0_string(ptr @l0_str.89, i64 4)
+  %t12 = call i64 @l0_string(ptr @l0_str.93, i64 22)
+  %t13 = call i64 @l0_string(ptr @l0_str.94, i64 4)
   %t14 = call fastcc i64 @l0_f_type_msg(i64 %t12, i64 %t13, i64 %t6, i64 0, i64 0, i64 0)
   %t15 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t15, i64 0, i64 %a0)
@@ -9589,9 +9701,9 @@ Ln23:
 define internal fastcc i64 @l0_f_fn_arg_ty(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.90, i64 9)
+  %t0 = call i64 @l0_string(ptr @l0_str.95, i64 9)
   %t1 = call fastcc i64 @l0_f_digits(i64 %a6, i64 0)
-  %t2 = call i64 @l0_string(ptr @l0_str.74, i64 4)
+  %t2 = call i64 @l0_string(ptr @l0_str.79, i64 4)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t4, i64 0, i64 0, i64 0, i64 0)
@@ -9764,7 +9876,7 @@ Ln6:
 define internal fastcc i64 @l0_f_not_fn_arg(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.91, i64 61)
+  %t0 = call i64 @l0_string(ptr @l0_str.96, i64 61)
   %t1 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t0, i64 0, i64 0, i64 0, i64 0)
   %t2 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t2, i64 0, i64 %a1)
@@ -9819,8 +9931,8 @@ A0_1:
   %t17 = icmp ne i64 %t16, 0
   br i1 %t17, label %Lt15, label %Le15
 Lt15:
-  %t18 = call i64 @l0_string(ptr @l0_str.92, i64 16)
-  %t19 = call i64 @l0_string(ptr @l0_str.93, i64 55)
+  %t18 = call i64 @l0_string(ptr @l0_str.97, i64 16)
+  %t19 = call i64 @l0_string(ptr @l0_str.98, i64 55)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   %t21 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t20, i64 0, i64 0, i64 0, i64 0)
   %t22 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t21, i64 0, i64 0, i64 0, i64 0)
@@ -9935,9 +10047,9 @@ Ln4:
 define internal fastcc i64 @l0_f_match_arg(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.90, i64 9)
+  %t0 = call i64 @l0_string(ptr @l0_str.95, i64 9)
   %t1 = call fastcc i64 @l0_f_digits(i64 %a6, i64 0)
-  %t2 = call i64 @l0_string(ptr @l0_str.74, i64 4)
+  %t2 = call i64 @l0_string(ptr @l0_str.79, i64 4)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t4, i64 0, i64 0, i64 0, i64 0)
@@ -10058,12 +10170,12 @@ Lt5:
   call void @l0_dec(i64 %a4)
   call void @l0_dec(i64 %t3)
   call void @l0_dec(i64 %t4)
-  %t8 = call i64 @l0_string(ptr @l0_str.94, i64 4)
+  %t8 = call i64 @l0_string(ptr @l0_str.99, i64 4)
   %t9 = call i64 @l0_data_get(i64 %a2, i64 0)
   call void @l0_inc(i64 %t9)
   call void @l0_dec(i64 %a2)
-  %t10 = call i64 @l0_string(ptr @l0_str.95, i64 54)
-  %t11 = call i64 @l0_string(ptr @l0_str.96, i64 37)
+  %t10 = call i64 @l0_string(ptr @l0_str.100, i64 54)
+  %t11 = call i64 @l0_string(ptr @l0_str.101, i64 37)
   %t12 = call fastcc i64 @l0_f_append.0(i64 %t10, i64 %t11, i64 0, i64 0, i64 0, i64 0)
   %t13 = call fastcc i64 @l0_f_append.0(i64 %t9, i64 %t12, i64 0, i64 0, i64 0, i64 0)
   %t14 = call fastcc i64 @l0_f_append.0(i64 %t8, i64 %t13, i64 0, i64 0, i64 0, i64 0)
@@ -10201,7 +10313,7 @@ entry:
 A0_0:
   %t3 = call i64 @l0_data_get(i64 %t1, i64 0)
   call void @l0_dec(i64 %t1)
-  %t4 = call i64 @l0_string(ptr @l0_str.97, i64 45)
+  %t4 = call i64 @l0_string(ptr @l0_str.102, i64 45)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t6, i64 0, i64 %a0)
@@ -10341,9 +10453,9 @@ Lt5:
   %t13 = musttail call fastcc i64 @l0_f_match_params(i64 %a0, i64 %t10, i64 %t11, i64 %a3, i64 %t12)
   ret i64 %t13
 Le5:
-  %t14 = call i64 @l0_string(ptr @l0_str.90, i64 9)
+  %t14 = call i64 @l0_string(ptr @l0_str.95, i64 9)
   %t15 = call fastcc i64 @l0_f_digits(i64 %a4, i64 0)
-  %t16 = call i64 @l0_string(ptr @l0_str.74, i64 4)
+  %t16 = call i64 @l0_string(ptr @l0_str.79, i64 4)
   %t17 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   %t18 = call fastcc i64 @l0_f_append.0(i64 %t15, i64 %t17, i64 0, i64 0, i64 0, i64 0)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t14, i64 %t18, i64 0, i64 0, i64 0, i64 0)
@@ -10375,7 +10487,7 @@ A0_0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a4)
-  %t4 = call i64 @l0_string(ptr @l0_str.98, i64 20)
+  %t4 = call i64 @l0_string(ptr @l0_str.103, i64 20)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t4, i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t6 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t6, i64 0, i64 %a0)
@@ -10438,7 +10550,7 @@ Lt1:
   %t10 = call fastcc i64 @l0_f_digits(i64 %t9, i64 0)
   %t11 = call i64 @l0_string(ptr @l0_str.3, i64 1)
   %t12 = call fastcc i64 @l0_f_length.1(i64 %t0, i64 0)
-  %t13 = call i64 @l0_string(ptr @l0_str.99, i64 5)
+  %t13 = call i64 @l0_string(ptr @l0_str.104, i64 5)
   %t14 = call fastcc i64 @l0_f_plural(i64 %t12, i64 %t13, i64 0, i64 0, i64 0, i64 0)
   %t15 = call i64 @l0_string(ptr @l0_str.5, i64 10)
   %t16 = call fastcc i64 @l0_f_length.1(i64 %a3, i64 0)
@@ -10655,11 +10767,11 @@ Ln10:
 define internal fastcc i64 @l0_f_undetermined_msg(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.100, i64 30)
-  %t1 = call i64 @l0_string(ptr @l0_str.74, i64 4)
-  %t2 = call i64 @l0_string(ptr @l0_str.101, i64 48)
+  %t0 = call i64 @l0_string(ptr @l0_str.105, i64 30)
+  %t1 = call i64 @l0_string(ptr @l0_str.79, i64 4)
+  %t2 = call i64 @l0_string(ptr @l0_str.106, i64 48)
   %t3 = call fastcc i64 @l0_f_names_str(i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t4 = call i64 @l0_string(ptr @l0_str.102, i64 6)
+  %t4 = call i64 @l0_string(ptr @l0_str.107, i64 6)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t5, i64 0, i64 0, i64 0, i64 0)
@@ -10737,9 +10849,9 @@ A4_1:
   %t15 = call i64 @l0_data_get(i64 %t7, i64 1)
   call void @l0_dec(i64 %t7)
   call void @l0_dec(i64 %a3)
-  %t16 = call i64 @l0_string(ptr @l0_str.90, i64 9)
+  %t16 = call i64 @l0_string(ptr @l0_str.95, i64 9)
   %t17 = call fastcc i64 @l0_f_digits(i64 %a6, i64 0)
-  %t18 = call i64 @l0_string(ptr @l0_str.74, i64 4)
+  %t18 = call i64 @l0_string(ptr @l0_str.79, i64 4)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %t17, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   %t21 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t20, i64 0, i64 0, i64 0, i64 0)
@@ -10808,8 +10920,8 @@ Lt7:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a4)
-  %t17 = call i64 @l0_string(ptr @l0_str.103, i64 22)
-  %t18 = call i64 @l0_string(ptr @l0_str.104, i64 11)
+  %t17 = call i64 @l0_string(ptr @l0_str.108, i64 22)
+  %t18 = call i64 @l0_string(ptr @l0_str.109, i64 11)
   %t19 = call fastcc i64 @l0_f_type_msg(i64 %t17, i64 %t18, i64 %t6, i64 0, i64 0, i64 0)
   %t20 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t20, i64 0, i64 %a0)
@@ -10890,11 +11002,11 @@ Lt10:
   ret i64 %t13
 Le10:
   call void @l0_dec(i64 %t6)
-  %t14 = call i64 @l0_string(ptr @l0_str.105, i64 9)
+  %t14 = call i64 @l0_string(ptr @l0_str.110, i64 9)
   %t15 = call i64 @l0_data_get(i64 %a2, i64 0)
   call void @l0_inc(i64 %t15)
   call void @l0_dec(i64 %a2)
-  %t16 = call i64 @l0_string(ptr @l0_str.106, i64 23)
+  %t16 = call i64 @l0_string(ptr @l0_str.111, i64 23)
   %t17 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t9, i64 0, i64 0, i64 0, i64 0)
   %t18 = call fastcc i64 @l0_f_append.0(i64 %t15, i64 %t17, i64 0, i64 0, i64 0, i64 0)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t14, i64 %t18, i64 0, i64 0, i64 0, i64 0)
@@ -11083,9 +11195,9 @@ Le16:
   call void @l0_dec(i64 %t20)
   %t22 = call i64 @l0_data_get(i64 %t21, i64 0)
   call void @l0_dec(i64 %t21)
-  %t23 = call i64 @l0_string(ptr @l0_str.107, i64 51)
+  %t23 = call i64 @l0_string(ptr @l0_str.112, i64 51)
   %t24 = call fastcc i64 @l0_f_ty_str(i64 %a0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t25 = call i64 @l0_string(ptr @l0_str.108, i64 16)
+  %t25 = call i64 @l0_string(ptr @l0_str.113, i64 16)
   %t26 = call fastcc i64 @l0_f_ty_str(i64 %t15, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t27 = call fastcc i64 @l0_f_append.0(i64 %t25, i64 %t26, i64 0, i64 0, i64 0, i64 0)
   %t28 = call fastcc i64 @l0_f_append.0(i64 %t24, i64 %t27, i64 0, i64 0, i64 0, i64 0)
@@ -11123,7 +11235,7 @@ Lt6:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a4)
-  %t9 = call i64 @l0_string(ptr @l0_str.109, i64 33)
+  %t9 = call i64 @l0_string(ptr @l0_str.114, i64 33)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t9, i64 0, i64 0, i64 0, i64 0)
   %t11 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t11, i64 0, i64 %t2)
@@ -11143,7 +11255,7 @@ A12_0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a4)
-  %t16 = call i64 @l0_string(ptr @l0_str.98, i64 20)
+  %t16 = call i64 @l0_string(ptr @l0_str.103, i64 20)
   %t17 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t18 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t18, i64 0, i64 %t2)
@@ -11180,11 +11292,11 @@ Lt0:
   call void @l0_dec(i64 %a6)
   call void @l0_dec(i64 %a7)
   call void @l0_dec(i64 %a8)
-  %t6 = call i64 @l0_string(ptr @l0_str.110, i64 21)
+  %t6 = call i64 @l0_string(ptr @l0_str.115, i64 21)
   %t7 = call i64 @l0_data_get(i64 %a4, i64 1)
   call void @l0_inc(i64 %t7)
   call void @l0_dec(i64 %a4)
-  %t8 = call i64 @l0_string(ptr @l0_str.111, i64 6)
+  %t8 = call i64 @l0_string(ptr @l0_str.116, i64 6)
   %t9 = call i64 @l0_data_get(i64 %a5, i64 0)
   call void @l0_inc(i64 %t9)
   call void @l0_dec(i64 %a5)
@@ -11213,7 +11325,7 @@ Lt15:
   call void @l0_dec(i64 %a6)
   call void @l0_dec(i64 %a7)
   call void @l0_dec(i64 %a8)
-  %t23 = call i64 @l0_string(ptr @l0_str.77, i64 5)
+  %t23 = call i64 @l0_string(ptr @l0_str.82, i64 5)
   %t24 = call i64 @l0_data_get(i64 %a4, i64 5)
   call void @l0_inc(i64 %t24)
   %t25 = call fastcc i64 @l0_f_length.1(i64 %t24, i64 0)
@@ -11223,9 +11335,9 @@ Lt15:
   call void @l0_inc(i64 %t28)
   call void @l0_dec(i64 %a4)
   %t29 = call fastcc i64 @l0_f_length.1(i64 %t28, i64 0)
-  %t30 = call i64 @l0_string(ptr @l0_str.99, i64 5)
+  %t30 = call i64 @l0_string(ptr @l0_str.104, i64 5)
   %t31 = call fastcc i64 @l0_f_plural(i64 %t29, i64 %t30, i64 0, i64 0, i64 0, i64 0)
-  %t32 = call i64 @l0_string(ptr @l0_str.112, i64 25)
+  %t32 = call i64 @l0_string(ptr @l0_str.117, i64 25)
   %t33 = call fastcc i64 @l0_f_length.1(i64 %a2, i64 0)
   %t34 = call fastcc i64 @l0_f_digits(i64 %t33, i64 0)
   %t35 = call fastcc i64 @l0_f_append.0(i64 %t32, i64 %t34, i64 0, i64 0, i64 0, i64 0)
@@ -11253,7 +11365,7 @@ Lt43:
   call void @l0_dec(i64 %a4)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a3)
-  %t47 = call i64 @l0_string(ptr @l0_str.113, i64 35)
+  %t47 = call i64 @l0_string(ptr @l0_str.118, i64 35)
   %t48 = call fastcc i64 @l0_f_append.0(i64 %t42, i64 %t47, i64 0, i64 0, i64 0, i64 0)
   %t49 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t49, i64 0, i64 %a0)
@@ -11689,9 +11801,9 @@ entry:
 define internal fastcc i64 @l0_f_ret_mismatch_msg(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.114, i64 22)
+  %t0 = call i64 @l0_string(ptr @l0_str.119, i64 22)
   %t1 = call fastcc i64 @l0_f_ty_str(i64 %a1, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t2 = call i64 @l0_string(ptr @l0_str.115, i64 18)
+  %t2 = call i64 @l0_string(ptr @l0_str.120, i64 18)
   %t3 = call fastcc i64 @l0_f_ty_str(i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t4, i64 0, i64 0, i64 0, i64 0)
@@ -11796,8 +11908,8 @@ Lt1:
   call void @l0_dec(i64 %a4)
   call void @l0_dec(i64 %a5)
   call void @l0_dec(i64 %a6)
-  %t5 = call i64 @l0_string(ptr @l0_str.116, i64 10)
-  %t6 = call i64 @l0_string(ptr @l0_str.117, i64 18)
+  %t5 = call i64 @l0_string(ptr @l0_str.121, i64 10)
+  %t6 = call i64 @l0_string(ptr @l0_str.122, i64 18)
   %t7 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t6, i64 0, i64 0, i64 0, i64 0)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = musttail call fastcc i64 @l0_f_one_diag(i64 %a0, i64 %t8, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -11819,7 +11931,7 @@ Lt11:
   call void @l0_dec(i64 %a2)
   %t15 = call i64 @l0_string(ptr @l0_str.7, i64 15)
   %t16 = call fastcc i64 @l0_f_as_written(i64 %t10, i64 0)
-  %t17 = call i64 @l0_string(ptr @l0_str.117, i64 18)
+  %t17 = call i64 @l0_string(ptr @l0_str.122, i64 18)
   %t18 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t17, i64 0, i64 0, i64 0, i64 0)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t15, i64 %t18, i64 0, i64 0, i64 0, i64 0)
   %t20 = musttail call fastcc i64 @l0_f_one_diag(i64 %a0, i64 %t19, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -11873,8 +11985,8 @@ entry:
   call void @l0_stack_check()
   %t0 = call i64 @l0_string(ptr @l0_str.7, i64 15)
   %t1 = call fastcc i64 @l0_f_as_written(i64 %a1, i64 0)
-  %t2 = call i64 @l0_string(ptr @l0_str.74, i64 4)
-  %t3 = call i64 @l0_string(ptr @l0_str.118, i64 59)
+  %t2 = call i64 @l0_string(ptr @l0_str.79, i64 4)
+  %t3 = call i64 @l0_string(ptr @l0_str.123, i64 59)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t5, i64 0, i64 0, i64 0, i64 0)
@@ -11900,7 +12012,7 @@ Lt0:
   call void @l0_dec(i64 %a0)
   ret i64 %a1
 Le0:
-  %t4 = call i64 @l0_string(ptr @l0_str.119, i64 3)
+  %t4 = call i64 @l0_string(ptr @l0_str.124, i64 3)
   call void @l0_inc(i64 %a0)
   %t5 = call fastcc i64 @l0_f_starts_with(i64 %a0, i64 %t4)
   %t6 = icmp ne i64 %t5, 0
@@ -11968,7 +12080,7 @@ Lt1:
   call void @l0_dec(i64 %a4)
   call void @l0_dec(i64 %a3)
   %t5 = call i64 @l0_string(ptr @l0_str.7, i64 15)
-  %t6 = call i64 @l0_string(ptr @l0_str.117, i64 18)
+  %t6 = call i64 @l0_string(ptr @l0_str.122, i64 18)
   %t7 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t6, i64 0, i64 0, i64 0, i64 0)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = musttail call fastcc i64 @l0_f_one_diag(i64 %a0, i64 %t8, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -12082,9 +12194,9 @@ Lt11:
   ret i64 %t15
 Le11:
   call void @l0_dec(i64 %a0)
-  %t16 = call i64 @l0_string(ptr @l0_str.73, i64 6)
-  %t17 = call i64 @l0_string(ptr @l0_str.120, i64 16)
-  %t18 = call i64 @l0_string(ptr @l0_str.117, i64 18)
+  %t16 = call i64 @l0_string(ptr @l0_str.78, i64 6)
+  %t17 = call i64 @l0_string(ptr @l0_str.125, i64 16)
+  %t18 = call i64 @l0_string(ptr @l0_str.122, i64 18)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t18, i64 0, i64 0, i64 0, i64 0)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %t17, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   %t21 = call fastcc i64 @l0_f_append.0(i64 %t10, i64 %t20, i64 0, i64 0, i64 0, i64 0)
@@ -12285,9 +12397,9 @@ entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a0)
   %t0 = call fastcc i64 @l0_f_decl_offset(i64 %a0)
-  %t1 = call i64 @l0_string(ptr @l0_str.121, i64 9)
+  %t1 = call i64 @l0_string(ptr @l0_str.126, i64 9)
   %t2 = call fastcc i64 @l0_f_decl_name(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.122, i64 19)
+  %t3 = call i64 @l0_string(ptr @l0_str.127, i64 19)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = call i64 @l0_new_data(i64 0, i64 4, i64 4)
@@ -12309,9 +12421,9 @@ entry:
 Lt0:
   call void @l0_inc(i64 %a0)
   %t4 = call fastcc i64 @l0_f_decl_offset(i64 %a0)
-  %t5 = call i64 @l0_string(ptr @l0_str.123, i64 10)
+  %t5 = call i64 @l0_string(ptr @l0_str.128, i64 10)
   %t6 = call fastcc i64 @l0_f_decl_name(i64 %a0)
-  %t7 = call i64 @l0_string(ptr @l0_str.124, i64 20)
+  %t7 = call i64 @l0_string(ptr @l0_str.129, i64 20)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   %t10 = call i64 @l0_new_data(i64 0, i64 4, i64 4)
@@ -12337,8 +12449,8 @@ Lt15:
   %t21 = call fastcc i64 @l0_f_decl_ctors(i64 %a0)
   %t22 = call fastcc i64 @l0_f_add_ctor_names(i64 %t21, i64 %a6)
   %t23 = call fastcc i64 @l0_f_decl_offset(i64 %a0)
-  %t24 = call i64 @l0_string(ptr @l0_str.125, i64 12)
-  %t25 = call i64 @l0_string(ptr @l0_str.124, i64 20)
+  %t24 = call i64 @l0_string(ptr @l0_str.130, i64 12)
+  %t25 = call i64 @l0_string(ptr @l0_str.129, i64 20)
   %t26 = call fastcc i64 @l0_f_append.0(i64 %t14, i64 %t25, i64 0, i64 0, i64 0, i64 0)
   %t27 = call fastcc i64 @l0_f_append.0(i64 %t24, i64 %t26, i64 0, i64 0, i64 0, i64 0)
   %t28 = call i64 @l0_new_data(i64 0, i64 4, i64 4)
@@ -12524,7 +12636,7 @@ Le0:
 define internal fastcc i64 @l0_f_check_main(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.126, i64 4)
+  %t1 = call i64 @l0_string(ptr @l0_str.131, i64 4)
   call void @l0_inc(i64 %a0)
   %t2 = call fastcc i64 @l0_f_collect_sigs(i64 %a0, i64 0)
   %t3 = call fastcc i64 @l0_f_find_sig(i64 %t1, i64 %t2)
@@ -12537,7 +12649,7 @@ A0_0:
   %t6 = icmp ne i64 %a1, 0
   br i1 %t6, label %Lt5, label %Le5
 Lt5:
-  %t7 = call i64 @l0_string(ptr @l0_str.127, i64 33)
+  %t7 = call i64 @l0_string(ptr @l0_str.132, i64 33)
   %t8 = musttail call fastcc i64 @l0_f_one_diag(i64 -1, i64 %t7, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t8
 Le5:
@@ -12575,7 +12687,7 @@ A0_0:
 Lt6:
   call void @l0_dec(i64 %t5)
   call void @l0_dec(i64 %t4)
-  %t10 = call i64 @l0_string(ptr @l0_str.128, i64 29)
+  %t10 = call i64 @l0_string(ptr @l0_str.133, i64 29)
   %t11 = musttail call fastcc i64 @l0_f_one_diag(i64 %a1, i64 %t10, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t11
 Le6:
@@ -12593,7 +12705,7 @@ Lt12:
 Lt15:
   ret i64 0
 Le15:
-  %t19 = call i64 @l0_string(ptr @l0_str.129, i64 41)
+  %t19 = call i64 @l0_string(ptr @l0_str.134, i64 41)
   %t20 = musttail call fastcc i64 @l0_f_one_diag(i64 %a1, i64 %t19, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t20
 Le12:
@@ -12645,7 +12757,7 @@ Le8:
 Lt17:
   ret i64 0
 Le17:
-  %t20 = call i64 @l0_string(ptr @l0_str.130, i64 41)
+  %t20 = call i64 @l0_string(ptr @l0_str.135, i64 41)
   %t21 = musttail call fastcc i64 @l0_f_one_diag(i64 %a2, i64 %t20, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t21
 }
@@ -12653,7 +12765,7 @@ Le17:
 define internal fastcc i64 @l0_f_main_params_msg(i64 %a0) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.131, i64 56)
+  %t0 = call i64 @l0_string(ptr @l0_str.136, i64 56)
   ret i64 %t0
 }
 
@@ -12694,7 +12806,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   %t3 = call fastcc i64 @l0_f_decl_name(i64 %a0)
-  %t4 = call i64 @l0_string(ptr @l0_str.126, i64 4)
+  %t4 = call i64 @l0_string(ptr @l0_str.131, i64 4)
   %t5 = call i64 @l0_equal(i64 %t3, i64 %t4)
   call void @l0_dec(i64 %t3)
   call void @l0_dec(i64 %t4)
@@ -13063,11 +13175,11 @@ A3_0:
   br i1 %t14, label %Lt10, label %Le10
 Lt10:
   call void @l0_dec(i64 %a1)
-  %t15 = call i64 @l0_string(ptr @l0_str.125, i64 12)
-  %t16 = call i64 @l0_string(ptr @l0_str.77, i64 5)
+  %t15 = call i64 @l0_string(ptr @l0_str.130, i64 12)
+  %t16 = call i64 @l0_string(ptr @l0_str.82, i64 5)
   %t17 = call fastcc i64 @l0_f_length.1(i64 %t9, i64 0)
   %t18 = call fastcc i64 @l0_f_digits(i64 %t17, i64 0)
-  %t19 = call i64 @l0_string(ptr @l0_str.132, i64 35)
+  %t19 = call i64 @l0_string(ptr @l0_str.137, i64 35)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   %t21 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t20, i64 0, i64 0, i64 0, i64 0)
   %t22 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t21, i64 0, i64 0, i64 0, i64 0)
@@ -13234,7 +13346,7 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  %t3 = call i64 @l0_string(ptr @l0_str.133, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.138, i64 10)
   %t4 = musttail call fastcc i64 @l0_f_append.0(i64 %t3, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t4
 Le0:
@@ -13793,7 +13905,7 @@ Le1:
 define internal fastcc i64 @l0_f_is_unboxed_name(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.134, i64 8)
+  %t0 = call i64 @l0_string(ptr @l0_str.139, i64 8)
   %t1 = musttail call fastcc i64 @l0_f_starts_with(i64 %a0, i64 %t0)
   ret i64 %t1
 }
@@ -13854,7 +13966,7 @@ Lx18:
   %t23 = icmp ne i64 %t22, 0
   br i1 %t23, label %Lt17, label %Le17
 Lt17:
-  %t24 = call i64 @l0_string(ptr @l0_str.134, i64 8)
+  %t24 = call i64 @l0_string(ptr @l0_str.139, i64 8)
   call void @l0_inc(i64 %t14)
   %t25 = call fastcc i64 @l0_f_append.0(i64 %t24, i64 %t14, i64 0, i64 0, i64 0, i64 0)
   %t26 = call i64 @l0_new_data(i64 3, i64 2, i64 6)
@@ -14279,7 +14391,7 @@ Le0:
 Lt3:
   %t7 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t7)
-  %t8 = call i64 @l0_string(ptr @l0_str.119, i64 3)
+  %t8 = call i64 @l0_string(ptr @l0_str.124, i64 3)
   %t9 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t9)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %t8, i64 %t9, i64 0, i64 0, i64 0, i64 0)
@@ -16797,24 +16909,24 @@ Lm13:
   %t22 = icmp ne i64 %t12, 0
   br i1 %t22, label %Lt21, label %Le21
 Lt21:
-  %t23 = call i64 @l0_string(ptr @l0_str.135, i64 5)
+  %t23 = call i64 @l0_string(ptr @l0_str.140, i64 5)
   call void @l0_inc(i64 %t20)
   %t24 = call fastcc i64 @l0_f_append.0(i64 %t23, i64 %t20, i64 0, i64 0, i64 0, i64 0)
   store i64 %t24, ptr %r21
   br label %Lx21
 Le21:
   %r25 = alloca i64
-  %t26 = call i64 @l0_string(ptr @l0_str.126, i64 4)
+  %t26 = call i64 @l0_string(ptr @l0_str.131, i64 4)
   %t27 = call i64 @l0_equal(i64 %t20, i64 %t26)
   call void @l0_dec(i64 %t26)
   %t28 = icmp ne i64 %t27, 0
   br i1 %t28, label %Lt25, label %Le25
 Lt25:
-  %t29 = call i64 @l0_string(ptr @l0_str.136, i64 14)
+  %t29 = call i64 @l0_string(ptr @l0_str.141, i64 14)
   store i64 %t29, ptr %r25
   br label %Lx25
 Le25:
-  %t30 = call i64 @l0_string(ptr @l0_str.137, i64 5)
+  %t30 = call i64 @l0_string(ptr @l0_str.142, i64 5)
   call void @l0_inc(i64 %t20)
   %t31 = call fastcc i64 @l0_f_append.0(i64 %t30, i64 %t20, i64 0, i64 0, i64 0, i64 0)
   store i64 %t31, ptr %r25
@@ -17135,7 +17247,7 @@ entry:
 define internal fastcc i64 @l0_f_emit_line(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.138, i64 1)
+  %t0 = call i64 @l0_string(ptr @l0_str.143, i64 1)
   %t1 = call i64 @l0_data_get(i64 %a1, i64 1)
   call void @l0_inc(i64 %t1)
   %t2 = call fastcc i64 @l0_f_push(i64 %a0, i64 %t1)
@@ -17197,7 +17309,7 @@ A0_0:
   ret i64 %t4
 A0_1:
   call void @l0_dec(i64 %t1)
-  %t5 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t5 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t5
 Ln0:
   unreachable
@@ -17280,17 +17392,17 @@ Le0:
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
-  %t7 = call i64 @l0_string(ptr @l0_str.140, i64 4)
+  %t7 = call i64 @l0_string(ptr @l0_str.145, i64 4)
   %t8 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t8)
   call void @l0_dec(i64 %a0)
   %t9 = musttail call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t9
 Le3:
-  %t10 = call i64 @l0_string(ptr @l0_str.140, i64 4)
+  %t10 = call i64 @l0_string(ptr @l0_str.145, i64 4)
   %t11 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t11)
-  %t12 = call i64 @l0_string(ptr @l0_str.141, i64 2)
+  %t12 = call i64 @l0_string(ptr @l0_str.146, i64 2)
   %t13 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t13)
   call void @l0_dec(i64 %a0)
@@ -17304,12 +17416,12 @@ Le3:
 define internal fastcc i64 @l0_f_emit_assign(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.142, i64 2)
+  %t0 = call i64 @l0_string(ptr @l0_str.147, i64 2)
   %t1 = call fastcc i64 @l0_f_fresh_id(i64 %a1, i64 0)
   %t2 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t1, i64 0, i64 0, i64 0, i64 0)
   %t3 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
-  %t4 = call i64 @l0_string(ptr @l0_str.143, i64 2)
-  %t5 = call i64 @l0_string(ptr @l0_str.144, i64 3)
+  %t4 = call i64 @l0_string(ptr @l0_str.148, i64 2)
+  %t5 = call i64 @l0_string(ptr @l0_str.149, i64 3)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %t2)
   %t7 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t6, i64 0, i64 0, i64 0, i64 0)
@@ -17326,10 +17438,10 @@ entry:
 define internal fastcc i64 @l0_f_emit_rt_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.145, i64 10)
-  %t1 = call i64 @l0_string(ptr @l0_str.146, i64 1)
+  %t0 = call i64 @l0_string(ptr @l0_str.150, i64 10)
+  %t1 = call i64 @l0_string(ptr @l0_str.151, i64 1)
   %t2 = call fastcc i64 @l0_f_fmt_ops(i64 %a1, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t3 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t3 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t5, i64 0, i64 0, i64 0, i64 0)
@@ -17341,8 +17453,8 @@ entry:
 define internal fastcc i64 @l0_f_emit_binop(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.148, i64 5)
-  %t1 = call i64 @l0_string(ptr @l0_str.141, i64 2)
+  %t0 = call i64 @l0_string(ptr @l0_str.153, i64 5)
+  %t1 = call i64 @l0_string(ptr @l0_str.146, i64 2)
   %t2 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %a2, i64 0, i64 0, i64 0, i64 0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t3, i64 0, i64 0, i64 0, i64 0)
@@ -17354,9 +17466,9 @@ entry:
 define internal fastcc i64 @l0_f_emit_cmp(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.149, i64 5)
-  %t2 = call i64 @l0_string(ptr @l0_str.148, i64 5)
-  %t3 = call i64 @l0_string(ptr @l0_str.141, i64 2)
+  %t1 = call i64 @l0_string(ptr @l0_str.154, i64 5)
+  %t2 = call i64 @l0_string(ptr @l0_str.153, i64 5)
+  %t3 = call i64 @l0_string(ptr @l0_str.146, i64 2)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %a2, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t5, i64 0, i64 0, i64 0, i64 0)
@@ -17372,8 +17484,8 @@ A0_0:
   %t13 = call i64 @l0_data_get(i64 %t9, i64 2)
   call void @l0_inc(i64 %t13)
   call void @l0_dec(i64 %t9)
-  %t14 = call i64 @l0_string(ptr @l0_str.150, i64 8)
-  %t15 = call i64 @l0_string(ptr @l0_str.151, i64 7)
+  %t14 = call i64 @l0_string(ptr @l0_str.155, i64 8)
+  %t15 = call i64 @l0_string(ptr @l0_str.156, i64 7)
   %t16 = call fastcc i64 @l0_f_append.0(i64 %t11, i64 %t15, i64 0, i64 0, i64 0, i64 0)
   %t17 = call fastcc i64 @l0_f_append.0(i64 %t14, i64 %t16, i64 0, i64 0, i64 0, i64 0)
   %t18 = call fastcc i64 @l0_f_emit_assign(i64 %t17, i64 %t13, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -17402,8 +17514,8 @@ entry:
 define internal fastcc i64 @l0_f_emit_inc(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.152, i64 24)
-  %t1 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t0 = call i64 @l0_string(ptr @l0_str.157, i64 24)
+  %t1 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t2 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t1, i64 0, i64 0, i64 0, i64 0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = musttail call fastcc i64 @l0_f_emit_line(i64 %t3, i64 %a1, i64 0, i64 0, i64 0)
@@ -17413,8 +17525,8 @@ entry:
 define internal fastcc i64 @l0_f_emit_dec(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.153, i64 24)
-  %t1 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t0 = call i64 @l0_string(ptr @l0_str.158, i64 24)
+  %t1 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t2 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t1, i64 0, i64 0, i64 0, i64 0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = musttail call fastcc i64 @l0_f_emit_line(i64 %t3, i64 %a1, i64 0, i64 0, i64 0)
@@ -17809,7 +17921,7 @@ A2_0:
   %t6 = call i64 @l0_data_get(i64 %a1, i64 2)
   call void @l0_inc(i64 %t6)
   call void @l0_dec(i64 %a1)
-  %t7 = call i64 @l0_string(ptr @l0_str.154, i64 10)
+  %t7 = call i64 @l0_string(ptr @l0_str.159, i64 10)
   call void @l0_inc(i64 %t4)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t9 = call fastcc i64 @l0_f_emit_line(i64 %t8, i64 %t6, i64 0, i64 0, i64 0)
@@ -17927,11 +18039,11 @@ A0_2:
   %t17 = icmp ne i64 %t15, 0
   br i1 %t17, label %Lt16, label %Le16
 Lt16:
-  %t18 = call i64 @l0_string(ptr @l0_str.155, i64 1)
+  %t18 = call i64 @l0_string(ptr @l0_str.160, i64 1)
   store i64 %t18, ptr %r16
   br label %Lx16
 Le16:
-  %t19 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t19 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   store i64 %t19, ptr %r16
   br label %Lx16
 Lx16:
@@ -17950,7 +18062,7 @@ A0_3:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a2)
-  %t26 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t26 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   %t27 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
   call void @l0_data_set(i64 %t27, i64 0, i64 %t25)
   %t28 = call i64 @l0_new_data(i64 0, i64 3, i64 14)
@@ -18106,38 +18218,40 @@ Le0:
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
   call void @l0_dec(i64 %a3)
-  %t8 = call i64 @l0_string(ptr @l0_str.156, i64 9)
-  %t9 = call i64 @l0_equal(i64 %a1, i64 %t8)
-  call void @l0_dec(i64 %a1)
-  call void @l0_dec(i64 %t8)
-  %t10 = icmp ne i64 %t9, 0
-  br i1 %t10, label %Lt7, label %Le7
+  %t8 = call i64 @l0_string(ptr @l0_str.161, i64 38)
+  %t9 = call fastcc i64 @l0_f_split_spaces(i64 %t8, i64 0, i64 0, i64 0, i64 0)
+  call void @l0_inc(i64 %a1)
+  %t10 = call fastcc i64 @l0_f_any_eq.1(i64 %a1, i64 %t9)
+  %t11 = icmp ne i64 %t10, 0
+  br i1 %t11, label %Lt7, label %Le7
 Lt7:
-  %t11 = call i64 @l0_head(i64 %a2)
-  call void @l0_inc(i64 %t11)
+  %t12 = call i64 @l0_head(i64 %a2)
+  call void @l0_inc(i64 %t12)
   call void @l0_dec(i64 %a2)
-  %t12 = call fastcc i64 @l0_f_var_name(i64 %t11)
-  %t13 = call i64 @l0_string(ptr @l0_str.157, i64 14)
-  %t14 = musttail call fastcc i64 @l0_f_warn_if(i64 %t12, i64 %a4, i64 %a0, i64 %t13, i64 %a5, i64 0)
-  ret i64 %t14
+  %t13 = call fastcc i64 @l0_f_var_name(i64 %t12)
+  %t14 = call i64 @l0_string(ptr @l0_str.162, i64 5)
+  %t15 = call fastcc i64 @l0_f_append.0(i64 %t14, i64 %a1, i64 0, i64 0, i64 0, i64 0)
+  %t16 = musttail call fastcc i64 @l0_f_warn_if(i64 %t13, i64 %a4, i64 %a0, i64 %t15, i64 %a5, i64 0)
+  ret i64 %t16
 Le7:
+  call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a4)
   call void @l0_dec(i64 %a2)
   ret i64 %a5
 Le3:
   call void @l0_inc(i64 %a1)
   call void @l0_inc(i64 %a3)
-  %t15 = call fastcc i64 @l0_f_call_sym(i64 %a1, i64 %a3, i64 0, i64 0, i64 0, i64 0)
-  %t16 = call i64 @l0_data_get(i64 %a3, i64 3)
-  call void @l0_inc(i64 %t16)
+  %t17 = call fastcc i64 @l0_f_call_sym(i64 %a1, i64 %a3, i64 0, i64 0, i64 0, i64 0)
+  %t18 = call i64 @l0_data_get(i64 %a3, i64 3)
+  call void @l0_inc(i64 %t18)
   call void @l0_dec(i64 %a3)
-  %t17 = call fastcc i64 @l0_f_updates_of(i64 %t15, i64 %t16)
-  call void @l0_dec(i64 %t15)
-  %t18 = call i64 @l0_string(ptr @l0_str.158, i64 13)
-  %t19 = call fastcc i64 @l0_f_shown_name(i64 %a1)
-  %t20 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t19, i64 0, i64 0, i64 0, i64 0)
-  %t21 = musttail call fastcc i64 @l0_f_warn_passed(i64 %a2, i64 %t17, i64 %a4, i64 %a0, i64 %t20, i64 %a5)
-  ret i64 %t21
+  %t19 = call fastcc i64 @l0_f_updates_of(i64 %t17, i64 %t18)
+  call void @l0_dec(i64 %t17)
+  %t20 = call i64 @l0_string(ptr @l0_str.163, i64 13)
+  %t21 = call fastcc i64 @l0_f_shown_name(i64 %a1)
+  %t22 = call fastcc i64 @l0_f_append.0(i64 %t20, i64 %t21, i64 0, i64 0, i64 0, i64 0)
+  %t23 = musttail call fastcc i64 @l0_f_warn_passed(i64 %a2, i64 %t19, i64 %a4, i64 %a0, i64 %t22, i64 %a5)
+  ret i64 %t23
 }
 
 define internal fastcc i64 @l0_f_warn_passed(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
@@ -18225,9 +18339,9 @@ Lt0:
   call void @l0_dec(i64 %a0)
   ret i64 %a4
 Le0:
-  %t8 = call i64 @l0_string(ptr @l0_str.159, i64 15)
-  %t9 = call i64 @l0_string(ptr @l0_str.160, i64 15)
-  %t10 = call i64 @l0_string(ptr @l0_str.161, i64 42)
+  %t8 = call i64 @l0_string(ptr @l0_str.164, i64 15)
+  %t9 = call i64 @l0_string(ptr @l0_str.165, i64 15)
+  %t10 = call i64 @l0_string(ptr @l0_str.166, i64 42)
   call void @l0_inc(i64 %a0)
   %t11 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t10, i64 0, i64 0, i64 0, i64 0)
   %t12 = call fastcc i64 @l0_f_append.0(i64 %t9, i64 %t11, i64 0, i64 0, i64 0, i64 0)
@@ -18304,7 +18418,7 @@ Lt11:
   call void @l0_data_set(i64 %t19, i64 2, i64 %t8)
   ret i64 %t19
 Le11:
-  %t20 = call i64 @l0_string(ptr @l0_str.162, i64 11)
+  %t20 = call i64 @l0_string(ptr @l0_str.167, i64 11)
   %t21 = call i64 @l0_head(i64 %t5)
   call void @l0_inc(i64 %t21)
   %t22 = call i64 @l0_head(i64 %t6)
@@ -18371,7 +18485,7 @@ Lt10:
   call void @l0_data_set(i64 %t18, i64 2, i64 %t9)
   ret i64 %t18
 Le10:
-  %t19 = call i64 @l0_string(ptr @l0_str.163, i64 12)
+  %t19 = call i64 @l0_string(ptr @l0_str.168, i64 12)
   %t20 = call i64 @l0_head(i64 %t6)
   call void @l0_inc(i64 %t20)
   %t21 = call i64 @l0_head(i64 %t7)
@@ -18629,7 +18743,7 @@ Le0:
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
-  %t7 = call i64 @l0_string(ptr @l0_str.164, i64 9)
+  %t7 = call i64 @l0_string(ptr @l0_str.169, i64 9)
   %t8 = call i64 @l0_new_data(i64 4, i64 4, i64 4)
   call void @l0_data_set(i64 %t8, i64 0, i64 0)
   call void @l0_data_set(i64 %t8, i64 1, i64 %a1)
@@ -18769,7 +18883,7 @@ entry:
   %t3 = call i64 @l0_data_get(i64 %t2, i64 1)
   call void @l0_inc(i64 %t3)
   call void @l0_dec(i64 %t2)
-  %t4 = call i64 @l0_string(ptr @l0_str.165, i64 12)
+  %t4 = call i64 @l0_string(ptr @l0_str.170, i64 12)
   %t5 = call i64 @l0_data_get(i64 %a2, i64 0)
   call void @l0_inc(i64 %t5)
   call void @l0_dec(i64 %a2)
@@ -18944,10 +19058,10 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  %t3 = call i64 @l0_string(ptr @l0_str.166, i64 1)
+  %t3 = call i64 @l0_string(ptr @l0_str.171, i64 1)
   ret i64 %t3
 Le0:
-  %t4 = call i64 @l0_string(ptr @l0_str.167, i64 1)
+  %t4 = call i64 @l0_string(ptr @l0_str.172, i64 1)
   ret i64 %t4
 }
 
@@ -18959,7 +19073,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t3 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   %t4 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
   %t5 = call i64 @l0_new_data(i64 2, i64 2, i64 2)
   call void @l0_data_set(i64 %t5, i64 0, i64 %t4)
@@ -19004,11 +19118,11 @@ Ln7:
 define internal fastcc i64 @l0_f_emit_string_call(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.168, i64 32)
+  %t0 = call i64 @l0_string(ptr @l0_str.173, i64 32)
   %t1 = call fastcc i64 @l0_f_digits(i64 %a0, i64 0)
-  %t2 = call i64 @l0_string(ptr @l0_str.169, i64 6)
+  %t2 = call i64 @l0_string(ptr @l0_str.174, i64 6)
   %t3 = call fastcc i64 @l0_f_digits(i64 %a1, i64 0)
-  %t4 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t4 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t5, i64 0, i64 0, i64 0, i64 0)
   %t7 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t6, i64 0, i64 0, i64 0, i64 0)
@@ -19034,19 +19148,19 @@ Le0:
   %t3 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t3)
   %t4 = add i64 %a1, 1
-  %t5 = call i64 @l0_string(ptr @l0_str.170, i64 8)
+  %t5 = call i64 @l0_string(ptr @l0_str.175, i64 8)
   %t6 = call fastcc i64 @l0_f_digits(i64 %a1, i64 0)
-  %t7 = call i64 @l0_string(ptr @l0_str.171, i64 34)
+  %t7 = call i64 @l0_string(ptr @l0_str.176, i64 34)
   %t8 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t8)
   %t9 = call fastcc i64 @l0_f_length.0(i64 %t8, i64 0)
   %t10 = call fastcc i64 @l0_f_digits(i64 %t9, i64 0)
-  %t11 = call i64 @l0_string(ptr @l0_str.172, i64 9)
+  %t11 = call i64 @l0_string(ptr @l0_str.177, i64 9)
   %t12 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t12)
   call void @l0_dec(i64 %a0)
   %t13 = call fastcc i64 @l0_f_ir_bytes(i64 %t12, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t14 = call i64 @l0_string(ptr @l0_str.173, i64 1)
+  %t14 = call i64 @l0_string(ptr @l0_str.178, i64 1)
   %t15 = call fastcc i64 @l0_f_append.0(i64 %t13, i64 %t14, i64 0, i64 0, i64 0, i64 0)
   %t16 = call fastcc i64 @l0_f_append.0(i64 %t11, i64 %t15, i64 0, i64 0, i64 0, i64 0)
   %t17 = call fastcc i64 @l0_f_append.0(i64 %t10, i64 %t16, i64 0, i64 0, i64 0, i64 0)
@@ -19137,8 +19251,8 @@ Lx6:
 define internal fastcc i64 @l0_f_emit_store(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.174, i64 12)
-  %t1 = call i64 @l0_string(ptr @l0_str.175, i64 6)
+  %t0 = call i64 @l0_string(ptr @l0_str.179, i64 12)
+  %t1 = call i64 @l0_string(ptr @l0_str.180, i64 6)
   %t2 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t3, i64 0, i64 0, i64 0, i64 0)
@@ -19149,7 +19263,7 @@ entry:
 define internal fastcc i64 @l0_f_emit_arm(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.176, i64 1)
+  %t0 = call i64 @l0_string(ptr @l0_str.181, i64 1)
   %t1 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t0, i64 0, i64 0, i64 0, i64 0)
   %t2 = call fastcc i64 @l0_f_emit_line(i64 %t1, i64 %a8, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a5)
@@ -19175,7 +19289,7 @@ Lt10:
   store i64 %t9, ptr %r10
   br label %Lx10
 Le10:
-  %t12 = call i64 @l0_string(ptr @l0_str.177, i64 12)
+  %t12 = call i64 @l0_string(ptr @l0_str.182, i64 12)
   %t13 = call fastcc i64 @l0_f_append.0(i64 %t12, i64 %a4, i64 0, i64 0, i64 0, i64 0)
   %t14 = call fastcc i64 @l0_f_emit_store(i64 %t7, i64 %a3, i64 %t9, i64 0, i64 0)
   %t15 = call fastcc i64 @l0_f_emit_line(i64 %t13, i64 %t14, i64 0, i64 0, i64 0)
@@ -19201,8 +19315,8 @@ Lt0:
   call void @l0_dec(i64 %a0)
   ret i64 %a2
 Le0:
-  %t2 = call i64 @l0_string(ptr @l0_str.143, i64 2)
-  %t3 = call i64 @l0_string(ptr @l0_str.178, i64 13)
+  %t2 = call i64 @l0_string(ptr @l0_str.148, i64 2)
+  %t3 = call i64 @l0_string(ptr @l0_str.183, i64 13)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = musttail call fastcc i64 @l0_f_emit_line(i64 %t5, i64 %a2, i64 0, i64 0, i64 0)
@@ -19217,7 +19331,7 @@ entry:
   call void @l0_inc(i64 %a2)
   %t1 = call fastcc i64 @l0_f_fv(i64 %a2, i64 0)
   %t2 = call fastcc i64 @l0_f_fresh_id(i64 %a6, i64 0)
-  %t3 = call i64 @l0_string(ptr @l0_str.179, i64 2)
+  %t3 = call i64 @l0_string(ptr @l0_str.184, i64 2)
   call void @l0_inc(i64 %t2)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_bump(i64 %a6)
@@ -19259,16 +19373,16 @@ Ln7:
 define internal fastcc i64 @l0_f_emit_if_arms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.180, i64 2)
+  %t0 = call i64 @l0_string(ptr @l0_str.185, i64 2)
   call void @l0_inc(i64 %a0)
   %t1 = call fastcc i64 @l0_f_append.0(i64 %t0, i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t2 = call i64 @l0_string(ptr @l0_str.181, i64 2)
+  %t2 = call i64 @l0_string(ptr @l0_str.186, i64 2)
   call void @l0_inc(i64 %a0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t4 = call i64 @l0_string(ptr @l0_str.182, i64 2)
+  %t4 = call i64 @l0_string(ptr @l0_str.187, i64 2)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t4, i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t7 = call i64 @l0_string(ptr @l0_str.183, i64 12)
-  %t8 = call i64 @l0_string(ptr @l0_str.184, i64 3)
+  %t7 = call i64 @l0_string(ptr @l0_str.188, i64 12)
+  %t8 = call i64 @l0_string(ptr @l0_str.189, i64 3)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %a2, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t9, i64 0, i64 0, i64 0, i64 0)
   %t11 = call fastcc i64 @l0_f_emit_assign(i64 %t10, i64 %a9, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -19281,9 +19395,9 @@ A6_0:
   %t15 = call i64 @l0_data_get(i64 %t11, i64 2)
   call void @l0_inc(i64 %t15)
   call void @l0_dec(i64 %t11)
-  %t16 = call i64 @l0_string(ptr @l0_str.185, i64 8)
-  %t17 = call i64 @l0_string(ptr @l0_str.186, i64 9)
-  %t18 = call i64 @l0_string(ptr @l0_str.186, i64 9)
+  %t16 = call i64 @l0_string(ptr @l0_str.190, i64 8)
+  %t17 = call i64 @l0_string(ptr @l0_str.191, i64 9)
+  %t18 = call i64 @l0_string(ptr @l0_str.191, i64 9)
   call void @l0_inc(i64 %t3)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %t1)
@@ -19344,10 +19458,10 @@ Lt2:
   call void @l0_data_set(i64 %t4, i64 2, i64 %t1)
   ret i64 %t4
 Le2:
-  %t5 = call i64 @l0_string(ptr @l0_str.176, i64 1)
+  %t5 = call i64 @l0_string(ptr @l0_str.181, i64 1)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %a4, i64 %t5, i64 0, i64 0, i64 0, i64 0)
   %t7 = call fastcc i64 @l0_f_emit_line(i64 %t6, i64 %t1, i64 0, i64 0, i64 0)
-  %t8 = call i64 @l0_string(ptr @l0_str.187, i64 14)
+  %t8 = call i64 @l0_string(ptr @l0_str.192, i64 14)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t8, i64 %a3, i64 0, i64 0, i64 0, i64 0)
   %t10 = call fastcc i64 @l0_f_emit_assign(i64 %t9, i64 %t7, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t11 = call i64 @l0_data_with(i64 %t10, i64 1, i64 %a5)
@@ -19823,7 +19937,7 @@ entry:
 define internal fastcc i64 @l0_f_is_borrowing(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.188, i64 224)
+  %t0 = call i64 @l0_string(ptr @l0_str.193, i64 279)
   %t1 = call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   %t2 = musttail call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t1)
   ret i64 %t2
@@ -19832,7 +19946,7 @@ entry:
 define internal fastcc i64 @l0_f_borrows_into_new(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.189, i64 24)
+  %t0 = call i64 @l0_string(ptr @l0_str.194, i64 24)
   %t1 = call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   %t2 = musttail call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t1)
   ret i64 %t2
@@ -19841,7 +19955,7 @@ entry:
 define internal fastcc i64 @l0_f_emit_call(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.190, i64 10)
+  %t1 = call i64 @l0_string(ptr @l0_str.195, i64 10)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -19861,7 +19975,7 @@ Lt0:
   %t8 = musttail call fastcc i64 @l0_f_emit_take(i64 %t5, i64 %t7, i64 %a2, i64 %a5, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t8
 Le0:
-  %t10 = call i64 @l0_string(ptr @l0_str.164, i64 9)
+  %t10 = call i64 @l0_string(ptr @l0_str.169, i64 9)
   %t11 = call i64 @l0_equal(i64 %a0, i64 %t10)
   call void @l0_dec(i64 %t10)
   %t12 = icmp ne i64 %t11, 0
@@ -19934,7 +20048,7 @@ define internal fastcc i64 @l0_f_is_short(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
   %r1 = alloca i64
-  %t2 = call i64 @l0_string(ptr @l0_str.191, i64 3)
+  %t2 = call i64 @l0_string(ptr @l0_str.196, i64 3)
   %t3 = call i64 @l0_equal(i64 %a0, i64 %t2)
   call void @l0_dec(i64 %t2)
   %t4 = icmp ne i64 %t3, 0
@@ -19943,7 +20057,7 @@ Lt1:
   store i64 1, ptr %r1
   br label %Lx1
 Le1:
-  %t5 = call i64 @l0_string(ptr @l0_str.192, i64 2)
+  %t5 = call i64 @l0_string(ptr @l0_str.197, i64 2)
   %t6 = call i64 @l0_equal(i64 %a0, i64 %t5)
   call void @l0_dec(i64 %t5)
   store i64 %t6, ptr %r1
@@ -19968,7 +20082,7 @@ define internal fastcc i64 @l0_f_emit_short(i64 %a0, i64 %a1, i64 %a2, i64 %a3, 
 entry:
   call void @l0_stack_check()
   %r0 = alloca i64
-  %t1 = call i64 @l0_string(ptr @l0_str.191, i64 3)
+  %t1 = call i64 @l0_string(ptr @l0_str.196, i64 3)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %t1)
@@ -20088,7 +20202,7 @@ define internal fastcc i64 @l0_f_row_update(i64 %a0, i64 %a1, i64 %a2) {
 entry:
   call void @l0_stack_check()
   %r1 = alloca i64
-  %t2 = call i64 @l0_string(ptr @l0_str.156, i64 9)
+  %t2 = call i64 @l0_string(ptr @l0_str.198, i64 9)
   %t3 = call i64 @l0_equal(i64 %a0, i64 %t2)
   call void @l0_dec(i64 %t2)
   %t4 = icmp ne i64 %t3, 0
@@ -20109,13 +20223,13 @@ Lx1:
   br i1 %t9, label %Lt0, label %Le0
 Lt0:
   %r11 = alloca i64
-  %t12 = call i64 @l0_string(ptr @l0_str.156, i64 9)
+  %t12 = call i64 @l0_string(ptr @l0_str.198, i64 9)
   call void @l0_inc(i64 %a2)
   %t13 = call fastcc i64 @l0_f_is_builtin_in(i64 %t12, i64 %a2)
   %t14 = icmp ne i64 %t13, 0
   br i1 %t14, label %Lt11, label %Le11
 Lt11:
-  %t15 = call i64 @l0_string(ptr @l0_str.65, i64 9)
+  %t15 = call i64 @l0_string(ptr @l0_str.70, i64 9)
   %t16 = call fastcc i64 @l0_f_is_builtin_in(i64 %t15, i64 %a2)
   store i64 %t16, ptr %r11
   br label %Lx11
@@ -20170,7 +20284,7 @@ A0_0:
   call void @l0_inc(i64 %t4)
   call void @l0_dec(i64 %a2)
   %r6 = alloca i64
-  %t7 = call i64 @l0_string(ptr @l0_str.156, i64 9)
+  %t7 = call i64 @l0_string(ptr @l0_str.198, i64 9)
   %t8 = call i64 @l0_equal(i64 %t3, i64 %t7)
   call void @l0_dec(i64 %t3)
   call void @l0_dec(i64 %t7)
@@ -20203,7 +20317,7 @@ A15_0:
   call void @l0_inc(i64 %t20)
   call void @l0_dec(i64 %t16)
   %r22 = alloca i64
-  %t23 = call i64 @l0_string(ptr @l0_str.65, i64 9)
+  %t23 = call i64 @l0_string(ptr @l0_str.70, i64 9)
   %t24 = call i64 @l0_equal(i64 %t19, i64 %t23)
   call void @l0_dec(i64 %t19)
   call void @l0_dec(i64 %t23)
@@ -20752,7 +20866,7 @@ entry:
   call void @l0_inc(i64 %a1)
   call void @l0_inc(i64 %a4)
   %t0 = call fastcc i64 @l0_f_index_op(i64 %a1, i64 %a4)
-  %t2 = call i64 @l0_string(ptr @l0_str.193, i64 12)
+  %t2 = call i64 @l0_string(ptr @l0_str.199, i64 12)
   %t3 = call i64 @l0_data_get(i64 %a4, i64 0)
   call void @l0_inc(i64 %t3)
   call void @l0_inc(i64 %a0)
@@ -20787,7 +20901,7 @@ A11_0:
   %t22 = call i64 @l0_data_get(i64 %t17, i64 3)
   call void @l0_inc(i64 %t22)
   call void @l0_dec(i64 %t17)
-  %t23 = call i64 @l0_string(ptr @l0_str.194, i64 16)
+  %t23 = call i64 @l0_string(ptr @l0_str.200, i64 16)
   %t24 = call fastcc i64 @l0_f_emit_rt_call(i64 %t23, i64 %t19, i64 %t22, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t25 = call i64 @l0_data_get(i64 %a4, i64 0)
   call void @l0_inc(i64 %t25)
@@ -20828,31 +20942,31 @@ A4_1:
   %t11 = call i64 @l0_data_get(i64 %a0, i64 2)
   %t12 = call i64 @l0_data_get(i64 %a0, i64 3)
   call void @l0_dec(i64 %a0)
-  %t13 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t13 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t13
 A4_2:
   %t14 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t15 = call i64 @l0_data_get(i64 %a0, i64 1)
   call void @l0_dec(i64 %a0)
-  %t16 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t16 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t16
 A4_3:
   %t17 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t18 = call i64 @l0_data_get(i64 %a0, i64 1)
   call void @l0_dec(i64 %a0)
-  %t19 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t19 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t19
 A4_4:
   %t20 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t21 = call i64 @l0_data_get(i64 %a0, i64 1)
   call void @l0_dec(i64 %a0)
-  %t22 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t22 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t22
 A4_5:
   %t23 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t24 = call i64 @l0_data_get(i64 %a0, i64 1)
   call void @l0_dec(i64 %a0)
-  %t25 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t25 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t25
 A4_6:
   %t26 = call i64 @l0_data_get(i64 %a0, i64 0)
@@ -20860,7 +20974,7 @@ A4_6:
   %t28 = call i64 @l0_data_get(i64 %a0, i64 2)
   %t29 = call i64 @l0_data_get(i64 %a0, i64 3)
   call void @l0_dec(i64 %a0)
-  %t30 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t30 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t30
 A4_7:
   %t31 = call i64 @l0_data_get(i64 %a0, i64 0)
@@ -20868,7 +20982,7 @@ A4_7:
   %t33 = call i64 @l0_data_get(i64 %a0, i64 2)
   %t34 = call i64 @l0_data_get(i64 %a0, i64 3)
   call void @l0_dec(i64 %a0)
-  %t35 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t35 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t35
 A4_8:
   %t36 = call i64 @l0_data_get(i64 %a0, i64 0)
@@ -20876,28 +20990,28 @@ A4_8:
   %t38 = call i64 @l0_data_get(i64 %a0, i64 2)
   %t39 = call i64 @l0_data_get(i64 %a0, i64 3)
   call void @l0_dec(i64 %a0)
-  %t40 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t40 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t40
 A4_9:
   %t41 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t42 = call i64 @l0_data_get(i64 %a0, i64 1)
   %t43 = call i64 @l0_data_get(i64 %a0, i64 2)
   call void @l0_dec(i64 %a0)
-  %t44 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t44 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t44
 A4_10:
   %t45 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t46 = call i64 @l0_data_get(i64 %a0, i64 1)
   %t47 = call i64 @l0_data_get(i64 %a0, i64 2)
   call void @l0_dec(i64 %a0)
-  %t48 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t48 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t48
 A4_11:
   %t49 = call i64 @l0_data_get(i64 %a0, i64 0)
   %t50 = call i64 @l0_data_get(i64 %a0, i64 1)
   %t51 = call i64 @l0_data_get(i64 %a0, i64 2)
   call void @l0_dec(i64 %a0)
-  %t52 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t52 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t52
 A4_12:
   %t53 = call i64 @l0_data_get(i64 %a0, i64 0)
@@ -20905,7 +21019,7 @@ A4_12:
   %t55 = call i64 @l0_data_get(i64 %a0, i64 2)
   %t56 = call i64 @l0_data_get(i64 %a0, i64 3)
   call void @l0_dec(i64 %a0)
-  %t57 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t57 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   ret i64 %t57
 Ln4:
   unreachable
@@ -20922,7 +21036,7 @@ define internal fastcc i64 @l0_f_through_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3
 entry:
   call void @l0_stack_check()
   %r1 = alloca i64
-  %t2 = call i64 @l0_string(ptr @l0_str.156, i64 9)
+  %t2 = call i64 @l0_string(ptr @l0_str.198, i64 9)
   %t3 = call i64 @l0_equal(i64 %a0, i64 %t2)
   call void @l0_dec(i64 %t2)
   %t4 = icmp ne i64 %t3, 0
@@ -20943,14 +21057,14 @@ Lx1:
   br i1 %t9, label %Lt0, label %Le0
 Lt0:
   %r11 = alloca i64
-  %t12 = call i64 @l0_string(ptr @l0_str.156, i64 9)
+  %t12 = call i64 @l0_string(ptr @l0_str.198, i64 9)
   %t13 = call i64 @l0_data_get(i64 %a2, i64 1)
   call void @l0_inc(i64 %t13)
   %t14 = call fastcc i64 @l0_f_is_builtin_in(i64 %t12, i64 %t13)
   %t15 = icmp ne i64 %t14, 0
   br i1 %t15, label %Lt11, label %Le11
 Lt11:
-  %t16 = call i64 @l0_string(ptr @l0_str.65, i64 9)
+  %t16 = call i64 @l0_string(ptr @l0_str.70, i64 9)
   %t17 = call i64 @l0_data_get(i64 %a2, i64 1)
   call void @l0_inc(i64 %t17)
   %t18 = call fastcc i64 @l0_f_is_builtin_in(i64 %t16, i64 %t17)
@@ -21300,7 +21414,7 @@ Le0:
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt3, label %Le3
 Lt3:
-  %t7 = call i64 @l0_string(ptr @l0_str.190, i64 10)
+  %t7 = call i64 @l0_string(ptr @l0_str.195, i64 10)
   %t8 = call i64 @l0_new_data(i64 4, i64 4, i64 4)
   call void @l0_data_set(i64 %t8, i64 0, i64 0)
   call void @l0_data_set(i64 %t8, i64 1, i64 %a0)
@@ -21339,7 +21453,7 @@ A0_0:
   call void @l0_inc(i64 %t4)
   call void @l0_dec(i64 %a2)
   %r6 = alloca i64
-  %t7 = call i64 @l0_string(ptr @l0_str.65, i64 9)
+  %t7 = call i64 @l0_string(ptr @l0_str.70, i64 9)
   %t8 = call i64 @l0_equal(i64 %t3, i64 %t7)
   call void @l0_dec(i64 %t3)
   call void @l0_dec(i64 %t7)
@@ -21484,7 +21598,7 @@ A0_0:
   %t4 = call i64 @l0_data_get(i64 %t2, i64 0)
   call void @l0_inc(i64 %t4)
   call void @l0_dec(i64 %t2)
-  %t5 = call i64 @l0_string(ptr @l0_str.195, i64 13)
+  %t5 = call i64 @l0_string(ptr @l0_str.201, i64 13)
   %t6 = call i64 @l0_data_get(i64 %a2, i64 0)
   call void @l0_inc(i64 %t6)
   %t7 = call fastcc i64 @l0_f_lookup_operand(i64 %a0, i64 %t6)
@@ -21498,7 +21612,7 @@ A0_1:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
-  %t12 = call i64 @l0_string(ptr @l0_str.195, i64 13)
+  %t12 = call i64 @l0_string(ptr @l0_str.201, i64 13)
   %t13 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t12, i64 0, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t13
 A0_2:
@@ -21506,7 +21620,7 @@ A0_2:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
-  %t14 = call i64 @l0_string(ptr @l0_str.195, i64 13)
+  %t14 = call i64 @l0_string(ptr @l0_str.201, i64 13)
   %t15 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t14, i64 0, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t15
 A0_3:
@@ -21515,7 +21629,7 @@ A0_3:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
-  %t17 = call i64 @l0_string(ptr @l0_str.195, i64 13)
+  %t17 = call i64 @l0_string(ptr @l0_str.201, i64 13)
   %t18 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t17, i64 0, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t18
 A0_4:
@@ -21525,7 +21639,7 @@ A0_4:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
-  %t21 = call i64 @l0_string(ptr @l0_str.195, i64 13)
+  %t21 = call i64 @l0_string(ptr @l0_str.201, i64 13)
   %t22 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t21, i64 0, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t22
 A0_5:
@@ -21533,7 +21647,7 @@ A0_5:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
-  %t23 = call i64 @l0_string(ptr @l0_str.195, i64 13)
+  %t23 = call i64 @l0_string(ptr @l0_str.201, i64 13)
   %t24 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t23, i64 0, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t24
 A0_6:
@@ -21541,7 +21655,7 @@ A0_6:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
-  %t25 = call i64 @l0_string(ptr @l0_str.195, i64 13)
+  %t25 = call i64 @l0_string(ptr @l0_str.201, i64 13)
   %t26 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t25, i64 0, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t26
 A0_7:
@@ -21551,7 +21665,7 @@ A0_7:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a1)
-  %t29 = call i64 @l0_string(ptr @l0_str.195, i64 13)
+  %t29 = call i64 @l0_string(ptr @l0_str.201, i64 13)
   %t30 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t29, i64 0, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t30
 Ln0:
@@ -21728,23 +21842,23 @@ entry:
   %t1 = icmp ne i64 %a3, 0
   br i1 %t1, label %Lt0, label %Le0
 Lt0:
-  %t2 = call i64 @l0_string(ptr @l0_str.196, i64 26)
+  %t2 = call i64 @l0_string(ptr @l0_str.202, i64 26)
   store i64 %t2, ptr %r0
   br label %Lx0
 Le0:
-  %t3 = call i64 @l0_string(ptr @l0_str.197, i64 17)
+  %t3 = call i64 @l0_string(ptr @l0_str.203, i64 17)
   store i64 %t3, ptr %r0
   br label %Lx0
 Lx0:
   %t4 = load i64, ptr %r0
-  %t5 = call i64 @l0_string(ptr @l0_str.146, i64 1)
+  %t5 = call i64 @l0_string(ptr @l0_str.151, i64 1)
   %t6 = call i64 @l0_data_get(i64 %a2, i64 3)
   call void @l0_inc(i64 %t6)
   call void @l0_dec(i64 %a2)
   %t7 = call fastcc i64 @l0_f_pad_of(i64 %a0, i64 %t6)
   %t8 = call fastcc i64 @l0_f_pad_ops(i64 %a1, i64 %t7)
   %t9 = call fastcc i64 @l0_f_fmt_ops(i64 %t8, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t10 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t10 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t11 = call fastcc i64 @l0_f_append.0(i64 %t9, i64 %t10, i64 0, i64 0, i64 0, i64 0)
   %t12 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t11, i64 0, i64 0, i64 0, i64 0)
   %t13 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t12, i64 0, i64 0, i64 0, i64 0)
@@ -21881,7 +21995,7 @@ Lx6:
 define internal fastcc i64 @l0_f_builtin_type(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.198, i64 70)
+  %t1 = call i64 @l0_string(ptr @l0_str.204, i64 70)
   %t2 = call fastcc i64 @l0_f_split_spaces(i64 %t1, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t3 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t2)
@@ -21893,7 +22007,7 @@ Lt0:
   %t5 = call i64 @l0_new_data(i64 1, i64 2, i64 0)
   ret i64 %t5
 Le0:
-  %t7 = call i64 @l0_string(ptr @l0_str.67, i64 4)
+  %t7 = call i64 @l0_string(ptr @l0_str.72, i64 4)
   %t8 = call i64 @l0_equal(i64 %a0, i64 %t7)
   call void @l0_dec(i64 %t7)
   %t9 = icmp ne i64 %t8, 0
@@ -21908,7 +22022,7 @@ Lt6:
   call void @l0_dec(i64 %t10)
   ret i64 %t11
 Le6:
-  %t13 = call i64 @l0_string(ptr @l0_str.199, i64 14)
+  %t13 = call i64 @l0_string(ptr @l0_str.205, i64 14)
   %t14 = call fastcc i64 @l0_f_split_spaces(i64 %t13, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t15 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t14)
@@ -21922,7 +22036,7 @@ Lt12:
   %t18 = musttail call fastcc i64 @l0_f_ty_elem(i64 %t17, i64 0)
   ret i64 %t18
 Le12:
-  %t20 = call i64 @l0_string(ptr @l0_str.200, i64 14)
+  %t20 = call i64 @l0_string(ptr @l0_str.206, i64 14)
   %t21 = call fastcc i64 @l0_f_split_spaces(i64 %t20, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t22 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t21)
@@ -21956,7 +22070,7 @@ Lt0:
   call void @l0_data_set(i64 %t6, i64 0, i64 %t5)
   ret i64 %t6
 Le0:
-  %t8 = call i64 @l0_string(ptr @l0_str.201, i64 91)
+  %t8 = call i64 @l0_string(ptr @l0_str.207, i64 133)
   %t9 = call fastcc i64 @l0_f_split_spaces(i64 %t8, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t10 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t9)
@@ -21968,7 +22082,7 @@ Lt7:
   %t12 = call i64 @l0_new_data(i64 6, i64 2, i64 0)
   ret i64 %t12
 Le7:
-  %t14 = call i64 @l0_string(ptr @l0_str.58, i64 9)
+  %t14 = call i64 @l0_string(ptr @l0_str.63, i64 9)
   %t15 = call i64 @l0_equal(i64 %a0, i64 %t14)
   call void @l0_dec(i64 %t14)
   %t16 = icmp ne i64 %t15, 0
@@ -21986,7 +22100,7 @@ Lt13:
   ret i64 %t19
 Le13:
   call void @l0_dec(i64 %a1)
-  %t21 = call i64 @l0_string(ptr @l0_str.202, i64 109)
+  %t21 = call i64 @l0_string(ptr @l0_str.208, i64 138)
   %t22 = call fastcc i64 @l0_f_split_spaces(i64 %t21, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t23 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t22)
@@ -21997,7 +22111,7 @@ Lt20:
   %t25 = call i64 @l0_new_data(i64 5, i64 2, i64 0)
   ret i64 %t25
 Le20:
-  %t27 = call i64 @l0_string(ptr @l0_str.54, i64 13)
+  %t27 = call i64 @l0_string(ptr @l0_str.55, i64 13)
   %t28 = call i64 @l0_equal(i64 %a0, i64 %t27)
   call void @l0_dec(i64 %t27)
   %t29 = icmp ne i64 %t28, 0
@@ -22009,7 +22123,7 @@ Lt26:
   call void @l0_data_set(i64 %t31, i64 0, i64 %t30)
   ret i64 %t31
 Le26:
-  %t33 = call i64 @l0_string(ptr @l0_str.203, i64 20)
+  %t33 = call i64 @l0_string(ptr @l0_str.209, i64 20)
   %t34 = call fastcc i64 @l0_f_split_spaces(i64 %t33, i64 0, i64 0, i64 0, i64 0)
   %t35 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t34)
   %t36 = icmp ne i64 %t35, 0
@@ -22054,7 +22168,7 @@ entry:
   %t2 = icmp ne i64 %t1, 0
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
-  %t4 = call i64 @l0_string(ptr @l0_str.204, i64 6)
+  %t4 = call i64 @l0_string(ptr @l0_str.210, i64 6)
   call void @l0_inc(i64 %a0)
   %t5 = call fastcc i64 @l0_f_starts_with(i64 %a0, i64 %t4)
   %t6 = icmp ne i64 %t5, 0
@@ -22070,14 +22184,14 @@ Lt3:
   ret i64 %t10
 Le3:
   %r11 = alloca i64
-  %t12 = call i64 @l0_string(ptr @l0_str.205, i64 15)
+  %t12 = call i64 @l0_string(ptr @l0_str.211, i64 15)
   %t13 = call i64 @l0_equal(i64 %a0, i64 %t12)
   call void @l0_dec(i64 %t12)
   %t14 = icmp ne i64 %t13, 0
   br i1 %t14, label %Lt11, label %Le11
 Lt11:
   call void @l0_dec(i64 %a0)
-  %t15 = call i64 @l0_string(ptr @l0_str.126, i64 4)
+  %t15 = call i64 @l0_string(ptr @l0_str.131, i64 4)
   store i64 %t15, ptr %r11
   br label %Lx11
 Le11:
@@ -22294,7 +22408,7 @@ define internal fastcc i64 @l0_f_ref_arg_ty(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
   %r0 = alloca i64
-  %t1 = call i64 @l0_string(ptr @l0_str.204, i64 6)
+  %t1 = call i64 @l0_string(ptr @l0_str.210, i64 6)
   call void @l0_inc(i64 %a0)
   %t2 = call fastcc i64 @l0_f_starts_with(i64 %a0, i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -22320,14 +22434,14 @@ Le0:
 Lx0:
   %t8 = load i64, ptr %r0
   %r10 = alloca i64
-  %t11 = call i64 @l0_string(ptr @l0_str.205, i64 15)
+  %t11 = call i64 @l0_string(ptr @l0_str.211, i64 15)
   %t12 = call i64 @l0_equal(i64 %a0, i64 %t11)
   call void @l0_dec(i64 %t11)
   %t13 = icmp ne i64 %t12, 0
   br i1 %t13, label %Lt10, label %Le10
 Lt10:
   call void @l0_dec(i64 %a0)
-  %t14 = call i64 @l0_string(ptr @l0_str.126, i64 4)
+  %t14 = call i64 @l0_string(ptr @l0_str.131, i64 4)
   store i64 %t14, ptr %r10
   br label %Lx10
 Le10:
@@ -22448,7 +22562,7 @@ A0_0:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a4)
-  %t5 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t5 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   %t6 = call i64 @l0_new_data(i64 0, i64 2, i64 0)
   %t7 = call i64 @l0_new_data(i64 0, i64 3, i64 14)
   call void @l0_data_set(i64 %t7, i64 0, i64 %t5)
@@ -22609,7 +22723,7 @@ Lx5:
 define internal fastcc i64 @l0_f_emit_ctor_block(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.206, i64 11)
+  %t1 = call i64 @l0_string(ptr @l0_str.212, i64 11)
   %t2 = call i64 @l0_data_get(i64 %a0, i64 2)
   %t3 = call fastcc i64 @l0_f_digits(i64 %t2, i64 0)
   call void @l0_inc(i64 %a0)
@@ -22656,14 +22770,14 @@ Le0:
   %t3 = call i64 @l0_tail(i64 %a1)
   call void @l0_inc(i64 %t3)
   %t4 = add i64 %a2, 1
-  %t5 = call i64 @l0_string(ptr @l0_str.207, i64 29)
-  %t6 = call i64 @l0_string(ptr @l0_str.169, i64 6)
+  %t5 = call i64 @l0_string(ptr @l0_str.213, i64 29)
+  %t6 = call i64 @l0_string(ptr @l0_str.174, i64 6)
   %t7 = call fastcc i64 @l0_f_digits(i64 %a2, i64 0)
-  %t8 = call i64 @l0_string(ptr @l0_str.169, i64 6)
+  %t8 = call i64 @l0_string(ptr @l0_str.174, i64 6)
   %t9 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t9)
   call void @l0_dec(i64 %a1)
-  %t10 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t10 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t11 = call fastcc i64 @l0_f_append.0(i64 %t9, i64 %t10, i64 0, i64 0, i64 0, i64 0)
   %t12 = call fastcc i64 @l0_f_append.0(i64 %t8, i64 %t11, i64 0, i64 0, i64 0, i64 0)
   %t13 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t12, i64 0, i64 0, i64 0, i64 0)
@@ -22685,7 +22799,7 @@ entry:
   call void @l0_inc(i64 %a3)
   %t1 = call fastcc i64 @l0_f_set_union(i64 %t0, i64 %a3)
   %t2 = call fastcc i64 @l0_f_fresh_id(i64 %a5, i64 0)
-  %t3 = call i64 @l0_string(ptr @l0_str.208, i64 2)
+  %t3 = call i64 @l0_string(ptr @l0_str.214, i64 2)
   call void @l0_inc(i64 %t2)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_bump(i64 %a5)
@@ -22766,8 +22880,8 @@ Ln22:
 define internal fastcc i64 @l0_f_arm_label(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.209, i64 1)
-  %t1 = call i64 @l0_string(ptr @l0_str.210, i64 1)
+  %t0 = call i64 @l0_string(ptr @l0_str.215, i64 1)
+  %t1 = call i64 @l0_string(ptr @l0_str.216, i64 1)
   %t2 = call fastcc i64 @l0_f_digits(i64 %a1, i64 0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t3, i64 0, i64 0, i64 0, i64 0)
@@ -22817,13 +22931,13 @@ Lt0:
   call void @l0_dec(i64 %a0)
   ret i64 0
 Le0:
-  %t3 = call i64 @l0_string(ptr @l0_str.148, i64 5)
+  %t3 = call i64 @l0_string(ptr @l0_str.153, i64 5)
   %t4 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t4)
   call void @l0_inc(i64 %a1)
   %t5 = call fastcc i64 @l0_f_arm_tag(i64 %t4, i64 %a1)
   %t6 = call fastcc i64 @l0_f_digits(i64 %t5, i64 0)
-  %t7 = call i64 @l0_string(ptr @l0_str.186, i64 9)
+  %t7 = call i64 @l0_string(ptr @l0_str.191, i64 9)
   call void @l0_inc(i64 %a2)
   %t8 = call fastcc i64 @l0_f_arm_label(i64 %a2, i64 %a3, i64 0, i64 0, i64 0, i64 0)
   %t9 = call i64 @l0_tail(i64 %a0)
@@ -22841,7 +22955,7 @@ Le0:
 define internal fastcc i64 @l0_f_emit_match_dispatch(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.211, i64 11)
+  %t1 = call i64 @l0_string(ptr @l0_str.217, i64 11)
   call void @l0_inc(i64 %a2)
   %t2 = call fastcc i64 @l0_f_one_op(i64 %a2)
   %t3 = call fastcc i64 @l0_f_emit_rt_call(i64 %t1, i64 %t2, i64 %a5, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -22854,21 +22968,21 @@ A0_0:
   %t7 = call i64 @l0_data_get(i64 %t3, i64 2)
   call void @l0_inc(i64 %t7)
   call void @l0_dec(i64 %t3)
-  %t8 = call i64 @l0_string(ptr @l0_str.212, i64 2)
+  %t8 = call i64 @l0_string(ptr @l0_str.218, i64 2)
   call void @l0_inc(i64 %a0)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t8, i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t10 = call i64 @l0_string(ptr @l0_str.213, i64 2)
+  %t10 = call i64 @l0_string(ptr @l0_str.219, i64 2)
   call void @l0_inc(i64 %a0)
   %t11 = call fastcc i64 @l0_f_append.0(i64 %t10, i64 %a0, i64 0, i64 0, i64 0, i64 0)
-  %t12 = call i64 @l0_string(ptr @l0_str.214, i64 13)
-  %t13 = call i64 @l0_string(ptr @l0_str.186, i64 9)
-  %t14 = call i64 @l0_string(ptr @l0_str.215, i64 2)
+  %t12 = call i64 @l0_string(ptr @l0_str.220, i64 13)
+  %t13 = call i64 @l0_string(ptr @l0_str.191, i64 9)
+  %t14 = call i64 @l0_string(ptr @l0_str.221, i64 2)
   %t15 = call i64 @l0_data_get(i64 %a4, i64 0)
   call void @l0_inc(i64 %t15)
   call void @l0_inc(i64 %a3)
   call void @l0_inc(i64 %a0)
   %t16 = call fastcc i64 @l0_f_switch_entries(i64 %a3, i64 %t15, i64 %a0, i64 0, i64 0, i64 0)
-  %t17 = call i64 @l0_string(ptr @l0_str.216, i64 2)
+  %t17 = call i64 @l0_string(ptr @l0_str.222, i64 2)
   %t18 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t17, i64 0, i64 0, i64 0, i64 0)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t14, i64 %t18, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %t11)
@@ -22900,8 +23014,8 @@ A0_0:
   %t6 = call i64 @l0_data_get(i64 %t2, i64 2)
   call void @l0_inc(i64 %t6)
   call void @l0_dec(i64 %t2)
-  %t7 = call i64 @l0_string(ptr @l0_str.217, i64 13)
-  %t8 = call i64 @l0_string(ptr @l0_str.176, i64 1)
+  %t7 = call i64 @l0_string(ptr @l0_str.223, i64 13)
+  %t8 = call i64 @l0_string(ptr @l0_str.181, i64 1)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %a6, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   %t10 = call fastcc i64 @l0_f_emit_line(i64 %t9, i64 %t6, i64 0, i64 0, i64 0)
   %t11 = call fastcc i64 @l0_f_emit_line(i64 %t7, i64 %t10, i64 0, i64 0, i64 0)
@@ -22918,10 +23032,10 @@ Lt12:
   call void @l0_data_set(i64 %t15, i64 2, i64 %t11)
   ret i64 %t15
 Le12:
-  %t16 = call i64 @l0_string(ptr @l0_str.176, i64 1)
+  %t16 = call i64 @l0_string(ptr @l0_str.181, i64 1)
   %t17 = call fastcc i64 @l0_f_append.0(i64 %a5, i64 %t16, i64 0, i64 0, i64 0, i64 0)
   %t18 = call fastcc i64 @l0_f_emit_line(i64 %t17, i64 %t11, i64 0, i64 0, i64 0)
-  %t19 = call i64 @l0_string(ptr @l0_str.187, i64 14)
+  %t19 = call i64 @l0_string(ptr @l0_str.192, i64 14)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %t19, i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t21 = call fastcc i64 @l0_f_emit_assign(i64 %t20, i64 %t18, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t22 = call i64 @l0_data_with(i64 %t21, i64 1, i64 %t5)
@@ -22994,7 +23108,7 @@ A0_0:
   call void @l0_dec(i64 %a0)
   call void @l0_inc(i64 %t5)
   %t6 = call fastcc i64 @l0_f_fv(i64 %t5, i64 0)
-  %t7 = call i64 @l0_string(ptr @l0_str.176, i64 1)
+  %t7 = call i64 @l0_string(ptr @l0_str.181, i64 1)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %a2, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = call fastcc i64 @l0_f_emit_line(i64 %t8, i64 %a6, i64 0, i64 0, i64 0)
   %t11 = call i64 @l0_data_get(i64 %a1, i64 6)
@@ -23085,7 +23199,7 @@ Lt46:
   store i64 %t45, ptr %r46
   br label %Lx46
 Le46:
-  %t49 = call i64 @l0_string(ptr @l0_str.177, i64 12)
+  %t49 = call i64 @l0_string(ptr @l0_str.182, i64 12)
   %t50 = call fastcc i64 @l0_f_append.0(i64 %t49, i64 %a5, i64 0, i64 0, i64 0, i64 0)
   %t51 = call fastcc i64 @l0_f_emit_store(i64 %t43, i64 %a3, i64 %t45, i64 0, i64 0)
   %t52 = call fastcc i64 @l0_f_emit_line(i64 %t50, i64 %t51, i64 0, i64 0, i64 0)
@@ -23136,7 +23250,7 @@ Lt0:
   call void @l0_data_set(i64 %t3, i64 1, i64 %a7)
   ret i64 %t3
 Le0:
-  %t5 = call i64 @l0_string(ptr @l0_str.162, i64 11)
+  %t5 = call i64 @l0_string(ptr @l0_str.167, i64 11)
   %t6 = call fastcc i64 @l0_f_digits(i64 %a3, i64 0)
   call void @l0_inc(i64 %a0)
   %t7 = call fastcc i64 @l0_f_two_ops(i64 %a0, i64 %t6)
@@ -23311,7 +23425,7 @@ entry:
 define internal fastcc i64 @l0_f_arith_ops(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.218, i64 18)
+  %t0 = call i64 @l0_string(ptr @l0_str.224, i64 18)
   %t1 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -23319,7 +23433,7 @@ entry:
 define internal fastcc i64 @l0_f_cmp_names(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.219, i64 14)
+  %t0 = call i64 @l0_string(ptr @l0_str.225, i64 14)
   %t1 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -23327,7 +23441,7 @@ entry:
 define internal fastcc i64 @l0_f_cmp_preds(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.220, i64 18)
+  %t0 = call i64 @l0_string(ptr @l0_str.226, i64 18)
   %t1 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -23335,7 +23449,7 @@ entry:
 define internal fastcc i64 @l0_f_io_names(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.221, i64 780)
+  %t0 = call i64 @l0_string(ptr @l0_str.227, i64 864)
   %t1 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -23343,7 +23457,7 @@ entry:
 define internal fastcc i64 @l0_f_rt_names(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.222, i64 82)
+  %t0 = call i64 @l0_string(ptr @l0_str.228, i64 82)
   %t1 = call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   %t2 = call fastcc i64 @l0_f_io_names(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t3 = musttail call fastcc i64 @l0_f_append.1(i64 %t1, i64 %t2, i64 0, i64 0, i64 0)
@@ -23353,7 +23467,7 @@ entry:
 define internal fastcc i64 @l0_f_rt_syms(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.223, i64 115)
+  %t0 = call i64 @l0_string(ptr @l0_str.229, i64 115)
   %t1 = call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   %t2 = call fastcc i64 @l0_f_io_names(i64 0, i64 0, i64 0, i64 0, i64 0)
   %t3 = call fastcc i64 @l0_f_l0_prefixed(i64 %t2)
@@ -23364,7 +23478,7 @@ entry:
 define internal fastcc i64 @l0_f_bit_ops(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.224, i64 22)
+  %t0 = call i64 @l0_string(ptr @l0_str.230, i64 22)
   %t1 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -23372,7 +23486,7 @@ entry:
 define internal fastcc i64 @l0_f_bit_insts(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.225, i64 10)
+  %t0 = call i64 @l0_string(ptr @l0_str.231, i64 10)
   %t1 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -23386,7 +23500,7 @@ entry:
 Lt0:
   ret i64 %a0
 Le0:
-  %t3 = call i64 @l0_string(ptr @l0_str.226, i64 3)
+  %t3 = call i64 @l0_string(ptr @l0_str.232, i64 3)
   %t4 = call i64 @l0_head(i64 %a0)
   call void @l0_inc(i64 %t4)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t4, i64 0, i64 0, i64 0, i64 0)
@@ -23423,7 +23537,7 @@ define internal fastcc i64 @l0_f_emit_op(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64
 entry:
   call void @l0_stack_check()
   %r1 = alloca i64
-  %t2 = call i64 @l0_string(ptr @l0_str.40, i64 2)
+  %t2 = call i64 @l0_string(ptr @l0_str.41, i64 2)
   %t3 = call i64 @l0_equal(i64 %a0, i64 %t2)
   call void @l0_dec(i64 %t2)
   %t4 = icmp ne i64 %t3, 0
@@ -23444,18 +23558,18 @@ Lx1:
 Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a0)
-  %t9 = call i64 @l0_string(ptr @l0_str.227, i64 8)
+  %t9 = call i64 @l0_string(ptr @l0_str.233, i64 8)
   %t10 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t9, i64 %a1, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t10
 Le0:
-  %t12 = call i64 @l0_string(ptr @l0_str.41, i64 4)
+  %t12 = call i64 @l0_string(ptr @l0_str.42, i64 4)
   %t13 = call i64 @l0_equal(i64 %a0, i64 %t12)
   call void @l0_dec(i64 %t12)
   %t14 = icmp ne i64 %t13, 0
   br i1 %t14, label %Lt11, label %Le11
 Lt11:
   call void @l0_dec(i64 %a0)
-  %t15 = call i64 @l0_string(ptr @l0_str.228, i64 7)
+  %t15 = call i64 @l0_string(ptr @l0_str.234, i64 7)
   %r16 = alloca i64
   %t17 = call i64 @l0_head(i64 %a2)
   call void @l0_inc(i64 %t17)
@@ -23464,11 +23578,11 @@ Lt11:
   %t19 = icmp ne i64 %t18, 0
   br i1 %t19, label %Lt16, label %Le16
 Lt16:
-  %t20 = call i64 @l0_string(ptr @l0_str.155, i64 1)
+  %t20 = call i64 @l0_string(ptr @l0_str.160, i64 1)
   store i64 %t20, ptr %r16
   br label %Lx16
 Le16:
-  %t21 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t21 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   store i64 %t21, ptr %r16
   br label %Lx16
 Lx16:
@@ -23478,7 +23592,7 @@ Lx16:
   %t25 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t15, i64 %t24, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t25
 Le11:
-  %t27 = call i64 @l0_string(ptr @l0_str.42, i64 7)
+  %t27 = call i64 @l0_string(ptr @l0_str.43, i64 7)
   %t28 = call i64 @l0_equal(i64 %a0, i64 %t27)
   call void @l0_dec(i64 %t27)
   %t29 = icmp ne i64 %t28, 0
@@ -23492,7 +23606,7 @@ Lt26:
   %t33 = icmp ne i64 %t32, 0
   br i1 %t33, label %Lt30, label %Le30
 Lt30:
-  %t34 = call i64 @l0_string(ptr @l0_str.229, i64 10)
+  %t34 = call i64 @l0_string(ptr @l0_str.235, i64 10)
   %t35 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t34, i64 %a1, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t35
 Le30:
@@ -23514,7 +23628,7 @@ Le26:
 define internal fastcc i64 @l0_f_emit_compare_ints(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.230, i64 3)
+  %t1 = call i64 @l0_string(ptr @l0_str.236, i64 3)
   call void @l0_inc(i64 %a0)
   call void @l0_inc(i64 %a1)
   %t2 = call fastcc i64 @l0_f_emit_cmp(i64 %t1, i64 %a0, i64 %a1, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -23527,7 +23641,7 @@ A0_0:
   %t6 = call i64 @l0_data_get(i64 %t2, i64 2)
   call void @l0_inc(i64 %t6)
   call void @l0_dec(i64 %t2)
-  %t8 = call i64 @l0_string(ptr @l0_str.231, i64 3)
+  %t8 = call i64 @l0_string(ptr @l0_str.237, i64 3)
   %t9 = call fastcc i64 @l0_f_emit_cmp(i64 %t8, i64 %a0, i64 %a1, i64 %t6, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t10 = call i64 @l0_data_tag(i64 %t9)
   switch i64 %t10, label %Ln7 [ i64 0, label %A7_0 ]
@@ -23538,7 +23652,7 @@ A7_0:
   %t13 = call i64 @l0_data_get(i64 %t9, i64 2)
   call void @l0_inc(i64 %t13)
   call void @l0_dec(i64 %t9)
-  %t14 = call i64 @l0_string(ptr @l0_str.232, i64 3)
+  %t14 = call i64 @l0_string(ptr @l0_str.238, i64 3)
   %t15 = musttail call fastcc i64 @l0_f_emit_binop(i64 %t14, i64 %t4, i64 %t11, i64 %t13, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t15
 Ln7:
@@ -23615,7 +23729,7 @@ Le22:
 define internal fastcc i64 @l0_f_emit_op_rest(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.37, i64 3)
+  %t1 = call i64 @l0_string(ptr @l0_str.38, i64 3)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -23623,8 +23737,8 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a0)
-  %t4 = call i64 @l0_string(ptr @l0_str.232, i64 3)
-  %t5 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t4 = call i64 @l0_string(ptr @l0_str.238, i64 3)
+  %t5 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   %t6 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t6)
   call void @l0_dec(i64 %a1)
@@ -23672,8 +23786,8 @@ Le22:
 define internal fastcc i64 @l0_f_f_map(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.233, i64 9)
-  %t2 = call i64 @l0_string(ptr @l0_str.234, i64 4)
+  %t1 = call i64 @l0_string(ptr @l0_str.239, i64 9)
+  %t2 = call i64 @l0_string(ptr @l0_str.240, i64 4)
   call void @l0_inc(i64 %a0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t3, i64 0, i64 0, i64 0, i64 0)
@@ -23687,8 +23801,8 @@ A0_0:
   %t9 = call i64 @l0_data_get(i64 %t5, i64 2)
   call void @l0_inc(i64 %t9)
   call void @l0_dec(i64 %t5)
-  %t11 = call i64 @l0_string(ptr @l0_str.235, i64 9)
-  %t12 = call i64 @l0_string(ptr @l0_str.236, i64 3)
+  %t11 = call i64 @l0_string(ptr @l0_str.241, i64 9)
+  %t12 = call i64 @l0_string(ptr @l0_str.242, i64 3)
   %t13 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t12, i64 0, i64 0, i64 0, i64 0)
   %t14 = call fastcc i64 @l0_f_append.0(i64 %t11, i64 %t13, i64 0, i64 0, i64 0, i64 0)
   %t15 = call fastcc i64 @l0_f_emit_assign(i64 %t14, i64 %t9, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -23701,7 +23815,7 @@ A10_0:
   %t19 = call i64 @l0_data_get(i64 %t15, i64 2)
   call void @l0_inc(i64 %t19)
   call void @l0_dec(i64 %t15)
-  %t20 = call i64 @l0_string(ptr @l0_str.237, i64 3)
+  %t20 = call i64 @l0_string(ptr @l0_str.243, i64 3)
   %t21 = musttail call fastcc i64 @l0_f_emit_binop(i64 %t20, i64 %a0, i64 %t17, i64 %t19, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t21
 Ln10:
@@ -23723,8 +23837,8 @@ A0_0:
   %t5 = call i64 @l0_data_get(i64 %t1, i64 2)
   call void @l0_inc(i64 %t5)
   call void @l0_dec(i64 %t1)
-  %t6 = call i64 @l0_string(ptr @l0_str.238, i64 12)
-  %t7 = call i64 @l0_string(ptr @l0_str.239, i64 10)
+  %t6 = call i64 @l0_string(ptr @l0_str.244, i64 12)
+  %t7 = call i64 @l0_string(ptr @l0_str.245, i64 10)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   %t10 = musttail call fastcc i64 @l0_f_emit_assign(i64 %t9, i64 %t5, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -23736,8 +23850,8 @@ Ln0:
 define internal fastcc i64 @l0_f_f_encode(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.240, i64 15)
-  %t2 = call i64 @l0_string(ptr @l0_str.151, i64 7)
+  %t1 = call i64 @l0_string(ptr @l0_str.246, i64 15)
+  %t2 = call i64 @l0_string(ptr @l0_str.156, i64 7)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t5 = call fastcc i64 @l0_f_emit_assign(i64 %t4, i64 %a1, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -23770,8 +23884,8 @@ A0_0:
   %t5 = call i64 @l0_data_get(i64 %t1, i64 2)
   call void @l0_inc(i64 %t5)
   call void @l0_dec(i64 %t1)
-  %t7 = call i64 @l0_string(ptr @l0_str.241, i64 16)
-  %t8 = call i64 @l0_string(ptr @l0_str.141, i64 2)
+  %t7 = call i64 @l0_string(ptr @l0_str.247, i64 16)
+  %t8 = call i64 @l0_string(ptr @l0_str.146, i64 2)
   call void @l0_inc(i64 %a0)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t8, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t9, i64 0, i64 0, i64 0, i64 0)
@@ -23786,8 +23900,8 @@ A6_0:
   %t16 = call i64 @l0_data_get(i64 %t12, i64 2)
   call void @l0_inc(i64 %t16)
   call void @l0_dec(i64 %t12)
-  %t17 = call i64 @l0_string(ptr @l0_str.242, i64 10)
-  %t18 = call i64 @l0_string(ptr @l0_str.243, i64 31)
+  %t17 = call i64 @l0_string(ptr @l0_str.248, i64 10)
+  %t18 = call i64 @l0_string(ptr @l0_str.249, i64 31)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %t14, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   %t21 = call fastcc i64 @l0_f_append.0(i64 %t17, i64 %t20, i64 0, i64 0, i64 0, i64 0)
@@ -23802,9 +23916,9 @@ Ln0:
 define internal fastcc i64 @l0_f_f_arith(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.244, i64 19)
+  %t0 = call i64 @l0_string(ptr @l0_str.250, i64 19)
   %t1 = call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
-  %t2 = call i64 @l0_string(ptr @l0_str.245, i64 39)
+  %t2 = call i64 @l0_string(ptr @l0_str.251, i64 39)
   %t3 = call fastcc i64 @l0_f_split_spaces(i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = call fastcc i64 @l0_f_index_of.1(i64 %a0, i64 %t3, i64 0)
   %t5 = musttail call fastcc i64 @l0_f_nth_str(i64 %t1, i64 %t4)
@@ -23814,7 +23928,7 @@ entry:
 define internal fastcc i64 @l0_f_f_pred(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.246, i64 15)
+  %t0 = call i64 @l0_string(ptr @l0_str.252, i64 15)
   %t1 = call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   %t2 = call i64 @l0_string(ptr @l0_str.26, i64 35)
   %t3 = call fastcc i64 @l0_f_split_spaces(i64 %t2, i64 0, i64 0, i64 0, i64 0)
@@ -23826,7 +23940,7 @@ entry:
 define internal fastcc i64 @l0_f_emit_float_op(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.245, i64 39)
+  %t1 = call i64 @l0_string(ptr @l0_str.251, i64 39)
   %t2 = call fastcc i64 @l0_f_split_spaces(i64 %t1, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t3 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t2)
@@ -23863,8 +23977,8 @@ A12_0:
   call void @l0_dec(i64 %t15)
   %t21 = call fastcc i64 @l0_f_f_arith(i64 %a0, i64 0)
   call void @l0_dec(i64 %a0)
-  %t22 = call i64 @l0_string(ptr @l0_str.247, i64 8)
-  %t23 = call i64 @l0_string(ptr @l0_str.141, i64 2)
+  %t22 = call i64 @l0_string(ptr @l0_str.253, i64 8)
+  %t23 = call i64 @l0_string(ptr @l0_str.146, i64 2)
   %t24 = call fastcc i64 @l0_f_append.0(i64 %t23, i64 %t17, i64 0, i64 0, i64 0, i64 0)
   %t25 = call fastcc i64 @l0_f_append.0(i64 %t9, i64 %t24, i64 0, i64 0, i64 0, i64 0)
   %t26 = call fastcc i64 @l0_f_append.0(i64 %t22, i64 %t25, i64 0, i64 0, i64 0, i64 0)
@@ -23930,11 +24044,11 @@ A12_0:
   %t19 = call i64 @l0_data_get(i64 %t15, i64 2)
   call void @l0_inc(i64 %t19)
   call void @l0_dec(i64 %t15)
-  %t21 = call i64 @l0_string(ptr @l0_str.248, i64 5)
+  %t21 = call i64 @l0_string(ptr @l0_str.254, i64 5)
   %t22 = call fastcc i64 @l0_f_f_pred(i64 %a0, i64 0)
   call void @l0_dec(i64 %a0)
-  %t23 = call i64 @l0_string(ptr @l0_str.247, i64 8)
-  %t24 = call i64 @l0_string(ptr @l0_str.141, i64 2)
+  %t23 = call i64 @l0_string(ptr @l0_str.253, i64 8)
+  %t24 = call i64 @l0_string(ptr @l0_str.146, i64 2)
   %t25 = call fastcc i64 @l0_f_append.0(i64 %t24, i64 %t17, i64 0, i64 0, i64 0, i64 0)
   %t26 = call fastcc i64 @l0_f_append.0(i64 %t9, i64 %t25, i64 0, i64 0, i64 0, i64 0)
   %t27 = call fastcc i64 @l0_f_append.0(i64 %t23, i64 %t26, i64 0, i64 0, i64 0, i64 0)
@@ -23950,8 +24064,8 @@ A20_0:
   %t34 = call i64 @l0_data_get(i64 %t30, i64 2)
   call void @l0_inc(i64 %t34)
   call void @l0_dec(i64 %t30)
-  %t35 = call i64 @l0_string(ptr @l0_str.150, i64 8)
-  %t36 = call i64 @l0_string(ptr @l0_str.151, i64 7)
+  %t35 = call i64 @l0_string(ptr @l0_str.155, i64 8)
+  %t36 = call i64 @l0_string(ptr @l0_str.156, i64 7)
   %t37 = call fastcc i64 @l0_f_append.0(i64 %t32, i64 %t36, i64 0, i64 0, i64 0, i64 0)
   %t38 = call fastcc i64 @l0_f_append.0(i64 %t35, i64 %t37, i64 0, i64 0, i64 0, i64 0)
   %t39 = musttail call fastcc i64 @l0_f_emit_assign(i64 %t38, i64 %t34, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -23973,7 +24087,7 @@ Le0:
 define internal fastcc i64 @l0_f_emit_float_op_conv(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.249, i64 9)
+  %t1 = call i64 @l0_string(ptr @l0_str.255, i64 9)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -23990,7 +24104,7 @@ A4_0:
   %t9 = call i64 @l0_data_get(i64 %t5, i64 2)
   call void @l0_inc(i64 %t9)
   call void @l0_dec(i64 %t5)
-  %t11 = call i64 @l0_string(ptr @l0_str.250, i64 12)
+  %t11 = call i64 @l0_string(ptr @l0_str.256, i64 12)
   %t12 = call fastcc i64 @l0_f_append.0(i64 %t11, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t13 = call fastcc i64 @l0_f_emit_assign(i64 %t12, i64 %t9, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t14 = call i64 @l0_data_tag(i64 %t13)
@@ -24009,7 +24123,7 @@ Ln10:
 Ln4:
   unreachable
 Le0:
-  %t20 = call i64 @l0_string(ptr @l0_str.251, i64 10)
+  %t20 = call i64 @l0_string(ptr @l0_str.257, i64 10)
   %t21 = call i64 @l0_equal(i64 %a0, i64 %t20)
   call void @l0_dec(i64 %t20)
   %t22 = icmp ne i64 %t21, 0
@@ -24026,8 +24140,8 @@ A23_0:
   %t28 = call i64 @l0_data_get(i64 %t24, i64 2)
   call void @l0_inc(i64 %t28)
   call void @l0_dec(i64 %t24)
-  %t30 = call i64 @l0_string(ptr @l0_str.252, i64 34)
-  %t31 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t30 = call i64 @l0_string(ptr @l0_str.258, i64 34)
+  %t31 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t32 = call fastcc i64 @l0_f_append.0(i64 %t26, i64 %t31, i64 0, i64 0, i64 0, i64 0)
   %t33 = call fastcc i64 @l0_f_append.0(i64 %t30, i64 %t32, i64 0, i64 0, i64 0, i64 0)
   %t34 = call fastcc i64 @l0_f_emit_assign(i64 %t33, i64 %t28, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -24047,15 +24161,15 @@ Ln29:
 Ln23:
   unreachable
 Le19:
-  %t41 = call i64 @l0_string(ptr @l0_str.253, i64 14)
+  %t41 = call i64 @l0_string(ptr @l0_str.259, i64 14)
   %t42 = call i64 @l0_equal(i64 %a0, i64 %t41)
   call void @l0_dec(i64 %t41)
   %t43 = icmp ne i64 %t42, 0
   br i1 %t43, label %Lt40, label %Le40
 Lt40:
   call void @l0_dec(i64 %a0)
-  %t45 = call i64 @l0_string(ptr @l0_str.254, i64 11)
-  %t46 = call i64 @l0_string(ptr @l0_str.239, i64 10)
+  %t45 = call i64 @l0_string(ptr @l0_str.260, i64 11)
+  %t46 = call i64 @l0_string(ptr @l0_str.245, i64 10)
   %t47 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t46, i64 0, i64 0, i64 0, i64 0)
   %t48 = call fastcc i64 @l0_f_append.0(i64 %t45, i64 %t47, i64 0, i64 0, i64 0, i64 0)
   %t49 = call fastcc i64 @l0_f_emit_assign(i64 %t48, i64 %a2, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -24073,7 +24187,7 @@ A44_0:
 Ln44:
   unreachable
 Le40:
-  %t56 = call i64 @l0_string(ptr @l0_str.255, i64 12)
+  %t56 = call i64 @l0_string(ptr @l0_str.261, i64 12)
   %t57 = call i64 @l0_equal(i64 %a0, i64 %t56)
   call void @l0_dec(i64 %t56)
   %t58 = icmp ne i64 %t57, 0
@@ -24090,8 +24204,8 @@ A59_0:
   %t64 = call i64 @l0_data_get(i64 %t60, i64 2)
   call void @l0_inc(i64 %t64)
   call void @l0_dec(i64 %t60)
-  %t65 = call i64 @l0_string(ptr @l0_str.256, i64 41)
-  %t66 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t65 = call i64 @l0_string(ptr @l0_str.262, i64 41)
+  %t66 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t67 = call fastcc i64 @l0_f_append.0(i64 %t62, i64 %t66, i64 0, i64 0, i64 0, i64 0)
   %t68 = call fastcc i64 @l0_f_append.0(i64 %t65, i64 %t67, i64 0, i64 0, i64 0, i64 0)
   %t69 = musttail call fastcc i64 @l0_f_emit_assign(i64 %t68, i64 %t64, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -24099,7 +24213,7 @@ A59_0:
 Ln59:
   unreachable
 Le55:
-  %t71 = call i64 @l0_string(ptr @l0_str.257, i64 10)
+  %t71 = call i64 @l0_string(ptr @l0_str.263, i64 10)
   %t72 = call i64 @l0_equal(i64 %a0, i64 %t71)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %t71)
@@ -24127,8 +24241,8 @@ A0_0:
   %t5 = call i64 @l0_data_get(i64 %t1, i64 2)
   call void @l0_inc(i64 %t5)
   call void @l0_dec(i64 %t1)
-  %t7 = call i64 @l0_string(ptr @l0_str.238, i64 12)
-  %t8 = call i64 @l0_string(ptr @l0_str.239, i64 10)
+  %t7 = call i64 @l0_string(ptr @l0_str.244, i64 12)
+  %t8 = call i64 @l0_string(ptr @l0_str.245, i64 10)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t9, i64 0, i64 0, i64 0, i64 0)
   %t11 = call fastcc i64 @l0_f_emit_assign(i64 %t10, i64 %t5, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
@@ -24141,8 +24255,8 @@ A6_0:
   %t15 = call i64 @l0_data_get(i64 %t11, i64 2)
   call void @l0_inc(i64 %t15)
   call void @l0_dec(i64 %t11)
-  %t17 = call i64 @l0_string(ptr @l0_str.241, i64 16)
-  %t18 = call i64 @l0_string(ptr @l0_str.141, i64 2)
+  %t17 = call i64 @l0_string(ptr @l0_str.247, i64 16)
+  %t18 = call i64 @l0_string(ptr @l0_str.146, i64 2)
   call void @l0_inc(i64 %t13)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t13, i64 0, i64 0, i64 0, i64 0)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %t13, i64 %t19, i64 0, i64 0, i64 0, i64 0)
@@ -24157,8 +24271,8 @@ A16_0:
   %t26 = call i64 @l0_data_get(i64 %t22, i64 2)
   call void @l0_inc(i64 %t26)
   call void @l0_dec(i64 %t22)
-  %t27 = call i64 @l0_string(ptr @l0_str.242, i64 10)
-  %t28 = call i64 @l0_string(ptr @l0_str.243, i64 31)
+  %t27 = call i64 @l0_string(ptr @l0_str.248, i64 10)
+  %t28 = call i64 @l0_string(ptr @l0_str.249, i64 31)
   %t29 = call fastcc i64 @l0_f_append.0(i64 %t28, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   %t30 = call fastcc i64 @l0_f_append.0(i64 %t24, i64 %t29, i64 0, i64 0, i64 0, i64 0)
   %t31 = call fastcc i64 @l0_f_append.0(i64 %t27, i64 %t30, i64 0, i64 0, i64 0, i64 0)
@@ -24175,9 +24289,9 @@ Ln0:
 define internal fastcc i64 @l0_f_emit_float_lit(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.258, i64 14)
+  %t1 = call i64 @l0_string(ptr @l0_str.264, i64 14)
   %t2 = call fastcc i64 @l0_f_hex_digits(i64 %a0, i64 16, i64 0)
-  %t3 = call i64 @l0_string(ptr @l0_str.259, i64 4)
+  %t3 = call i64 @l0_string(ptr @l0_str.265, i64 4)
   %t4 = call fastcc i64 @l0_f_hex_digits(i64 %a1, i64 16, i64 0)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t5, i64 0, i64 0, i64 0, i64 0)
@@ -24195,7 +24309,7 @@ A0_0:
   %t14 = icmp ne i64 %a2, 0
   br i1 %t14, label %Lt13, label %Le13
 Lt13:
-  %t16 = call i64 @l0_string(ptr @l0_str.250, i64 12)
+  %t16 = call i64 @l0_string(ptr @l0_str.256, i64 12)
   %t17 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t10, i64 0, i64 0, i64 0, i64 0)
   %t18 = call fastcc i64 @l0_f_emit_assign(i64 %t17, i64 %t12, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t19 = call i64 @l0_data_tag(i64 %t18)
@@ -24225,7 +24339,7 @@ Ln0:
 define internal fastcc i64 @l0_f_emit_op_more(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5, i64 %a6, i64 %a7, i64 %a8, i64 %a9) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.39, i64 3)
+  %t1 = call i64 @l0_string(ptr @l0_str.40, i64 3)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -24233,22 +24347,22 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a2)
-  %t4 = call i64 @l0_string(ptr @l0_str.237, i64 3)
+  %t4 = call i64 @l0_string(ptr @l0_str.243, i64 3)
   %t5 = call i64 @l0_head(i64 %a1)
   call void @l0_inc(i64 %t5)
   call void @l0_dec(i64 %a1)
-  %t6 = call i64 @l0_string(ptr @l0_str.155, i64 1)
+  %t6 = call i64 @l0_string(ptr @l0_str.160, i64 1)
   %t7 = musttail call fastcc i64 @l0_f_emit_binop(i64 %t4, i64 %t5, i64 %t6, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t7
 Le0:
-  %t9 = call i64 @l0_string(ptr @l0_str.58, i64 9)
+  %t9 = call i64 @l0_string(ptr @l0_str.63, i64 9)
   %t10 = call i64 @l0_equal(i64 %a0, i64 %t9)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %t9)
   %t11 = icmp ne i64 %t10, 0
   br i1 %t11, label %Lt8, label %Le8
 Lt8:
-  %t12 = call i64 @l0_string(ptr @l0_str.260, i64 12)
+  %t12 = call i64 @l0_string(ptr @l0_str.266, i64 12)
   %r13 = alloca i64
   %t14 = call i64 @l0_tail(i64 %a2)
   call void @l0_inc(i64 %t14)
@@ -24260,11 +24374,11 @@ Lt8:
   %t17 = icmp ne i64 %t16, 0
   br i1 %t17, label %Lt13, label %Le13
 Lt13:
-  %t18 = call i64 @l0_string(ptr @l0_str.155, i64 1)
+  %t18 = call i64 @l0_string(ptr @l0_str.160, i64 1)
   store i64 %t18, ptr %r13
   br label %Lx13
 Le13:
-  %t19 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t19 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   store i64 %t19, ptr %r13
   br label %Lx13
 Lx13:
@@ -24274,7 +24388,7 @@ Lx13:
   %t23 = musttail call fastcc i64 @l0_f_emit_rt_call(i64 %t12, i64 %t22, i64 %a3, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t23
 Le8:
-  %t24 = call i64 @l0_string(ptr @l0_str.261, i64 11)
+  %t24 = call i64 @l0_string(ptr @l0_str.267, i64 11)
   %t25 = call i64 @l0_tail(i64 %a2)
   call void @l0_inc(i64 %t25)
   call void @l0_dec(i64 %a2)
@@ -24307,21 +24421,21 @@ Le0:
   %t6 = icmp ne i64 %t5, 0
   br i1 %t6, label %Lt4, label %Le4
 Lt4:
-  %t7 = call i64 @l0_string(ptr @l0_str.135, i64 5)
+  %t7 = call i64 @l0_string(ptr @l0_str.140, i64 5)
   %t8 = musttail call fastcc i64 @l0_f_append.0(i64 %t7, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t8
 Le4:
-  %t10 = call i64 @l0_string(ptr @l0_str.126, i64 4)
+  %t10 = call i64 @l0_string(ptr @l0_str.131, i64 4)
   %t11 = call i64 @l0_equal(i64 %a0, i64 %t10)
   call void @l0_dec(i64 %t10)
   %t12 = icmp ne i64 %t11, 0
   br i1 %t12, label %Lt9, label %Le9
 Lt9:
   call void @l0_dec(i64 %a0)
-  %t13 = call i64 @l0_string(ptr @l0_str.136, i64 14)
+  %t13 = call i64 @l0_string(ptr @l0_str.141, i64 14)
   ret i64 %t13
 Le9:
-  %t14 = call i64 @l0_string(ptr @l0_str.137, i64 5)
+  %t14 = call i64 @l0_string(ptr @l0_str.142, i64 5)
   %t15 = musttail call fastcc i64 @l0_f_append.0(i64 %t14, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t15
 }
@@ -24347,7 +24461,7 @@ entry:
   %t1 = icmp ne i64 %a1, 0
   br i1 %t1, label %Lt0, label %Le0
 Lt0:
-  %t2 = call i64 @l0_string(ptr @l0_str.135, i64 5)
+  %t2 = call i64 @l0_string(ptr @l0_str.140, i64 5)
   %t3 = musttail call fastcc i64 @l0_f_append.0(i64 %t2, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t3
 Le0:
@@ -25217,7 +25331,7 @@ A0_0:
   %t9 = icmp ne i64 %t8, 0
   br i1 %t9, label %Lt6, label %Le6
 Lt6:
-  %t10 = call i64 @l0_string(ptr @l0_str.156, i64 9)
+  %t10 = call i64 @l0_string(ptr @l0_str.198, i64 9)
   %t11 = call i64 @l0_equal(i64 %t3, i64 %t10)
   call void @l0_dec(i64 %t10)
   store i64 %t11, ptr %r6
@@ -25899,7 +26013,7 @@ A3_1:
   %t19 = zext i1 %t18 to i64
   %t20 = call fastcc i64 @l0_f_def_sym(i64 %t13, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   %r21 = alloca i64
-  %t22 = call i64 @l0_string(ptr @l0_str.136, i64 14)
+  %t22 = call i64 @l0_string(ptr @l0_str.141, i64 14)
   %t23 = call i64 @l0_equal(i64 %t20, i64 %t22)
   call void @l0_dec(i64 %t22)
   %t24 = icmp ne i64 %t23, 0
@@ -26484,7 +26598,7 @@ Ln4:
 define internal fastcc i64 @l0_f_reads_no_pointer(i64 %a0, i64 %a1) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.199, i64 14)
+  %t1 = call i64 @l0_string(ptr @l0_str.205, i64 14)
   %t2 = call fastcc i64 @l0_f_split_spaces(i64 %t1, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a0)
   %t3 = call fastcc i64 @l0_f_any_eq.1(i64 %a0, i64 %t2)
@@ -26498,7 +26612,7 @@ Lt0:
   ret i64 %t7
 Le0:
   call void @l0_dec(i64 %a1)
-  %t9 = call i64 @l0_string(ptr @l0_str.70, i64 4)
+  %t9 = call i64 @l0_string(ptr @l0_str.75, i64 4)
   %t10 = call i64 @l0_equal(i64 %a0, i64 %t9)
   call void @l0_dec(i64 %t9)
   %t11 = icmp ne i64 %t10, 0
@@ -27489,7 +27603,7 @@ Lt0:
 Lt3:
   ret i64 %a0
 Le3:
-  %t7 = call i64 @l0_string(ptr @l0_str.139, i64 1)
+  %t7 = call i64 @l0_string(ptr @l0_str.144, i64 1)
   %t8 = sub i64 %a1, 1
   %t9 = call fastcc i64 @l0_f_pad_ops(i64 %a0, i64 %t8)
   %t10 = call i64 @l0_new_cons(i64 %t7, i64 %t9, i64 3)
@@ -27516,7 +27630,7 @@ entry:
 Lt0:
   ret i64 0
 Le0:
-  %t4 = call i64 @l0_string(ptr @l0_str.262, i64 6)
+  %t4 = call i64 @l0_string(ptr @l0_str.268, i64 6)
   %t5 = call fastcc i64 @l0_f_digits(i64 %a0, i64 0)
   %r6 = alloca i64
   %t7 = add i64 %a0, 1
@@ -27528,7 +27642,7 @@ Lt6:
   store i64 0, ptr %r6
   br label %Lx6
 Le6:
-  %t11 = call i64 @l0_string(ptr @l0_str.141, i64 2)
+  %t11 = call i64 @l0_string(ptr @l0_str.146, i64 2)
   %t12 = add i64 %a0, 1
   %t13 = call fastcc i64 @l0_f_fmt_params(i64 %t12, i64 %a1, i64 0, i64 0, i64 0, i64 0)
   %t14 = call fastcc i64 @l0_f_append.0(i64 %t11, i64 %t13, i64 0, i64 0, i64 0, i64 0)
@@ -27568,7 +27682,7 @@ A3_0:
   call void @l0_inc(i64 %a1)
   %t9 = call fastcc i64 @l0_f_flag_tail(i64 %a1)
   %t10 = add i64 %a2, 1
-  %t11 = call i64 @l0_string(ptr @l0_str.263, i64 2)
+  %t11 = call i64 @l0_string(ptr @l0_str.269, i64 2)
   %t12 = call fastcc i64 @l0_f_digits(i64 %a2, i64 0)
   %t13 = call fastcc i64 @l0_f_append.0(i64 %t11, i64 %t12, i64 0, i64 0, i64 0, i64 0)
   %t14 = call fastcc i64 @l0_f_flag_head(i64 %a1)
@@ -27615,10 +27729,10 @@ A0_1:
   %t14 = call i64 @l0_data_get(i64 %a1, i64 3)
   call void @l0_inc(i64 %t14)
   %t15 = call fastcc i64 @l0_f_pad_of(i64 %t13, i64 %t14)
-  %t16 = call i64 @l0_string(ptr @l0_str.264, i64 28)
-  %t17 = call i64 @l0_string(ptr @l0_str.146, i64 1)
+  %t16 = call i64 @l0_string(ptr @l0_str.270, i64 28)
+  %t17 = call i64 @l0_string(ptr @l0_str.151, i64 1)
   %t18 = call fastcc i64 @l0_f_fmt_params(i64 0, i64 %t15, i64 0, i64 0, i64 0, i64 0)
-  %t19 = call i64 @l0_string(ptr @l0_str.265, i64 3)
+  %t19 = call i64 @l0_string(ptr @l0_str.271, i64 3)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   %t21 = call fastcc i64 @l0_f_append.0(i64 %t17, i64 %t20, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %t13)
@@ -27627,8 +27741,8 @@ A0_1:
   %t24 = call fastcc i64 @l0_f_emit_entry(i64 %t7, i64 %t9, i64 %t15, i64 %a1, i64 %a2)
   call void @l0_dec(i64 %t7)
   %t25 = call fastcc i64 @l0_f_emit_line(i64 %t23, i64 %t24, i64 0, i64 0, i64 0)
-  %t26 = call i64 @l0_string(ptr @l0_str.266, i64 29)
-  %t27 = call i64 @l0_string(ptr @l0_str.267, i64 6)
+  %t26 = call i64 @l0_string(ptr @l0_str.272, i64 29)
+  %t27 = call i64 @l0_string(ptr @l0_str.273, i64 6)
   %t28 = call fastcc i64 @l0_f_emit_line(i64 %t27, i64 %t25, i64 0, i64 0, i64 0)
   %t29 = call fastcc i64 @l0_f_emit_line(i64 %t26, i64 %t28, i64 0, i64 0, i64 0)
   %t30 = call i64 @l0_data_get(i64 %a1, i64 3)
@@ -27652,7 +27766,7 @@ A0_1:
   call void @l0_data_set(i64 %t37, i64 2, i64 %t34)
   call void @l0_data_set(i64 %t37, i64 3, i64 %t35)
   call void @l0_data_set(i64 %t37, i64 4, i64 %t36)
-  %t38 = call i64 @l0_string(ptr @l0_str.268, i64 1)
+  %t38 = call i64 @l0_string(ptr @l0_str.274, i64 1)
   %t39 = call fastcc i64 @l0_f_param_names(i64 %t9)
   call void @l0_inc(i64 %t11)
   %t40 = call fastcc i64 @l0_f_fv(i64 %t11, i64 0)
@@ -27710,7 +27824,7 @@ Lt1:
   store i64 1, ptr %r1
   br label %Lx1
 Le1:
-  %t4 = call i64 @l0_string(ptr @l0_str.126, i64 4)
+  %t4 = call i64 @l0_string(ptr @l0_str.131, i64 4)
   %t5 = call i64 @l0_equal(i64 %a0, i64 %t4)
   call void @l0_dec(i64 %t4)
   %t6 = xor i64 %t5, 1
@@ -27731,22 +27845,22 @@ Lt9:
   store i64 0, ptr %r9
   br label %Lx9
 Le9:
-  %t12 = call i64 @l0_string(ptr @l0_str.269, i64 3)
+  %t12 = call i64 @l0_string(ptr @l0_str.275, i64 3)
   %t13 = call fastcc i64 @l0_f_one_op(i64 %t12)
   store i64 %t13, ptr %r9
   br label %Lx9
 Lx9:
   %t14 = load i64, ptr %r9
   %t15 = call fastcc i64 @l0_f_pad_ops(i64 %t14, i64 %a2)
-  %t16 = call i64 @l0_string(ptr @l0_str.268, i64 1)
-  %t17 = call i64 @l0_string(ptr @l0_str.270, i64 12)
-  %t18 = call i64 @l0_string(ptr @l0_str.271, i64 39)
+  %t16 = call i64 @l0_string(ptr @l0_str.274, i64 1)
+  %t17 = call i64 @l0_string(ptr @l0_str.276, i64 12)
+  %t18 = call i64 @l0_string(ptr @l0_str.277, i64 39)
   %t19 = call fastcc i64 @l0_f_fmt_ops(i64 %t15, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t20 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t20 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t21 = call fastcc i64 @l0_f_append.0(i64 %t19, i64 %t20, i64 0, i64 0, i64 0, i64 0)
   %t22 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t21, i64 0, i64 0, i64 0, i64 0)
-  %t23 = call i64 @l0_string(ptr @l0_str.267, i64 6)
-  %t24 = call i64 @l0_string(ptr @l0_str.272, i64 32)
+  %t23 = call i64 @l0_string(ptr @l0_str.273, i64 6)
+  %t24 = call i64 @l0_string(ptr @l0_str.278, i64 32)
   %t25 = call fastcc i64 @l0_f_emit_line(i64 %t24, i64 %a4, i64 0, i64 0, i64 0)
   %t26 = call fastcc i64 @l0_f_emit_line(i64 %t23, i64 %t25, i64 0, i64 0, i64 0)
   %t27 = call fastcc i64 @l0_f_emit_line(i64 %t22, i64 %t26, i64 0, i64 0, i64 0)
@@ -27861,20 +27975,20 @@ entry:
 define internal fastcc i64 @l0_f_ir_header(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.273, i64 31)
-  %t1 = call i64 @l0_string(ptr @l0_str.274, i64 31)
-  %t2 = call i64 @l0_string(ptr @l0_str.275, i64 26)
-  %t3 = call i64 @l0_string(ptr @l0_str.276, i64 26)
-  %t4 = call i64 @l0_string(ptr @l0_str.277, i64 30)
-  %t5 = call i64 @l0_string(ptr @l0_str.278, i64 30)
-  %t6 = call i64 @l0_string(ptr @l0_str.279, i64 30)
-  %t7 = call i64 @l0_string(ptr @l0_str.280, i64 35)
-  %t8 = call i64 @l0_string(ptr @l0_str.281, i64 41)
-  %t9 = call i64 @l0_string(ptr @l0_str.282, i64 30)
-  %t10 = call i64 @l0_string(ptr @l0_str.283, i64 112)
-  %t11 = call i64 @l0_string(ptr @l0_str.284, i64 31)
-  %t12 = call i64 @l0_string(ptr @l0_str.285, i64 28)
-  %t13 = call i64 @l0_string(ptr @l0_str.286, i64 32)
+  %t0 = call i64 @l0_string(ptr @l0_str.279, i64 31)
+  %t1 = call i64 @l0_string(ptr @l0_str.280, i64 31)
+  %t2 = call i64 @l0_string(ptr @l0_str.281, i64 26)
+  %t3 = call i64 @l0_string(ptr @l0_str.282, i64 26)
+  %t4 = call i64 @l0_string(ptr @l0_str.283, i64 30)
+  %t5 = call i64 @l0_string(ptr @l0_str.284, i64 30)
+  %t6 = call i64 @l0_string(ptr @l0_str.285, i64 30)
+  %t7 = call i64 @l0_string(ptr @l0_str.286, i64 35)
+  %t8 = call i64 @l0_string(ptr @l0_str.287, i64 41)
+  %t9 = call i64 @l0_string(ptr @l0_str.288, i64 30)
+  %t10 = call i64 @l0_string(ptr @l0_str.289, i64 112)
+  %t11 = call i64 @l0_string(ptr @l0_str.290, i64 31)
+  %t12 = call i64 @l0_string(ptr @l0_str.291, i64 28)
+  %t13 = call i64 @l0_string(ptr @l0_str.292, i64 32)
   %t14 = call fastcc i64 @l0_f_io_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t15 = call fastcc i64 @l0_f_append.0(i64 %t13, i64 %t14, i64 0, i64 0, i64 0, i64 0)
   %t16 = call fastcc i64 @l0_f_append.0(i64 %t12, i64 %t15, i64 0, i64 0, i64 0, i64 0)
@@ -27896,8 +28010,8 @@ entry:
 define internal fastcc i64 @l0_f_io_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.287, i64 26)
-  %t1 = call i64 @l0_string(ptr @l0_str.288, i64 26)
+  %t0 = call i64 @l0_string(ptr @l0_str.293, i64 26)
+  %t1 = call i64 @l0_string(ptr @l0_str.294, i64 26)
   %t2 = call fastcc i64 @l0_f_io_decls_counted(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = musttail call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t3, i64 0, i64 0, i64 0, i64 0)
@@ -27907,8 +28021,8 @@ entry:
 define internal fastcc i64 @l0_f_io_decls_counted(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.289, i64 73)
-  %t1 = call i64 @l0_string(ptr @l0_str.290, i64 40)
+  %t0 = call i64 @l0_string(ptr @l0_str.295, i64 73)
+  %t1 = call i64 @l0_string(ptr @l0_str.296, i64 40)
   %t2 = call fastcc i64 @l0_f_io_decls_rest(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t3 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t2, i64 0, i64 0, i64 0, i64 0)
   %t4 = musttail call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t3, i64 0, i64 0, i64 0, i64 0)
@@ -27918,13 +28032,13 @@ entry:
 define internal fastcc i64 @l0_f_io_decls_rest(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.291, i64 31)
-  %t1 = call i64 @l0_string(ptr @l0_str.292, i64 35)
-  %t2 = call i64 @l0_string(ptr @l0_str.293, i64 31)
-  %t3 = call i64 @l0_string(ptr @l0_str.294, i64 32)
-  %t4 = call i64 @l0_string(ptr @l0_str.295, i64 27)
-  %t5 = call i64 @l0_string(ptr @l0_str.296, i64 28)
-  %t6 = call i64 @l0_string(ptr @l0_str.297, i64 25)
+  %t0 = call i64 @l0_string(ptr @l0_str.297, i64 31)
+  %t1 = call i64 @l0_string(ptr @l0_str.298, i64 35)
+  %t2 = call i64 @l0_string(ptr @l0_str.299, i64 31)
+  %t3 = call i64 @l0_string(ptr @l0_str.300, i64 32)
+  %t4 = call i64 @l0_string(ptr @l0_str.301, i64 27)
+  %t5 = call i64 @l0_string(ptr @l0_str.302, i64 28)
+  %t6 = call i64 @l0_string(ptr @l0_str.303, i64 25)
   %t7 = call fastcc i64 @l0_f_io_decls_files(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t8, i64 0, i64 0, i64 0, i64 0)
@@ -27939,12 +28053,12 @@ entry:
 define internal fastcc i64 @l0_f_io_decls_files(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.298, i64 27)
-  %t1 = call i64 @l0_string(ptr @l0_str.299, i64 33)
-  %t2 = call i64 @l0_string(ptr @l0_str.300, i64 33)
-  %t3 = call i64 @l0_string(ptr @l0_str.301, i64 32)
-  %t4 = call i64 @l0_string(ptr @l0_str.302, i64 30)
-  %t5 = call i64 @l0_string(ptr @l0_str.303, i64 34)
+  %t0 = call i64 @l0_string(ptr @l0_str.304, i64 27)
+  %t1 = call i64 @l0_string(ptr @l0_str.305, i64 33)
+  %t2 = call i64 @l0_string(ptr @l0_str.306, i64 33)
+  %t3 = call i64 @l0_string(ptr @l0_str.307, i64 32)
+  %t4 = call i64 @l0_string(ptr @l0_str.308, i64 30)
+  %t5 = call i64 @l0_string(ptr @l0_str.309, i64 34)
   %t6 = call fastcc i64 @l0_f_array_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t7 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t6, i64 0, i64 0, i64 0, i64 0)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t4, i64 %t7, i64 0, i64 0, i64 0, i64 0)
@@ -27958,11 +28072,11 @@ entry:
 define internal fastcc i64 @l0_f_array_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.304, i64 41)
-  %t1 = call i64 @l0_string(ptr @l0_str.305, i64 31)
-  %t2 = call i64 @l0_string(ptr @l0_str.306, i64 36)
-  %t3 = call i64 @l0_string(ptr @l0_str.307, i64 41)
-  %t4 = call i64 @l0_string(ptr @l0_str.308, i64 50)
+  %t0 = call i64 @l0_string(ptr @l0_str.310, i64 41)
+  %t1 = call i64 @l0_string(ptr @l0_str.311, i64 31)
+  %t2 = call i64 @l0_string(ptr @l0_str.312, i64 36)
+  %t3 = call i64 @l0_string(ptr @l0_str.313, i64 41)
+  %t4 = call i64 @l0_string(ptr @l0_str.314, i64 50)
   %t5 = call fastcc i64 @l0_f_bytes_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %t4, i64 %t5, i64 0, i64 0, i64 0, i64 0)
   %t7 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t6, i64 0, i64 0, i64 0, i64 0)
@@ -27975,15 +28089,15 @@ entry:
 define internal fastcc i64 @l0_f_bytes_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.309, i64 32)
-  %t1 = call i64 @l0_string(ptr @l0_str.310, i64 31)
-  %t2 = call i64 @l0_string(ptr @l0_str.311, i64 36)
-  %t3 = call i64 @l0_string(ptr @l0_str.312, i64 37)
-  %t4 = call i64 @l0_string(ptr @l0_str.313, i64 35)
-  %t5 = call i64 @l0_string(ptr @l0_str.314, i64 48)
-  %t6 = call i64 @l0_string(ptr @l0_str.315, i64 27)
-  %t7 = call i64 @l0_string(ptr @l0_str.316, i64 32)
-  %t8 = call i64 @l0_string(ptr @l0_str.317, i64 31)
+  %t0 = call i64 @l0_string(ptr @l0_str.315, i64 32)
+  %t1 = call i64 @l0_string(ptr @l0_str.316, i64 31)
+  %t2 = call i64 @l0_string(ptr @l0_str.317, i64 36)
+  %t3 = call i64 @l0_string(ptr @l0_str.318, i64 37)
+  %t4 = call i64 @l0_string(ptr @l0_str.319, i64 35)
+  %t5 = call i64 @l0_string(ptr @l0_str.320, i64 48)
+  %t6 = call i64 @l0_string(ptr @l0_str.321, i64 27)
+  %t7 = call i64 @l0_string(ptr @l0_str.322, i64 32)
+  %t8 = call i64 @l0_string(ptr @l0_str.323, i64 31)
   %t9 = call fastcc i64 @l0_f_bit_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %t8, i64 %t9, i64 0, i64 0, i64 0, i64 0)
   %t11 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t10, i64 0, i64 0, i64 0, i64 0)
@@ -28000,43 +28114,55 @@ entry:
 define internal fastcc i64 @l0_f_bit_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.318, i64 34)
-  %t1 = call i64 @l0_string(ptr @l0_str.319, i64 34)
-  %t2 = call i64 @l0_string(ptr @l0_str.320, i64 31)
-  %t3 = call i64 @l0_string(ptr @l0_str.321, i64 45)
-  %t4 = call i64 @l0_string(ptr @l0_str.322, i64 38)
-  %t5 = call i64 @l0_string(ptr @l0_str.323, i64 28)
-  %t6 = call i64 @l0_string(ptr @l0_str.324, i64 34)
-  %t7 = call i64 @l0_string(ptr @l0_str.325, i64 36)
-  %t8 = call fastcc i64 @l0_f_region_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t9 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t8, i64 0, i64 0, i64 0, i64 0)
-  %t10 = call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t9, i64 0, i64 0, i64 0, i64 0)
-  %t11 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t10, i64 0, i64 0, i64 0, i64 0)
-  %t12 = call fastcc i64 @l0_f_append.0(i64 %t4, i64 %t11, i64 0, i64 0, i64 0, i64 0)
-  %t13 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t12, i64 0, i64 0, i64 0, i64 0)
-  %t14 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t13, i64 0, i64 0, i64 0, i64 0)
-  %t15 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t14, i64 0, i64 0, i64 0, i64 0)
-  %t16 = musttail call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t15, i64 0, i64 0, i64 0, i64 0)
-  ret i64 %t16
+  %t0 = call i64 @l0_string(ptr @l0_str.324, i64 34)
+  %t1 = call i64 @l0_string(ptr @l0_str.325, i64 34)
+  %t2 = call i64 @l0_string(ptr @l0_str.326, i64 31)
+  %t3 = call i64 @l0_string(ptr @l0_str.327, i64 54)
+  %t4 = call i64 @l0_string(ptr @l0_str.328, i64 55)
+  %t5 = call i64 @l0_string(ptr @l0_str.329, i64 40)
+  %t6 = call i64 @l0_string(ptr @l0_str.330, i64 40)
+  %t7 = call i64 @l0_string(ptr @l0_str.331, i64 45)
+  %t8 = call i64 @l0_string(ptr @l0_str.332, i64 61)
+  %t9 = call i64 @l0_string(ptr @l0_str.333, i64 45)
+  %t10 = call i64 @l0_string(ptr @l0_str.334, i64 38)
+  %t11 = call i64 @l0_string(ptr @l0_str.335, i64 28)
+  %t12 = call i64 @l0_string(ptr @l0_str.336, i64 34)
+  %t13 = call i64 @l0_string(ptr @l0_str.337, i64 36)
+  %t14 = call fastcc i64 @l0_f_region_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
+  %t15 = call fastcc i64 @l0_f_append.0(i64 %t13, i64 %t14, i64 0, i64 0, i64 0, i64 0)
+  %t16 = call fastcc i64 @l0_f_append.0(i64 %t12, i64 %t15, i64 0, i64 0, i64 0, i64 0)
+  %t17 = call fastcc i64 @l0_f_append.0(i64 %t11, i64 %t16, i64 0, i64 0, i64 0, i64 0)
+  %t18 = call fastcc i64 @l0_f_append.0(i64 %t10, i64 %t17, i64 0, i64 0, i64 0, i64 0)
+  %t19 = call fastcc i64 @l0_f_append.0(i64 %t9, i64 %t18, i64 0, i64 0, i64 0, i64 0)
+  %t20 = call fastcc i64 @l0_f_append.0(i64 %t8, i64 %t19, i64 0, i64 0, i64 0, i64 0)
+  %t21 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t20, i64 0, i64 0, i64 0, i64 0)
+  %t22 = call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t21, i64 0, i64 0, i64 0, i64 0)
+  %t23 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t22, i64 0, i64 0, i64 0, i64 0)
+  %t24 = call fastcc i64 @l0_f_append.0(i64 %t4, i64 %t23, i64 0, i64 0, i64 0, i64 0)
+  %t25 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t24, i64 0, i64 0, i64 0, i64 0)
+  %t26 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t25, i64 0, i64 0, i64 0, i64 0)
+  %t27 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t26, i64 0, i64 0, i64 0, i64 0)
+  %t28 = musttail call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t27, i64 0, i64 0, i64 0, i64 0)
+  ret i64 %t28
 }
 
 define internal fastcc i64 @l0_f_region_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.326, i64 38)
-  %t1 = call i64 @l0_string(ptr @l0_str.327, i64 34)
-  %t2 = call i64 @l0_string(ptr @l0_str.328, i64 39)
-  %t3 = call i64 @l0_string(ptr @l0_str.329, i64 40)
-  %t4 = call i64 @l0_string(ptr @l0_str.330, i64 40)
-  %t5 = call i64 @l0_string(ptr @l0_str.331, i64 40)
-  %t6 = call i64 @l0_string(ptr @l0_str.332, i64 45)
-  %t7 = call i64 @l0_string(ptr @l0_str.333, i64 46)
-  %t8 = call i64 @l0_string(ptr @l0_str.334, i64 46)
-  %t9 = call i64 @l0_string(ptr @l0_str.335, i64 46)
-  %t10 = call i64 @l0_string(ptr @l0_str.336, i64 49)
-  %t11 = call i64 @l0_string(ptr @l0_str.337, i64 60)
-  %t12 = call i64 @l0_string(ptr @l0_str.338, i64 26)
-  %t13 = call i64 @l0_string(ptr @l0_str.339, i64 37)
+  %t0 = call i64 @l0_string(ptr @l0_str.338, i64 38)
+  %t1 = call i64 @l0_string(ptr @l0_str.339, i64 34)
+  %t2 = call i64 @l0_string(ptr @l0_str.340, i64 39)
+  %t3 = call i64 @l0_string(ptr @l0_str.341, i64 40)
+  %t4 = call i64 @l0_string(ptr @l0_str.342, i64 40)
+  %t5 = call i64 @l0_string(ptr @l0_str.343, i64 40)
+  %t6 = call i64 @l0_string(ptr @l0_str.344, i64 45)
+  %t7 = call i64 @l0_string(ptr @l0_str.345, i64 46)
+  %t8 = call i64 @l0_string(ptr @l0_str.346, i64 46)
+  %t9 = call i64 @l0_string(ptr @l0_str.347, i64 46)
+  %t10 = call i64 @l0_string(ptr @l0_str.348, i64 49)
+  %t11 = call i64 @l0_string(ptr @l0_str.349, i64 60)
+  %t12 = call i64 @l0_string(ptr @l0_str.350, i64 26)
+  %t13 = call i64 @l0_string(ptr @l0_str.351, i64 37)
   %t14 = call fastcc i64 @l0_f_user_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t15 = call fastcc i64 @l0_f_append.0(i64 %t13, i64 %t14, i64 0, i64 0, i64 0, i64 0)
   %t16 = call fastcc i64 @l0_f_append.0(i64 %t12, i64 %t15, i64 0, i64 0, i64 0, i64 0)
@@ -28058,13 +28184,13 @@ entry:
 define internal fastcc i64 @l0_f_user_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.340, i64 28)
-  %t1 = call i64 @l0_string(ptr @l0_str.341, i64 28)
-  %t2 = call i64 @l0_string(ptr @l0_str.342, i64 46)
-  %t3 = call i64 @l0_string(ptr @l0_str.343, i64 53)
-  %t4 = call i64 @l0_string(ptr @l0_str.344, i64 42)
-  %t5 = call i64 @l0_string(ptr @l0_str.345, i64 53)
-  %t6 = call i64 @l0_string(ptr @l0_str.346, i64 35)
+  %t0 = call i64 @l0_string(ptr @l0_str.352, i64 28)
+  %t1 = call i64 @l0_string(ptr @l0_str.353, i64 28)
+  %t2 = call i64 @l0_string(ptr @l0_str.354, i64 46)
+  %t3 = call i64 @l0_string(ptr @l0_str.355, i64 53)
+  %t4 = call i64 @l0_string(ptr @l0_str.356, i64 42)
+  %t5 = call i64 @l0_string(ptr @l0_str.357, i64 53)
+  %t6 = call i64 @l0_string(ptr @l0_str.358, i64 35)
   %t7 = call fastcc i64 @l0_f_interrupt_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t8, i64 0, i64 0, i64 0, i64 0)
@@ -28079,23 +28205,23 @@ entry:
 define internal fastcc i64 @l0_f_interrupt_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.347, i64 30)
-  %t1 = call i64 @l0_string(ptr @l0_str.348, i64 38)
-  %t2 = call i64 @l0_string(ptr @l0_str.349, i64 33)
-  %t3 = call i64 @l0_string(ptr @l0_str.350, i64 36)
-  %t4 = call i64 @l0_string(ptr @l0_str.351, i64 52)
-  %t5 = call i64 @l0_string(ptr @l0_str.352, i64 57)
-  %t6 = call i64 @l0_string(ptr @l0_str.353, i64 50)
-  %t7 = call i64 @l0_string(ptr @l0_str.354, i64 35)
-  %t8 = call i64 @l0_string(ptr @l0_str.355, i64 38)
-  %t9 = call i64 @l0_string(ptr @l0_str.356, i64 32)
-  %t10 = call i64 @l0_string(ptr @l0_str.357, i64 32)
-  %t11 = call i64 @l0_string(ptr @l0_str.358, i64 26)
-  %t12 = call i64 @l0_string(ptr @l0_str.359, i64 35)
-  %t13 = call i64 @l0_string(ptr @l0_str.360, i64 37)
-  %t14 = call i64 @l0_string(ptr @l0_str.361, i64 43)
-  %t15 = call i64 @l0_string(ptr @l0_str.362, i64 34)
-  %t16 = call i64 @l0_string(ptr @l0_str.363, i64 30)
+  %t0 = call i64 @l0_string(ptr @l0_str.359, i64 30)
+  %t1 = call i64 @l0_string(ptr @l0_str.360, i64 38)
+  %t2 = call i64 @l0_string(ptr @l0_str.361, i64 33)
+  %t3 = call i64 @l0_string(ptr @l0_str.362, i64 36)
+  %t4 = call i64 @l0_string(ptr @l0_str.363, i64 52)
+  %t5 = call i64 @l0_string(ptr @l0_str.364, i64 57)
+  %t6 = call i64 @l0_string(ptr @l0_str.365, i64 50)
+  %t7 = call i64 @l0_string(ptr @l0_str.366, i64 35)
+  %t8 = call i64 @l0_string(ptr @l0_str.367, i64 38)
+  %t9 = call i64 @l0_string(ptr @l0_str.368, i64 32)
+  %t10 = call i64 @l0_string(ptr @l0_str.369, i64 32)
+  %t11 = call i64 @l0_string(ptr @l0_str.370, i64 26)
+  %t12 = call i64 @l0_string(ptr @l0_str.371, i64 35)
+  %t13 = call i64 @l0_string(ptr @l0_str.372, i64 37)
+  %t14 = call i64 @l0_string(ptr @l0_str.373, i64 43)
+  %t15 = call i64 @l0_string(ptr @l0_str.374, i64 34)
+  %t16 = call i64 @l0_string(ptr @l0_str.375, i64 30)
   %t17 = call fastcc i64 @l0_f_cpu_decls(i64 0, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t18 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t17, i64 0, i64 0, i64 0, i64 0)
   %t19 = call fastcc i64 @l0_f_append.0(i64 %t15, i64 %t18, i64 0, i64 0, i64 0, i64 0)
@@ -28120,11 +28246,11 @@ entry:
 define internal fastcc i64 @l0_f_cpu_decls(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.364, i64 28)
-  %t1 = call i64 @l0_string(ptr @l0_str.365, i64 49)
-  %t2 = call i64 @l0_string(ptr @l0_str.366, i64 30)
-  %t3 = call i64 @l0_string(ptr @l0_str.367, i64 27)
-  %t4 = call i64 @l0_string(ptr @l0_str.368, i64 29)
+  %t0 = call i64 @l0_string(ptr @l0_str.376, i64 28)
+  %t1 = call i64 @l0_string(ptr @l0_str.377, i64 49)
+  %t2 = call i64 @l0_string(ptr @l0_str.378, i64 30)
+  %t3 = call i64 @l0_string(ptr @l0_str.379, i64 27)
+  %t4 = call i64 @l0_string(ptr @l0_str.380, i64 29)
   %t5 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t4, i64 0, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_append.0(i64 %t2, i64 %t5, i64 0, i64 0, i64 0, i64 0)
   %t7 = call fastcc i64 @l0_f_append.0(i64 %t1, i64 %t6, i64 0, i64 0, i64 0, i64 0)
@@ -28168,7 +28294,7 @@ A3_1:
   call void @l0_inc(i64 %t16)
   %t17 = call i64 @l0_data_get(i64 %t4, i64 5)
   call void @l0_dec(i64 %t4)
-  %t19 = call i64 @l0_string(ptr @l0_str.126, i64 4)
+  %t19 = call i64 @l0_string(ptr @l0_str.131, i64 4)
   %t20 = call i64 @l0_equal(i64 %t13, i64 %t19)
   call void @l0_dec(i64 %t13)
   call void @l0_dec(i64 %t19)
@@ -28330,12 +28456,12 @@ entry:
   call void @l0_data_set(i64 %t3, i64 2, i64 0)
   call void @l0_data_set(i64 %t3, i64 3, i64 %t2)
   call void @l0_data_set(i64 %t3, i64 4, i64 0)
-  %t4 = call i64 @l0_string(ptr @l0_str.369, i64 31)
+  %t4 = call i64 @l0_string(ptr @l0_str.381, i64 31)
   call void @l0_inc(i64 %a0)
   %t5 = call fastcc i64 @l0_f_program_decls(i64 %a0, i64 %a3, i64 0, i64 0, i64 0)
   %t6 = call fastcc i64 @l0_f_ret_kind(i64 %t5)
   %t7 = call fastcc i64 @l0_f_digits(i64 %t6, i64 0)
-  %t8 = call i64 @l0_string(ptr @l0_str.138, i64 1)
+  %t8 = call i64 @l0_string(ptr @l0_str.143, i64 1)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t7, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %t4, i64 %t9, i64 0, i64 0, i64 0, i64 0)
   %t11 = call fastcc i64 @l0_f_emit_line(i64 %t10, i64 %t3, i64 0, i64 0, i64 0)
@@ -28988,7 +29114,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a3)
-  %t3 = call i64 @l0_string(ptr @l0_str.370, i64 27)
+  %t3 = call i64 @l0_string(ptr @l0_str.382, i64 27)
   %t4 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -29024,7 +29150,7 @@ Le7:
   br i1 %t19, label %Lt16, label %Le16
 Lt16:
   call void @l0_dec(i64 %a3)
-  %t20 = call i64 @l0_string(ptr @l0_str.371, i64 33)
+  %t20 = call i64 @l0_string(ptr @l0_str.383, i64 33)
   %t21 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t21, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t21, i64 1, i64 %t20)
@@ -29108,7 +29234,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a3)
-  %t3 = call i64 @l0_string(ptr @l0_str.370, i64 27)
+  %t3 = call i64 @l0_string(ptr @l0_str.382, i64 27)
   %t4 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -29139,7 +29265,7 @@ Le7:
 Lt15:
   call void @l0_dec(i64 %a3)
   %t19 = sub i64 %a1, 1
-  %t20 = call i64 @l0_string(ptr @l0_str.372, i64 51)
+  %t20 = call i64 @l0_string(ptr @l0_str.384, i64 51)
   %t21 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t21, i64 0, i64 %t19)
   call void @l0_data_set(i64 %t21, i64 1, i64 %t20)
@@ -29170,7 +29296,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a3)
-  %t3 = call i64 @l0_string(ptr @l0_str.373, i64 20)
+  %t3 = call i64 @l0_string(ptr @l0_str.385, i64 20)
   %t4 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -29188,7 +29314,7 @@ Le0:
   br i1 %t9, label %Lt6, label %Le6
 Lt6:
   call void @l0_dec(i64 %a3)
-  %t10 = call i64 @l0_string(ptr @l0_str.373, i64 20)
+  %t10 = call i64 @l0_string(ptr @l0_str.385, i64 20)
   %t11 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t11, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t11, i64 1, i64 %t10)
@@ -29228,7 +29354,7 @@ Lx21:
   br i1 %t28, label %Lt20, label %Le20
 Lt20:
   call void @l0_dec(i64 %a3)
-  %t29 = call i64 @l0_string(ptr @l0_str.374, i64 39)
+  %t29 = call i64 @l0_string(ptr @l0_str.386, i64 39)
   %t30 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t30, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t30, i64 1, i64 %t29)
@@ -29319,7 +29445,7 @@ Lt6:
   %t12 = icmp ne i64 %t11, 0
   br i1 %t12, label %Lt9, label %Le9
 Lt9:
-  %t13 = call i64 @l0_string(ptr @l0_str.375, i64 39)
+  %t13 = call i64 @l0_string(ptr @l0_str.387, i64 39)
   %t14 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t14, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t14, i64 1, i64 %t13)
@@ -29442,7 +29568,7 @@ Lx7:
   %t15 = icmp ne i64 %t14, 0
   br i1 %t15, label %Lt11, label %Le11
 Lt11:
-  %t16 = call i64 @l0_string(ptr @l0_str.376, i64 25)
+  %t16 = call i64 @l0_string(ptr @l0_str.388, i64 25)
   %t17 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t17, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t17, i64 1, i64 %t16)
@@ -29725,7 +29851,7 @@ Lx21:
   %t27 = icmp ne i64 %t26, 0
   br i1 %t27, label %Lt20, label %Le20
 Lt20:
-  %t28 = call i64 @l0_string(ptr @l0_str.377, i64 34)
+  %t28 = call i64 @l0_string(ptr @l0_str.389, i64 34)
   %t29 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t29, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t29, i64 1, i64 %t28)
@@ -29741,7 +29867,7 @@ Le20:
   %t35 = icmp ne i64 %t34, 0
   br i1 %t35, label %Lt32, label %Le32
 Lt32:
-  %t36 = call i64 @l0_string(ptr @l0_str.378, i64 72)
+  %t36 = call i64 @l0_string(ptr @l0_str.390, i64 72)
   %t37 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t37, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t37, i64 1, i64 %t36)
@@ -29756,7 +29882,7 @@ Le32:
   %t42 = icmp ne i64 %t41, 0
   br i1 %t42, label %Lt39, label %Le39
 Lt39:
-  %t43 = call i64 @l0_string(ptr @l0_str.379, i64 84)
+  %t43 = call i64 @l0_string(ptr @l0_str.391, i64 84)
   %t44 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t44, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t44, i64 1, i64 %t43)
@@ -29842,7 +29968,7 @@ Lx18:
   %t24 = icmp ne i64 %t23, 0
   br i1 %t24, label %Lt17, label %Le17
 Lt17:
-  %t25 = call i64 @l0_string(ptr @l0_str.380, i64 36)
+  %t25 = call i64 @l0_string(ptr @l0_str.392, i64 36)
   %t26 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t26, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t26, i64 1, i64 %t25)
@@ -29871,7 +29997,7 @@ Le29:
   %t37 = icmp ne i64 %t36, 0
   br i1 %t37, label %Lt33, label %Le33
 Lt33:
-  %t38 = call i64 @l0_string(ptr @l0_str.375, i64 39)
+  %t38 = call i64 @l0_string(ptr @l0_str.387, i64 39)
   %t39 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t39, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t39, i64 1, i64 %t38)
@@ -30099,7 +30225,7 @@ A8_0:
 Ln8:
   unreachable
 Le0:
-  %t18 = call i64 @l0_string(ptr @l0_str.381, i64 20)
+  %t18 = call i64 @l0_string(ptr @l0_str.393, i64 20)
   %t19 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t19, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t19, i64 1, i64 %t18)
@@ -30199,7 +30325,7 @@ Lt37:
   %t42 = musttail call fastcc i64 @l0_f_scan_field(i64 %t41, i64 %a1, i64 0, i64 0)
   ret i64 %t42
 Le37:
-  %t43 = call i64 @l0_string(ptr @l0_str.381, i64 20)
+  %t43 = call i64 @l0_string(ptr @l0_str.393, i64 20)
   %t44 = call i64 @l0_new_data(i64 6, i64 4, i64 4)
   call void @l0_data_set(i64 %t44, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t44, i64 1, i64 %t43)
@@ -30376,7 +30502,7 @@ Lt0:
   call void @l0_data_set(i64 %t4, i64 3, i64 %a3)
   ret i64 %t4
 Le0:
-  %t6 = call i64 @l0_string(ptr @l0_str.382, i64 7)
+  %t6 = call i64 @l0_string(ptr @l0_str.394, i64 7)
   call void @l0_inc(i64 %a0)
   %t7 = call fastcc i64 @l0_f_starts_with(i64 %a0, i64 %t6)
   %t8 = icmp ne i64 %t7, 0
@@ -30398,7 +30524,7 @@ Le5:
 define internal fastcc i64 @l0_f_parse_header_line(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.383, i64 7)
+  %t1 = call i64 @l0_string(ptr @l0_str.395, i64 7)
   call void @l0_inc(i64 %a0)
   %t2 = call fastcc i64 @l0_f_starts_with(i64 %a0, i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -30408,7 +30534,7 @@ Lt0:
   %t5 = musttail call fastcc i64 @l0_f_parse_entries(i64 %t4, i64 %a1, i64 0, i64 %a3)
   ret i64 %t5
 Le0:
-  %t7 = call i64 @l0_string(ptr @l0_str.384, i64 8)
+  %t7 = call i64 @l0_string(ptr @l0_str.396, i64 8)
   call void @l0_inc(i64 %a0)
   %t8 = call fastcc i64 @l0_f_starts_with(i64 %a0, i64 %t7)
   %t9 = icmp ne i64 %t8, 0
@@ -30434,7 +30560,7 @@ Le6:
 define internal fastcc i64 @l0_f_parse_bundle(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.385, i64 9)
+  %t1 = call i64 @l0_string(ptr @l0_str.397, i64 9)
   call void @l0_inc(i64 %a0)
   %t2 = call fastcc i64 @l0_f_starts_with(i64 %a0, i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -30583,8 +30709,8 @@ A0_0:
 Lt4:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t8 = call i64 @l0_string(ptr @l0_str.386, i64 7)
-  %t9 = call i64 @l0_string(ptr @l0_str.138, i64 1)
+  %t8 = call i64 @l0_string(ptr @l0_str.398, i64 7)
+  %t9 = call i64 @l0_string(ptr @l0_str.143, i64 1)
   %t10 = call fastcc i64 @l0_f_append.0(i64 %t3, i64 %t9, i64 0, i64 0, i64 0, i64 0)
   %t11 = musttail call fastcc i64 @l0_f_append.0(i64 %t8, i64 %t10, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t11
@@ -30632,7 +30758,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a3)
-  %t3 = call i64 @l0_string(ptr @l0_str.387, i64 16)
+  %t3 = call i64 @l0_string(ptr @l0_str.399, i64 16)
   store i64 %t3, ptr %r0
   br label %Lx0
 Le0:
@@ -30645,7 +30771,7 @@ Lx0:
   %t8 = icmp ne i64 %t7, 0
   br i1 %t8, label %Lt5, label %Le5
 Lt5:
-  %t9 = call i64 @l0_string(ptr @l0_str.388, i64 12)
+  %t9 = call i64 @l0_string(ptr @l0_str.400, i64 12)
   %t10 = call fastcc i64 @l0_f_parens_count(i64 %a5, i64 0, i64 0, i64 0, i64 0, i64 0)
   %r11 = alloca i64
   %t12 = icmp slt i64 %a4, 0
@@ -30653,11 +30779,11 @@ Lt5:
   %t14 = icmp ne i64 %t13, 0
   br i1 %t14, label %Lt11, label %Le11
 Lt11:
-  %t15 = call i64 @l0_string(ptr @l0_str.389, i64 28)
+  %t15 = call i64 @l0_string(ptr @l0_str.401, i64 28)
   store i64 %t15, ptr %r11
   br label %Lx11
 Le11:
-  %t16 = call i64 @l0_string(ptr @l0_str.390, i64 32)
+  %t16 = call i64 @l0_string(ptr @l0_str.402, i64 32)
   call void @l0_inc(i64 %a0)
   %t17 = call fastcc i64 @l0_f_line_of(i64 %a0, i64 %a1, i64 %a4, i64 0)
   %t18 = call fastcc i64 @l0_f_digits(i64 %t17, i64 0)
@@ -30673,10 +30799,10 @@ Lx11:
   %t25 = musttail call fastcc i64 @l0_f_append.0(i64 %t4, i64 %t24, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t25
 Le5:
-  %t26 = call i64 @l0_string(ptr @l0_str.77, i64 5)
+  %t26 = call i64 @l0_string(ptr @l0_str.82, i64 5)
   %t27 = sub i64 0, %a5
   %t28 = call fastcc i64 @l0_f_parens_count(i64 %t27, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t29 = call i64 @l0_string(ptr @l0_str.391, i64 9)
+  %t29 = call i64 @l0_string(ptr @l0_str.403, i64 9)
   %t30 = call fastcc i64 @l0_f_closes_at(i64 %a0, i64 %a1, i64 %a2, i64 %a4, i64 0, i64 0)
   %t31 = call fastcc i64 @l0_f_append.0(i64 %t29, i64 %t30, i64 0, i64 0, i64 0, i64 0)
   %t32 = call fastcc i64 @l0_f_append.0(i64 %t28, i64 %t31, i64 0, i64 0, i64 0, i64 0)
@@ -30695,11 +30821,11 @@ entry:
   %t4 = icmp ne i64 %t3, 0
   br i1 %t4, label %Lt1, label %Le1
 Lt1:
-  %t5 = call i64 @l0_string(ptr @l0_str.392, i64 14)
+  %t5 = call i64 @l0_string(ptr @l0_str.404, i64 14)
   store i64 %t5, ptr %r1
   br label %Lx1
 Le1:
-  %t6 = call i64 @l0_string(ptr @l0_str.393, i64 15)
+  %t6 = call i64 @l0_string(ptr @l0_str.405, i64 15)
   store i64 %t6, ptr %r1
   br label %Lx1
 Lx1:
@@ -30736,7 +30862,7 @@ Lt6:
   call void @l0_dec(i64 %a0)
   ret i64 0
 Le6:
-  %t10 = call i64 @l0_string(ptr @l0_str.394, i64 30)
+  %t10 = call i64 @l0_string(ptr @l0_str.406, i64 30)
   %t11 = call fastcc i64 @l0_f_line_of(i64 %a0, i64 %a1, i64 %t5, i64 0)
   %t12 = call fastcc i64 @l0_f_digits(i64 %t11, i64 0)
   %t13 = musttail call fastcc i64 @l0_f_append.0(i64 %t10, i64 %t12, i64 0, i64 0, i64 0, i64 0)
@@ -30757,7 +30883,7 @@ Lt2:
   call void @l0_dec(i64 %a0)
   ret i64 0
 Le2:
-  %t6 = call i64 @l0_string(ptr @l0_str.395, i64 20)
+  %t6 = call i64 @l0_string(ptr @l0_str.407, i64 20)
   %t7 = call fastcc i64 @l0_f_line_of(i64 %a0, i64 %a1, i64 %t1, i64 0)
   %t8 = call fastcc i64 @l0_f_digits(i64 %t7, i64 0)
   %t9 = musttail call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t8, i64 0, i64 0, i64 0, i64 0)
@@ -31213,7 +31339,7 @@ Le12:
 define internal fastcc i64 @l0_f_render_at(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.396, i64 5)
+  %t0 = call i64 @l0_string(ptr @l0_str.408, i64 5)
   %t1 = musttail call fastcc i64 @l0_f_render_kind(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %t0, i64 %a4)
   ret i64 %t1
 }
@@ -31227,12 +31353,12 @@ entry:
   call void @l0_inc(i64 %t0)
   %t3 = call fastcc i64 @l0_f_line_at(i64 %t0, i64 %t1, i64 0, i64 1)
   %t4 = call fastcc i64 @l0_f_digits(i64 %t3, i64 0)
-  %t5 = call i64 @l0_string(ptr @l0_str.176, i64 1)
+  %t5 = call i64 @l0_string(ptr @l0_str.181, i64 1)
   %t6 = call fastcc i64 @l0_f_col_at(i64 %t0, i64 %t1, i64 0, i64 1)
   %t7 = call fastcc i64 @l0_f_digits(i64 %t6, i64 0)
-  %t8 = call i64 @l0_string(ptr @l0_str.397, i64 2)
-  %t9 = call i64 @l0_string(ptr @l0_str.397, i64 2)
-  %t10 = call i64 @l0_string(ptr @l0_str.138, i64 1)
+  %t8 = call i64 @l0_string(ptr @l0_str.409, i64 2)
+  %t9 = call i64 @l0_string(ptr @l0_str.409, i64 2)
+  %t10 = call i64 @l0_string(ptr @l0_str.143, i64 1)
   %t11 = call fastcc i64 @l0_f_append.0(i64 %a5, i64 %t10, i64 0, i64 0, i64 0, i64 0)
   %t12 = call fastcc i64 @l0_f_append.0(i64 %t9, i64 %t11, i64 0, i64 0, i64 0, i64 0)
   %t13 = call fastcc i64 @l0_f_append.0(i64 %a4, i64 %t12, i64 0, i64 0, i64 0, i64 0)
@@ -31259,7 +31385,7 @@ Lt0:
 Le0:
   %t4 = call i64 @l0_tail(i64 %a2)
   call void @l0_inc(i64 %t4)
-  %t5 = call i64 @l0_string(ptr @l0_str.398, i64 2)
+  %t5 = call i64 @l0_string(ptr @l0_str.410, i64 2)
   %t6 = call i64 @l0_head(i64 %a2)
   call void @l0_inc(i64 %t6)
   call void @l0_dec(i64 %a2)
@@ -31285,7 +31411,7 @@ entry:
   %t4 = call i64 @l0_data_get(i64 %t2, i64 0)
   call void @l0_dec(i64 %t2)
   %t5 = call fastcc i64 @l0_f_diag_offset(i64 %a2)
-  %t6 = call i64 @l0_string(ptr @l0_str.399, i64 7)
+  %t6 = call i64 @l0_string(ptr @l0_str.411, i64 7)
   %m7 = alloca i64
   %t8 = call i64 @l0_data_tag(i64 %a2)
   switch i64 %t8, label %Ln7 [ i64 0, label %A7_0 i64 1, label %A7_1 ]
@@ -31322,7 +31448,7 @@ Lt0:
   call void @l0_dec(i64 %a0)
   ret i64 0
 Le0:
-  %t3 = call i64 @l0_string(ptr @l0_str.176, i64 1)
+  %t3 = call i64 @l0_string(ptr @l0_str.181, i64 1)
   %t4 = musttail call fastcc i64 @l0_f_append.0(i64 %a0, i64 %t3, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t4
 }
@@ -31355,7 +31481,7 @@ Le0:
 define internal fastcc i64 @l0_f_failure(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4, i64 %a5) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.400, i64 2)
+  %t0 = call i64 @l0_string(ptr @l0_str.412, i64 2)
   %t1 = call fastcc i64 @l0_f_render_diags(i64 %a0, i64 %a1, i64 %a2, i64 0)
   %t2 = call fastcc i64 @l0_f_rev.0(i64 %t1, i64 0, i64 0, i64 0, i64 0, i64 0)
   %t3 = musttail call fastcc i64 @l0_f_append.0(i64 %t0, i64 %t2, i64 0, i64 0, i64 0, i64 0)
@@ -31407,7 +31533,7 @@ A20_0:
   %t24 = call i64 @l0_data_get(i64 %t21, i64 1)
   call void @l0_inc(i64 %t24)
   call void @l0_dec(i64 %t21)
-  %t25 = call i64 @l0_string(ptr @l0_str.401, i64 2)
+  %t25 = call i64 @l0_string(ptr @l0_str.413, i64 2)
   %t26 = call fastcc i64 @l0_f_render_warns(i64 %t4, i64 %t3, i64 %t24, i64 0, i64 0, i64 0)
   %t27 = call fastcc i64 @l0_f_append.0(i64 %t26, i64 %t23, i64 0, i64 0, i64 0, i64 0)
   %t28 = musttail call fastcc i64 @l0_f_append.0(i64 %t25, i64 %t27, i64 0, i64 0, i64 0, i64 0)
@@ -31840,19 +31966,19 @@ entry:
   switch i64 %t1, label %Ln0 [ i64 0, label %A0_0 i64 1, label %A0_1 i64 2, label %A0_2 i64 4, label %A0_3 i64 3, label %A0_4 i64 6, label %A0_5 i64 5, label %A0_6 i64 7, label %A0_7 ]
 A0_0:
   call void @l0_dec(i64 %a0)
-  %t2 = call i64 @l0_string(ptr @l0_str.60, i64 3)
+  %t2 = call i64 @l0_string(ptr @l0_str.65, i64 3)
   ret i64 %t2
 A0_1:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.89, i64 4)
+  %t3 = call i64 @l0_string(ptr @l0_str.94, i64 4)
   ret i64 %t3
 A0_2:
   %t4 = call i64 @l0_data_get(i64 %a0, i64 0)
   call void @l0_inc(i64 %t4)
   call void @l0_dec(i64 %a0)
-  %t5 = call i64 @l0_string(ptr @l0_str.402, i64 6)
+  %t5 = call i64 @l0_string(ptr @l0_str.414, i64 6)
   %t6 = call fastcc i64 @l0_f_ty_str(i64 %t4, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t7 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t7 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = musttail call fastcc i64 @l0_f_append.0(i64 %t5, i64 %t8, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t9
@@ -31860,9 +31986,9 @@ A0_3:
   %t10 = call i64 @l0_data_get(i64 %a0, i64 0)
   call void @l0_inc(i64 %t10)
   call void @l0_dec(i64 %a0)
-  %t11 = call i64 @l0_string(ptr @l0_str.403, i64 7)
+  %t11 = call i64 @l0_string(ptr @l0_str.415, i64 7)
   %t12 = call fastcc i64 @l0_f_ty_str(i64 %t10, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t13 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t13 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t14 = call fastcc i64 @l0_f_append.0(i64 %t12, i64 %t13, i64 0, i64 0, i64 0, i64 0)
   %t15 = musttail call fastcc i64 @l0_f_append.0(i64 %t11, i64 %t14, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t15
@@ -31879,20 +32005,20 @@ Lt18:
   call void @l0_dec(i64 %t17)
   ret i64 %t16
 Le18:
-  %t21 = call i64 @l0_string(ptr @l0_str.146, i64 1)
+  %t21 = call i64 @l0_string(ptr @l0_str.151, i64 1)
   %t22 = call fastcc i64 @l0_f_tys_str(i64 %t17, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t23 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t23 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t24 = call fastcc i64 @l0_f_append.0(i64 %t22, i64 %t23, i64 0, i64 0, i64 0, i64 0)
   %t25 = call fastcc i64 @l0_f_append.0(i64 %t16, i64 %t24, i64 0, i64 0, i64 0, i64 0)
   %t26 = musttail call fastcc i64 @l0_f_append.0(i64 %t21, i64 %t25, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t26
 A0_5:
   call void @l0_dec(i64 %a0)
-  %t27 = call i64 @l0_string(ptr @l0_str.404, i64 5)
+  %t27 = call i64 @l0_string(ptr @l0_str.416, i64 5)
   ret i64 %t27
 A0_6:
   call void @l0_dec(i64 %a0)
-  %t28 = call i64 @l0_string(ptr @l0_str.405, i64 5)
+  %t28 = call i64 @l0_string(ptr @l0_str.417, i64 5)
   ret i64 %t28
 A0_7:
   %t29 = call i64 @l0_data_get(i64 %a0, i64 0)
@@ -31900,7 +32026,7 @@ A0_7:
   %t30 = call i64 @l0_data_get(i64 %a0, i64 1)
   call void @l0_inc(i64 %t30)
   call void @l0_dec(i64 %a0)
-  %t31 = call i64 @l0_string(ptr @l0_str.406, i64 5)
+  %t31 = call i64 @l0_string(ptr @l0_str.418, i64 5)
   call void @l0_inc(i64 %t29)
   %t32 = call fastcc i64 @l0_f_tys_str(i64 %t29, i64 0, i64 0, i64 0, i64 0, i64 0)
   %r33 = alloca i64
@@ -31917,9 +32043,9 @@ Le33:
 Lx33:
   %t36 = load i64, ptr %r33
   %t37 = call fastcc i64 @l0_f_drop_n(i64 %t32, i64 %t36)
-  %t38 = call i64 @l0_string(ptr @l0_str.407, i64 2)
+  %t38 = call i64 @l0_string(ptr @l0_str.419, i64 2)
   %t39 = call fastcc i64 @l0_f_ty_str(i64 %t30, i64 0, i64 0, i64 0, i64 0, i64 0)
-  %t40 = call i64 @l0_string(ptr @l0_str.147, i64 1)
+  %t40 = call i64 @l0_string(ptr @l0_str.152, i64 1)
   %t41 = call fastcc i64 @l0_f_append.0(i64 %t39, i64 %t40, i64 0, i64 0, i64 0, i64 0)
   %t42 = call fastcc i64 @l0_f_append.0(i64 %t38, i64 %t41, i64 0, i64 0, i64 0, i64 0)
   %t43 = call fastcc i64 @l0_f_append.0(i64 %t37, i64 %t42, i64 0, i64 0, i64 0, i64 0)
@@ -31955,7 +32081,7 @@ Le0:
 define internal fastcc i64 @l0_f_reserved_words(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.408, i64 56)
+  %t0 = call i64 @l0_string(ptr @l0_str.420, i64 56)
   %t1 = musttail call fastcc i64 @l0_f_split_spaces(i64 %t0, i64 0, i64 0, i64 0, i64 0)
   ret i64 %t1
 }
@@ -32004,7 +32130,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.409, i64 15)
+  %t3 = call i64 @l0_string(ptr @l0_str.421, i64 15)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 0)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -32049,7 +32175,7 @@ Lt17:
 Le17:
   call void @l0_dec(i64 %a0)
   %t23 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t24 = call i64 @l0_string(ptr @l0_str.410, i64 64)
+  %t24 = call i64 @l0_string(ptr @l0_str.422, i64 64)
   %t25 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t25, i64 0, i64 %t23)
   call void @l0_data_set(i64 %t25, i64 1, i64 %t24)
@@ -32061,7 +32187,7 @@ entry:
   call void @l0_stack_check()
   call void @l0_inc(i64 %a0)
   %t0 = call fastcc i64 @l0_f_tok_bytes(i64 %a0)
-  %t2 = call i64 @l0_string(ptr @l0_str.60, i64 3)
+  %t2 = call i64 @l0_string(ptr @l0_str.65, i64 3)
   %t3 = call i64 @l0_equal(i64 %t0, i64 %t2)
   call void @l0_dec(i64 %t2)
   %t4 = icmp ne i64 %t3, 0
@@ -32075,7 +32201,7 @@ Lt1:
   call void @l0_data_set(i64 %t6, i64 1, i64 %a1)
   ret i64 %t6
 Le1:
-  %t8 = call i64 @l0_string(ptr @l0_str.89, i64 4)
+  %t8 = call i64 @l0_string(ptr @l0_str.94, i64 4)
   %t9 = call i64 @l0_equal(i64 %t0, i64 %t8)
   call void @l0_dec(i64 %t8)
   %t10 = icmp ne i64 %t9, 0
@@ -32089,7 +32215,7 @@ Lt7:
   call void @l0_data_set(i64 %t12, i64 1, i64 %a1)
   ret i64 %t12
 Le7:
-  %t14 = call i64 @l0_string(ptr @l0_str.405, i64 5)
+  %t14 = call i64 @l0_string(ptr @l0_str.417, i64 5)
   %t15 = call i64 @l0_equal(i64 %t0, i64 %t14)
   call void @l0_dec(i64 %t14)
   %t16 = icmp ne i64 %t15, 0
@@ -32103,7 +32229,7 @@ Lt13:
   call void @l0_data_set(i64 %t18, i64 1, i64 %a1)
   ret i64 %t18
 Le13:
-  %t20 = call i64 @l0_string(ptr @l0_str.404, i64 5)
+  %t20 = call i64 @l0_string(ptr @l0_str.416, i64 5)
   %t21 = call i64 @l0_equal(i64 %t0, i64 %t20)
   call void @l0_dec(i64 %t20)
   %t22 = icmp ne i64 %t21, 0
@@ -32124,7 +32250,7 @@ Le19:
 define internal fastcc i64 @l0_f_parse_type_other(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.411, i64 10)
+  %t1 = call i64 @l0_string(ptr @l0_str.423, i64 10)
   %t2 = call fastcc i64 @l0_f_split_spaces(i64 %t1, i64 0, i64 0, i64 0, i64 0)
   call void @l0_inc(i64 %a1)
   %t3 = call fastcc i64 @l0_f_any_eq.1(i64 %a1, i64 %t2)
@@ -32133,8 +32259,8 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a2)
   %t5 = call fastcc i64 @l0_f_tok_offset(i64 %a0, i64 0)
-  %t6 = call i64 @l0_string(ptr @l0_str.412, i64 31)
-  %t7 = call i64 @l0_string(ptr @l0_str.413, i64 5)
+  %t6 = call i64 @l0_string(ptr @l0_str.424, i64 31)
+  %t7 = call i64 @l0_string(ptr @l0_str.425, i64 5)
   call void @l0_inc(i64 %a1)
   %t8 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t7, i64 0, i64 0, i64 0, i64 0)
   %t9 = call fastcc i64 @l0_f_append.0(i64 %t6, i64 %t8, i64 0, i64 0, i64 0, i64 0)
@@ -32160,7 +32286,7 @@ Le12:
   call void @l0_dec(i64 %a2)
   %t17 = call fastcc i64 @l0_f_tok_offset(i64 %a0, i64 0)
   %t18 = call i64 @l0_string(ptr @l0_str.9, i64 13)
-  %t19 = call i64 @l0_string(ptr @l0_str.414, i64 101)
+  %t19 = call i64 @l0_string(ptr @l0_str.426, i64 101)
   %t20 = call fastcc i64 @l0_f_append.0(i64 %a1, i64 %t19, i64 0, i64 0, i64 0, i64 0)
   %t21 = call fastcc i64 @l0_f_append.0(i64 %t18, i64 %t20, i64 0, i64 0, i64 0, i64 0)
   %t22 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
@@ -32177,7 +32303,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.415, i64 20)
+  %t3 = call i64 @l0_string(ptr @l0_str.427, i64 20)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -32218,7 +32344,7 @@ Le6:
 Lt18:
   call void @l0_inc(i64 %t5)
   %t21 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t22 = call i64 @l0_string(ptr @l0_str.416, i64 2)
+  %t22 = call i64 @l0_string(ptr @l0_str.428, i64 2)
   %t23 = call i64 @l0_equal(i64 %t21, i64 %t22)
   call void @l0_dec(i64 %t21)
   call void @l0_dec(i64 %t22)
@@ -32247,7 +32373,7 @@ Lt29:
   %r32 = alloca i64
   call void @l0_inc(i64 %t5)
   %t33 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t34 = call i64 @l0_string(ptr @l0_str.417, i64 4)
+  %t34 = call i64 @l0_string(ptr @l0_str.429, i64 4)
   %t35 = call i64 @l0_equal(i64 %t33, i64 %t34)
   call void @l0_dec(i64 %t33)
   call void @l0_dec(i64 %t34)
@@ -32259,7 +32385,7 @@ Lt32:
 Le32:
   call void @l0_inc(i64 %t5)
   %t37 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t38 = call i64 @l0_string(ptr @l0_str.418, i64 5)
+  %t38 = call i64 @l0_string(ptr @l0_str.430, i64 5)
   %t39 = call i64 @l0_equal(i64 %t37, i64 %t38)
   call void @l0_dec(i64 %t37)
   call void @l0_dec(i64 %t38)
@@ -32280,7 +32406,7 @@ Lx29:
 Lt28:
   call void @l0_dec(i64 %a0)
   %t44 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t45 = call i64 @l0_string(ptr @l0_str.419, i64 63)
+  %t45 = call i64 @l0_string(ptr @l0_str.431, i64 63)
   %t46 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t46, i64 0, i64 %t44)
   call void @l0_data_set(i64 %t46, i64 1, i64 %t45)
@@ -32309,7 +32435,7 @@ A47_1:
   call void @l0_inc(i64 %t55)
   call void @l0_dec(i64 %t49)
   %t56 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t57 = call i64 @l0_string(ptr @l0_str.418, i64 5)
+  %t57 = call i64 @l0_string(ptr @l0_str.430, i64 5)
   %t58 = call i64 @l0_equal(i64 %t56, i64 %t57)
   call void @l0_dec(i64 %t56)
   call void @l0_dec(i64 %t57)
@@ -32342,7 +32468,7 @@ Lx1:
   br i1 %t8, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t9 = call i64 @l0_string(ptr @l0_str.420, i64 72)
+  %t9 = call i64 @l0_string(ptr @l0_str.432, i64 72)
   %t10 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t10, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t10, i64 1, i64 %t9)
@@ -32424,7 +32550,7 @@ Le30:
   call void @l0_dec(i64 %t29)
   call void @l0_dec(i64 %t28)
   call void @l0_dec(i64 %t20)
-  %t41 = call i64 @l0_string(ptr @l0_str.421, i64 44)
+  %t41 = call i64 @l0_string(ptr @l0_str.433, i64 44)
   %t42 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t42, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t42, i64 1, i64 %t41)
@@ -32463,9 +32589,9 @@ A0_1:
 Lt8:
   call void @l0_dec(i64 %t7)
   call void @l0_dec(i64 %t6)
-  %t11 = call i64 @l0_string(ptr @l0_str.146, i64 1)
-  %t12 = call i64 @l0_string(ptr @l0_str.422, i64 40)
-  %t13 = call i64 @l0_string(ptr @l0_str.423, i64 37)
+  %t11 = call i64 @l0_string(ptr @l0_str.151, i64 1)
+  %t12 = call i64 @l0_string(ptr @l0_str.434, i64 40)
+  %t13 = call i64 @l0_string(ptr @l0_str.435, i64 37)
   call void @l0_inc(i64 %a0)
   %t14 = call fastcc i64 @l0_f_append.0(i64 %t13, i64 %a0, i64 0, i64 0, i64 0, i64 0)
   %t15 = call fastcc i64 @l0_f_append.0(i64 %t12, i64 %t14, i64 0, i64 0, i64 0, i64 0)
@@ -32496,7 +32622,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_string(ptr @l0_str.415, i64 20)
+  %t3 = call i64 @l0_string(ptr @l0_str.427, i64 20)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -32553,7 +32679,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a2)
-  %t3 = call i64 @l0_string(ptr @l0_str.415, i64 20)
+  %t3 = call i64 @l0_string(ptr @l0_str.427, i64 20)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -32598,11 +32724,11 @@ Le5:
   %t19 = icmp ne i64 %a0, 0
   br i1 %t19, label %Lt18, label %Le18
 Lt18:
-  %t20 = call i64 @l0_string(ptr @l0_str.424, i64 42)
+  %t20 = call i64 @l0_string(ptr @l0_str.436, i64 42)
   store i64 %t20, ptr %r18
   br label %Lx18
 Le18:
-  %t21 = call i64 @l0_string(ptr @l0_str.425, i64 41)
+  %t21 = call i64 @l0_string(ptr @l0_str.437, i64 41)
   store i64 %t21, ptr %r18
   br label %Lx18
 Lx18:
@@ -32621,7 +32747,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.426, i64 22)
+  %t3 = call i64 @l0_string(ptr @l0_str.438, i64 22)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 0)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -32730,14 +32856,14 @@ Le43:
   br i1 %t51, label %Lt49, label %Le49
 Lt49:
   %t52 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t53 = call i64 @l0_string(ptr @l0_str.427, i64 65)
+  %t53 = call i64 @l0_string(ptr @l0_str.439, i64 65)
   %t54 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t54, i64 0, i64 %t52)
   call void @l0_data_set(i64 %t54, i64 1, i64 %t53)
   ret i64 %t54
 Le49:
   %t55 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t56 = call i64 @l0_string(ptr @l0_str.428, i64 45)
+  %t56 = call i64 @l0_string(ptr @l0_str.440, i64 45)
   %t57 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t57, i64 0, i64 %t55)
   call void @l0_data_set(i64 %t57, i64 1, i64 %t56)
@@ -32750,7 +32876,7 @@ entry:
   call void @l0_inc(i64 %a0)
   %t0 = call fastcc i64 @l0_f_tok_bytes(i64 %a0)
   %t1 = call fastcc i64 @l0_f_tok_offset(i64 %a0, i64 0)
-  %t3 = call i64 @l0_string(ptr @l0_str.429, i64 4)
+  %t3 = call i64 @l0_string(ptr @l0_str.441, i64 4)
   %t4 = call i64 @l0_equal(i64 %t0, i64 %t3)
   call void @l0_dec(i64 %t3)
   %t5 = icmp ne i64 %t4, 0
@@ -32765,7 +32891,7 @@ Lt2:
   call void @l0_data_set(i64 %t7, i64 1, i64 %a1)
   ret i64 %t7
 Le2:
-  %t9 = call i64 @l0_string(ptr @l0_str.430, i64 5)
+  %t9 = call i64 @l0_string(ptr @l0_str.442, i64 5)
   %t10 = call i64 @l0_equal(i64 %t0, i64 %t9)
   call void @l0_dec(i64 %t9)
   %t11 = icmp ne i64 %t10, 0
@@ -32786,7 +32912,7 @@ Le8:
 Lt14:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %t0)
-  %t17 = call i64 @l0_string(ptr @l0_str.431, i64 54)
+  %t17 = call i64 @l0_string(ptr @l0_str.443, i64 54)
   %t18 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t18, i64 0, i64 %t1)
   call void @l0_data_set(i64 %t18, i64 1, i64 %t17)
@@ -32799,7 +32925,7 @@ Le14:
 Lt19:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %t0)
-  %t22 = call i64 @l0_string(ptr @l0_str.432, i64 45)
+  %t22 = call i64 @l0_string(ptr @l0_str.444, i64 45)
   %t23 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t23, i64 0, i64 %t1)
   call void @l0_data_set(i64 %t23, i64 1, i64 %t22)
@@ -32822,7 +32948,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -32873,7 +32999,7 @@ Le18:
 Lt24:
   call void @l0_dec(i64 %a0)
   %t28 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t29 = call i64 @l0_string(ptr @l0_str.434, i64 48)
+  %t29 = call i64 @l0_string(ptr @l0_str.446, i64 48)
   %t30 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t30, i64 0, i64 %t28)
   call void @l0_data_set(i64 %t30, i64 1, i64 %t29)
@@ -32958,7 +33084,7 @@ Le16:
   call void @l0_dec(i64 %t7)
   call void @l0_dec(i64 %t6)
   call void @l0_dec(i64 %a0)
-  %t26 = call i64 @l0_string(ptr @l0_str.427, i64 65)
+  %t26 = call i64 @l0_string(ptr @l0_str.439, i64 65)
   %t27 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t27, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t27, i64 1, i64 %t26)
@@ -32975,7 +33101,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -33005,7 +33131,7 @@ Lx7:
 Lt6:
   call void @l0_dec(i64 %a0)
   %t15 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t16 = call i64 @l0_string(ptr @l0_str.435, i64 75)
+  %t16 = call i64 @l0_string(ptr @l0_str.447, i64 75)
   %t17 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t17, i64 0, i64 %t15)
   call void @l0_data_set(i64 %t17, i64 1, i64 %t16)
@@ -33039,9 +33165,9 @@ A18_1:
 Lt27:
   call void @l0_dec(i64 %t26)
   call void @l0_dec(i64 %t25)
-  %t30 = call i64 @l0_string(ptr @l0_str.436, i64 2)
+  %t30 = call i64 @l0_string(ptr @l0_str.448, i64 2)
   %t31 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t32 = call i64 @l0_string(ptr @l0_str.437, i64 39)
+  %t32 = call i64 @l0_string(ptr @l0_str.449, i64 39)
   %t33 = call fastcc i64 @l0_f_append.0(i64 %t31, i64 %t32, i64 0, i64 0, i64 0, i64 0)
   %t34 = call fastcc i64 @l0_f_append.0(i64 %t30, i64 %t33, i64 0, i64 0, i64 0, i64 0)
   %t35 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
@@ -33088,7 +33214,7 @@ Ln18:
 define internal fastcc i64 @l0_f_dispatch_form(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.438, i64 2)
+  %t1 = call i64 @l0_string(ptr @l0_str.450, i64 2)
   %t2 = call i64 @l0_equal(i64 %a0, i64 %t1)
   call void @l0_dec(i64 %t1)
   %t3 = icmp ne i64 %t2, 0
@@ -33098,7 +33224,7 @@ Lt0:
   %t4 = musttail call fastcc i64 @l0_f_parse_if(i64 %a1, i64 %a2, i64 0, i64 0, i64 0)
   ret i64 %t4
 Le0:
-  %t6 = call i64 @l0_string(ptr @l0_str.439, i64 3)
+  %t6 = call i64 @l0_string(ptr @l0_str.451, i64 3)
   %t7 = call i64 @l0_equal(i64 %a0, i64 %t6)
   call void @l0_dec(i64 %t6)
   %t8 = icmp ne i64 %t7, 0
@@ -33108,7 +33234,7 @@ Lt5:
   %t9 = musttail call fastcc i64 @l0_f_parse_let(i64 %a1, i64 %a2, i64 0, i64 0, i64 0)
   ret i64 %t9
 Le5:
-  %t11 = call i64 @l0_string(ptr @l0_str.440, i64 3)
+  %t11 = call i64 @l0_string(ptr @l0_str.452, i64 3)
   %t12 = call i64 @l0_equal(i64 %a0, i64 %t11)
   call void @l0_dec(i64 %t11)
   %t13 = icmp ne i64 %t12, 0
@@ -33118,7 +33244,7 @@ Lt10:
   %t14 = musttail call fastcc i64 @l0_f_parse_nil(i64 %a1, i64 %a2, i64 0, i64 0, i64 0)
   ret i64 %t14
 Le10:
-  %t16 = call i64 @l0_string(ptr @l0_str.441, i64 5)
+  %t16 = call i64 @l0_string(ptr @l0_str.453, i64 5)
   %t17 = call i64 @l0_equal(i64 %a0, i64 %t16)
   call void @l0_dec(i64 %t16)
   %t18 = icmp ne i64 %t17, 0
@@ -33129,7 +33255,7 @@ Lt15:
   ret i64 %t19
 Le15:
   %r21 = alloca i64
-  %t22 = call i64 @l0_string(ptr @l0_str.442, i64 3)
+  %t22 = call i64 @l0_string(ptr @l0_str.454, i64 3)
   %t23 = call i64 @l0_equal(i64 %a0, i64 %t22)
   call void @l0_dec(i64 %t22)
   %t24 = icmp ne i64 %t23, 0
@@ -33138,7 +33264,7 @@ Lt21:
   store i64 1, ptr %r21
   br label %Lx21
 Le21:
-  %t25 = call i64 @l0_string(ptr @l0_str.443, i64 4)
+  %t25 = call i64 @l0_string(ptr @l0_str.455, i64 4)
   %t26 = call i64 @l0_equal(i64 %a0, i64 %t25)
   call void @l0_dec(i64 %t25)
   store i64 %t26, ptr %r21
@@ -33150,14 +33276,14 @@ Lx21:
 Lt20:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t29 = call i64 @l0_string(ptr @l0_str.444, i64 37)
+  %t29 = call i64 @l0_string(ptr @l0_str.456, i64 37)
   %t30 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t30, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t30, i64 1, i64 %t29)
   ret i64 %t30
 Le20:
   %r32 = alloca i64
-  %t33 = call i64 @l0_string(ptr @l0_str.429, i64 4)
+  %t33 = call i64 @l0_string(ptr @l0_str.441, i64 4)
   %t34 = call i64 @l0_equal(i64 %a0, i64 %t33)
   call void @l0_dec(i64 %t33)
   %t35 = icmp ne i64 %t34, 0
@@ -33166,7 +33292,7 @@ Lt32:
   store i64 1, ptr %r32
   br label %Lx32
 Le32:
-  %t36 = call i64 @l0_string(ptr @l0_str.430, i64 5)
+  %t36 = call i64 @l0_string(ptr @l0_str.442, i64 5)
   %t37 = call i64 @l0_equal(i64 %a0, i64 %t36)
   call void @l0_dec(i64 %t36)
   store i64 %t37, ptr %r32
@@ -33178,7 +33304,7 @@ Lx32:
 Lt31:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t40 = call i64 @l0_string(ptr @l0_str.445, i64 22)
+  %t40 = call i64 @l0_string(ptr @l0_str.457, i64 22)
   %t41 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t41, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t41, i64 1, i64 %t40)
@@ -33233,7 +33359,7 @@ Ln0:
 define internal fastcc i64 @l0_f_parse_match(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.446, i64 42)
+  %t1 = call i64 @l0_string(ptr @l0_str.458, i64 42)
   %t2 = call fastcc i64 @l0_f_need_expr(i64 %a0, i64 %a1, i64 %t1, i64 0, i64 0)
   %t3 = call i64 @l0_data_tag(i64 %t2)
   switch i64 %t3, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
@@ -33278,7 +33404,7 @@ Lt17:
   call void @l0_dec(i64 %t16)
   call void @l0_dec(i64 %t15)
   call void @l0_dec(i64 %t7)
-  %t20 = call i64 @l0_string(ptr @l0_str.446, i64 42)
+  %t20 = call i64 @l0_string(ptr @l0_str.458, i64 42)
   %t21 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t21, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t21, i64 1, i64 %t20)
@@ -33307,7 +33433,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_string(ptr @l0_str.447, i64 21)
+  %t3 = call i64 @l0_string(ptr @l0_str.459, i64 21)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -33368,7 +33494,7 @@ entry:
 Lt1:
   call void @l0_dec(i64 %a0)
   %t5 = call fastcc i64 @l0_f_tok_offset(i64 %t0, i64 0)
-  %t6 = call i64 @l0_string(ptr @l0_str.448, i64 49)
+  %t6 = call i64 @l0_string(ptr @l0_str.460, i64 49)
   %t7 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t7, i64 0, i64 %t5)
   call void @l0_data_set(i64 %t7, i64 1, i64 %t6)
@@ -33390,7 +33516,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.449, i64 25)
+  %t3 = call i64 @l0_string(ptr @l0_str.461, i64 25)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -33407,7 +33533,7 @@ Lt5:
   call void @l0_inc(i64 %t10)
   call void @l0_dec(i64 %a0)
   %t11 = call fastcc i64 @l0_f_tok_offset(i64 %t10, i64 0)
-  %t12 = call i64 @l0_string(ptr @l0_str.450, i64 41)
+  %t12 = call i64 @l0_string(ptr @l0_str.462, i64 41)
   %t13 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t13, i64 0, i64 %t11)
   call void @l0_data_set(i64 %t13, i64 1, i64 %t12)
@@ -33428,7 +33554,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.451, i64 29)
+  %t3 = call i64 @l0_string(ptr @l0_str.463, i64 29)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -33458,7 +33584,7 @@ Lx7:
 Lt6:
   call void @l0_dec(i64 %a0)
   %t15 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t16 = call i64 @l0_string(ptr @l0_str.452, i64 46)
+  %t16 = call i64 @l0_string(ptr @l0_str.464, i64 46)
   %t17 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t17, i64 0, i64 %t15)
   call void @l0_data_set(i64 %t17, i64 1, i64 %t16)
@@ -33502,7 +33628,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_string(ptr @l0_str.451, i64 29)
+  %t3 = call i64 @l0_string(ptr @l0_str.463, i64 29)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -33532,7 +33658,7 @@ Lt12:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
   %t16 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t17 = call i64 @l0_string(ptr @l0_str.453, i64 29)
+  %t17 = call i64 @l0_string(ptr @l0_str.465, i64 29)
   %t18 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t18, i64 0, i64 %t16)
   call void @l0_data_set(i64 %t18, i64 1, i64 %t17)
@@ -33563,7 +33689,7 @@ Lt19:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
   %t29 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t30 = call i64 @l0_string(ptr @l0_str.454, i64 55)
+  %t30 = call i64 @l0_string(ptr @l0_str.466, i64 55)
   %t31 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t31, i64 0, i64 %t29)
   call void @l0_data_set(i64 %t31, i64 1, i64 %t30)
@@ -33581,7 +33707,7 @@ Le19:
 define internal fastcc i64 @l0_f_parse_arm_body(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.448, i64 49)
+  %t1 = call i64 @l0_string(ptr @l0_str.460, i64 49)
   %t2 = call fastcc i64 @l0_f_need_expr(i64 %a2, i64 %a3, i64 %t1, i64 0, i64 0)
   %t3 = call i64 @l0_data_tag(i64 %t2)
   switch i64 %t3, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
@@ -33610,7 +33736,7 @@ Lt9:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %t8)
-  %t12 = call i64 @l0_string(ptr @l0_str.449, i64 25)
+  %t12 = call i64 @l0_string(ptr @l0_str.461, i64 25)
   %t13 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t13, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t13, i64 1, i64 %t12)
@@ -33643,7 +33769,7 @@ Le14:
   call void @l0_inc(i64 %t21)
   call void @l0_dec(i64 %t8)
   %t22 = call fastcc i64 @l0_f_tok_offset(i64 %t21, i64 0)
-  %t23 = call i64 @l0_string(ptr @l0_str.448, i64 49)
+  %t23 = call i64 @l0_string(ptr @l0_str.460, i64 49)
   %t24 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t24, i64 0, i64 %t22)
   call void @l0_data_set(i64 %t24, i64 1, i64 %t23)
@@ -33661,7 +33787,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -33691,21 +33817,21 @@ Le5:
 define internal fastcc i64 @l0_f_if_arity(i64 %a0) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.455, i64 99)
+  %t0 = call i64 @l0_string(ptr @l0_str.467, i64 99)
   ret i64 %t0
 }
 
 define internal fastcc i64 @l0_f_let_arity(i64 %a0) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.456, i64 48)
+  %t0 = call i64 @l0_string(ptr @l0_str.468, i64 48)
   ret i64 %t0
 }
 
 define internal fastcc i64 @l0_f_parse_if(i64 %a0, i64 %a1, i64 %a2, i64 %a3, i64 %a4) {
 entry:
   call void @l0_stack_check()
-  %t1 = call i64 @l0_string(ptr @l0_str.457, i64 19)
+  %t1 = call i64 @l0_string(ptr @l0_str.469, i64 19)
   %t2 = call fastcc i64 @l0_f_parse_operands(i64 %a0, i64 0, i64 %a1, i64 %t1)
   %t3 = call i64 @l0_data_tag(i64 %t2)
   switch i64 %t3, label %Ln0 [ i64 1, label %A0_0 i64 0, label %A0_1 ]
@@ -33809,7 +33935,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.458, i64 37)
+  %t3 = call i64 @l0_string(ptr @l0_str.470, i64 37)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -33836,7 +33962,7 @@ Le6:
 Lt12:
   call void @l0_dec(i64 %a0)
   %t16 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t17 = call i64 @l0_string(ptr @l0_str.459, i64 25)
+  %t17 = call i64 @l0_string(ptr @l0_str.471, i64 25)
   %t18 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t18, i64 0, i64 %t16)
   call void @l0_data_set(i64 %t18, i64 1, i64 %t17)
@@ -33866,7 +33992,7 @@ Lx20:
 Lt19:
   call void @l0_dec(i64 %a0)
   %t29 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t30 = call i64 @l0_string(ptr @l0_str.460, i64 53)
+  %t30 = call i64 @l0_string(ptr @l0_str.472, i64 53)
   %t31 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t31, i64 0, i64 %t29)
   call void @l0_data_set(i64 %t31, i64 1, i64 %t30)
@@ -33890,7 +34016,7 @@ Lt0:
   call void @l0_dec(i64 %a4)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.461, i64 30)
+  %t3 = call i64 @l0_string(ptr @l0_str.473, i64 30)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -33965,7 +34091,7 @@ Lt25:
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a4)
   %t35 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t36 = call i64 @l0_string(ptr @l0_str.460, i64 53)
+  %t36 = call i64 @l0_string(ptr @l0_str.472, i64 53)
   %t37 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t37, i64 0, i64 %t35)
   call void @l0_data_set(i64 %t37, i64 1, i64 %t36)
@@ -34008,7 +34134,7 @@ Ln38:
 define internal fastcc i64 @l0_f_let_binds_msg(i64 %a0) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.462, i64 70)
+  %t0 = call i64 @l0_string(ptr @l0_str.474, i64 70)
   ret i64 %t0
 }
 
@@ -34156,7 +34282,7 @@ A0_1:
   %t8 = call i64 @l0_new_data(i64 7, i64 4, i64 4)
   call void @l0_data_set(i64 %t8, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t8, i64 1, i64 %t6)
-  %t9 = call i64 @l0_string(ptr @l0_str.463, i64 51)
+  %t9 = call i64 @l0_string(ptr @l0_str.475, i64 51)
   %t10 = musttail call fastcc i64 @l0_f_close_form(i64 %t8, i64 %t7, i64 %a1, i64 %t9, i64 0)
   ret i64 %t10
 Ln0:
@@ -34173,7 +34299,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t4 = call i64 @l0_string(ptr @l0_str.464, i64 33)
+  %t4 = call i64 @l0_string(ptr @l0_str.476, i64 33)
   %t5 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t5, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t5, i64 1, i64 %t4)
@@ -34213,7 +34339,7 @@ Ln6:
 define internal fastcc i64 @l0_f_parse_args(i64 %a0, i64 %a1, i64 %a2, i64 %a3) {
 entry:
   call void @l0_stack_check()
-  %t0 = call i64 @l0_string(ptr @l0_str.465, i64 20)
+  %t0 = call i64 @l0_string(ptr @l0_str.477, i64 20)
   %t1 = musttail call fastcc i64 @l0_f_parse_operands(i64 %a0, i64 %a1, i64 %a2, i64 %t0)
   ret i64 %t1
 }
@@ -34286,7 +34412,7 @@ Lt0:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -34328,7 +34454,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.466, i64 30)
+  %t3 = call i64 @l0_string(ptr @l0_str.478, i64 30)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -34362,7 +34488,7 @@ Lt12:
   call void @l0_inc(i64 %t17)
   call void @l0_dec(i64 %a0)
   %t18 = call fastcc i64 @l0_f_tok_offset(i64 %t17, i64 0)
-  %t19 = call i64 @l0_string(ptr @l0_str.467, i64 29)
+  %t19 = call i64 @l0_string(ptr @l0_str.479, i64 29)
   %t20 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t20, i64 0, i64 %t18)
   call void @l0_data_set(i64 %t20, i64 1, i64 %t19)
@@ -34387,7 +34513,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_string(ptr @l0_str.468, i64 25)
+  %t3 = call i64 @l0_string(ptr @l0_str.480, i64 25)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -34403,7 +34529,7 @@ Lt6:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
   %t10 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t11 = call i64 @l0_string(ptr @l0_str.469, i64 25)
+  %t11 = call i64 @l0_string(ptr @l0_str.481, i64 25)
   %t12 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t12, i64 0, i64 %t10)
   call void @l0_data_set(i64 %t12, i64 1, i64 %t11)
@@ -34434,7 +34560,7 @@ Lt13:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
   %t23 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t24 = call i64 @l0_string(ptr @l0_str.470, i64 51)
+  %t24 = call i64 @l0_string(ptr @l0_str.482, i64 51)
   %t25 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t25, i64 0, i64 %t23)
   call void @l0_data_set(i64 %t25, i64 1, i64 %t24)
@@ -34479,7 +34605,7 @@ Lt8:
   call void @l0_dec(i64 %t6)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %t7)
-  %t11 = call i64 @l0_string(ptr @l0_str.468, i64 25)
+  %t11 = call i64 @l0_string(ptr @l0_str.480, i64 25)
   %t12 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t12, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t12, i64 1, i64 %t11)
@@ -34509,7 +34635,7 @@ Le13:
   call void @l0_inc(i64 %t21)
   call void @l0_dec(i64 %t7)
   %t22 = call fastcc i64 @l0_f_tok_offset(i64 %t21, i64 0)
-  %t23 = call i64 @l0_string(ptr @l0_str.467, i64 29)
+  %t23 = call i64 @l0_string(ptr @l0_str.479, i64 29)
   %t24 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t24, i64 0, i64 %t22)
   call void @l0_data_set(i64 %t24, i64 1, i64 %t23)
@@ -34526,7 +34652,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.471, i64 22)
+  %t3 = call i64 @l0_string(ptr @l0_str.483, i64 22)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 0)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -34555,7 +34681,7 @@ Le6:
 Lt12:
   call void @l0_dec(i64 %a0)
   %t16 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t17 = call i64 @l0_string(ptr @l0_str.472, i64 30)
+  %t17 = call i64 @l0_string(ptr @l0_str.484, i64 30)
   %t18 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t18, i64 0, i64 %t16)
   call void @l0_data_set(i64 %t18, i64 1, i64 %t17)
@@ -34577,7 +34703,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -34592,7 +34718,7 @@ Le0:
 Lt6:
   call void @l0_dec(i64 %a0)
   %t10 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t11 = call i64 @l0_string(ptr @l0_str.473, i64 29)
+  %t11 = call i64 @l0_string(ptr @l0_str.485, i64 29)
   %t12 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t12, i64 0, i64 %t10)
   call void @l0_data_set(i64 %t12, i64 1, i64 %t11)
@@ -34600,7 +34726,7 @@ Lt6:
 Le6:
   call void @l0_inc(i64 %t5)
   %t14 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t15 = call i64 @l0_string(ptr @l0_str.443, i64 4)
+  %t15 = call i64 @l0_string(ptr @l0_str.455, i64 4)
   %t16 = call i64 @l0_equal(i64 %t14, i64 %t15)
   call void @l0_dec(i64 %t14)
   call void @l0_dec(i64 %t15)
@@ -34616,7 +34742,7 @@ Lt13:
 Le13:
   call void @l0_inc(i64 %t5)
   %t21 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t22 = call i64 @l0_string(ptr @l0_str.442, i64 3)
+  %t22 = call i64 @l0_string(ptr @l0_str.454, i64 3)
   %t23 = call i64 @l0_equal(i64 %t21, i64 %t22)
   call void @l0_dec(i64 %t21)
   call void @l0_dec(i64 %t22)
@@ -34626,7 +34752,7 @@ Le13:
 Lt20:
   call void @l0_dec(i64 %a0)
   %t26 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t27 = call i64 @l0_string(ptr @l0_str.474, i64 44)
+  %t27 = call i64 @l0_string(ptr @l0_str.486, i64 44)
   %t28 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t28, i64 0, i64 %t26)
   call void @l0_data_set(i64 %t28, i64 1, i64 %t27)
@@ -34648,7 +34774,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -34690,7 +34816,7 @@ Lx13:
 Lt12:
   call void @l0_dec(i64 %a0)
   %t21 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t22 = call i64 @l0_string(ptr @l0_str.475, i64 47)
+  %t22 = call i64 @l0_string(ptr @l0_str.487, i64 47)
   %t23 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t23, i64 0, i64 %t21)
   call void @l0_data_set(i64 %t23, i64 1, i64 %t22)
@@ -34712,7 +34838,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -34742,7 +34868,7 @@ Lx7:
 Lt6:
   call void @l0_dec(i64 %a0)
   %t15 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t16 = call i64 @l0_string(ptr @l0_str.475, i64 47)
+  %t16 = call i64 @l0_string(ptr @l0_str.487, i64 47)
   %t17 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t17, i64 0, i64 %t15)
   call void @l0_data_set(i64 %t17, i64 1, i64 %t16)
@@ -34751,7 +34877,7 @@ Le6:
   %t19 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t19)
   call void @l0_dec(i64 %a0)
-  %t20 = call i64 @l0_string(ptr @l0_str.476, i64 32)
+  %t20 = call i64 @l0_string(ptr @l0_str.488, i64 32)
   %t21 = call fastcc i64 @l0_f_parse_ty_params(i64 %t19, i64 0, i64 %a2, i64 %t20)
   %t22 = call i64 @l0_data_tag(i64 %t21)
   switch i64 %t22, label %Ln18 [ i64 1, label %A18_0 i64 0, label %A18_1 ]
@@ -34777,13 +34903,13 @@ A18_1:
 Lt28:
   call void @l0_dec(i64 %t27)
   call void @l0_dec(i64 %t26)
-  %t31 = call i64 @l0_string(ptr @l0_str.146, i64 1)
+  %t31 = call i64 @l0_string(ptr @l0_str.151, i64 1)
   call void @l0_inc(i64 %t5)
   %t32 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t33 = call i64 @l0_string(ptr @l0_str.477, i64 37)
-  %t34 = call i64 @l0_string(ptr @l0_str.478, i64 44)
+  %t33 = call i64 @l0_string(ptr @l0_str.489, i64 37)
+  %t34 = call i64 @l0_string(ptr @l0_str.490, i64 44)
   %t35 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t36 = call i64 @l0_string(ptr @l0_str.479, i64 5)
+  %t36 = call i64 @l0_string(ptr @l0_str.491, i64 5)
   %t37 = call fastcc i64 @l0_f_append.0(i64 %t35, i64 %t36, i64 0, i64 0, i64 0, i64 0)
   %t38 = call fastcc i64 @l0_f_append.0(i64 %t34, i64 %t37, i64 0, i64 0, i64 0, i64 0)
   %t39 = call fastcc i64 @l0_f_append.0(i64 %t33, i64 %t38, i64 0, i64 0, i64 0, i64 0)
@@ -34863,7 +34989,7 @@ Le11:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
   %t23 = call fastcc i64 @l0_f_tok_offset(i64 %t4, i64 0)
-  %t24 = call i64 @l0_string(ptr @l0_str.480, i64 37)
+  %t24 = call i64 @l0_string(ptr @l0_str.492, i64 37)
   %t25 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t25, i64 0, i64 %t23)
   call void @l0_data_set(i64 %t25, i64 1, i64 %t24)
@@ -34901,7 +35027,7 @@ Lt8:
   call void @l0_dec(i64 %t6)
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
-  %t11 = call i64 @l0_string(ptr @l0_str.481, i64 42)
+  %t11 = call i64 @l0_string(ptr @l0_str.493, i64 42)
   %t12 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t12, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t12, i64 1, i64 %t11)
@@ -34929,7 +35055,7 @@ entry:
 Lt0:
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_string(ptr @l0_str.476, i64 32)
+  %t3 = call i64 @l0_string(ptr @l0_str.488, i64 32)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -34963,7 +35089,7 @@ Lt12:
   call void @l0_inc(i64 %t17)
   call void @l0_dec(i64 %a0)
   %t18 = call fastcc i64 @l0_f_tok_offset(i64 %t17, i64 0)
-  %t19 = call i64 @l0_string(ptr @l0_str.482, i64 38)
+  %t19 = call i64 @l0_string(ptr @l0_str.494, i64 38)
   %t20 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t20, i64 0, i64 %t18)
   call void @l0_data_set(i64 %t20, i64 1, i64 %t19)
@@ -35009,7 +35135,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.483, i64 27)
+  %t3 = call i64 @l0_string(ptr @l0_str.495, i64 27)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -35039,7 +35165,7 @@ Lx7:
 Lt6:
   call void @l0_dec(i64 %a0)
   %t15 = call fastcc i64 @l0_f_tok_offset(i64 %t5, i64 0)
-  %t16 = call i64 @l0_string(ptr @l0_str.482, i64 38)
+  %t16 = call i64 @l0_string(ptr @l0_str.494, i64 38)
   %t17 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t17, i64 0, i64 %t15)
   call void @l0_data_set(i64 %t17, i64 1, i64 %t16)
@@ -35064,7 +35190,7 @@ Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_string(ptr @l0_str.483, i64 27)
+  %t3 = call i64 @l0_string(ptr @l0_str.495, i64 27)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a4)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -35139,7 +35265,7 @@ Le17:
   call void @l0_inc(i64 %t33)
   call void @l0_dec(i64 %a1)
   %t34 = call fastcc i64 @l0_f_tok_offset(i64 %t33, i64 0)
-  %t35 = call i64 @l0_string(ptr @l0_str.484, i64 45)
+  %t35 = call i64 @l0_string(ptr @l0_str.496, i64 45)
   %t36 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t36, i64 0, i64 %t34)
   call void @l0_data_set(i64 %t36, i64 1, i64 %t35)
@@ -35183,7 +35309,7 @@ Le37:
   call void @l0_inc(i64 %t50)
   call void @l0_dec(i64 %a1)
   %t51 = call fastcc i64 @l0_f_tok_offset(i64 %t50, i64 0)
-  %t52 = call i64 @l0_string(ptr @l0_str.484, i64 45)
+  %t52 = call i64 @l0_string(ptr @l0_str.496, i64 45)
   %t53 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t53, i64 0, i64 %t51)
   call void @l0_data_set(i64 %t53, i64 1, i64 %t52)
@@ -35237,7 +35363,7 @@ Lt15:
   %r19 = alloca i64
   call void @l0_inc(i64 %t10)
   %t20 = call fastcc i64 @l0_f_tok_bytes(i64 %t10)
-  %t21 = call i64 @l0_string(ptr @l0_str.417, i64 4)
+  %t21 = call i64 @l0_string(ptr @l0_str.429, i64 4)
   %t22 = call i64 @l0_equal(i64 %t20, i64 %t21)
   call void @l0_dec(i64 %t20)
   call void @l0_dec(i64 %t21)
@@ -35249,7 +35375,7 @@ Lt19:
   br label %Lx19
 Le19:
   %t24 = call fastcc i64 @l0_f_tok_bytes(i64 %t10)
-  %t25 = call i64 @l0_string(ptr @l0_str.418, i64 5)
+  %t25 = call i64 @l0_string(ptr @l0_str.430, i64 5)
   %t26 = call i64 @l0_equal(i64 %t24, i64 %t25)
   call void @l0_dec(i64 %t24)
   call void @l0_dec(i64 %t25)
@@ -35277,7 +35403,7 @@ Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a3)
   call void @l0_dec(i64 %a4)
-  %t3 = call i64 @l0_string(ptr @l0_str.485, i64 33)
+  %t3 = call i64 @l0_string(ptr @l0_str.497, i64 33)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a6)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -35315,7 +35441,7 @@ Lt13:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %t12)
-  %t16 = call i64 @l0_string(ptr @l0_str.486, i64 21)
+  %t16 = call i64 @l0_string(ptr @l0_str.498, i64 21)
   %t17 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t17, i64 0, i64 %a6)
   call void @l0_data_set(i64 %t17, i64 1, i64 %t16)
@@ -35345,7 +35471,7 @@ Le18:
   call void @l0_inc(i64 %t26)
   call void @l0_dec(i64 %t12)
   %t27 = call fastcc i64 @l0_f_tok_offset(i64 %t26, i64 0)
-  %t28 = call i64 @l0_string(ptr @l0_str.487, i64 22)
+  %t28 = call i64 @l0_string(ptr @l0_str.499, i64 22)
   %t29 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t29, i64 0, i64 %t27)
   call void @l0_data_set(i64 %t29, i64 1, i64 %t28)
@@ -35362,7 +35488,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a1)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -35413,7 +35539,7 @@ entry:
   br i1 %t3, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t4 = call i64 @l0_string(ptr @l0_str.488, i64 34)
+  %t4 = call i64 @l0_string(ptr @l0_str.500, i64 34)
   ret i64 %t4
 Le0:
   %r6 = alloca i64
@@ -35438,7 +35564,7 @@ Lx6:
   %t14 = icmp ne i64 %t13, 0
   br i1 %t14, label %Lt5, label %Le5
 Lt5:
-  %t15 = call i64 @l0_string(ptr @l0_str.489, i64 50)
+  %t15 = call i64 @l0_string(ptr @l0_str.501, i64 50)
   ret i64 %t15
 Le5:
   ret i64 0
@@ -35452,7 +35578,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a2)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -35478,7 +35604,7 @@ Le7:
   %t14 = call i64 @l0_tail(i64 %a0)
   call void @l0_inc(i64 %t14)
   call void @l0_dec(i64 %a0)
-  %t15 = call i64 @l0_string(ptr @l0_str.490, i64 37)
+  %t15 = call i64 @l0_string(ptr @l0_str.502, i64 37)
   %t16 = call fastcc i64 @l0_f_parse_ty_params(i64 %t14, i64 0, i64 %a2, i64 %t15)
   %t17 = call i64 @l0_data_tag(i64 %t16)
   switch i64 %t17, label %Ln13 [ i64 1, label %A13_0 i64 0, label %A13_1 ]
@@ -35504,13 +35630,13 @@ A13_1:
 Lt23:
   call void @l0_dec(i64 %t22)
   call void @l0_dec(i64 %t21)
-  %t26 = call i64 @l0_string(ptr @l0_str.146, i64 1)
+  %t26 = call i64 @l0_string(ptr @l0_str.151, i64 1)
   call void @l0_inc(i64 %t5)
   %t27 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t28 = call i64 @l0_string(ptr @l0_str.477, i64 37)
-  %t29 = call i64 @l0_string(ptr @l0_str.491, i64 32)
+  %t28 = call i64 @l0_string(ptr @l0_str.489, i64 37)
+  %t29 = call i64 @l0_string(ptr @l0_str.503, i64 32)
   %t30 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t31 = call i64 @l0_string(ptr @l0_str.479, i64 5)
+  %t31 = call i64 @l0_string(ptr @l0_str.491, i64 5)
   %t32 = call fastcc i64 @l0_f_append.0(i64 %t30, i64 %t31, i64 0, i64 0, i64 0, i64 0)
   %t33 = call fastcc i64 @l0_f_append.0(i64 %t29, i64 %t32, i64 0, i64 0, i64 0, i64 0)
   %t34 = call fastcc i64 @l0_f_append.0(i64 %t28, i64 %t33, i64 0, i64 0, i64 0, i64 0)
@@ -35538,7 +35664,7 @@ Lt0:
   call void @l0_dec(i64 %a2)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a1)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a3)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -35557,7 +35683,7 @@ Lt5:
   call void @l0_inc(i64 %t10)
   call void @l0_dec(i64 %a2)
   %t11 = call fastcc i64 @l0_f_tok_offset(i64 %t10, i64 0)
-  %t12 = call i64 @l0_string(ptr @l0_str.492, i64 51)
+  %t12 = call i64 @l0_string(ptr @l0_str.504, i64 51)
   %t13 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t13, i64 0, i64 %t11)
   call void @l0_data_set(i64 %t13, i64 1, i64 %t12)
@@ -35662,7 +35788,7 @@ Lt0:
   call void @l0_dec(i64 %a1)
   call void @l0_dec(i64 %a0)
   call void @l0_dec(i64 %a5)
-  %t3 = call i64 @l0_string(ptr @l0_str.433, i64 10)
+  %t3 = call i64 @l0_string(ptr @l0_str.445, i64 10)
   %t4 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 %a6)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -35699,7 +35825,7 @@ Le5:
   call void @l0_inc(i64 %t12)
   call void @l0_dec(i64 %a5)
   %t13 = call fastcc i64 @l0_f_tok_offset(i64 %t12, i64 0)
-  %t14 = call i64 @l0_string(ptr @l0_str.493, i64 48)
+  %t14 = call i64 @l0_string(ptr @l0_str.505, i64 48)
   %t15 = call i64 @l0_new_data(i64 1, i64 2, i64 4)
   call void @l0_data_set(i64 %t15, i64 0, i64 %t13)
   call void @l0_data_set(i64 %t15, i64 1, i64 %t14)
@@ -35753,7 +35879,7 @@ Le14:
   %r19 = alloca i64
   call void @l0_inc(i64 %t13)
   %t20 = call fastcc i64 @l0_f_tok_bytes(i64 %t13)
-  %t21 = call i64 @l0_string(ptr @l0_str.442, i64 3)
+  %t21 = call i64 @l0_string(ptr @l0_str.454, i64 3)
   %t22 = call i64 @l0_equal(i64 %t20, i64 %t21)
   call void @l0_dec(i64 %t20)
   call void @l0_dec(i64 %t21)
@@ -35765,7 +35891,7 @@ Lt19:
   br label %Lx19
 Le19:
   %t24 = call fastcc i64 @l0_f_tok_bytes(i64 %t13)
-  %t25 = call i64 @l0_string(ptr @l0_str.443, i64 4)
+  %t25 = call i64 @l0_string(ptr @l0_str.455, i64 4)
   %t26 = call i64 @l0_equal(i64 %t24, i64 %t25)
   call void @l0_dec(i64 %t24)
   call void @l0_dec(i64 %t25)
@@ -35856,7 +35982,7 @@ Le0:
   call void @l0_inc(i64 %t5)
   call void @l0_dec(i64 %t4)
   %t7 = call fastcc i64 @l0_f_tok_bytes(i64 %t5)
-  %t8 = call i64 @l0_string(ptr @l0_str.442, i64 3)
+  %t8 = call i64 @l0_string(ptr @l0_str.454, i64 3)
   %t9 = call i64 @l0_equal(i64 %t7, i64 %t8)
   call void @l0_dec(i64 %t7)
   call void @l0_dec(i64 %t8)
@@ -36233,7 +36359,7 @@ entry:
   br i1 %t2, label %Lt0, label %Le0
 Lt0:
   call void @l0_dec(i64 %a0)
-  %t3 = call i64 @l0_string(ptr @l0_str.494, i64 21)
+  %t3 = call i64 @l0_string(ptr @l0_str.506, i64 21)
   %t4 = call i64 @l0_new_data(i64 0, i64 4, i64 4)
   call void @l0_data_set(i64 %t4, i64 0, i64 0)
   call void @l0_data_set(i64 %t4, i64 1, i64 %t3)
@@ -36468,7 +36594,7 @@ Le4:
 @l0_str.19 = private unnamed_addr constant [57 x i8] c"open_read open_write open_append rename open_bytes remove"
 @l0_str.20 = private unnamed_addr constant [16 x i8] c"arg buffer_bytes"
 @l0_str.21 = private unnamed_addr constant [39 x i8] c"array_new array_len array_get array_set"
-@l0_str.22 = private unnamed_addr constant [107 x i8] c"read_bytes read_some bytes_len bytes_get bytes_from_list bytes_to_list write_bytes bytes_slice bytes_concat"
+@l0_str.22 = private unnamed_addr constant [191 x i8] c"read_bytes read_some bytes_len bytes_get bytes_from_list bytes_to_list write_bytes bytes_slice bytes_concat bytes_dot_i8 bytes_dot_f32 bytes_get_f32 bytes_get_f16 bytes_set_f32 bytes_axpy_f32"
 @l0_str.23 = private unnamed_addr constant [33 x i8] c"neg bit_count not eq hash compare"
 @l0_str.24 = private unnamed_addr constant [151 x i8] c"float_add float_sub float_mul float_div float_neg float_sqrt float_lt float_le float_gt float_ge float_from_int float_to_int float_bits float_from_bits"
 @l0_str.25 = private unnamed_addr constant [60 x i8] c"float_add float_sub float_mul float_div float_neg float_sqrt"
@@ -36476,468 +36602,480 @@ Le4:
 @l0_str.27 = private unnamed_addr constant [23 x i8] c"float_to_int float_bits"
 @l0_str.28 = private unnamed_addr constant [161 x i8] c"read_byte arg_count open_buffer clock_ns barrier space_new frame_new interrupt_wait machine board_reset frame_free_count cpu_count cpu_trapped cpu_wait heap_left"
 @l0_str.29 = private unnamed_addr constant [382 x i8] c"float_neg float_sqrt float_from_int float_to_int float_bits float_from_bits neg bit_count not hash head tail is_empty write_byte read_from close flush arg open_read open_write open_append open_bytes remove buffer_bytes array_len read_bytes bytes_len bytes_from_list bytes_to_list bytes_concat timer_at interrupt_enable interrupt_done frame_address space_free frame_free region_close"
-@l0_str.30 = private unnamed_addr constant [128 x i8] c"array_set region_write8 region_write16 region_write32 region_write64 space_read supervisor_receive bytes_slice region_read_bytes"
+@l0_str.30 = private unnamed_addr constant [142 x i8] c"array_set region_write8 region_write16 region_write32 region_write64 space_read supervisor_receive bytes_slice region_read_bytes bytes_set_f32"
 @l0_str.31 = private unnamed_addr constant [54 x i8] c"write_bytes space_map space_map_device supervisor_call"
-@l0_str.32 = private unnamed_addr constant [54 x i8] c"space_write supervisor_send cpu_run region_write_bytes"
-@l0_str.33 = private unnamed_addr constant [1 x i8] c"s"
-@l0_str.34 = private unnamed_addr constant [8 x i8] c"argument"
-@l0_str.35 = private unnamed_addr constant [9 x i8] c" must be "
-@l0_str.36 = private unnamed_addr constant [14 x i8] c", but this is "
-@l0_str.37 = private unnamed_addr constant [3 x i8] c"neg"
-@l0_str.38 = private unnamed_addr constant [9 x i8] c"bit_count"
-@l0_str.39 = private unnamed_addr constant [3 x i8] c"not"
-@l0_str.40 = private unnamed_addr constant [2 x i8] c"eq"
-@l0_str.41 = private unnamed_addr constant [4 x i8] c"hash"
-@l0_str.42 = private unnamed_addr constant [7 x i8] c"compare"
-@l0_str.43 = private unnamed_addr constant [47 x i8] c"space_read supervisor_receive region_read_bytes"
-@l0_str.44 = private unnamed_addr constant [46 x i8] c"space_write supervisor_send region_write_bytes"
-@l0_str.45 = private unnamed_addr constant [7 x i8] c"cpu_run"
-@l0_str.46 = private unnamed_addr constant [11 x i8] c"cpu_trapped"
-@l0_str.47 = private unnamed_addr constant [25 x i8] c"the second argument of eq"
-@l0_str.48 = private unnamed_addr constant [30 x i8] c"the second argument of compare"
-@l0_str.49 = private unnamed_addr constant [10 x i8] c"read_bytes"
-@l0_str.50 = private unnamed_addr constant [9 x i8] c"read_some"
-@l0_str.51 = private unnamed_addr constant [9 x i8] c"bytes_len"
-@l0_str.52 = private unnamed_addr constant [9 x i8] c"bytes_get"
-@l0_str.53 = private unnamed_addr constant [15 x i8] c"bytes_from_list"
-@l0_str.54 = private unnamed_addr constant [13 x i8] c"bytes_to_list"
-@l0_str.55 = private unnamed_addr constant [11 x i8] c"bytes_slice"
-@l0_str.56 = private unnamed_addr constant [12 x i8] c"bytes_concat"
-@l0_str.57 = private unnamed_addr constant [15 x i8] c"an argument of "
-@l0_str.58 = private unnamed_addr constant [9 x i8] c"array_new"
-@l0_str.59 = private unnamed_addr constant [29 x i8] c"the length given to array_new"
-@l0_str.60 = private unnamed_addr constant [3 x i8] c"int"
-@l0_str.61 = private unnamed_addr constant [22 x i8] c"the first argument of "
-@l0_str.62 = private unnamed_addr constant [8 x i8] c"an array"
-@l0_str.63 = private unnamed_addr constant [9 x i8] c"array_len"
-@l0_str.64 = private unnamed_addr constant [19 x i8] c"the index given to "
-@l0_str.65 = private unnamed_addr constant [9 x i8] c"array_get"
-@l0_str.66 = private unnamed_addr constant [30 x i8] c"the element stored in an array"
-@l0_str.67 = private unnamed_addr constant [4 x i8] c"cons"
-@l0_str.68 = private unnamed_addr constant [6 x i8] c"a list"
-@l0_str.69 = private unnamed_addr constant [4 x i8] c"head"
-@l0_str.70 = private unnamed_addr constant [4 x i8] c"tail"
-@l0_str.71 = private unnamed_addr constant [27 x i8] c"the second argument of cons"
-@l0_str.72 = private unnamed_addr constant [30 x i8] c"the element consed onto a list"
-@l0_str.73 = private unnamed_addr constant [6 x i8] c"field "
-@l0_str.74 = private unnamed_addr constant [4 x i8] c" of "
-@l0_str.75 = private unnamed_addr constant [41 x i8] c"fields belong to data types, but this is "
-@l0_str.76 = private unnamed_addr constant [49 x i8] c" is a type parameter, so its fields are not known"
-@l0_str.77 = private unnamed_addr constant [5 x i8] c" has "
-@l0_str.78 = private unnamed_addr constant [62 x i8] c" constructors, so its fields are not read by name; match on it"
-@l0_str.79 = private unnamed_addr constant [14 x i8] c"unknown field "
-@l0_str.80 = private unnamed_addr constant [50 x i8] c" is a function parameter, which is only called or "
-@l0_str.81 = private unnamed_addr constant [38 x i8] c"passed to a parameter of function type"
-@l0_str.82 = private unnamed_addr constant [47 x i8] c" is a function, and L0 has no function values; "
-@l0_str.83 = private unnamed_addr constant [52 x i8] c"a def is passed only to a parameter of function type"
-@l0_str.84 = private unnamed_addr constant [17 x i8] c"unknown function "
-@l0_str.85 = private unnamed_addr constant [17 x i8] c"unknown variable "
-@l0_str.86 = private unnamed_addr constant [59 x i8] c"the branches of an if must have the same type, but then is "
-@l0_str.87 = private unnamed_addr constant [13 x i8] c" and else is "
-@l0_str.88 = private unnamed_addr constant [22 x i8] c"the condition of an if"
-@l0_str.89 = private unnamed_addr constant [4 x i8] c"bool"
-@l0_str.90 = private unnamed_addr constant [9 x i8] c"argument "
-@l0_str.91 = private unnamed_addr constant [61 x i8] c" must name a function: a def, or a parameter of function type"
-@l0_str.92 = private unnamed_addr constant [16 x i8] c" is the builtin "
-@l0_str.93 = private unnamed_addr constant [55 x i8] c", and a builtin is not passed; pass a def that calls it"
-@l0_str.94 = private unnamed_addr constant [4 x i8] c" is "
-@l0_str.95 = private unnamed_addr constant [54 x i8] c", whose type parameters come from the types it takes, "
-@l0_str.96 = private unnamed_addr constant [37 x i8] c"and no argument before it fixes those"
-@l0_str.97 = private unnamed_addr constant [45 x i8] c" is a local value, and L0 cannot call a value"
-@l0_str.98 = private unnamed_addr constant [20 x i8] c"unknown constructor "
-@l0_str.99 = private unnamed_addr constant [5 x i8] c"field"
-@l0_str.100 = private unnamed_addr constant [30 x i8] c" does not determine parameter "
-@l0_str.101 = private unnamed_addr constant [48 x i8] c", so it is written with the type's arguments: (("
-@l0_str.102 = private unnamed_addr constant [6 x i8] c") ...)"
-@l0_str.103 = private unnamed_addr constant [22 x i8] c"the subject of a match"
-@l0_str.104 = private unnamed_addr constant [11 x i8] c"a data type"
-@l0_str.105 = private unnamed_addr constant [9 x i8] c"match on "
-@l0_str.106 = private unnamed_addr constant [23 x i8] c" is missing an arm for "
-@l0_str.107 = private unnamed_addr constant [51 x i8] c"all match arms must have the same type, but one is "
-@l0_str.108 = private unnamed_addr constant [16 x i8] c" and another is "
-@l0_str.109 = private unnamed_addr constant [33 x i8] c" already has an arm in this match"
-@l0_str.110 = private unnamed_addr constant [21 x i8] c" is a constructor of "
-@l0_str.111 = private unnamed_addr constant [6 x i8] c", not "
-@l0_str.112 = private unnamed_addr constant [25 x i8] c", but this pattern binds "
-@l0_str.113 = private unnamed_addr constant [35 x i8] c" is bound twice in the same pattern"
-@l0_str.114 = private unnamed_addr constant [22 x i8] c" declares return type "
-@l0_str.115 = private unnamed_addr constant [18 x i8] c", but its body is "
-@l0_str.116 = private unnamed_addr constant [10 x i8] c"parameter "
-@l0_str.117 = private unnamed_addr constant [18 x i8] c" is declared twice"
-@l0_str.118 = private unnamed_addr constant [59 x i8] c" is in no parameter's type, so no call could say what it is"
-@l0_str.119 = private unnamed_addr constant [3 x i8] c"'s "
-@l0_str.120 = private unnamed_addr constant [16 x i8] c" of constructor "
-@l0_str.121 = private unnamed_addr constant [9 x i8] c"function "
-@l0_str.122 = private unnamed_addr constant [19 x i8] c" is already defined"
-@l0_str.123 = private unnamed_addr constant [10 x i8] c"data type "
-@l0_str.124 = private unnamed_addr constant [20 x i8] c" is already declared"
-@l0_str.125 = private unnamed_addr constant [12 x i8] c"constructor "
-@l0_str.126 = private unnamed_addr constant [4 x i8] c"main"
-@l0_str.127 = private unnamed_addr constant [33 x i8] c"this program has no main function"
-@l0_str.128 = private unnamed_addr constant [29 x i8] c"main takes no type parameters"
-@l0_str.129 = private unnamed_addr constant [41 x i8] c"a main with no parameters must return int"
-@l0_str.130 = private unnamed_addr constant [41 x i8] c"main must return (list int), int, or bool"
-@l0_str.131 = private unnamed_addr constant [56 x i8] c"main must take one parameter of type (list int), or none"
-@l0_str.132 = private unnamed_addr constant [35 x i8] c" fields, and at most 31 are allowed"
-@l0_str.133 = private unnamed_addr constant [10 x i8] c"prelude's "
-@l0_str.134 = private unnamed_addr constant [8 x i8] c"unboxed "
-@l0_str.135 = private unnamed_addr constant [5 x i8] c"l0_p_"
-@l0_str.136 = private unnamed_addr constant [14 x i8] c"l0_f_main.body"
-@l0_str.137 = private unnamed_addr constant [5 x i8] c"l0_f_"
-@l0_str.138 = private unnamed_addr constant [1 x i8] c"\0a"
-@l0_str.139 = private unnamed_addr constant [1 x i8] c"0"
-@l0_str.140 = private unnamed_addr constant [4 x i8] c"i64 "
-@l0_str.141 = private unnamed_addr constant [2 x i8] c", "
-@l0_str.142 = private unnamed_addr constant [2 x i8] c"%t"
-@l0_str.143 = private unnamed_addr constant [2 x i8] c"  "
-@l0_str.144 = private unnamed_addr constant [3 x i8] c" = "
-@l0_str.145 = private unnamed_addr constant [10 x i8] c"call i64 @"
-@l0_str.146 = private unnamed_addr constant [1 x i8] c"("
-@l0_str.147 = private unnamed_addr constant [1 x i8] c")"
-@l0_str.148 = private unnamed_addr constant [5 x i8] c" i64 "
-@l0_str.149 = private unnamed_addr constant [5 x i8] c"icmp "
-@l0_str.150 = private unnamed_addr constant [8 x i8] c"zext i1 "
-@l0_str.151 = private unnamed_addr constant [7 x i8] c" to i64"
-@l0_str.152 = private unnamed_addr constant [24 x i8] c"  call void @l0_inc(i64 "
-@l0_str.153 = private unnamed_addr constant [24 x i8] c"  call void @l0_dec(i64 "
-@l0_str.154 = private unnamed_addr constant [10 x i8] c"  ret i64 "
-@l0_str.155 = private unnamed_addr constant [1 x i8] c"1"
-@l0_str.156 = private unnamed_addr constant [9 x i8] c"array_set"
-@l0_str.157 = private unnamed_addr constant [14 x i8] c"this array_set"
-@l0_str.158 = private unnamed_addr constant [13 x i8] c"this call of "
-@l0_str.159 = private unnamed_addr constant [15 x i8] c" is used after "
-@l0_str.160 = private unnamed_addr constant [15 x i8] c", so it copies "
-@l0_str.161 = private unnamed_addr constant [42 x i8] c"; read it first, with let, and update last"
-@l0_str.162 = private unnamed_addr constant [11 x i8] c"l0_data_get"
-@l0_str.163 = private unnamed_addr constant [12 x i8] c"l0_data_with"
-@l0_str.164 = private unnamed_addr constant [9 x i8] c"data.take"
-@l0_str.165 = private unnamed_addr constant [12 x i8] c"l0_data_take"
-@l0_str.166 = private unnamed_addr constant [1 x i8] c"3"
-@l0_str.167 = private unnamed_addr constant [1 x i8] c"2"
-@l0_str.168 = private unnamed_addr constant [32 x i8] c"call i64 @l0_string(ptr @l0_str."
-@l0_str.169 = private unnamed_addr constant [6 x i8] c", i64 "
-@l0_str.170 = private unnamed_addr constant [8 x i8] c"@l0_str."
-@l0_str.171 = private unnamed_addr constant [34 x i8] c" = private unnamed_addr constant ["
-@l0_str.172 = private unnamed_addr constant [9 x i8] c" x i8] c\22"
-@l0_str.173 = private unnamed_addr constant [1 x i8] c"\22"
-@l0_str.174 = private unnamed_addr constant [12 x i8] c"  store i64 "
-@l0_str.175 = private unnamed_addr constant [6 x i8] c", ptr "
-@l0_str.176 = private unnamed_addr constant [1 x i8] c":"
-@l0_str.177 = private unnamed_addr constant [12 x i8] c"  br label %"
-@l0_str.178 = private unnamed_addr constant [13 x i8] c" = alloca i64"
-@l0_str.179 = private unnamed_addr constant [2 x i8] c"%r"
-@l0_str.180 = private unnamed_addr constant [2 x i8] c"Lt"
-@l0_str.181 = private unnamed_addr constant [2 x i8] c"Le"
-@l0_str.182 = private unnamed_addr constant [2 x i8] c"Lx"
-@l0_str.183 = private unnamed_addr constant [12 x i8] c"icmp ne i64 "
-@l0_str.184 = private unnamed_addr constant [3 x i8] c", 0"
-@l0_str.185 = private unnamed_addr constant [8 x i8] c"  br i1 "
-@l0_str.186 = private unnamed_addr constant [9 x i8] c", label %"
-@l0_str.187 = private unnamed_addr constant [14 x i8] c"load i64, ptr "
-@l0_str.188 = private unnamed_addr constant [224 x i8] c"head tail is_empty eq hash compare open_read open_write open_append rename remove open_bytes array_len array_get bytes_len bytes_get write_bytes bytes_slice bytes_concat region_write_bytes space_write supervisor_send cpu_run"
-@l0_str.189 = private unnamed_addr constant [24 x i8] c"bytes_slice bytes_concat"
-@l0_str.190 = private unnamed_addr constant [10 x i8] c"array.take"
-@l0_str.191 = private unnamed_addr constant [3 x i8] c"and"
-@l0_str.192 = private unnamed_addr constant [2 x i8] c"or"
-@l0_str.193 = private unnamed_addr constant [12 x i8] c"l0_array_get"
-@l0_str.194 = private unnamed_addr constant [16 x i8] c"l0_array_set_row"
-@l0_str.195 = private unnamed_addr constant [13 x i8] c"l0_array_take"
-@l0_str.196 = private unnamed_addr constant [26 x i8] c"musttail call fastcc i64 @"
-@l0_str.197 = private unnamed_addr constant [17 x i8] c"call fastcc i64 @"
-@l0_str.198 = private unnamed_addr constant [70 x i8] c"lt le gt ge eq and or not is_empty float_lt float_le float_gt float_ge"
-@l0_str.199 = private unnamed_addr constant [14 x i8] c"head array_get"
-@l0_str.200 = private unnamed_addr constant [14 x i8] c"tail array_set"
-@l0_str.201 = private unnamed_addr constant [91 x i8] c"float_add float_sub float_mul float_div float_neg float_sqrt float_from_int float_from_bits"
-@l0_str.202 = private unnamed_addr constant [109 x i8] c"read_bytes read_some bytes_from_list bytes_slice bytes_concat region_read_bytes space_read supervisor_receive"
-@l0_str.203 = private unnamed_addr constant [20 x i8] c"user_run cpu_trapped"
-@l0_str.204 = private unnamed_addr constant [6 x i8] c"@l0_p_"
-@l0_str.205 = private unnamed_addr constant [15 x i8] c"@l0_f_main.body"
-@l0_str.206 = private unnamed_addr constant [11 x i8] c"l0_new_data"
-@l0_str.207 = private unnamed_addr constant [29 x i8] c"  call void @l0_data_set(i64 "
-@l0_str.208 = private unnamed_addr constant [2 x i8] c"%m"
-@l0_str.209 = private unnamed_addr constant [1 x i8] c"A"
-@l0_str.210 = private unnamed_addr constant [1 x i8] c"_"
-@l0_str.211 = private unnamed_addr constant [11 x i8] c"l0_data_tag"
-@l0_str.212 = private unnamed_addr constant [2 x i8] c"Lm"
-@l0_str.213 = private unnamed_addr constant [2 x i8] c"Ln"
-@l0_str.214 = private unnamed_addr constant [13 x i8] c"  switch i64 "
-@l0_str.215 = private unnamed_addr constant [2 x i8] c" ["
-@l0_str.216 = private unnamed_addr constant [2 x i8] c" ]"
-@l0_str.217 = private unnamed_addr constant [13 x i8] c"  unreachable"
-@l0_str.218 = private unnamed_addr constant [18 x i8] c"add sub mul and or"
-@l0_str.219 = private unnamed_addr constant [14 x i8] c"lt le gt ge eq"
-@l0_str.220 = private unnamed_addr constant [18 x i8] c"slt sle sgt sge eq"
-@l0_str.221 = private unnamed_addr constant [780 x i8] c"read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes bytes_slice bytes_concat clock_ns remove read_some region_open region_close region_read8 region_read16 region_read32 region_read64 region_write8 region_write16 region_write32 region_write64 barrier space_new frame_new space_map space_map_device space_read space_write user_run timer_at interrupt_enable interrupt_wait interrupt_done supervisor_call supervisor_send supervisor_receive frame_address space_unmap space_free frame_free machine frame_free_count frame_sync board_reset cpu_count cpu_run cpu_trapped cpu_wait heap_left region_read_bytes region_write_bytes"
-@l0_str.222 = private unnamed_addr constant [82 x i8] c"div mod head tail is_empty array_len array_get array_set bit_shl bit_shr bit_count"
-@l0_str.223 = private unnamed_addr constant [115 x i8] c"l0_div l0_mod l0_head l0_tail l0_is_empty l0_array_len l0_array_get l0_array_set l0_bit_shl l0_bit_shr l0_bit_count"
-@l0_str.224 = private unnamed_addr constant [22 x i8] c"bit_and bit_or bit_xor"
-@l0_str.225 = private unnamed_addr constant [10 x i8] c"and or xor"
-@l0_str.226 = private unnamed_addr constant [3 x i8] c"l0_"
-@l0_str.227 = private unnamed_addr constant [8 x i8] c"l0_equal"
-@l0_str.228 = private unnamed_addr constant [7 x i8] c"l0_hash"
-@l0_str.229 = private unnamed_addr constant [10 x i8] c"l0_compare"
-@l0_str.230 = private unnamed_addr constant [3 x i8] c"sgt"
-@l0_str.231 = private unnamed_addr constant [3 x i8] c"slt"
-@l0_str.232 = private unnamed_addr constant [3 x i8] c"sub"
-@l0_str.233 = private unnamed_addr constant [9 x i8] c"ashr i64 "
-@l0_str.234 = private unnamed_addr constant [4 x i8] c", 63"
-@l0_str.235 = private unnamed_addr constant [9 x i8] c"lshr i64 "
-@l0_str.236 = private unnamed_addr constant [3 x i8] c", 1"
-@l0_str.237 = private unnamed_addr constant [3 x i8] c"xor"
-@l0_str.238 = private unnamed_addr constant [12 x i8] c"bitcast i64 "
-@l0_str.239 = private unnamed_addr constant [10 x i8] c" to double"
-@l0_str.240 = private unnamed_addr constant [15 x i8] c"bitcast double "
-@l0_str.241 = private unnamed_addr constant [16 x i8] c"fcmp uno double "
-@l0_str.242 = private unnamed_addr constant [10 x i8] c"select i1 "
-@l0_str.243 = private unnamed_addr constant [31 x i8] c", i64 9221120237041090560, i64 "
-@l0_str.244 = private unnamed_addr constant [19 x i8] c"fadd fsub fmul fdiv"
-@l0_str.245 = private unnamed_addr constant [39 x i8] c"float_add float_sub float_mul float_div"
-@l0_str.246 = private unnamed_addr constant [15 x i8] c"olt ole ogt oge"
-@l0_str.247 = private unnamed_addr constant [8 x i8] c" double "
-@l0_str.248 = private unnamed_addr constant [5 x i8] c"fcmp "
-@l0_str.249 = private unnamed_addr constant [9 x i8] c"float_neg"
-@l0_str.250 = private unnamed_addr constant [12 x i8] c"fneg double "
-@l0_str.251 = private unnamed_addr constant [10 x i8] c"float_sqrt"
-@l0_str.252 = private unnamed_addr constant [34 x i8] c"call double @llvm.sqrt.f64(double "
-@l0_str.253 = private unnamed_addr constant [14 x i8] c"float_from_int"
-@l0_str.254 = private unnamed_addr constant [11 x i8] c"sitofp i64 "
-@l0_str.255 = private unnamed_addr constant [12 x i8] c"float_to_int"
-@l0_str.256 = private unnamed_addr constant [41 x i8] c"call i64 @llvm.fptosi.sat.i64.f64(double "
-@l0_str.257 = private unnamed_addr constant [10 x i8] c"float_bits"
-@l0_str.258 = private unnamed_addr constant [14 x i8] c"fdiv double 0x"
-@l0_str.259 = private unnamed_addr constant [4 x i8] c", 0x"
-@l0_str.260 = private unnamed_addr constant [12 x i8] c"l0_array_new"
-@l0_str.261 = private unnamed_addr constant [11 x i8] c"l0_new_cons"
-@l0_str.262 = private unnamed_addr constant [6 x i8] c"i64 %a"
-@l0_str.263 = private unnamed_addr constant [2 x i8] c"%a"
-@l0_str.264 = private unnamed_addr constant [28 x i8] c"define internal fastcc i64 @"
-@l0_str.265 = private unnamed_addr constant [3 x i8] c") {"
-@l0_str.266 = private unnamed_addr constant [29 x i8] c"  call void @l0_stack_check()"
-@l0_str.267 = private unnamed_addr constant [6 x i8] c"entry:"
-@l0_str.268 = private unnamed_addr constant [1 x i8] c"}"
-@l0_str.269 = private unnamed_addr constant [3 x i8] c"%a0"
-@l0_str.270 = private unnamed_addr constant [12 x i8] c"  ret i64 %r"
-@l0_str.271 = private unnamed_addr constant [39 x i8] c"  %r = call fastcc i64 @l0_f_main.body("
-@l0_str.272 = private unnamed_addr constant [32 x i8] c"define i64 @l0_f_main(i64 %a0) {"
-@l0_str.273 = private unnamed_addr constant [31 x i8] c"; generated by the L0 compiler\0a"
-@l0_str.274 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_cons(i64, i64)\0a"
-@l0_str.275 = private unnamed_addr constant [26 x i8] c"declare i64 @l0_head(i64)\0a"
-@l0_str.276 = private unnamed_addr constant [26 x i8] c"declare i64 @l0_tail(i64)\0a"
-@l0_str.277 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_is_empty(i64)\0a"
-@l0_str.278 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_div(i64, i64)\0a"
-@l0_str.279 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_mod(i64, i64)\0a"
-@l0_str.280 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_data_new(i64, i64)\0a"
-@l0_str.281 = private unnamed_addr constant [41 x i8] c"declare void @l0_data_set(i64, i64, i64)\0a"
-@l0_str.282 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_data_tag(i64)\0a"
-@l0_str.283 = private unnamed_addr constant [112 x i8] c"declare i64 @l0_data_get(i64, i64)\0adeclare i64 @l0_data_with(i64, i64, i64)\0adeclare i64 @l0_data_take(i64, i64)\0a"
-@l0_str.284 = private unnamed_addr constant [31 x i8] c"declare void @l0_stack_check()\0a"
-@l0_str.285 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_read_byte()\0a"
-@l0_str.286 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_write_byte(i64)\0a"
-@l0_str.287 = private unnamed_addr constant [26 x i8] c"declare void @l0_inc(i64)\0a"
-@l0_str.288 = private unnamed_addr constant [26 x i8] c"declare void @l0_dec(i64)\0a"
-@l0_str.289 = private unnamed_addr constant [73 x i8] c"declare i64 @l0_new_cons(i64, i64, i64)\0adeclare i64 @l0_string(ptr, i64)\0a"
-@l0_str.290 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_new_data(i64, i64, i64)\0a"
-@l0_str.291 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_read_from(i64)\0a"
-@l0_str.292 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_write_to(i64, i64)\0a"
-@l0_str.293 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_open_read(i64)\0a"
-@l0_str.294 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_open_write(i64)\0a"
-@l0_str.295 = private unnamed_addr constant [27 x i8] c"declare i64 @l0_close(i64)\0a"
-@l0_str.296 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_arg_count()\0a"
-@l0_str.297 = private unnamed_addr constant [25 x i8] c"declare i64 @l0_arg(i64)\0a"
-@l0_str.298 = private unnamed_addr constant [27 x i8] c"declare i64 @l0_flush(i64)\0a"
-@l0_str.299 = private unnamed_addr constant [33 x i8] c"declare i64 @l0_open_append(i64)\0a"
-@l0_str.300 = private unnamed_addr constant [33 x i8] c"declare i64 @l0_rename(i64, i64)\0a"
-@l0_str.301 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_open_bytes(i64)\0a"
-@l0_str.302 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_open_buffer()\0a"
-@l0_str.303 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_buffer_bytes(i64)\0a"
-@l0_str.304 = private unnamed_addr constant [41 x i8] c"declare i64 @l0_array_new(i64, i64, i64)\0a"
-@l0_str.305 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_array_len(i64)\0a"
-@l0_str.306 = private unnamed_addr constant [36 x i8] c"declare i64 @l0_array_get(i64, i64)\0a"
-@l0_str.307 = private unnamed_addr constant [41 x i8] c"declare i64 @l0_array_set(i64, i64, i64)\0a"
-@l0_str.308 = private unnamed_addr constant [50 x i8] c"declare i64 @l0_array_set_row(i64, i64, i64, i64)\0a"
-@l0_str.309 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_read_bytes(i64)\0a"
-@l0_str.310 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_bytes_len(i64)\0a"
-@l0_str.311 = private unnamed_addr constant [36 x i8] c"declare i64 @l0_bytes_get(i64, i64)\0a"
-@l0_str.312 = private unnamed_addr constant [37 x i8] c"declare i64 @l0_bytes_from_list(i64)\0a"
-@l0_str.313 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_bytes_to_list(i64)\0a"
-@l0_str.314 = private unnamed_addr constant [48 x i8] c"declare i64 @l0_write_bytes(i64, i64, i64, i64)\0a"
-@l0_str.315 = private unnamed_addr constant [27 x i8] c"declare i64 @l0_clock_ns()\0a"
-@l0_str.316 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_equal(i64, i64)\0a"
-@l0_str.317 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_hash(i64, i64)\0a"
-@l0_str.318 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_bit_shl(i64, i64)\0a"
-@l0_str.319 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_bit_shr(i64, i64)\0a"
-@l0_str.320 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_bit_count(i64)\0a"
-@l0_str.321 = private unnamed_addr constant [45 x i8] c"declare i64 @llvm.fptosi.sat.i64.f64(double)\0a"
-@l0_str.322 = private unnamed_addr constant [38 x i8] c"declare double @llvm.sqrt.f64(double)\0a"
-@l0_str.323 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_remove(i64)\0a"
-@l0_str.324 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_compare(i64, i64)\0a"
-@l0_str.325 = private unnamed_addr constant [36 x i8] c"declare i64 @l0_read_some(i64, i64)\0a"
-@l0_str.326 = private unnamed_addr constant [38 x i8] c"declare i64 @l0_region_open(i64, i64)\0a"
-@l0_str.327 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_region_close(i64)\0a"
-@l0_str.328 = private unnamed_addr constant [39 x i8] c"declare i64 @l0_region_read8(i64, i64)\0a"
-@l0_str.329 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_region_read16(i64, i64)\0a"
-@l0_str.330 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_region_read32(i64, i64)\0a"
-@l0_str.331 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_region_read64(i64, i64)\0a"
-@l0_str.332 = private unnamed_addr constant [45 x i8] c"declare i64 @l0_region_write8(i64, i64, i64)\0a"
-@l0_str.333 = private unnamed_addr constant [46 x i8] c"declare i64 @l0_region_write16(i64, i64, i64)\0a"
-@l0_str.334 = private unnamed_addr constant [46 x i8] c"declare i64 @l0_region_write32(i64, i64, i64)\0a"
-@l0_str.335 = private unnamed_addr constant [46 x i8] c"declare i64 @l0_region_write64(i64, i64, i64)\0a"
-@l0_str.336 = private unnamed_addr constant [49 x i8] c"declare i64 @l0_region_read_bytes(i64, i64, i64)\0a"
-@l0_str.337 = private unnamed_addr constant [60 x i8] c"declare i64 @l0_region_write_bytes(i64, i64, i64, i64, i64)\0a"
-@l0_str.338 = private unnamed_addr constant [26 x i8] c"declare i64 @l0_barrier()\0a"
-@l0_str.339 = private unnamed_addr constant [37 x i8] c"declare i64 @l0_array_take(i64, i64)\0a"
-@l0_str.340 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_space_new()\0a"
-@l0_str.341 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_frame_new()\0a"
-@l0_str.342 = private unnamed_addr constant [46 x i8] c"declare i64 @l0_space_map(i64, i64, i64, i64)\0a"
-@l0_str.343 = private unnamed_addr constant [53 x i8] c"declare i64 @l0_space_map_device(i64, i64, i64, i64)\0a"
-@l0_str.344 = private unnamed_addr constant [42 x i8] c"declare i64 @l0_space_read(i64, i64, i64)\0a"
-@l0_str.345 = private unnamed_addr constant [53 x i8] c"declare i64 @l0_space_write(i64, i64, i64, i64, i64)\0a"
-@l0_str.346 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_user_run(i64, i64)\0a"
-@l0_str.347 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_timer_at(i64)\0a"
-@l0_str.348 = private unnamed_addr constant [38 x i8] c"declare i64 @l0_interrupt_enable(i64)\0a"
-@l0_str.349 = private unnamed_addr constant [33 x i8] c"declare i64 @l0_interrupt_wait()\0a"
-@l0_str.350 = private unnamed_addr constant [36 x i8] c"declare i64 @l0_interrupt_done(i64)\0a"
-@l0_str.351 = private unnamed_addr constant [52 x i8] c"declare i64 @l0_supervisor_call(i64, i64, i64, i64)\0a"
-@l0_str.352 = private unnamed_addr constant [57 x i8] c"declare i64 @l0_supervisor_send(i64, i64, i64, i64, i64)\0a"
-@l0_str.353 = private unnamed_addr constant [50 x i8] c"declare i64 @l0_supervisor_receive(i64, i64, i64)\0a"
-@l0_str.354 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_frame_address(i64)\0a"
-@l0_str.355 = private unnamed_addr constant [38 x i8] c"declare i64 @l0_space_unmap(i64, i64)\0a"
-@l0_str.356 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_space_free(i64)\0a"
-@l0_str.357 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_frame_free(i64)\0a"
-@l0_str.358 = private unnamed_addr constant [26 x i8] c"declare i64 @l0_machine()\0a"
-@l0_str.359 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_frame_free_count()\0a"
-@l0_str.360 = private unnamed_addr constant [37 x i8] c"declare i64 @l0_frame_sync(i64, i64)\0a"
-@l0_str.361 = private unnamed_addr constant [43 x i8] c"declare i64 @l0_bytes_slice(i64, i64, i64)\0a"
-@l0_str.362 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_bytes_concat(i64)\0a"
-@l0_str.363 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_board_reset()\0a"
-@l0_str.364 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_cpu_count()\0a"
-@l0_str.365 = private unnamed_addr constant [49 x i8] c"declare i64 @l0_cpu_run(i64, i64, i64, i64, i64)\0a"
-@l0_str.366 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_cpu_trapped()\0a"
-@l0_str.367 = private unnamed_addr constant [27 x i8] c"declare i64 @l0_cpu_wait()\0a"
-@l0_str.368 = private unnamed_addr constant [29 x i8] c"declare i64 @l0_heap_left()\0a\0a"
-@l0_str.369 = private unnamed_addr constant [31 x i8] c"@l0_main_ret_kind = global i64 "
-@l0_str.370 = private unnamed_addr constant [27 x i8] c"unterminated string literal"
-@l0_str.371 = private unnamed_addr constant [33 x i8] c"newline in string literal; use \5cn"
-@l0_str.372 = private unnamed_addr constant [51 x i8] c"unknown escape; the escapes are \5cn \5ct \5cr \5c\5c \5c\22 \5cxHH"
-@l0_str.373 = private unnamed_addr constant [20 x i8] c"incomplete \5cx escape"
-@l0_str.374 = private unnamed_addr constant [39 x i8] c"\5cx needs exactly two hexadecimal digits"
-@l0_str.375 = private unnamed_addr constant [39 x i8] c"integer literal does not fit in 64 bits"
-@l0_str.376 = private unnamed_addr constant [25 x i8] c"expected digits after '-'"
-@l0_str.377 = private unnamed_addr constant [34 x i8] c"invalid character in float literal"
-@l0_str.378 = private unnamed_addr constant [72 x i8] c"float literal's digits are more than 2^53; write it with float_from_bits"
-@l0_str.379 = private unnamed_addr constant [84 x i8] c"float literal has more than 22 digits after the point; write it with float_from_bits"
-@l0_str.380 = private unnamed_addr constant [36 x i8] c"invalid character in integer literal"
-@l0_str.381 = private unnamed_addr constant [20 x i8] c"unexpected character"
-@l0_str.382 = private unnamed_addr constant [7 x i8] c"#source"
-@l0_str.383 = private unnamed_addr constant [7 x i8] c"#nomain"
-@l0_str.384 = private unnamed_addr constant [8 x i8] c"#prelude"
-@l0_str.385 = private unnamed_addr constant [9 x i8] c"#l0bundle"
-@l0_str.386 = private unnamed_addr constant [7 x i8] c"error: "
-@l0_str.387 = private unnamed_addr constant [16 x i8] c"this declaration"
-@l0_str.388 = private unnamed_addr constant [12 x i8] c" is missing "
-@l0_str.389 = private unnamed_addr constant [28 x i8] c" before the end of the input"
-@l0_str.390 = private unnamed_addr constant [32 x i8] c" before the declaration at line "
-@l0_str.391 = private unnamed_addr constant [9 x i8] c" too many"
-@l0_str.392 = private unnamed_addr constant [14 x i8] c" closing paren"
-@l0_str.393 = private unnamed_addr constant [15 x i8] c" closing parens"
-@l0_str.394 = private unnamed_addr constant [30 x i8] c"; probably at the end of line "
-@l0_str.395 = private unnamed_addr constant [20 x i8] c": it closes at line "
-@l0_str.396 = private unnamed_addr constant [5 x i8] c"error"
-@l0_str.397 = private unnamed_addr constant [2 x i8] c": "
-@l0_str.398 = private unnamed_addr constant [2 x i8] c"; "
-@l0_str.399 = private unnamed_addr constant [7 x i8] c"warning"
-@l0_str.400 = private unnamed_addr constant [2 x i8] c"E\0a"
-@l0_str.401 = private unnamed_addr constant [2 x i8] c"O\0a"
-@l0_str.402 = private unnamed_addr constant [6 x i8] c"(list "
-@l0_str.403 = private unnamed_addr constant [7 x i8] c"(array "
-@l0_str.404 = private unnamed_addr constant [5 x i8] c"float"
-@l0_str.405 = private unnamed_addr constant [5 x i8] c"bytes"
-@l0_str.406 = private unnamed_addr constant [5 x i8] c"(fn ("
-@l0_str.407 = private unnamed_addr constant [2 x i8] c") "
-@l0_str.408 = private unnamed_addr constant [56 x i8] c"def data if let match nil true false int bool list array"
-@l0_str.409 = private unnamed_addr constant [15 x i8] c"expected a type"
-@l0_str.410 = private unnamed_addr constant [64 x i8] c"expected a type: int, bool, float, bytes, (list T), or (array T)"
-@l0_str.411 = private unnamed_addr constant [10 x i8] c"list array"
-@l0_str.412 = private unnamed_addr constant [31 x i8] c" needs an element type, as in ("
-@l0_str.413 = private unnamed_addr constant [5 x i8] c" int)"
-@l0_str.414 = private unnamed_addr constant [101 x i8] c": a type is int, bool, float, bytes, (list T), (array T), or a data type, whose name starts uppercase"
-@l0_str.415 = private unnamed_addr constant [20 x i8] c"unclosed ( in a type"
-@l0_str.416 = private unnamed_addr constant [2 x i8] c"fn"
-@l0_str.417 = private unnamed_addr constant [4 x i8] c"list"
-@l0_str.418 = private unnamed_addr constant [5 x i8] c"array"
-@l0_str.419 = private unnamed_addr constant [63 x i8] c"expected list, array, fn, or a data type name after ( in a type"
-@l0_str.420 = private unnamed_addr constant [72 x i8] c"(fn ...) takes its parameter types in parentheses, as in (fn (int) bool)"
-@l0_str.421 = private unnamed_addr constant [44 x i8] c"(fn (...) ...) takes exactly one result type"
-@l0_str.422 = private unnamed_addr constant [40 x i8] c" ...) needs at least one type argument; "
-@l0_str.423 = private unnamed_addr constant [37 x i8] c"a type without parameters is written "
-@l0_str.424 = private unnamed_addr constant [42 x i8] c"(array ...) takes exactly one element type"
-@l0_str.425 = private unnamed_addr constant [41 x i8] c"(list ...) takes exactly one element type"
-@l0_str.426 = private unnamed_addr constant [22 x i8] c"expected an expression"
-@l0_str.427 = private unnamed_addr constant [65 x i8] c"a field is read as (.name value) or replaced as (.name value new)"
-@l0_str.428 = private unnamed_addr constant [45 x i8] c"unexpected ) where an expression was expected"
-@l0_str.429 = private unnamed_addr constant [4 x i8] c"true"
-@l0_str.430 = private unnamed_addr constant [5 x i8] c"false"
-@l0_str.431 = private unnamed_addr constant [54 x i8] c"uppercase names are types and constructors, not values"
-@l0_str.432 = private unnamed_addr constant [45 x i8] c"this word is reserved and is not a value here"
-@l0_str.433 = private unnamed_addr constant [10 x i8] c"unclosed ("
-@l0_str.434 = private unnamed_addr constant [48 x i8] c"expected a function or special form name after ("
-@l0_str.435 = private unnamed_addr constant [75 x i8] c"a constructor written with its type is ((Constructor type...) arguments...)"
-@l0_str.436 = private unnamed_addr constant [2 x i8] c"(("
-@l0_str.437 = private unnamed_addr constant [39 x i8] c") ...) needs at least one type argument"
-@l0_str.438 = private unnamed_addr constant [2 x i8] c"if"
-@l0_str.439 = private unnamed_addr constant [3 x i8] c"let"
-@l0_str.440 = private unnamed_addr constant [3 x i8] c"nil"
-@l0_str.441 = private unnamed_addr constant [5 x i8] c"match"
-@l0_str.442 = private unnamed_addr constant [3 x i8] c"def"
-@l0_str.443 = private unnamed_addr constant [4 x i8] c"data"
-@l0_str.444 = private unnamed_addr constant [37 x i8] c"this can only appear at the top level"
-@l0_str.445 = private unnamed_addr constant [22 x i8] c"this is not a function"
-@l0_str.446 = private unnamed_addr constant [42 x i8] c"match needs a subject and at least one arm"
-@l0_str.447 = private unnamed_addr constant [21 x i8] c"unclosed ( in a match"
-@l0_str.448 = private unnamed_addr constant [49 x i8] c"each match arm is ((Constructor names...) result)"
-@l0_str.449 = private unnamed_addr constant [25 x i8] c"unclosed ( in a match arm"
-@l0_str.450 = private unnamed_addr constant [41 x i8] c"a match pattern is (Constructor names...)"
-@l0_str.451 = private unnamed_addr constant [29 x i8] c"unclosed ( in a match pattern"
-@l0_str.452 = private unnamed_addr constant [46 x i8] c"a match pattern starts with a constructor name"
-@l0_str.453 = private unnamed_addr constant [29 x i8] c"expected a field binding name"
-@l0_str.454 = private unnamed_addr constant [55 x i8] c"a field binding name must be lowercase and not reserved"
-@l0_str.455 = private unnamed_addr constant [99 x i8] c"if takes a condition, a value, and an else, or pairs of them before the else: (if c1 e1 c2 e2 else)"
-@l0_str.456 = private unnamed_addr constant [48 x i8] c"let takes exactly 3 parts: (let name value body)"
-@l0_str.457 = private unnamed_addr constant [19 x i8] c"unclosed ( in an if"
-@l0_str.458 = private unnamed_addr constant [37 x i8] c"let needs a name, a value, and a body"
-@l0_str.459 = private unnamed_addr constant [25 x i8] c"expected a name after let"
-@l0_str.460 = private unnamed_addr constant [53 x i8] c"a let binding name must be lowercase and not reserved"
-@l0_str.461 = private unnamed_addr constant [30 x i8] c"unclosed ( in a let's bindings"
-@l0_str.462 = private unnamed_addr constant [70 x i8] c"a let's bindings are pairs of a name and a value: (let (a 1 b 2) body)"
-@l0_str.463 = private unnamed_addr constant [51 x i8] c"nil takes exactly one element type, as in (nil int)"
-@l0_str.464 = private unnamed_addr constant [33 x i8] c"a function name must be lowercase"
-@l0_str.465 = private unnamed_addr constant [20 x i8] c"unclosed ( in a call"
-@l0_str.466 = private unnamed_addr constant [30 x i8] c"unclosed ( in a parameter list"
-@l0_str.467 = private unnamed_addr constant [29 x i8] c"each parameter is (name type)"
-@l0_str.468 = private unnamed_addr constant [25 x i8] c"unclosed ( in a parameter"
-@l0_str.469 = private unnamed_addr constant [25 x i8] c"expected a parameter name"
-@l0_str.470 = private unnamed_addr constant [51 x i8] c"a parameter name must be lowercase and not reserved"
-@l0_str.471 = private unnamed_addr constant [22 x i8] c"expected a declaration"
-@l0_str.472 = private unnamed_addr constant [30 x i8] c"expected a top-level (def ...)"
-@l0_str.473 = private unnamed_addr constant [29 x i8] c"expected def at the top level"
-@l0_str.474 = private unnamed_addr constant [44 x i8] c"expected a top-level (def ...) or (data ...)"
-@l0_str.475 = private unnamed_addr constant [47 x i8] c"a data declaration needs an uppercase type name"
-@l0_str.476 = private unnamed_addr constant [32 x i8] c"unclosed ( in a data declaration"
-@l0_str.477 = private unnamed_addr constant [37 x i8] c") needs at least one type parameter; "
-@l0_str.478 = private unnamed_addr constant [44 x i8] c"a type without parameters is declared (data "
-@l0_str.479 = private unnamed_addr constant [5 x i8] c" ...)"
-@l0_str.480 = private unnamed_addr constant [37 x i8] c"a type parameter is an uppercase name"
-@l0_str.481 = private unnamed_addr constant [42 x i8] c"a data type needs at least one constructor"
-@l0_str.482 = private unnamed_addr constant [38 x i8] c"a constructor is (Name field-types...)"
-@l0_str.483 = private unnamed_addr constant [27 x i8] c"unclosed ( in a constructor"
-@l0_str.484 = private unnamed_addr constant [45 x i8] c"a constructor names all of its fields or none"
-@l0_str.485 = private unnamed_addr constant [33 x i8] c"a field name must not be reserved"
-@l0_str.486 = private unnamed_addr constant [21 x i8] c"unclosed ( in a field"
-@l0_str.487 = private unnamed_addr constant [22 x i8] c"a field is (name type)"
-@l0_str.488 = private unnamed_addr constant [34 x i8] c"expected a function name after def"
-@l0_str.489 = private unnamed_addr constant [50 x i8] c"a function name must be lowercase and not reserved"
-@l0_str.490 = private unnamed_addr constant [37 x i8] c"unclosed ( in a def's type parameters"
-@l0_str.491 = private unnamed_addr constant [32 x i8] c"a function without them is (def "
-@l0_str.492 = private unnamed_addr constant [51 x i8] c"expected a parameter list, as in ((x int) (y bool))"
-@l0_str.493 = private unnamed_addr constant [48 x i8] c"a def is (def name (params...) return-type body)"
-@l0_str.494 = private unnamed_addr constant [21 x i8] c"no declarations found"
+@l0_str.32 = private unnamed_addr constant [81 x i8] c"space_write supervisor_send cpu_run region_write_bytes bytes_dot_i8 bytes_dot_f32"
+@l0_str.33 = private unnamed_addr constant [14 x i8] c"bytes_axpy_f32"
+@l0_str.34 = private unnamed_addr constant [1 x i8] c"s"
+@l0_str.35 = private unnamed_addr constant [8 x i8] c"argument"
+@l0_str.36 = private unnamed_addr constant [9 x i8] c" must be "
+@l0_str.37 = private unnamed_addr constant [14 x i8] c", but this is "
+@l0_str.38 = private unnamed_addr constant [3 x i8] c"neg"
+@l0_str.39 = private unnamed_addr constant [9 x i8] c"bit_count"
+@l0_str.40 = private unnamed_addr constant [3 x i8] c"not"
+@l0_str.41 = private unnamed_addr constant [2 x i8] c"eq"
+@l0_str.42 = private unnamed_addr constant [4 x i8] c"hash"
+@l0_str.43 = private unnamed_addr constant [7 x i8] c"compare"
+@l0_str.44 = private unnamed_addr constant [47 x i8] c"space_read supervisor_receive region_read_bytes"
+@l0_str.45 = private unnamed_addr constant [46 x i8] c"space_write supervisor_send region_write_bytes"
+@l0_str.46 = private unnamed_addr constant [7 x i8] c"cpu_run"
+@l0_str.47 = private unnamed_addr constant [11 x i8] c"cpu_trapped"
+@l0_str.48 = private unnamed_addr constant [25 x i8] c"the second argument of eq"
+@l0_str.49 = private unnamed_addr constant [30 x i8] c"the second argument of compare"
+@l0_str.50 = private unnamed_addr constant [10 x i8] c"read_bytes"
+@l0_str.51 = private unnamed_addr constant [9 x i8] c"read_some"
+@l0_str.52 = private unnamed_addr constant [9 x i8] c"bytes_len"
+@l0_str.53 = private unnamed_addr constant [9 x i8] c"bytes_get"
+@l0_str.54 = private unnamed_addr constant [15 x i8] c"bytes_from_list"
+@l0_str.55 = private unnamed_addr constant [13 x i8] c"bytes_to_list"
+@l0_str.56 = private unnamed_addr constant [11 x i8] c"bytes_slice"
+@l0_str.57 = private unnamed_addr constant [12 x i8] c"bytes_concat"
+@l0_str.58 = private unnamed_addr constant [11 x i8] c"write_bytes"
+@l0_str.59 = private unnamed_addr constant [26 x i8] c"bytes_dot_i8 bytes_dot_f32"
+@l0_str.60 = private unnamed_addr constant [12 x i8] c"bytes_dot_i8"
+@l0_str.61 = private unnamed_addr constant [13 x i8] c"bytes_set_f32"
+@l0_str.62 = private unnamed_addr constant [15 x i8] c"an argument of "
+@l0_str.63 = private unnamed_addr constant [9 x i8] c"array_new"
+@l0_str.64 = private unnamed_addr constant [29 x i8] c"the length given to array_new"
+@l0_str.65 = private unnamed_addr constant [3 x i8] c"int"
+@l0_str.66 = private unnamed_addr constant [22 x i8] c"the first argument of "
+@l0_str.67 = private unnamed_addr constant [8 x i8] c"an array"
+@l0_str.68 = private unnamed_addr constant [9 x i8] c"array_len"
+@l0_str.69 = private unnamed_addr constant [19 x i8] c"the index given to "
+@l0_str.70 = private unnamed_addr constant [9 x i8] c"array_get"
+@l0_str.71 = private unnamed_addr constant [30 x i8] c"the element stored in an array"
+@l0_str.72 = private unnamed_addr constant [4 x i8] c"cons"
+@l0_str.73 = private unnamed_addr constant [6 x i8] c"a list"
+@l0_str.74 = private unnamed_addr constant [4 x i8] c"head"
+@l0_str.75 = private unnamed_addr constant [4 x i8] c"tail"
+@l0_str.76 = private unnamed_addr constant [27 x i8] c"the second argument of cons"
+@l0_str.77 = private unnamed_addr constant [30 x i8] c"the element consed onto a list"
+@l0_str.78 = private unnamed_addr constant [6 x i8] c"field "
+@l0_str.79 = private unnamed_addr constant [4 x i8] c" of "
+@l0_str.80 = private unnamed_addr constant [41 x i8] c"fields belong to data types, but this is "
+@l0_str.81 = private unnamed_addr constant [49 x i8] c" is a type parameter, so its fields are not known"
+@l0_str.82 = private unnamed_addr constant [5 x i8] c" has "
+@l0_str.83 = private unnamed_addr constant [62 x i8] c" constructors, so its fields are not read by name; match on it"
+@l0_str.84 = private unnamed_addr constant [14 x i8] c"unknown field "
+@l0_str.85 = private unnamed_addr constant [50 x i8] c" is a function parameter, which is only called or "
+@l0_str.86 = private unnamed_addr constant [38 x i8] c"passed to a parameter of function type"
+@l0_str.87 = private unnamed_addr constant [47 x i8] c" is a function, and L0 has no function values; "
+@l0_str.88 = private unnamed_addr constant [52 x i8] c"a def is passed only to a parameter of function type"
+@l0_str.89 = private unnamed_addr constant [17 x i8] c"unknown function "
+@l0_str.90 = private unnamed_addr constant [17 x i8] c"unknown variable "
+@l0_str.91 = private unnamed_addr constant [59 x i8] c"the branches of an if must have the same type, but then is "
+@l0_str.92 = private unnamed_addr constant [13 x i8] c" and else is "
+@l0_str.93 = private unnamed_addr constant [22 x i8] c"the condition of an if"
+@l0_str.94 = private unnamed_addr constant [4 x i8] c"bool"
+@l0_str.95 = private unnamed_addr constant [9 x i8] c"argument "
+@l0_str.96 = private unnamed_addr constant [61 x i8] c" must name a function: a def, or a parameter of function type"
+@l0_str.97 = private unnamed_addr constant [16 x i8] c" is the builtin "
+@l0_str.98 = private unnamed_addr constant [55 x i8] c", and a builtin is not passed; pass a def that calls it"
+@l0_str.99 = private unnamed_addr constant [4 x i8] c" is "
+@l0_str.100 = private unnamed_addr constant [54 x i8] c", whose type parameters come from the types it takes, "
+@l0_str.101 = private unnamed_addr constant [37 x i8] c"and no argument before it fixes those"
+@l0_str.102 = private unnamed_addr constant [45 x i8] c" is a local value, and L0 cannot call a value"
+@l0_str.103 = private unnamed_addr constant [20 x i8] c"unknown constructor "
+@l0_str.104 = private unnamed_addr constant [5 x i8] c"field"
+@l0_str.105 = private unnamed_addr constant [30 x i8] c" does not determine parameter "
+@l0_str.106 = private unnamed_addr constant [48 x i8] c", so it is written with the type's arguments: (("
+@l0_str.107 = private unnamed_addr constant [6 x i8] c") ...)"
+@l0_str.108 = private unnamed_addr constant [22 x i8] c"the subject of a match"
+@l0_str.109 = private unnamed_addr constant [11 x i8] c"a data type"
+@l0_str.110 = private unnamed_addr constant [9 x i8] c"match on "
+@l0_str.111 = private unnamed_addr constant [23 x i8] c" is missing an arm for "
+@l0_str.112 = private unnamed_addr constant [51 x i8] c"all match arms must have the same type, but one is "
+@l0_str.113 = private unnamed_addr constant [16 x i8] c" and another is "
+@l0_str.114 = private unnamed_addr constant [33 x i8] c" already has an arm in this match"
+@l0_str.115 = private unnamed_addr constant [21 x i8] c" is a constructor of "
+@l0_str.116 = private unnamed_addr constant [6 x i8] c", not "
+@l0_str.117 = private unnamed_addr constant [25 x i8] c", but this pattern binds "
+@l0_str.118 = private unnamed_addr constant [35 x i8] c" is bound twice in the same pattern"
+@l0_str.119 = private unnamed_addr constant [22 x i8] c" declares return type "
+@l0_str.120 = private unnamed_addr constant [18 x i8] c", but its body is "
+@l0_str.121 = private unnamed_addr constant [10 x i8] c"parameter "
+@l0_str.122 = private unnamed_addr constant [18 x i8] c" is declared twice"
+@l0_str.123 = private unnamed_addr constant [59 x i8] c" is in no parameter's type, so no call could say what it is"
+@l0_str.124 = private unnamed_addr constant [3 x i8] c"'s "
+@l0_str.125 = private unnamed_addr constant [16 x i8] c" of constructor "
+@l0_str.126 = private unnamed_addr constant [9 x i8] c"function "
+@l0_str.127 = private unnamed_addr constant [19 x i8] c" is already defined"
+@l0_str.128 = private unnamed_addr constant [10 x i8] c"data type "
+@l0_str.129 = private unnamed_addr constant [20 x i8] c" is already declared"
+@l0_str.130 = private unnamed_addr constant [12 x i8] c"constructor "
+@l0_str.131 = private unnamed_addr constant [4 x i8] c"main"
+@l0_str.132 = private unnamed_addr constant [33 x i8] c"this program has no main function"
+@l0_str.133 = private unnamed_addr constant [29 x i8] c"main takes no type parameters"
+@l0_str.134 = private unnamed_addr constant [41 x i8] c"a main with no parameters must return int"
+@l0_str.135 = private unnamed_addr constant [41 x i8] c"main must return (list int), int, or bool"
+@l0_str.136 = private unnamed_addr constant [56 x i8] c"main must take one parameter of type (list int), or none"
+@l0_str.137 = private unnamed_addr constant [35 x i8] c" fields, and at most 31 are allowed"
+@l0_str.138 = private unnamed_addr constant [10 x i8] c"prelude's "
+@l0_str.139 = private unnamed_addr constant [8 x i8] c"unboxed "
+@l0_str.140 = private unnamed_addr constant [5 x i8] c"l0_p_"
+@l0_str.141 = private unnamed_addr constant [14 x i8] c"l0_f_main.body"
+@l0_str.142 = private unnamed_addr constant [5 x i8] c"l0_f_"
+@l0_str.143 = private unnamed_addr constant [1 x i8] c"\0a"
+@l0_str.144 = private unnamed_addr constant [1 x i8] c"0"
+@l0_str.145 = private unnamed_addr constant [4 x i8] c"i64 "
+@l0_str.146 = private unnamed_addr constant [2 x i8] c", "
+@l0_str.147 = private unnamed_addr constant [2 x i8] c"%t"
+@l0_str.148 = private unnamed_addr constant [2 x i8] c"  "
+@l0_str.149 = private unnamed_addr constant [3 x i8] c" = "
+@l0_str.150 = private unnamed_addr constant [10 x i8] c"call i64 @"
+@l0_str.151 = private unnamed_addr constant [1 x i8] c"("
+@l0_str.152 = private unnamed_addr constant [1 x i8] c")"
+@l0_str.153 = private unnamed_addr constant [5 x i8] c" i64 "
+@l0_str.154 = private unnamed_addr constant [5 x i8] c"icmp "
+@l0_str.155 = private unnamed_addr constant [8 x i8] c"zext i1 "
+@l0_str.156 = private unnamed_addr constant [7 x i8] c" to i64"
+@l0_str.157 = private unnamed_addr constant [24 x i8] c"  call void @l0_inc(i64 "
+@l0_str.158 = private unnamed_addr constant [24 x i8] c"  call void @l0_dec(i64 "
+@l0_str.159 = private unnamed_addr constant [10 x i8] c"  ret i64 "
+@l0_str.160 = private unnamed_addr constant [1 x i8] c"1"
+@l0_str.161 = private unnamed_addr constant [38 x i8] c"array_set bytes_set_f32 bytes_axpy_f32"
+@l0_str.162 = private unnamed_addr constant [5 x i8] c"this "
+@l0_str.163 = private unnamed_addr constant [13 x i8] c"this call of "
+@l0_str.164 = private unnamed_addr constant [15 x i8] c" is used after "
+@l0_str.165 = private unnamed_addr constant [15 x i8] c", so it copies "
+@l0_str.166 = private unnamed_addr constant [42 x i8] c"; read it first, with let, and update last"
+@l0_str.167 = private unnamed_addr constant [11 x i8] c"l0_data_get"
+@l0_str.168 = private unnamed_addr constant [12 x i8] c"l0_data_with"
+@l0_str.169 = private unnamed_addr constant [9 x i8] c"data.take"
+@l0_str.170 = private unnamed_addr constant [12 x i8] c"l0_data_take"
+@l0_str.171 = private unnamed_addr constant [1 x i8] c"3"
+@l0_str.172 = private unnamed_addr constant [1 x i8] c"2"
+@l0_str.173 = private unnamed_addr constant [32 x i8] c"call i64 @l0_string(ptr @l0_str."
+@l0_str.174 = private unnamed_addr constant [6 x i8] c", i64 "
+@l0_str.175 = private unnamed_addr constant [8 x i8] c"@l0_str."
+@l0_str.176 = private unnamed_addr constant [34 x i8] c" = private unnamed_addr constant ["
+@l0_str.177 = private unnamed_addr constant [9 x i8] c" x i8] c\22"
+@l0_str.178 = private unnamed_addr constant [1 x i8] c"\22"
+@l0_str.179 = private unnamed_addr constant [12 x i8] c"  store i64 "
+@l0_str.180 = private unnamed_addr constant [6 x i8] c", ptr "
+@l0_str.181 = private unnamed_addr constant [1 x i8] c":"
+@l0_str.182 = private unnamed_addr constant [12 x i8] c"  br label %"
+@l0_str.183 = private unnamed_addr constant [13 x i8] c" = alloca i64"
+@l0_str.184 = private unnamed_addr constant [2 x i8] c"%r"
+@l0_str.185 = private unnamed_addr constant [2 x i8] c"Lt"
+@l0_str.186 = private unnamed_addr constant [2 x i8] c"Le"
+@l0_str.187 = private unnamed_addr constant [2 x i8] c"Lx"
+@l0_str.188 = private unnamed_addr constant [12 x i8] c"icmp ne i64 "
+@l0_str.189 = private unnamed_addr constant [3 x i8] c", 0"
+@l0_str.190 = private unnamed_addr constant [8 x i8] c"  br i1 "
+@l0_str.191 = private unnamed_addr constant [9 x i8] c", label %"
+@l0_str.192 = private unnamed_addr constant [14 x i8] c"load i64, ptr "
+@l0_str.193 = private unnamed_addr constant [279 x i8] c"head tail is_empty eq hash compare open_read open_write open_append rename remove open_bytes array_len array_get bytes_len bytes_get write_bytes bytes_slice bytes_concat bytes_dot_i8 bytes_dot_f32 bytes_get_f32 bytes_get_f16 region_write_bytes space_write supervisor_send cpu_run"
+@l0_str.194 = private unnamed_addr constant [24 x i8] c"bytes_slice bytes_concat"
+@l0_str.195 = private unnamed_addr constant [10 x i8] c"array.take"
+@l0_str.196 = private unnamed_addr constant [3 x i8] c"and"
+@l0_str.197 = private unnamed_addr constant [2 x i8] c"or"
+@l0_str.198 = private unnamed_addr constant [9 x i8] c"array_set"
+@l0_str.199 = private unnamed_addr constant [12 x i8] c"l0_array_get"
+@l0_str.200 = private unnamed_addr constant [16 x i8] c"l0_array_set_row"
+@l0_str.201 = private unnamed_addr constant [13 x i8] c"l0_array_take"
+@l0_str.202 = private unnamed_addr constant [26 x i8] c"musttail call fastcc i64 @"
+@l0_str.203 = private unnamed_addr constant [17 x i8] c"call fastcc i64 @"
+@l0_str.204 = private unnamed_addr constant [70 x i8] c"lt le gt ge eq and or not is_empty float_lt float_le float_gt float_ge"
+@l0_str.205 = private unnamed_addr constant [14 x i8] c"head array_get"
+@l0_str.206 = private unnamed_addr constant [14 x i8] c"tail array_set"
+@l0_str.207 = private unnamed_addr constant [133 x i8] c"float_add float_sub float_mul float_div float_neg float_sqrt float_from_int float_from_bits bytes_dot_f32 bytes_get_f32 bytes_get_f16"
+@l0_str.208 = private unnamed_addr constant [138 x i8] c"read_bytes read_some bytes_from_list bytes_slice bytes_concat region_read_bytes space_read supervisor_receive bytes_set_f32 bytes_axpy_f32"
+@l0_str.209 = private unnamed_addr constant [20 x i8] c"user_run cpu_trapped"
+@l0_str.210 = private unnamed_addr constant [6 x i8] c"@l0_p_"
+@l0_str.211 = private unnamed_addr constant [15 x i8] c"@l0_f_main.body"
+@l0_str.212 = private unnamed_addr constant [11 x i8] c"l0_new_data"
+@l0_str.213 = private unnamed_addr constant [29 x i8] c"  call void @l0_data_set(i64 "
+@l0_str.214 = private unnamed_addr constant [2 x i8] c"%m"
+@l0_str.215 = private unnamed_addr constant [1 x i8] c"A"
+@l0_str.216 = private unnamed_addr constant [1 x i8] c"_"
+@l0_str.217 = private unnamed_addr constant [11 x i8] c"l0_data_tag"
+@l0_str.218 = private unnamed_addr constant [2 x i8] c"Lm"
+@l0_str.219 = private unnamed_addr constant [2 x i8] c"Ln"
+@l0_str.220 = private unnamed_addr constant [13 x i8] c"  switch i64 "
+@l0_str.221 = private unnamed_addr constant [2 x i8] c" ["
+@l0_str.222 = private unnamed_addr constant [2 x i8] c" ]"
+@l0_str.223 = private unnamed_addr constant [13 x i8] c"  unreachable"
+@l0_str.224 = private unnamed_addr constant [18 x i8] c"add sub mul and or"
+@l0_str.225 = private unnamed_addr constant [14 x i8] c"lt le gt ge eq"
+@l0_str.226 = private unnamed_addr constant [18 x i8] c"slt sle sgt sge eq"
+@l0_str.227 = private unnamed_addr constant [864 x i8] c"read_byte write_byte read_from write_to open_read open_write close arg_count arg flush open_append rename open_bytes open_buffer buffer_bytes read_bytes bytes_len bytes_get bytes_from_list bytes_to_list write_bytes bytes_slice bytes_concat clock_ns remove read_some region_open region_close region_read8 region_read16 region_read32 region_read64 region_write8 region_write16 region_write32 region_write64 barrier space_new frame_new space_map space_map_device space_read space_write user_run timer_at interrupt_enable interrupt_wait interrupt_done supervisor_call supervisor_send supervisor_receive frame_address space_unmap space_free frame_free machine frame_free_count frame_sync board_reset cpu_count cpu_run cpu_trapped cpu_wait heap_left region_read_bytes region_write_bytes bytes_dot_i8 bytes_dot_f32 bytes_get_f32 bytes_get_f16 bytes_set_f32 bytes_axpy_f32"
+@l0_str.228 = private unnamed_addr constant [82 x i8] c"div mod head tail is_empty array_len array_get array_set bit_shl bit_shr bit_count"
+@l0_str.229 = private unnamed_addr constant [115 x i8] c"l0_div l0_mod l0_head l0_tail l0_is_empty l0_array_len l0_array_get l0_array_set l0_bit_shl l0_bit_shr l0_bit_count"
+@l0_str.230 = private unnamed_addr constant [22 x i8] c"bit_and bit_or bit_xor"
+@l0_str.231 = private unnamed_addr constant [10 x i8] c"and or xor"
+@l0_str.232 = private unnamed_addr constant [3 x i8] c"l0_"
+@l0_str.233 = private unnamed_addr constant [8 x i8] c"l0_equal"
+@l0_str.234 = private unnamed_addr constant [7 x i8] c"l0_hash"
+@l0_str.235 = private unnamed_addr constant [10 x i8] c"l0_compare"
+@l0_str.236 = private unnamed_addr constant [3 x i8] c"sgt"
+@l0_str.237 = private unnamed_addr constant [3 x i8] c"slt"
+@l0_str.238 = private unnamed_addr constant [3 x i8] c"sub"
+@l0_str.239 = private unnamed_addr constant [9 x i8] c"ashr i64 "
+@l0_str.240 = private unnamed_addr constant [4 x i8] c", 63"
+@l0_str.241 = private unnamed_addr constant [9 x i8] c"lshr i64 "
+@l0_str.242 = private unnamed_addr constant [3 x i8] c", 1"
+@l0_str.243 = private unnamed_addr constant [3 x i8] c"xor"
+@l0_str.244 = private unnamed_addr constant [12 x i8] c"bitcast i64 "
+@l0_str.245 = private unnamed_addr constant [10 x i8] c" to double"
+@l0_str.246 = private unnamed_addr constant [15 x i8] c"bitcast double "
+@l0_str.247 = private unnamed_addr constant [16 x i8] c"fcmp uno double "
+@l0_str.248 = private unnamed_addr constant [10 x i8] c"select i1 "
+@l0_str.249 = private unnamed_addr constant [31 x i8] c", i64 9221120237041090560, i64 "
+@l0_str.250 = private unnamed_addr constant [19 x i8] c"fadd fsub fmul fdiv"
+@l0_str.251 = private unnamed_addr constant [39 x i8] c"float_add float_sub float_mul float_div"
+@l0_str.252 = private unnamed_addr constant [15 x i8] c"olt ole ogt oge"
+@l0_str.253 = private unnamed_addr constant [8 x i8] c" double "
+@l0_str.254 = private unnamed_addr constant [5 x i8] c"fcmp "
+@l0_str.255 = private unnamed_addr constant [9 x i8] c"float_neg"
+@l0_str.256 = private unnamed_addr constant [12 x i8] c"fneg double "
+@l0_str.257 = private unnamed_addr constant [10 x i8] c"float_sqrt"
+@l0_str.258 = private unnamed_addr constant [34 x i8] c"call double @llvm.sqrt.f64(double "
+@l0_str.259 = private unnamed_addr constant [14 x i8] c"float_from_int"
+@l0_str.260 = private unnamed_addr constant [11 x i8] c"sitofp i64 "
+@l0_str.261 = private unnamed_addr constant [12 x i8] c"float_to_int"
+@l0_str.262 = private unnamed_addr constant [41 x i8] c"call i64 @llvm.fptosi.sat.i64.f64(double "
+@l0_str.263 = private unnamed_addr constant [10 x i8] c"float_bits"
+@l0_str.264 = private unnamed_addr constant [14 x i8] c"fdiv double 0x"
+@l0_str.265 = private unnamed_addr constant [4 x i8] c", 0x"
+@l0_str.266 = private unnamed_addr constant [12 x i8] c"l0_array_new"
+@l0_str.267 = private unnamed_addr constant [11 x i8] c"l0_new_cons"
+@l0_str.268 = private unnamed_addr constant [6 x i8] c"i64 %a"
+@l0_str.269 = private unnamed_addr constant [2 x i8] c"%a"
+@l0_str.270 = private unnamed_addr constant [28 x i8] c"define internal fastcc i64 @"
+@l0_str.271 = private unnamed_addr constant [3 x i8] c") {"
+@l0_str.272 = private unnamed_addr constant [29 x i8] c"  call void @l0_stack_check()"
+@l0_str.273 = private unnamed_addr constant [6 x i8] c"entry:"
+@l0_str.274 = private unnamed_addr constant [1 x i8] c"}"
+@l0_str.275 = private unnamed_addr constant [3 x i8] c"%a0"
+@l0_str.276 = private unnamed_addr constant [12 x i8] c"  ret i64 %r"
+@l0_str.277 = private unnamed_addr constant [39 x i8] c"  %r = call fastcc i64 @l0_f_main.body("
+@l0_str.278 = private unnamed_addr constant [32 x i8] c"define i64 @l0_f_main(i64 %a0) {"
+@l0_str.279 = private unnamed_addr constant [31 x i8] c"; generated by the L0 compiler\0a"
+@l0_str.280 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_cons(i64, i64)\0a"
+@l0_str.281 = private unnamed_addr constant [26 x i8] c"declare i64 @l0_head(i64)\0a"
+@l0_str.282 = private unnamed_addr constant [26 x i8] c"declare i64 @l0_tail(i64)\0a"
+@l0_str.283 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_is_empty(i64)\0a"
+@l0_str.284 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_div(i64, i64)\0a"
+@l0_str.285 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_mod(i64, i64)\0a"
+@l0_str.286 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_data_new(i64, i64)\0a"
+@l0_str.287 = private unnamed_addr constant [41 x i8] c"declare void @l0_data_set(i64, i64, i64)\0a"
+@l0_str.288 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_data_tag(i64)\0a"
+@l0_str.289 = private unnamed_addr constant [112 x i8] c"declare i64 @l0_data_get(i64, i64)\0adeclare i64 @l0_data_with(i64, i64, i64)\0adeclare i64 @l0_data_take(i64, i64)\0a"
+@l0_str.290 = private unnamed_addr constant [31 x i8] c"declare void @l0_stack_check()\0a"
+@l0_str.291 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_read_byte()\0a"
+@l0_str.292 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_write_byte(i64)\0a"
+@l0_str.293 = private unnamed_addr constant [26 x i8] c"declare void @l0_inc(i64)\0a"
+@l0_str.294 = private unnamed_addr constant [26 x i8] c"declare void @l0_dec(i64)\0a"
+@l0_str.295 = private unnamed_addr constant [73 x i8] c"declare i64 @l0_new_cons(i64, i64, i64)\0adeclare i64 @l0_string(ptr, i64)\0a"
+@l0_str.296 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_new_data(i64, i64, i64)\0a"
+@l0_str.297 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_read_from(i64)\0a"
+@l0_str.298 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_write_to(i64, i64)\0a"
+@l0_str.299 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_open_read(i64)\0a"
+@l0_str.300 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_open_write(i64)\0a"
+@l0_str.301 = private unnamed_addr constant [27 x i8] c"declare i64 @l0_close(i64)\0a"
+@l0_str.302 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_arg_count()\0a"
+@l0_str.303 = private unnamed_addr constant [25 x i8] c"declare i64 @l0_arg(i64)\0a"
+@l0_str.304 = private unnamed_addr constant [27 x i8] c"declare i64 @l0_flush(i64)\0a"
+@l0_str.305 = private unnamed_addr constant [33 x i8] c"declare i64 @l0_open_append(i64)\0a"
+@l0_str.306 = private unnamed_addr constant [33 x i8] c"declare i64 @l0_rename(i64, i64)\0a"
+@l0_str.307 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_open_bytes(i64)\0a"
+@l0_str.308 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_open_buffer()\0a"
+@l0_str.309 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_buffer_bytes(i64)\0a"
+@l0_str.310 = private unnamed_addr constant [41 x i8] c"declare i64 @l0_array_new(i64, i64, i64)\0a"
+@l0_str.311 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_array_len(i64)\0a"
+@l0_str.312 = private unnamed_addr constant [36 x i8] c"declare i64 @l0_array_get(i64, i64)\0a"
+@l0_str.313 = private unnamed_addr constant [41 x i8] c"declare i64 @l0_array_set(i64, i64, i64)\0a"
+@l0_str.314 = private unnamed_addr constant [50 x i8] c"declare i64 @l0_array_set_row(i64, i64, i64, i64)\0a"
+@l0_str.315 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_read_bytes(i64)\0a"
+@l0_str.316 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_bytes_len(i64)\0a"
+@l0_str.317 = private unnamed_addr constant [36 x i8] c"declare i64 @l0_bytes_get(i64, i64)\0a"
+@l0_str.318 = private unnamed_addr constant [37 x i8] c"declare i64 @l0_bytes_from_list(i64)\0a"
+@l0_str.319 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_bytes_to_list(i64)\0a"
+@l0_str.320 = private unnamed_addr constant [48 x i8] c"declare i64 @l0_write_bytes(i64, i64, i64, i64)\0a"
+@l0_str.321 = private unnamed_addr constant [27 x i8] c"declare i64 @l0_clock_ns()\0a"
+@l0_str.322 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_equal(i64, i64)\0a"
+@l0_str.323 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_hash(i64, i64)\0a"
+@l0_str.324 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_bit_shl(i64, i64)\0a"
+@l0_str.325 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_bit_shr(i64, i64)\0a"
+@l0_str.326 = private unnamed_addr constant [31 x i8] c"declare i64 @l0_bit_count(i64)\0a"
+@l0_str.327 = private unnamed_addr constant [54 x i8] c"declare i64 @l0_bytes_dot_i8(i64, i64, i64, i64, i64)\0a"
+@l0_str.328 = private unnamed_addr constant [55 x i8] c"declare i64 @l0_bytes_dot_f32(i64, i64, i64, i64, i64)\0a"
+@l0_str.329 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_bytes_get_f32(i64, i64)\0a"
+@l0_str.330 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_bytes_get_f16(i64, i64)\0a"
+@l0_str.331 = private unnamed_addr constant [45 x i8] c"declare i64 @l0_bytes_set_f32(i64, i64, i64)\0a"
+@l0_str.332 = private unnamed_addr constant [61 x i8] c"declare i64 @l0_bytes_axpy_f32(i64, i64, i64, i64, i64, i64)\0a"
+@l0_str.333 = private unnamed_addr constant [45 x i8] c"declare i64 @llvm.fptosi.sat.i64.f64(double)\0a"
+@l0_str.334 = private unnamed_addr constant [38 x i8] c"declare double @llvm.sqrt.f64(double)\0a"
+@l0_str.335 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_remove(i64)\0a"
+@l0_str.336 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_compare(i64, i64)\0a"
+@l0_str.337 = private unnamed_addr constant [36 x i8] c"declare i64 @l0_read_some(i64, i64)\0a"
+@l0_str.338 = private unnamed_addr constant [38 x i8] c"declare i64 @l0_region_open(i64, i64)\0a"
+@l0_str.339 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_region_close(i64)\0a"
+@l0_str.340 = private unnamed_addr constant [39 x i8] c"declare i64 @l0_region_read8(i64, i64)\0a"
+@l0_str.341 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_region_read16(i64, i64)\0a"
+@l0_str.342 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_region_read32(i64, i64)\0a"
+@l0_str.343 = private unnamed_addr constant [40 x i8] c"declare i64 @l0_region_read64(i64, i64)\0a"
+@l0_str.344 = private unnamed_addr constant [45 x i8] c"declare i64 @l0_region_write8(i64, i64, i64)\0a"
+@l0_str.345 = private unnamed_addr constant [46 x i8] c"declare i64 @l0_region_write16(i64, i64, i64)\0a"
+@l0_str.346 = private unnamed_addr constant [46 x i8] c"declare i64 @l0_region_write32(i64, i64, i64)\0a"
+@l0_str.347 = private unnamed_addr constant [46 x i8] c"declare i64 @l0_region_write64(i64, i64, i64)\0a"
+@l0_str.348 = private unnamed_addr constant [49 x i8] c"declare i64 @l0_region_read_bytes(i64, i64, i64)\0a"
+@l0_str.349 = private unnamed_addr constant [60 x i8] c"declare i64 @l0_region_write_bytes(i64, i64, i64, i64, i64)\0a"
+@l0_str.350 = private unnamed_addr constant [26 x i8] c"declare i64 @l0_barrier()\0a"
+@l0_str.351 = private unnamed_addr constant [37 x i8] c"declare i64 @l0_array_take(i64, i64)\0a"
+@l0_str.352 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_space_new()\0a"
+@l0_str.353 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_frame_new()\0a"
+@l0_str.354 = private unnamed_addr constant [46 x i8] c"declare i64 @l0_space_map(i64, i64, i64, i64)\0a"
+@l0_str.355 = private unnamed_addr constant [53 x i8] c"declare i64 @l0_space_map_device(i64, i64, i64, i64)\0a"
+@l0_str.356 = private unnamed_addr constant [42 x i8] c"declare i64 @l0_space_read(i64, i64, i64)\0a"
+@l0_str.357 = private unnamed_addr constant [53 x i8] c"declare i64 @l0_space_write(i64, i64, i64, i64, i64)\0a"
+@l0_str.358 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_user_run(i64, i64)\0a"
+@l0_str.359 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_timer_at(i64)\0a"
+@l0_str.360 = private unnamed_addr constant [38 x i8] c"declare i64 @l0_interrupt_enable(i64)\0a"
+@l0_str.361 = private unnamed_addr constant [33 x i8] c"declare i64 @l0_interrupt_wait()\0a"
+@l0_str.362 = private unnamed_addr constant [36 x i8] c"declare i64 @l0_interrupt_done(i64)\0a"
+@l0_str.363 = private unnamed_addr constant [52 x i8] c"declare i64 @l0_supervisor_call(i64, i64, i64, i64)\0a"
+@l0_str.364 = private unnamed_addr constant [57 x i8] c"declare i64 @l0_supervisor_send(i64, i64, i64, i64, i64)\0a"
+@l0_str.365 = private unnamed_addr constant [50 x i8] c"declare i64 @l0_supervisor_receive(i64, i64, i64)\0a"
+@l0_str.366 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_frame_address(i64)\0a"
+@l0_str.367 = private unnamed_addr constant [38 x i8] c"declare i64 @l0_space_unmap(i64, i64)\0a"
+@l0_str.368 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_space_free(i64)\0a"
+@l0_str.369 = private unnamed_addr constant [32 x i8] c"declare i64 @l0_frame_free(i64)\0a"
+@l0_str.370 = private unnamed_addr constant [26 x i8] c"declare i64 @l0_machine()\0a"
+@l0_str.371 = private unnamed_addr constant [35 x i8] c"declare i64 @l0_frame_free_count()\0a"
+@l0_str.372 = private unnamed_addr constant [37 x i8] c"declare i64 @l0_frame_sync(i64, i64)\0a"
+@l0_str.373 = private unnamed_addr constant [43 x i8] c"declare i64 @l0_bytes_slice(i64, i64, i64)\0a"
+@l0_str.374 = private unnamed_addr constant [34 x i8] c"declare i64 @l0_bytes_concat(i64)\0a"
+@l0_str.375 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_board_reset()\0a"
+@l0_str.376 = private unnamed_addr constant [28 x i8] c"declare i64 @l0_cpu_count()\0a"
+@l0_str.377 = private unnamed_addr constant [49 x i8] c"declare i64 @l0_cpu_run(i64, i64, i64, i64, i64)\0a"
+@l0_str.378 = private unnamed_addr constant [30 x i8] c"declare i64 @l0_cpu_trapped()\0a"
+@l0_str.379 = private unnamed_addr constant [27 x i8] c"declare i64 @l0_cpu_wait()\0a"
+@l0_str.380 = private unnamed_addr constant [29 x i8] c"declare i64 @l0_heap_left()\0a\0a"
+@l0_str.381 = private unnamed_addr constant [31 x i8] c"@l0_main_ret_kind = global i64 "
+@l0_str.382 = private unnamed_addr constant [27 x i8] c"unterminated string literal"
+@l0_str.383 = private unnamed_addr constant [33 x i8] c"newline in string literal; use \5cn"
+@l0_str.384 = private unnamed_addr constant [51 x i8] c"unknown escape; the escapes are \5cn \5ct \5cr \5c\5c \5c\22 \5cxHH"
+@l0_str.385 = private unnamed_addr constant [20 x i8] c"incomplete \5cx escape"
+@l0_str.386 = private unnamed_addr constant [39 x i8] c"\5cx needs exactly two hexadecimal digits"
+@l0_str.387 = private unnamed_addr constant [39 x i8] c"integer literal does not fit in 64 bits"
+@l0_str.388 = private unnamed_addr constant [25 x i8] c"expected digits after '-'"
+@l0_str.389 = private unnamed_addr constant [34 x i8] c"invalid character in float literal"
+@l0_str.390 = private unnamed_addr constant [72 x i8] c"float literal's digits are more than 2^53; write it with float_from_bits"
+@l0_str.391 = private unnamed_addr constant [84 x i8] c"float literal has more than 22 digits after the point; write it with float_from_bits"
+@l0_str.392 = private unnamed_addr constant [36 x i8] c"invalid character in integer literal"
+@l0_str.393 = private unnamed_addr constant [20 x i8] c"unexpected character"
+@l0_str.394 = private unnamed_addr constant [7 x i8] c"#source"
+@l0_str.395 = private unnamed_addr constant [7 x i8] c"#nomain"
+@l0_str.396 = private unnamed_addr constant [8 x i8] c"#prelude"
+@l0_str.397 = private unnamed_addr constant [9 x i8] c"#l0bundle"
+@l0_str.398 = private unnamed_addr constant [7 x i8] c"error: "
+@l0_str.399 = private unnamed_addr constant [16 x i8] c"this declaration"
+@l0_str.400 = private unnamed_addr constant [12 x i8] c" is missing "
+@l0_str.401 = private unnamed_addr constant [28 x i8] c" before the end of the input"
+@l0_str.402 = private unnamed_addr constant [32 x i8] c" before the declaration at line "
+@l0_str.403 = private unnamed_addr constant [9 x i8] c" too many"
+@l0_str.404 = private unnamed_addr constant [14 x i8] c" closing paren"
+@l0_str.405 = private unnamed_addr constant [15 x i8] c" closing parens"
+@l0_str.406 = private unnamed_addr constant [30 x i8] c"; probably at the end of line "
+@l0_str.407 = private unnamed_addr constant [20 x i8] c": it closes at line "
+@l0_str.408 = private unnamed_addr constant [5 x i8] c"error"
+@l0_str.409 = private unnamed_addr constant [2 x i8] c": "
+@l0_str.410 = private unnamed_addr constant [2 x i8] c"; "
+@l0_str.411 = private unnamed_addr constant [7 x i8] c"warning"
+@l0_str.412 = private unnamed_addr constant [2 x i8] c"E\0a"
+@l0_str.413 = private unnamed_addr constant [2 x i8] c"O\0a"
+@l0_str.414 = private unnamed_addr constant [6 x i8] c"(list "
+@l0_str.415 = private unnamed_addr constant [7 x i8] c"(array "
+@l0_str.416 = private unnamed_addr constant [5 x i8] c"float"
+@l0_str.417 = private unnamed_addr constant [5 x i8] c"bytes"
+@l0_str.418 = private unnamed_addr constant [5 x i8] c"(fn ("
+@l0_str.419 = private unnamed_addr constant [2 x i8] c") "
+@l0_str.420 = private unnamed_addr constant [56 x i8] c"def data if let match nil true false int bool list array"
+@l0_str.421 = private unnamed_addr constant [15 x i8] c"expected a type"
+@l0_str.422 = private unnamed_addr constant [64 x i8] c"expected a type: int, bool, float, bytes, (list T), or (array T)"
+@l0_str.423 = private unnamed_addr constant [10 x i8] c"list array"
+@l0_str.424 = private unnamed_addr constant [31 x i8] c" needs an element type, as in ("
+@l0_str.425 = private unnamed_addr constant [5 x i8] c" int)"
+@l0_str.426 = private unnamed_addr constant [101 x i8] c": a type is int, bool, float, bytes, (list T), (array T), or a data type, whose name starts uppercase"
+@l0_str.427 = private unnamed_addr constant [20 x i8] c"unclosed ( in a type"
+@l0_str.428 = private unnamed_addr constant [2 x i8] c"fn"
+@l0_str.429 = private unnamed_addr constant [4 x i8] c"list"
+@l0_str.430 = private unnamed_addr constant [5 x i8] c"array"
+@l0_str.431 = private unnamed_addr constant [63 x i8] c"expected list, array, fn, or a data type name after ( in a type"
+@l0_str.432 = private unnamed_addr constant [72 x i8] c"(fn ...) takes its parameter types in parentheses, as in (fn (int) bool)"
+@l0_str.433 = private unnamed_addr constant [44 x i8] c"(fn (...) ...) takes exactly one result type"
+@l0_str.434 = private unnamed_addr constant [40 x i8] c" ...) needs at least one type argument; "
+@l0_str.435 = private unnamed_addr constant [37 x i8] c"a type without parameters is written "
+@l0_str.436 = private unnamed_addr constant [42 x i8] c"(array ...) takes exactly one element type"
+@l0_str.437 = private unnamed_addr constant [41 x i8] c"(list ...) takes exactly one element type"
+@l0_str.438 = private unnamed_addr constant [22 x i8] c"expected an expression"
+@l0_str.439 = private unnamed_addr constant [65 x i8] c"a field is read as (.name value) or replaced as (.name value new)"
+@l0_str.440 = private unnamed_addr constant [45 x i8] c"unexpected ) where an expression was expected"
+@l0_str.441 = private unnamed_addr constant [4 x i8] c"true"
+@l0_str.442 = private unnamed_addr constant [5 x i8] c"false"
+@l0_str.443 = private unnamed_addr constant [54 x i8] c"uppercase names are types and constructors, not values"
+@l0_str.444 = private unnamed_addr constant [45 x i8] c"this word is reserved and is not a value here"
+@l0_str.445 = private unnamed_addr constant [10 x i8] c"unclosed ("
+@l0_str.446 = private unnamed_addr constant [48 x i8] c"expected a function or special form name after ("
+@l0_str.447 = private unnamed_addr constant [75 x i8] c"a constructor written with its type is ((Constructor type...) arguments...)"
+@l0_str.448 = private unnamed_addr constant [2 x i8] c"(("
+@l0_str.449 = private unnamed_addr constant [39 x i8] c") ...) needs at least one type argument"
+@l0_str.450 = private unnamed_addr constant [2 x i8] c"if"
+@l0_str.451 = private unnamed_addr constant [3 x i8] c"let"
+@l0_str.452 = private unnamed_addr constant [3 x i8] c"nil"
+@l0_str.453 = private unnamed_addr constant [5 x i8] c"match"
+@l0_str.454 = private unnamed_addr constant [3 x i8] c"def"
+@l0_str.455 = private unnamed_addr constant [4 x i8] c"data"
+@l0_str.456 = private unnamed_addr constant [37 x i8] c"this can only appear at the top level"
+@l0_str.457 = private unnamed_addr constant [22 x i8] c"this is not a function"
+@l0_str.458 = private unnamed_addr constant [42 x i8] c"match needs a subject and at least one arm"
+@l0_str.459 = private unnamed_addr constant [21 x i8] c"unclosed ( in a match"
+@l0_str.460 = private unnamed_addr constant [49 x i8] c"each match arm is ((Constructor names...) result)"
+@l0_str.461 = private unnamed_addr constant [25 x i8] c"unclosed ( in a match arm"
+@l0_str.462 = private unnamed_addr constant [41 x i8] c"a match pattern is (Constructor names...)"
+@l0_str.463 = private unnamed_addr constant [29 x i8] c"unclosed ( in a match pattern"
+@l0_str.464 = private unnamed_addr constant [46 x i8] c"a match pattern starts with a constructor name"
+@l0_str.465 = private unnamed_addr constant [29 x i8] c"expected a field binding name"
+@l0_str.466 = private unnamed_addr constant [55 x i8] c"a field binding name must be lowercase and not reserved"
+@l0_str.467 = private unnamed_addr constant [99 x i8] c"if takes a condition, a value, and an else, or pairs of them before the else: (if c1 e1 c2 e2 else)"
+@l0_str.468 = private unnamed_addr constant [48 x i8] c"let takes exactly 3 parts: (let name value body)"
+@l0_str.469 = private unnamed_addr constant [19 x i8] c"unclosed ( in an if"
+@l0_str.470 = private unnamed_addr constant [37 x i8] c"let needs a name, a value, and a body"
+@l0_str.471 = private unnamed_addr constant [25 x i8] c"expected a name after let"
+@l0_str.472 = private unnamed_addr constant [53 x i8] c"a let binding name must be lowercase and not reserved"
+@l0_str.473 = private unnamed_addr constant [30 x i8] c"unclosed ( in a let's bindings"
+@l0_str.474 = private unnamed_addr constant [70 x i8] c"a let's bindings are pairs of a name and a value: (let (a 1 b 2) body)"
+@l0_str.475 = private unnamed_addr constant [51 x i8] c"nil takes exactly one element type, as in (nil int)"
+@l0_str.476 = private unnamed_addr constant [33 x i8] c"a function name must be lowercase"
+@l0_str.477 = private unnamed_addr constant [20 x i8] c"unclosed ( in a call"
+@l0_str.478 = private unnamed_addr constant [30 x i8] c"unclosed ( in a parameter list"
+@l0_str.479 = private unnamed_addr constant [29 x i8] c"each parameter is (name type)"
+@l0_str.480 = private unnamed_addr constant [25 x i8] c"unclosed ( in a parameter"
+@l0_str.481 = private unnamed_addr constant [25 x i8] c"expected a parameter name"
+@l0_str.482 = private unnamed_addr constant [51 x i8] c"a parameter name must be lowercase and not reserved"
+@l0_str.483 = private unnamed_addr constant [22 x i8] c"expected a declaration"
+@l0_str.484 = private unnamed_addr constant [30 x i8] c"expected a top-level (def ...)"
+@l0_str.485 = private unnamed_addr constant [29 x i8] c"expected def at the top level"
+@l0_str.486 = private unnamed_addr constant [44 x i8] c"expected a top-level (def ...) or (data ...)"
+@l0_str.487 = private unnamed_addr constant [47 x i8] c"a data declaration needs an uppercase type name"
+@l0_str.488 = private unnamed_addr constant [32 x i8] c"unclosed ( in a data declaration"
+@l0_str.489 = private unnamed_addr constant [37 x i8] c") needs at least one type parameter; "
+@l0_str.490 = private unnamed_addr constant [44 x i8] c"a type without parameters is declared (data "
+@l0_str.491 = private unnamed_addr constant [5 x i8] c" ...)"
+@l0_str.492 = private unnamed_addr constant [37 x i8] c"a type parameter is an uppercase name"
+@l0_str.493 = private unnamed_addr constant [42 x i8] c"a data type needs at least one constructor"
+@l0_str.494 = private unnamed_addr constant [38 x i8] c"a constructor is (Name field-types...)"
+@l0_str.495 = private unnamed_addr constant [27 x i8] c"unclosed ( in a constructor"
+@l0_str.496 = private unnamed_addr constant [45 x i8] c"a constructor names all of its fields or none"
+@l0_str.497 = private unnamed_addr constant [33 x i8] c"a field name must not be reserved"
+@l0_str.498 = private unnamed_addr constant [21 x i8] c"unclosed ( in a field"
+@l0_str.499 = private unnamed_addr constant [22 x i8] c"a field is (name type)"
+@l0_str.500 = private unnamed_addr constant [34 x i8] c"expected a function name after def"
+@l0_str.501 = private unnamed_addr constant [50 x i8] c"a function name must be lowercase and not reserved"
+@l0_str.502 = private unnamed_addr constant [37 x i8] c"unclosed ( in a def's type parameters"
+@l0_str.503 = private unnamed_addr constant [32 x i8] c"a function without them is (def "
+@l0_str.504 = private unnamed_addr constant [51 x i8] c"expected a parameter list, as in ((x int) (y bool))"
+@l0_str.505 = private unnamed_addr constant [48 x i8] c"a def is (def name (params...) return-type body)"
+@l0_str.506 = private unnamed_addr constant [21 x i8] c"no declarations found"

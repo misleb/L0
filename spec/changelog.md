@@ -15,6 +15,122 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## Bytes are updated in place: a binary32 stored, and y made y + a·x (roadmap 0149)
+
+**Changed:** two builtins in 6.6 change bytes: `(bytes_set_f32 b i x)`
+stores `x` as a binary32 at byte `i` of `b`, and `(bytes_axpy_f32 y i a
+x j n)` makes the `n` binary32s of `y` from byte `i` each `y_k + a·x_k`,
+with `x`'s from byte `j`. Each consumes its bytes as `array_set` consumes
+its array (10.3): in place when nothing else holds them, otherwise after
+copying them whole, with the same result either way, and the checker's
+warning of a copy (0139) covers both. 6.6's "no builtin changes a byte, so
+bytes are never updated" is gone; it now says which two do, and that no
+other does. Section 8's byte range error covers both.
+
+*Why:* the other two of the six builtins L0S asked for with 0148, for
+Whistle's attention and norms, which keep their activations as binary32
+in bytes and update them row by row; a copy of the whole vector per
+update would cost what the vector unit saves. Bytes that update in place
+had been open in the roadmap's goals, waiting for code that needed them,
+since the goals table was written; this is that code. The restriction
+6.6 stated was deliberate when bytes were an input's contents read once,
+and `read_bytes` into a value nothing wrote to; it was never a rule a
+program relied on, since nothing could observe a byte changing, and
+giving it up costs no program anything: 6.5's rule already says exactly
+when an update is in place and when it copies, and bytes follow it
+unchanged.
+
+*Decisions:* `bytes_axpy_f32` consumes `x` as well as `y`, as `array_set`
+consumes its element, rather than borrowing it, because a builtin
+borrows all of its pointer arguments or none (10.3), and consuming
+costs one release the caller would otherwise make. `x` and `y` may be
+the same value with overlapping ranges, and every `x_k` is read as it was
+before the call, at no cost to the runtime: a consuming builtin is given
+a reference for each pointer argument, so when `x` and `y` are one block
+it is held at least twice, `y` is copied before anything is written, and
+`x` is read from the original. A NaN stored, by either builtin, is the
+binary32 NaN 0x7FC00000, one NaN as 6.17 keeps one, and not the CPU's,
+which on x86-64 has its sign bit set and on aarch64 does not; a value
+past binary32's range stores its infinity, which is what rounding to
+nearest gives.
+
+*Also considered:* a general `bytes_set b i v` of one byte, which no
+program here asks for yet and which would carry a byte-at-a-time loop
+back into the programs these builtins exist to spare; and leaving
+in-place bytes for a later design of mutable buffers, which would have
+left Whistle copying a vector per update meanwhile.
+
+---
+
+## Dot products over bytes, and narrow floats read from them (roadmap 0148)
+
+**Changed:** four builtins in 6.6 read a range of `bytes` as numbers in
+one call: `(bytes_dot_i8 a i b j n)`, the exact sum of the products of
+two ranges of signed bytes; `(bytes_dot_f32 a i b j n)`, the dot product
+of two ranges of binary32s, computed in binary32 in one fixed order; and
+`(bytes_get_f32 b i)` and `(bytes_get_f16 b i)`, a binary32 or binary16
+at an index as a `float`. Each is a function of its bytes alone, checks
+its ranges once, and fails with `byte index out of range` (section 8).
+Section 10.3 declares them as runtime calls that read without consuming
+and keep a parameter read-only.
+
+*Why:* L0S's request (`probes/vector/REQUEST-vector-arithmetic.md` in
+L0S), for Whistle, a 16.9 MB speech model to run on a Pi 5 with no host.
+Nearly all of a model's time is one loop, a row of int8 weights times a
+vector of int8 activations, summed, and in L0 that loop is a `bytes_get`,
+a sign fix, a `mul`, an `add`, and a tail call per element, with a bounds
+check in the `bytes_get`. L0S's probe, a 768 by 768 int8 matrix times a
+vector, 50 times, on an x86_64 host: 1930 ps per multiply-add in L0,
+274 ps in scalar C, 35 ps in C the compiler vectorised. A 10 s clip is
+billions of multiply-adds, tens of seconds at L0's rate and under a
+second at the vector unit's. Every L0 value is a word (10.1), so nothing
+reads a binary32 or binary16 from bytes either, and the weights a `.cact`
+file stores as FP16 could not be read in place.
+
+This is the first change taken for speed alone, which the README says
+does not justify one. It is taken because the program cannot exist
+without it, as 0107's `bytes_concat` was taken because a 512 KB image
+could not go through a list a byte at a time: no loop written in L0 can
+shed the call and the check per element, so the gap is not a constant
+factor an agent could live with but the line between a model that
+answers and one that does not. The README's line stands for what it
+meant, that a change is not made to make a program that already works
+run faster.
+
+*The order of the float sum:* binary32 addition is not associative, so a
+dot product's low bits depend on the order its products are added in,
+and a vector unit adds them in lanes, not left to right. 6.17 promises
+that a float is the same on every host, and a builtin whose result
+depended on the target's vector width would break it. So the spec fixes
+the order: four sums, element `k` in sum `k` mod 4, then (0 + 1) + (2 +
+3), no product fused with its addition. That is what a four-lane unit
+computes, NEON and SSE both, and scalar code computes the same by
+keeping four sums; a unit of more lanes would have to be used as four.
+The alternative, leaving the order to the target and saying so, was
+L0S's fallback, and was not taken: it would be the first result in L0
+that differs between the host and the board, and the compiled suite's
+expectations run on both.
+
+*Also considered:* a vector type of values, which does not fit one word a
+value and would bring lanes, shuffles, and masks into the language;
+matrix multiply, convolution, and the like, which are loops over these
+and L0S can write; and `bytes_axpy_f32` and `bytes_set_f32`, which L0S
+asked for too and which change a byte, so they wait for 0149, bytes
+updated in place, as its first users.
+
+*How it is done:* each is a function in `runtime/l0rt.ll` written with
+LLVM's vector types, `<16 x i8>` widened and multiplied, and `<4 x float>`
+multiplied and added, which LLVM lowers to NEON on aarch64, to SSE on
+x86_64, and to scalar code on riscv64, whose targets have no vector
+extension; the IR carries no fast-math flags, so nothing is fused or
+reordered, and the spec's order is the order that runs. The binary16 is
+widened by integer arithmetic rather than `fpext half`, which on x86_64
+and on every freestanding target is a call into compiler-rt, which no L0
+program links. The dot products return the float's key, as 10.1 holds a
+float, so the compiler emits them as it emits every runtime call.
+
+---
+
 ## The specification is several files, and no language change for it (roadmap 0141)
 
 **Changed:** `spec/L0.md` holds sections 1 to 9 and 11, the language a

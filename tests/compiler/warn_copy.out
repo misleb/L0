@@ -10,3 +10,5 @@ ok
 ok
 270: b is used after this call of bump, so it copies b; read it first, with let, and update last
 321: b is used after this call of g, so it copies b; read it first, with let, and update last
+272: b is used after this bytes_set_f32, so it copies b; read it first, with let, and update last
+ok
