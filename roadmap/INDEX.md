@@ -43,6 +43,13 @@ From the review of 2026-10-30:
 
 ## Done and dropped
 
+- [0150](0150-aarch64-a76-floor.md) tooling: the aarch64 targets assume
+  a Cortex-A76, and QEMU emulates one — done, changelog "The aarch64
+  targets assume a Cortex-A76, and no language change for it"; the dot
+  product is four `sdot` per 64 bytes there and `pmaddwd` on the host,
+  71 ps per multiply-add from 1898; both suites and `--virt` green; not
+  run on a Pi 5
+
 - [0149](0149-bytes-in-place.md) bytes updated in place: a float32
   written, and y made y + a·x — done, changelog "Bytes are updated in
   place: a binary32 stored, and y made y + a·x"; 6.6's "no builtin

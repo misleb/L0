@@ -3,7 +3,8 @@
 Part of the specification of L0, with [L0.md](../L0.md) and
 [runtime.md](../runtime.md): the host of section 10.3 for a program a
 kernel runs as a process, its system calls, its image, and its layout.
-Normative.
+Normative. The aarch64 process target assumes a Cortex-A76, as the
+aarch64 boards do.
 
 **A process's host.** A process's host runs a program as a process at user
 level of a machine, at EL0 of an aarch64 one or in U-mode of a riscv64 one,

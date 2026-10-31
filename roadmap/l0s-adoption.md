@@ -489,11 +489,12 @@ becomes the one call above a row. On the x86_64 host that measured the
 request, the probe as it is runs at 1898 ps per multiply-add and with
 `bytes_dot_i8` at 140, the same checksum, 13.5 times faster; scalar C was
 274 and C the compiler vectorised 35. The runtime's loop is portable
-vector IR, sixteen bytes a step, which LLVM lowers to NEON's `smull` and
-`saddw`; it does not reach the A76's `sdot`, which would need either the
-CPU named to LLVM for the Pi 5 target or LLVM's partial-reduction
-intrinsic, neither taken until a run on the board says what it is worth.
-Every loop that sums products of `bytes_get` reads is a candidate:
+vector IR, 64 bytes a step; since roadmap 0150 the aarch64 targets name
+the Pi 5's Cortex-A76 to the compiler, so on the board and on QEMU's
+virt board, which now emulates an A76, LLVM lowers it to four `sdot` per
+step, and on x86_64 to `pmaddwd`. The Pi 5's own number is not yet
+measured. Every loop that sums products of `bytes_get` reads is a
+candidate:
 
 ```bash
 grep -rn "(mul (bytes_get\|(mul (s8 \|bytes_get .*(mul" --include='*.l0' .

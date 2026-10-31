@@ -4,6 +4,12 @@ Part of the specification of L0, with [L0.md](../L0.md) and
 [runtime.md](../runtime.md): what the host of section 10.3 gives on QEMU's
 aarch64 `virt` board, its devices and its interrupts. Normative.
 
+**The CPU.** The target assumes a Cortex-A76, ARMv8.2-A with the
+dot-product instructions, and QEMU emulates one (`-cpu cortex-a76`), so
+what runs here is what runs on the Raspberry Pi 5. A board with an older
+core brings its own target, and no part of the runtime is written for
+one CPU.
+
 ## Devices
 
 The devices a region may cover (section 6.12), as QEMU's virt board places

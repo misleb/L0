@@ -5,6 +5,10 @@ Part of the specification of L0, with [L0.md](../L0.md) and
 Raspberry Pi 5, its devices and its interrupts. Normative. What here says
 a board run read or did was read on a 2 GB board.
 
+**The CPU.** The target names the board's Cortex-A76 to the compiler, so
+the runtime's loops over bytes (6.6) use its dot-product instructions;
+QEMU's aarch64 virt board emulates the same core, and tests them.
+
 ## Devices
 
 The devices a region may cover (section 6.12), all above 4 GB, the GIC-400

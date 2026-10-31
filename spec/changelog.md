@@ -15,6 +15,41 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## The aarch64 targets assume a Cortex-A76, and no language change for it (roadmap 0150)
+
+**Changed:** the three aarch64 targets, QEMU's virt board, the Raspberry
+Pi 5, and a process of a kernel, name `cortex-a76` to the compiler in
+their manifests, and the virt board's QEMU emulates that core instead of
+a Cortex-A72. `spec/boards/virt-aarch64.md`, `pi5.md`, and `process.md`
+say so. The runtime's `bytes_dot_i8` takes 64 bytes a step with one
+reduction per step, instead of accumulating sixteen lanes across steps.
+
+*Why:* 0148's loop was portable IR that LLVM lowered to `smull` and
+`saddw` on aarch64, eight instructions per sixteen bytes, while the
+Pi 5's core has `sdot`, sixteen multiply-adds in one. LLVM emits `sdot`
+only when told the CPU has it, and only from a loop shaped as a
+reduction per step; the manifests named no CPU, and the virt board ran
+as an A72, which has no `sdot`, so the instruction the Pi 5 would run was
+one the suite never tested. With the CPU named and the loop reshaped,
+the same runtime text gives four `sdot` per 64 bytes on aarch64, eight
+`pmaddwd` on x86-64, and scalar code on riscv64, and QEMU as an A76 runs
+the `sdot` path under `--virt`.
+
+*Why a floor per target and not per architecture:* every flag in a
+manifest is a target's own, and the Pi 5 is an A76, so nothing is given
+up there; a board with an older core, a Pi 4's A72 say, would bring its
+own manifest and CPU, and the runtime is correct on it unchanged, since
+nothing in it is written for one CPU. LLVM's partial-reduction intrinsic,
+which reaches `sdot` with a single reduction at the end, was not used:
+the riscv64 backend refuses it, so it cannot be in the one runtime text
+every host links, and a target-specific runtime part for it would be the
+first, for a gain a board run has not yet measured.
+
+*Not done:* a run on a Pi 5, skipped for now by the user's choice so L0S
+is not kept waiting; what the board gains is unmeasured until then.
+
+---
+
 ## Bytes are updated in place: a binary32 stored, and y made y + a·x (roadmap 0149)
 
 **Changed:** two builtins in 6.6 change bytes: `(bytes_set_f32 b i x)`

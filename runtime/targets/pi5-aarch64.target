@@ -7,7 +7,7 @@
 T_KIND=board
 T_ARCH=aarch64
 T_TRIPLE=aarch64-none-elf
-T_CFLAGS=""
+T_CFLAGS="-mcpu=cortex-a76"
 T_PARTS="bare/board.ll bare/psci.ll dev/gicv2.ll dev/pl011.ll board/pi5-aarch64.ll board/pi5-aarch64-devices.ll arch/aarch64/boot.ll bare/absent.ll"
 T_LAYOUT=board/pi5-aarch64.ld
 T_HEAP_MB=768

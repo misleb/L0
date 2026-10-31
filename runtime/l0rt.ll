@@ -57,7 +57,7 @@ declare ptr @llvm.frameaddress.p0(i32)
 declare void @llvm.memset.p0.i64(ptr, i8, i64, i1)
 declare void @llvm.memcpy.p0.p0.i64(ptr, ptr, i64, i1)
 declare i64 @llvm.ctpop.i64(i64)
-declare i32 @llvm.vector.reduce.add.v16i32(<16 x i32>)
+declare i32 @llvm.vector.reduce.add.v64i32(<64 x i32>)
 declare i32 @memcmp(ptr, ptr, i64)
 
 ; Defined by the generated IR. Spec section 10.2.
@@ -2339,10 +2339,13 @@ no:
 }
 
 ; The sum over k below n of the signed bytes a[i+k] times b[j+k], exact.
-; Sixteen at a time: the products fit i16, and sixteen i32 lanes hold them
-; for a chunk of 2^20 elements, 2^16 blocks of at most 2^14 each, before
-; the lanes are reduced into the i64 sum; then one at a time for the rest.
-; Borrows a and b.
+; Sixty-four at a time, widened to i32, multiplied, and reduced into the
+; i64 sum, each step's sum at most 64 times 2^14; then one at a time for
+; the rest. This shape is what LLVM turns into the CPU's dot-product
+; instructions where it has them, four sdot on an aarch64 target that
+; names a Cortex-A76 and pmaddwd on x86_64, and into widening multiplies
+; and adds elsewhere; a lane accumulator across steps gets neither
+; (roadmap 0150). Borrows a and b.
 define i64 @l0_bytes_dot_i8(i64 %a, i64 %i, i64 %b, i64 %j, i64 %n) {
 entry:
   %aq = inttoptr i64 %a to ptr
@@ -2357,44 +2360,29 @@ go:
   %ap = getelementptr i8, ptr %aq, i64 %ao
   %bo = add i64 %j, 8
   %bp = getelementptr i8, ptr %bq, i64 %bo
-  %nb = and i64 %n, -16
-  br label %outer
-outer:
-  %c = phi i64 [ 0, %go ], [ %cend, %oend ]
-  %acc = phi i64 [ 0, %go ], [ %acc1, %oend ]
-  %odone = icmp uge i64 %c, %nb
-  br i1 %odone, label %sloop, label %obody
-obody:
-  %rem = sub i64 %nb, %c
-  %big = icmp ugt i64 %rem, 1048576
-  %lim = select i1 %big, i64 1048576, i64 %rem
-  %cend = add i64 %c, %lim
-  br label %inner
-inner:
-  %k = phi i64 [ %c, %obody ], [ %k1, %ibody ]
-  %vacc = phi <16 x i32> [ zeroinitializer, %obody ], [ %vacc1, %ibody ]
-  %idone = icmp uge i64 %k, %cend
-  br i1 %idone, label %oend, label %ibody
-ibody:
+  %nb = and i64 %n, -64
+  br label %vloop
+vloop:
+  %k = phi i64 [ 0, %go ], [ %k1, %vbody ]
+  %acc = phi i64 [ 0, %go ], [ %acc1, %vbody ]
+  %vdone = icmp uge i64 %k, %nb
+  br i1 %vdone, label %sloop, label %vbody
+vbody:
   %avp = getelementptr i8, ptr %ap, i64 %k
   %bvp = getelementptr i8, ptr %bp, i64 %k
-  %av = load <16 x i8>, ptr %avp, align 1
-  %bv = load <16 x i8>, ptr %bvp, align 1
-  %aw = sext <16 x i8> %av to <16 x i16>
-  %bw = sext <16 x i8> %bv to <16 x i16>
-  %pw = mul <16 x i16> %aw, %bw
-  %pl = sext <16 x i16> %pw to <16 x i32>
-  %vacc1 = add <16 x i32> %vacc, %pl
-  %k1 = add i64 %k, 16
-  br label %inner
-oend:
-  %s = call i32 @llvm.vector.reduce.add.v16i32(<16 x i32> %vacc)
+  %av = load <64 x i8>, ptr %avp, align 1
+  %bv = load <64 x i8>, ptr %bvp, align 1
+  %aw = sext <64 x i8> %av to <64 x i32>
+  %bw = sext <64 x i8> %bv to <64 x i32>
+  %pw = mul <64 x i32> %aw, %bw
+  %s = call i32 @llvm.vector.reduce.add.v64i32(<64 x i32> %pw)
   %sw = sext i32 %s to i64
   %acc1 = add i64 %acc, %sw
-  br label %outer
+  %k1 = add i64 %k, 64
+  br label %vloop
 sloop:
-  %sk = phi i64 [ %nb, %outer ], [ %sk1, %sbody ]
-  %sacc = phi i64 [ %acc, %outer ], [ %sacc1, %sbody ]
+  %sk = phi i64 [ %nb, %vloop ], [ %sk1, %sbody ]
+  %sacc = phi i64 [ %acc, %vloop ], [ %sacc1, %sbody ]
   %sdone = icmp uge i64 %sk, %n
   br i1 %sdone, label %done, label %sbody
 sbody:
