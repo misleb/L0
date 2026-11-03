@@ -1,0 +1,48 @@
+; A function that tail-calls another and also adds to a call of itself,
+; while the function it tail-calls calls it back. LLVM's tail recursion
+; elimination turns such an addition into a loop with an accumulator, and
+; before spec 10.3 marked the calls that are not tail calls notail, it added
+; that accumulator to the result of the tail call too, after the musttail
+; call, and the link at -O2 failed. height and col have the shape of a
+; layout's height for a width, which is where it was first met.
+
+(data W (Pad int int W) (Box int (list W)) (Leaf int) (Text (list int)) (Pair W W))
+
+(def mx ((a int) (b int)) int (if (lt a b) b a))
+
+(def text_w ((s (list int)) (acc int)) int
+  (if (is_empty s) acc (text_w (tail s) (add (mul acc 31) (head s)))))
+
+(def natural ((w W)) int
+  (match w
+    ((Pad px py c) (add (natural c) (mul 2 py)))
+    ((Box sp cs) (natural_col cs 0))
+    ((Leaf h) h)
+    ((Text s) (mod (text_w s 7) 13))
+    ((Pair a b) (mx (natural a) (natural b)))))
+
+(def natural_col ((cs (list W)) (h int)) int
+  (if (is_empty cs) h (natural_col (tail cs) (add h (natural (head cs))))))
+
+(def height ((w W) (width int)) int
+  (match w
+    ((Pad px py c) (add (height c (mx 0 (sub width (mul 2 px)))) (mul 2 py)))
+    ((Box sp cs) (col sp cs width 0 true))
+    ((Leaf h) (natural w))
+    ((Text s) (natural w))
+    ((Pair a b) (natural w))))
+
+(def col ((sp int) (cs (list W)) (width int) (h int) (first bool)) int
+  (if (is_empty cs)
+      h
+      (col sp (tail cs) width (add h (add (height (head cs) width) (if first 0 sp))) false)))
+
+; 4 for the leaf, 7 for the empty text and 2 for its padding, 2 for the
+; pair, two spacings of 3, and 4 for the outer padding: 25.
+(def main ((input (list int))) (list int)
+  (yn (eq (height (Pad 1 2 (Box 3 (cons (Leaf 4)
+                                    (cons (Pad 1 1 (Text input))
+                                      (cons (Pair (Leaf 1) (Leaf 2)) (nil W))))))
+                  (if (is_empty input) 10 20))
+          25)
+    "\n"))

@@ -175,11 +175,11 @@ define internal fastcc i64 @l0_f_main.body(i64 %a0) {
 entry:
   call void @l0_stack_check()
   call void @l0_dec(i64 %a0)
-  %t0 = call fastcc i64 @l0_f_lone(i64 1)
-  %t1 = call fastcc i64 @l0_f_pong(i64 3, i64 0, i64 0)
+  %t0 = notail call fastcc i64 @l0_f_lone(i64 1)
+  %t1 = notail call fastcc i64 @l0_f_pong(i64 3, i64 0, i64 0)
   %t2 = call i64 @l0_new_data(i64 0, i64 1, i64 0)
   call void @l0_data_set(i64 %t2, i64 0, i64 2)
-  %t3 = call fastcc i64 @l0_f_open(i64 %t2)
+  %t3 = notail call fastcc i64 @l0_f_open(i64 %t2)
   call void @l0_dec(i64 %t2)
   %t4 = add i64 %t1, %t3
   %t5 = add i64 %t0, %t4

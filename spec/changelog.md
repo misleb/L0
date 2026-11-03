@@ -15,6 +15,48 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## A call that is not a tail call is notail, and no language change for it
+
+**Changed:** the compiler emits every call of an L0 function that is not a
+tail call as `notail call` (10.3), where it emitted a plain `call`. Tail
+calls are `musttail` as before.
+
+*Why:* a valid program failed to link: `l0 build` ended in `LLVM ERROR:
+failed to perform tail call elimination on a call site marked musttail`.
+The IR verified, and LLVM 23's own `-O2` broke it. Its tail recursion
+elimination makes a call of a function by itself whose result is added to,
+as `(add (height c w) (mul 2 py))` is, into a loop with an accumulator,
+and then adds the accumulator to every value the function returns. One of
+those was a `musttail` call's, so the call came to be followed by an `add`
+before its `ret`, which the verifier rejects and the back end cannot
+lower. It was met in L0S's `ui_height_in`, which adds to its own result
+for a padded widget and tail-calls `ui_column_h` for a column, which calls
+`ui_height_in` back; every L0S program that links its UI library failed.
+`tests/lang/tail_accumulator.l0` has the same shape in five functions and
+failed to link the same way. LLVM ought to refuse the rewrite in a function with
+a `musttail` call, and does not; L0 must still build with the LLVM it
+uses.
+
+*Why notail, and on every call that is not a tail call:* the elimination
+considers only a call marked `tail`, and never marks a `notail` one, and
+inlining keeps the marker. Marking only a function's calls of itself would
+not do: under `-flto` the call of itself can be one inlined from another
+function, as `ui_column_h`'s call of `ui_height_in` would be if
+`ui_column_h` were inlined into it, and that call was emitted in
+`ui_column_h`. Nor would
+marking only the functions with a `musttail` call, for the same reason. The other ways
+out cost more: `"disable-tail-calls"` on a function also stops the back
+end turning its calls of the runtime into jumps, and a call through
+something opaque costs every call. A call that is not in tail position
+loses nothing by `notail` in itself, since it could not be a jump; what
+is lost is only the loop LLVM would make of an accumulating recursion,
+and the compiler compiles itself in 732 ms before and after (six runs
+each, x86-64).
+
+*Not done:* a report to LLVM, which was drafted and not filed.
+
+---
+
 ## The aarch64 targets assume a Cortex-A76, and no language change for it (roadmap 0150)
 
 **Changed:** the three aarch64 targets, QEMU's virt board, the Raspberry

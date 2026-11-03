@@ -143,9 +143,9 @@ define internal fastcc i64 @l0_f_main.body(i64 %a0) {
 entry:
   call void @l0_stack_check()
   call void @l0_dec(i64 %a0)
-  %t0 = call fastcc i64 @l0_p_via.Fkey(i64 5)
-  %t1 = call fastcc i64 @l0_p_apply_twice.Fkey(i64 0)
-  %t2 = call fastcc i64 @l0_p_pick.0.Pidt.0(i64 3)
+  %t0 = notail call fastcc i64 @l0_p_via.Fkey(i64 5)
+  %t1 = notail call fastcc i64 @l0_p_apply_twice.Fkey(i64 0)
+  %t2 = notail call fastcc i64 @l0_p_pick.0.Pidt.0(i64 3)
   %t3 = add i64 %t1, %t2
   %t4 = add i64 %t0, %t3
   ret i64 %t4
@@ -161,7 +161,7 @@ entry:
 define internal fastcc i64 @l0_p_apply_twice.Fkey(i64 %a0) {
 entry:
   call void @l0_stack_check()
-  %t0 = call fastcc i64 @l0_f_key(i64 %a0)
+  %t0 = notail call fastcc i64 @l0_f_key(i64 %a0)
   %t1 = musttail call fastcc i64 @l0_f_key(i64 %t0)
   ret i64 %t1
 }

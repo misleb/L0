@@ -837,6 +837,17 @@ when the program is built, never by exhausting the stack as it runs. It is
 also why every tail call needs caller and callee to share a prototype, which
 10.2's padding provides.
 
+A call of a function that is not a tail call is a `notail call`. LLVM's
+tail recursion elimination makes a function's call of itself whose result is
+added to, or combined by another associative operation, into a loop with an
+accumulator, and it adds that accumulator to every value the function
+returns, a `musttail` call's result among them, after the call; LLVM 23
+then refuses the program, at `-O2`, because that call no longer precedes
+its `ret`. A `notail` call is never made into a loop, whatever inlining
+makes of the function it is in. A call in tail position is a `musttail`
+call already, so `notail` takes no tail call away from section 8; it costs
+only the loops LLVM would have made of the recursion that is not.
+
 A tail call whose words do not all fit in the target's argument registers
 passes the rest on the stack, in the caller's own incoming words, and
 LLVM 23's RISC-V back end writes them into the caller's frame instead,

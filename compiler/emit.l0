@@ -1008,10 +1008,15 @@
             (emit_dec (head ops) st)
             st))))
 
+; A call that is not a tail call is notail, so that LLVM's tail recursion
+; elimination never makes one of a function's calls of itself into a loop
+; with an accumulator: that adds the accumulator to every value the function
+; returns, a musttail call's too, which then no longer precedes its ret.
+; Spec 10.3.
 (def emit_def_call ((sym (list int)) (ops (list (list int))) (env Env)
                     (tl bool) (st Emit)) EmitVal
   (emit_assign
-    (append (if tl "musttail call fastcc i64 @" "call fastcc i64 @")
+    (append (if tl "musttail call fastcc i64 @" "notail call fastcc i64 @")
       (append sym
         (append "("
           (append (fmt_ops (pad_ops ops (pad_of sym (.pads env)))) ")"))))
