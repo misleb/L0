@@ -18,3 +18,4 @@
 0x1000010600 0x100 - dma40's channel 6
 0x1000FFF000 0x600 - sdio1, SDHCI and cfg
 0x107C502000 0x30 - disp_intr
+0x107D208000 0x28 - the RNG200, the random number generator

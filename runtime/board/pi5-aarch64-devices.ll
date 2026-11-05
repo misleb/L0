@@ -2,7 +2,7 @@
 ; runtime/board/pi5-aarch64.devices; change that, never this, and write it again:
 ;   tools/l0 run tools/boards.l0 -- ir pi5-aarch64 < runtime/board/pi5-aarch64.devices
 
-@devices = private constant [30 x i64] [
+@devices = private constant [32 x i64] [
   i64 70816632832, i64 4096,  ; 0x107D001000, the debug UART, a PL011
   i64 70799863808, i64 4096,  ; 0x107C003000, the 1 MHz system timer
   i64 70799931520, i64 64,  ; 0x107C013880, the VideoCore mailbox
@@ -17,17 +17,18 @@
   i64 70821904896, i64 88,  ; 0x107D508200, DDC0
   i64 68719543808, i64 256,  ; 0x1000010600, dma40's channel 6
   i64 68736249856, i64 1536,  ; 0x1000FFF000, sdio1, SDHCI and cfg
-  i64 70805102592, i64 48 ]  ; 0x107C502000, disp_intr
+  i64 70805102592, i64 48,  ; 0x107C502000, disp_intr
+  i64 70818758656, i64 40 ]  ; 0x107D208000, the RNG200, the random number generator
 
 define i64 @l0_board_device_count() {
 entry:
-  ret i64 15
+  ret i64 16
 }
 
 define i64 @l0_board_device_base(i64 %k) {
 entry:
   %i = mul i64 %k, 2
-  %p = getelementptr [30 x i64], ptr @devices, i64 0, i64 %i
+  %p = getelementptr [32 x i64], ptr @devices, i64 0, i64 %i
   %v = load i64, ptr %p
   ret i64 %v
 }
@@ -36,7 +37,7 @@ define i64 @l0_board_device_len(i64 %k) {
 entry:
   %i0 = mul i64 %k, 2
   %i = add i64 %i0, 1
-  %p = getelementptr [30 x i64], ptr @devices, i64 0, i64 %i
+  %p = getelementptr [32 x i64], ptr @devices, i64 0, i64 %i
   %v = load i64, ptr %p
   ret i64 %v
 }

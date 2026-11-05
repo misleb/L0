@@ -31,6 +31,7 @@ not a region (below):
 | 0x1000010600 | 0x100 | channel 6 of `dma40`, the 40-bit DMA controller, `brcm,bcm2712-dma` |
 | 0x1000FFF000 | 0x600 | `sdio1`, the SD host controller behind the microSD slot, `brcm,bcm2712-sdhci`: SDHCI's registers, then at 0x400 the brcmstb `cfg` block |
 | 0x107C502000 | 0x30 | `disp_intr`, the display's interrupt controller, `brcm,bcm2711-l2-intc`, through which the HVS raises its channels' ends of frame |
+| 0x107D208000 | 0x28 | the BCM2712's random number generator, an RNG200, `brcm,bcm2711-rng200`: its control, status, bit count and FIFO |
 
 The debug UART is as the firmware leaves it, enabled with transmit and
 receive on, 8-bit words and FIFOs, and no interrupt enabled. Unlike
@@ -60,6 +61,16 @@ up: a driver masks the lines it does not take, unmasks its channel's,
 and clears each line it takes at 0x08 before `interrupt_done`. Its
 clock is the display's, so a program reads it only where it may read
 the HVS.
+
+The RNG200 is a region so that a program can take random bytes, to key
+TLS with among others, on a board with no virtio. It has no interrupt
+and does no DMA. It is as the firmware leaves it, and the host sets
+nothing of it up: a driver turns it on itself, where `RNG_CTRL`'s RBGEN,
+bits 0 to 12, is clear. Its registers are `RNG_CTRL` at 0x00,
+`RNG_SOFT_RESET` at 0x04 and `RBG_SOFT_RESET` at 0x08, the total bit
+count at 0x0C and its threshold at 0x10, the interrupt status at 0x18,
+the FIFO's data at 0x20 and its count at 0x24. The rest of its page is
+no region.
 
 HDMI0's controller, PHY, pixel valve, and DDC are regions so that a
 program can set the mode itself rather than take the firmware's. The

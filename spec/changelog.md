@@ -15,6 +15,31 @@ of the Pi 5's first runs were not kept; their entries quote what they read.
 
 ---
 
+## The Raspberry Pi 5's random number generator, its RNG200, is a region (roadmap 0151)
+
+**New:** on the Pi 5, the BCM2712's RNG200 (`brcm,bcm2711-rng200`) is a
+region (spec boards/pi5.md), 0x107D208000 and 0x28 bytes, in the boot
+map's block 65, with no interrupt. From `bcm2712.dtsi`, node `random:
+rng@7d208000`, `reg = <0x7d208000 0x28>`, in `soc@107c000000`, whose
+`ranges` put it at 0x107D208000 to the CPU; its registers from Linux's
+`iproc-rng200.c`, all inside the 0x28 bytes.
+
+*Why:* L0S asked (its `probes/driver/REQUEST-pi5-rng.md`). Its TLS 1.3
+client keys from the `random` protocol, which on QEMU `virtio-rng`
+serves; a Pi 5 has no virtio, so TLS there could not connect, and its
+`rng200` driver, written, got "no device there". Nothing else a program
+can reach on the board is secret enough to key TLS with.
+
+*Decided:* the region alone, as asked. Its device tree node has no
+interrupt, so none is given; the host sets nothing up, since a driver
+turns the generator on as Linux's does. The request's alternative, a
+builtin for random bytes on every host, is larger and not needed while
+L0S has a protocol and drivers for it. No deliberate restriction is
+broken: these are a device's registers, and it does no DMA. No emulator
+has this board; it is checked by building, and a first run is L0S's.
+
+---
+
 ## A call that is not a tail call is notail, and no language change for it
 
 **Changed:** the compiler emits every call of an L0 function that is not a

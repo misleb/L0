@@ -269,7 +269,8 @@ entry:
 ; channel 6 of dma40, in block 64, to feed the MAI (roadmap 0122). The
 ; microSD slot takes sdio1, its SDHCI and cfg block in one run, in block
 ; 64 (roadmap 0125). The HVS's end of frame takes disp_intr, the display's
-; interrupt controller, in block 65 (roadmap 0127).
+; interrupt controller, in block 65 (roadmap 0127). Random bytes take the
+; RNG200, in block 65, with no interrupt (roadmap 0151).
 
 ; A new space's root table, at l1: every entry of the boot map, which is for
 ; EL1 alone, but the 4th, the low user range, which is the table at l2.

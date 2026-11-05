@@ -43,6 +43,11 @@ From the review of 2026-10-30:
 
 ## Done and dropped
 
+- [0151](0151-pi5-rng.md) the Pi 5's random number generator, its
+  RNG200, is a region — done, changelog "The Raspberry Pi 5's random
+  number generator, its RNG200, is a region"; both suites and `--virt`
+  green; not run on a Pi 5
+
 - [0150](0150-aarch64-a76-floor.md) tooling: the aarch64 targets assume
   a Cortex-A76, and QEMU emulates one — done, changelog "The aarch64
   targets assume a Cortex-A76, and no language change for it"; the dot

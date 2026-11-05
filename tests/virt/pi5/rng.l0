@@ -1,0 +1,14 @@
+; Spec section 10.3 on the Raspberry Pi 5: the RNG200, the BCM2712's
+; random number generator, is a region, as L0S's probes/driver asked.
+; This is built by tools/test.sh --virt and not run, since no emulator has
+; this board; on a Pi 5 whose serial line is read, its output is rng.out.
+; The generator opens whole; a range past its end, and the page before
+; it, are no region. Nothing is read or written: a driver turns it on.
+
+(def code ((r int)) int
+  (write_line (digits (if (ge r 0) 0 r))))
+
+(def main () int
+  (let a (code (region_open 70818758656 40))      ; 0x107D208000, the RNG200
+    (let b (code (region_open 70818758656 41))    ; past its end
+      (code (region_open 70818754560 4096)))))    ; 0x107D207000, before it
